@@ -18,7 +18,8 @@ class FakeRenderer final : public SplatRenderer {
   uint32_t generation() const override { return surfaceGeneration; }
   bool uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) override {
     if (failUploads) return false;
-    world_ = GpuWorldInfo{static_cast<uint32_t>(cloud.count()), std::min(cloud.shDegree, maxShDegree)};
+    world_ =
+        GpuWorldInfo{static_cast<uint32_t>(cloud.count()), std::min(cloud.shDegree, maxShDegree)};
     return true;
   }
   std::optional<GpuWorldInfo> world() const override { return world_; }

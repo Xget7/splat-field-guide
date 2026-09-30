@@ -70,7 +70,11 @@ CheckOptions:
   readability-identifier-naming.TypedefCase: CamelCase
   readability-identifier-naming.TemplateParameterCase: CamelCase
   readability-identifier-naming.FunctionCase: camelBack
-  readability-identifier-naming.FunctionIgnoredRegexp: '^(Java_.*|JNI_OnLoad)$'
+  # The C interface the platform views call is snake case, as C is.
+  readability-identifier-naming.FunctionIgnoredRegexp: '^(Java_.*|JNI_OnLoad|sfg_.*)$'
+  readability-identifier-naming.StructIgnoredRegexp: '^sfg_.*$'
+  readability-identifier-naming.TypedefIgnoredRegexp: '^sfg_.*$'
+  readability-identifier-naming.ParameterIgnoredRegexp: '^[a-z]+(_[a-z]+)+$'
   readability-identifier-naming.MethodCase: camelBack
   readability-identifier-naming.VariableCase: camelBack
   readability-identifier-naming.ParameterCase: camelBack

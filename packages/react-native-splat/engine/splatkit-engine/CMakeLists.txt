@@ -25,6 +25,7 @@ add_library(splatkit_engine STATIC
   src/highlight/Highlight.cpp
   src/pick/PickIndex.cpp
   src/rendering/GpuLayout.cpp
+  src/sfg/sfg.cpp
 )
 target_include_directories(splatkit_engine PUBLIC include)
 target_link_libraries(splatkit_engine PUBLIC splat_core)
