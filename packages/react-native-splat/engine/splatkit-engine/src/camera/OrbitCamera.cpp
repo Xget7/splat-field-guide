@@ -8,6 +8,9 @@ namespace {
 
 constexpr float kPi = 3.14159265358979f;
 constexpr float kHalfPi = kPi / 2;
+constexpr float kFullTurn = OrbitLimits::kFullTurn;
+// An azimuth range this close to a full turn is one: float rounding must not make it a limit.
+constexpr float kFullTurnSlack = 1e-4f;
 
 bool finite(splat::Vec3 v) {
   return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
@@ -54,10 +57,22 @@ float mix(float a, float b, float t) {
 
 }  // namespace
 
+bool OrbitCamera::turnsFreely() const {
+  return limits_.maxAzimuth - limits_.minAzimuth >= kFullTurn - kFullTurnSlack;
+}
+
+// Turning freely, the azimuth is kept in (-pi, pi]. Within limits it is the equivalent angle
+// nearest the middle of the range, clamped into it: an angle in the gap goes to the nearer end.
 OrbitPose OrbitCamera::clamped(OrbitPose pose) const {
   pose.radius = std::clamp(pose.radius, limits_.minRadius, limits_.maxRadius);
   pose.elevation = std::clamp(pose.elevation, limits_.minElevation, limits_.maxElevation);
-  pose.azimuth = wrapped(pose.azimuth);
+  if (turnsFreely()) {
+    pose.azimuth = wrapped(pose.azimuth);
+  } else {
+    const float middle = (limits_.minAzimuth + limits_.maxAzimuth) / 2;
+    pose.azimuth = std::clamp(middle + wrapped(pose.azimuth - middle), limits_.minAzimuth,
+                              limits_.maxAzimuth);
+  }
   return pose;
 }
 
@@ -69,12 +84,15 @@ bool OrbitCamera::setPose(const OrbitPose& pose) {
 }
 
 bool OrbitCamera::setLimits(const OrbitLimits& limits) {
-  const float values[] = {limits.minElevation, limits.maxElevation, limits.minRadius,
-                          limits.maxRadius};
+  const float values[] = {limits.minAzimuth,   limits.maxAzimuth, limits.minElevation,
+                          limits.maxElevation, limits.minRadius,  limits.maxRadius};
   for (const float value : values) {
     if (!std::isfinite(value)) return false;
   }
-  if (limits.minElevation > limits.maxElevation || limits.minElevation <= -kHalfPi ||
+  if (limits.minAzimuth > limits.maxAzimuth || limits.minAzimuth < -kFullTurn ||
+      limits.maxAzimuth > kFullTurn ||
+      limits.maxAzimuth - limits.minAzimuth > kFullTurn + kFullTurnSlack ||
+      limits.minElevation > limits.maxElevation || limits.minElevation <= -kHalfPi ||
       limits.maxElevation >= kHalfPi || limits.minRadius <= 0 ||
       limits.minRadius > limits.maxRadius) {
     return false;
@@ -82,10 +100,9 @@ bool OrbitCamera::setLimits(const OrbitLimits& limits) {
   limits_ = limits;
   pose_ = clamped(pose_);
   if (animation_) {
-    // The end keeps its unwrapped azimuth, which is what makes the turn the short way.
-    const float azimuth = animation_->to.azimuth;
-    animation_->to = clamped(animation_->to);
-    animation_->to.azimuth = azimuth;
+    const Animation rest = *animation_;
+    animation_.reset();
+    animateTo(rest.to, rest.duration - rest.elapsed);
   }
   return true;
 }
@@ -96,6 +113,10 @@ bool OrbitCamera::orbit(float deltaAzimuth, float deltaElevation) {
   OrbitPose next = pose_;
   next.azimuth += deltaAzimuth;
   next.elevation += deltaElevation;
+  // Within limits a drag stops at the edge; wrapping first could carry it across the gap.
+  if (!turnsFreely()) {
+    next.azimuth = std::clamp(next.azimuth, limits_.minAzimuth, limits_.maxAzimuth);
+  }
   pose_ = clamped(next);
   return true;
 }
@@ -113,8 +134,9 @@ bool OrbitCamera::animateTo(const OrbitPose& pose, float seconds) {
   if (!finite(pose) || !std::isfinite(seconds) || seconds < 0) return false;
   if (seconds == 0) return setPose(pose);
   OrbitPose to = clamped(pose);
-  // Unwrapped next to the start, so interpolating the angle turns the short way.
-  to.azimuth = pose_.azimuth + wrapped(to.azimuth - pose_.azimuth);
+  // Turning freely, the end is unwrapped next to the start, so interpolating the angle turns
+  // the short way. Within limits both ends are inside the range and so is the way between.
+  if (turnsFreely()) to.azimuth = pose_.azimuth + wrapped(to.azimuth - pose_.azimuth);
   animation_ = Animation{pose_, to, 0, seconds};
   return true;
 }

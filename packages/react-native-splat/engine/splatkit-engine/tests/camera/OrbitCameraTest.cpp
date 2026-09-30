@@ -68,6 +68,65 @@ TEST(OrbitCamera, TurnsTheAzimuthAroundWithoutLimit) {
   EXPECT_NEAR(camera.pose().azimuth, kPi / 2, kTolerance);
 }
 
+OrbitLimits azimuthBetween(float minAzimuth, float maxAzimuth) {
+  OrbitLimits limits;
+  limits.minAzimuth = minAzimuth;
+  limits.maxAzimuth = maxAzimuth;
+  return limits;
+}
+
+TEST(OrbitCamera, ADragStopsAtAnAzimuthLimitAndNeverJumpsTheGap) {
+  OrbitCamera camera;
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(-1, 1)));
+  ASSERT_TRUE(camera.orbit(0.8f, 0));
+  ASSERT_TRUE(camera.orbit(0.8f, 0));
+  EXPECT_EQ(camera.pose().azimuth, 1.0f);
+  // Wrapped, 1 + 4 would land at -1.28, beyond the far edge; the drag stays at the edge.
+  ASSERT_TRUE(camera.orbit(4, 0));
+  EXPECT_EQ(camera.pose().azimuth, 1.0f);
+  ASSERT_TRUE(camera.orbit(-3, 0));
+  EXPECT_EQ(camera.pose().azimuth, -1.0f);
+}
+
+TEST(OrbitCamera, APoseInTheAzimuthGapGoesToTheNearerEnd) {
+  OrbitCamera camera;
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(-1, 1)));
+  ASSERT_TRUE(camera.setPose(poseAt(1, 2, 0)));
+  EXPECT_EQ(camera.pose().azimuth, 1.0f);
+  ASSERT_TRUE(camera.setPose(poseAt(1, 3, 0)));  // 2 past the top end, 2.28 before the bottom
+  EXPECT_EQ(camera.pose().azimuth, 1.0f);
+  ASSERT_TRUE(camera.setPose(poseAt(1, -2, 0)));
+  EXPECT_EQ(camera.pose().azimuth, -1.0f);
+  ASSERT_TRUE(camera.setPose(poseAt(1, 2 * kPi - 0.5f, 0)));  // a turn from -0.5, inside
+  EXPECT_NEAR(camera.pose().azimuth, -0.5f, kTolerance);
+}
+
+TEST(OrbitCamera, AnAzimuthRangeMayCrossPi) {
+  OrbitCamera camera;
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(2.5f, 3.8f)));
+  ASSERT_TRUE(camera.setPose(poseAt(2, -3, 0)));
+  EXPECT_NEAR(camera.pose().azimuth, 2 * kPi - 3, kTolerance);
+  const splat::Vec3 inside = camera.position();
+  ASSERT_TRUE(camera.setLimits(OrbitLimits{}));
+  ASSERT_TRUE(camera.setPose(poseAt(2, -3, 0)));
+  expectNear(camera.position(), inside);  // the same place however the angle is written
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(2.5f, 3.8f)));
+  ASSERT_TRUE(camera.orbit(1, 0));
+  EXPECT_EQ(camera.pose().azimuth, 3.8f);
+}
+
+TEST(OrbitCamera, AnimationTurnsTheWayInsideItsAzimuthLimits) {
+  OrbitCamera camera;
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(-2.5f, 2.5f)));
+  ASSERT_TRUE(camera.setPose(poseAt(1, 2.4f, 0)));
+  ASSERT_TRUE(camera.animateTo(poseAt(1, -2.4f, 0), 1));
+  ASSERT_TRUE(camera.update(0.5f));
+  // Through zero, the long way, because the short way through pi is outside the range.
+  EXPECT_NEAR(camera.pose().azimuth, 0, kTolerance);
+  ASSERT_TRUE(camera.update(0.5f));
+  EXPECT_NEAR(camera.pose().azimuth, -2.4f, kTolerance);
+}
+
 TEST(OrbitCamera, APinchAboveOneMovesCloser) {
   OrbitCamera camera;
   ASSERT_TRUE(camera.setPose(poseAt(4, 0, 0)));
@@ -108,6 +167,11 @@ TEST(OrbitCamera, RefusesNonFiniteInputAndInvalidLimits) {
   OrbitLimits notFinite;
   notFinite.maxRadius = kInfinity;
   EXPECT_FALSE(camera.setLimits(notFinite));
+  EXPECT_FALSE(camera.setLimits(azimuthBetween(1, -1)));
+  EXPECT_FALSE(camera.setLimits(azimuthBetween(-kPi, kPi + 0.1f)));  // more than a turn
+  EXPECT_FALSE(camera.setLimits(azimuthBetween(2 * kPi + 0.1f, 2 * kPi + 0.2f)));
+  EXPECT_FALSE(camera.setLimits(azimuthBetween(kNan, 1)));
+  EXPECT_TRUE(camera.setLimits(azimuthBetween(0, 2 * kPi)));  // a full turn from anywhere
 }
 
 TEST(OrbitCamera, AnimationEasesToItsEndThenStops) {
@@ -166,6 +230,23 @@ TEST(OrbitCamera, NewLimitsClampARunningAnimationsEnd) {
   ASSERT_TRUE(camera.setLimits(limits));
   camera.update(1);
   EXPECT_EQ(camera.pose().radius, 5.0f);
+}
+
+TEST(OrbitCamera, NewAzimuthLimitsTurnARunningAnimationInsideThem) {
+  OrbitCamera camera;
+  ASSERT_TRUE(camera.setPose(poseAt(1, 2.8f, 0)));
+  ASSERT_TRUE(camera.animateTo(poseAt(1, -2.8f, 0), 1));  // the short way, through pi
+  ASSERT_TRUE(camera.update(0.25f));
+  ASSERT_TRUE(camera.setLimits(azimuthBetween(-2.5f, 2.5f)));
+  EXPECT_EQ(camera.pose().azimuth, 2.5f);
+  // The rest heads through zero to the nearer end of the new range, never through the gap.
+  for (int i = 0; i < 8; ++i) {
+    camera.update(0.1f);
+    EXPECT_GE(camera.pose().azimuth, -2.5f);
+    EXPECT_LE(camera.pose().azimuth, 2.5f);
+  }
+  EXPECT_FALSE(camera.animating());
+  EXPECT_EQ(camera.pose().azimuth, -2.5f);
 }
 
 }  // namespace

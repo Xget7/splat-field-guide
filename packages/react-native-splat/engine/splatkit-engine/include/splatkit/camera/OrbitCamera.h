@@ -17,8 +17,14 @@ struct OrbitPose {
   float elevation = 0;
 };
 
-// The angles and distances a camera may take, radians and metres.
+// The angles and distances a camera may take, radians and metres. The azimuth turns round
+// freely while its range is the full circle, the default; a narrower range, which may cross
+// pi, keeps the camera on the side that was captured.
 struct OrbitLimits {
+  static constexpr float kFullTurn = 6.28318530717959f;
+
+  float minAzimuth = -kFullTurn / 2;
+  float maxAzimuth = kFullTurn / 2;
   float minElevation = -1.4835f;  // -85 degrees: short of the pole, where up is undefined
   float maxElevation = 1.4835f;
   float minRadius = 0.05f;
@@ -34,19 +40,22 @@ class OrbitCamera {
   bool setPose(const OrbitPose& pose);
   const OrbitPose& pose() const { return pose_; }
 
-  // Invalid limits (not finite, min above max, a radius not above zero or an elevation past
-  // the poles) are refused. The pose and a running animation's end are clamped into them.
+  // Invalid limits (not finite, min above max, an azimuth range over a full turn or beyond one
+  // either side of zero, a radius not above zero or an elevation past the poles) are refused.
+  // The pose is clamped into them, and a running animation heads on to its end clamped into
+  // them from there.
   bool setLimits(const OrbitLimits& limits);
   const OrbitLimits& limits() const { return limits_; }
 
-  // Turns by radians. Stops a running animation, so a drag takes over at once.
+  // Turns by radians, stopping at a limit. Stops a running animation, so a drag takes over at
+  // once.
   bool orbit(float deltaAzimuth, float deltaElevation);
   // Divides the radius by `factor`, as a pinch scales: above one moves closer. Stops a
   // running animation.
   bool dolly(float factor);
 
-  // Eases to `pose`, clamped to the limits, over `seconds`; the azimuth takes the short
-  // way round. Zero seconds teleports.
+  // Eases to `pose`, clamped to the limits, over `seconds`; the azimuth takes the short way
+  // round, or the way inside its limits. Zero seconds teleports.
   bool animateTo(const OrbitPose& pose, float seconds);
   bool animating() const { return animation_.has_value(); }
 
@@ -66,6 +75,7 @@ class OrbitCamera {
   };
 
   OrbitPose clamped(OrbitPose pose) const;
+  bool turnsFreely() const;
 
   OrbitPose pose_;
   OrbitLimits limits_;
