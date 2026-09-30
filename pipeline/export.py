@@ -62,7 +62,8 @@ BATTERY_LONGEST_SIDE_M = 0.242  # a standard 60 Ah battery (242 x 175 x 190 mm)
 BATTERY_ASPECT = 242 / 175      # its longest over its shortest horizontal side, to sanity-check the estimate
 EXTENT_PERCENTILE = 2.0         # robust extent of a part: 2nd to 98th percentile of its splat centres
 CROP_PERCENTILE = 0.5           # the crop box spans this percentile range of the labelled splats...
-CROP_MARGIN = 0.25              # ...plus this fraction of its longest side on every side
+CROP_MARGIN = 0.25              # ...plus this fraction of its side along each axis, so the margin above the
+                                # parts stays below the cameras however wide the bay
 
 # --- Spherical harmonics ---
 SH_C0 = lift.SH_C0
@@ -524,7 +525,7 @@ def main():
     # Crop around the labelled parts, dropping splats and labels together.
     placed = placement.points(points)
     box_low, box_high = np.percentile(placed[marked], [CROP_PERCENTILE, 100 - CROP_PERCENTILE], axis=0)
-    margin = CROP_MARGIN * (box_high - box_low).max()
+    margin = CROP_MARGIN * (box_high - box_low)
     box_low, box_high = box_low - margin, box_high + margin
     keep = np.flatnonzero(((placed >= box_low) & (placed <= box_high)).all(1))
     labels, placed = labels[keep], placed[keep]
@@ -552,7 +553,7 @@ def main():
                             "note": "gravity is the robust mean of the photos' accelerometer readings"},
               "scale": scale_report,
               "placement": {"rotation": rotation.tolist(), "origin": origin.tolist(), "scale": placement.scale},
-              "crop": {"min": box_low.tolist(), "max": box_high.tolist(), "margin": float(margin)},
+              "crop": {"min": box_low.tolist(), "max": box_high.tolist(), "margin": margin.tolist()},
               "parts_without_splats": missing,
               "camera": camera,
               "seconds": round(time.time() - started, 1)}

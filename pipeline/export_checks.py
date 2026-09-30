@@ -660,6 +660,17 @@ def test_levelling_of_the_real_photos(report: dict):
             f"median pitch {stats['median_pitch_deg']:.0f}; scale {scale['scale']:.4g} ({unit})")
 
 
+def test_home_outside_crop(pack: pathlib.Path, report: dict):
+    """The home camera sits outside the kept box, so no floater the crop keeps hangs between it and the parts."""
+    home = json.loads((pack / "manifest.json").read_text())["camera"]["home"]
+    azimuth, elevation = math.radians(home["azimuth"]), math.radians(home["elevation"])
+    camera = home["radius"] * np.array([math.cos(elevation) * math.sin(azimuth), math.sin(elevation),
+                                        math.cos(elevation) * math.cos(azimuth)])
+    low, high = np.array(report["crop"]["min"]), np.array(report["crop"]["max"])
+    assert not ((camera >= low) & (camera <= high)).all(), f"home camera {camera.round(3)} inside the crop {low.round(3)} to {high.round(3)}"
+    return f"camera {camera.round(3).tolist()}, crop top {high[1]:.3f}"
+
+
 def view_dependent_colour(cloud: dict, centre: np.ndarray, index: np.ndarray) -> np.ndarray:
     sh = cloud["sh"][index]
     direction = _unit(cloud["positions"][index] - centre)
@@ -745,6 +756,7 @@ def main():
             check("part bounds and anchors match the decoded splats")(
                 lambda: test_bounds_and_anchors(args.pack, decoded, labels))
             check("the real photos are levelled")(lambda: test_levelling_of_the_real_photos(report))
+            check("the home camera is outside the crop")(lambda: test_home_outside_crop(args.pack, report))
             check("render matches the original PLY")(
                 lambda: test_render_matches_original(decoded, keep, splat, placement, report))
     else:
