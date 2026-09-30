@@ -36,9 +36,10 @@ add_library(splatkit_ios STATIC
   Sources/SplatKitCore/rendering/MetalSplatRenderer.mm
   Sources/SplatKitCore/rendering/MetalVisibility.mm
   Sources/SplatKitCore/rendering/MetalWorld.mm
+  Sources/SplatKitCore/sfg/sfg_metal.mm
 )
 target_include_directories(splatkit_ios
-  PUBLIC Sources/SplatKitCore
+  PUBLIC Sources/SplatKitCore Sources/SplatKitCore/include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded
 )
 target_compile_options(splatkit_ios PRIVATE -Wall -Wextra -Werror -fobjc-arc)

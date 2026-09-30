@@ -1,0 +1,5 @@
+module SplatKitCore {
+  header "splatkit/sfg.h"
+  header "splatkit/sfg_metal.h"
+  export *
+}
