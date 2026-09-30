@@ -4,8 +4,9 @@
 # ///
 """Export a trained PLY and its per-splat part labels as the pack the app bundles.
 
-The COLMAP world has an arbitrary up, so the cloud is first levelled with the photos' gravity (+Y up, right-handed,
-the SPZ "RUB" frame), centred on the labelled parts and scaled to metres, then cropped around the labelled parts.
+The COLMAP world has an arbitrary up, so the cloud is first levelled with the gravity the iPhone's accelerometer
+recorded in each photo (+Y up, right-handed, the SPZ "RUB" frame), centred on the labelled parts and scaled to metres,
+then cropped around the labelled parts.
 Positions, rotations, log-scales and spherical harmonics all follow the transform. The SPZ is written in the
 format the app's decoder reads (version 3, gzip); labels.bin lists one label per splat in the SPZ's order.
 
@@ -42,8 +43,20 @@ CLOUD_PATH, LABELS_PATH = f"{TIER}/cloud.spz", f"{TIER}/labels.bin"
 
 # --- Levelling, scale and crop ---
 EXIF_ORIENTATION = 274
-UP_SIGMA_DEG = 15.0            # cameras further than this from the up estimate lose weight (Cauchy scale)
+EXIF_IFD, EXIF_MAKER_NOTE = 0x8769, 0x927C
+APPLE_MAKER_NOTE = b"Apple iOS\0"
+APPLE_IFD_OFFSET = 14           # after the signature, a version and "MM"; offsets count from the note's start
+APPLE_ACCELERATION = 0x0008     # three signed rationals, in g
+EXIF_SRATIONAL = 10
+# The recorded vector is gravity, pointing down, in Core Motion's device axes: x to the right of the screen, y to its
+# top, z out of it. The stored pixels of the rear camera are the sensor's own landscape frame whatever the EXIF
+# orientation, with x along the device's -y, y along its -x and the view along its -z. So up, in the COLMAP camera
+# frame of the stored pixels (x right, y down, z forward), is this matrix times the recorded vector.
+UP_FROM_DEVICE_GRAVITY = np.array([[0.0, 1, 0], [1, 0, 0], [0, 0, 1]])
+UP_SIGMA_DEG = 15.0            # photos further than this from the up estimate lose weight (Cauchy scale)
 UP_ITERATIONS = 20
+GRAVITY_AGREEMENT_DEG = 5.0     # the photos' gravity, in the COLMAP world, agrees to this median (1.4 on the capture)
+UPRIGHT_FRACTION = 0.9          # at least this share of photos must show up above their centre, as a phone is held
 BATTERY_LABEL_ID = "battery"
 BATTERY_LONGEST_SIDE_M = 0.242  # a standard 60 Ah battery (242 x 175 x 190 mm)
 BATTERY_ASPECT = 242 / 175      # its longest over its shortest horizontal side, to sanity-check the estimate
@@ -156,33 +169,71 @@ def read_orientations(photos: list[pathlib.Path]) -> list[int]:
     return found
 
 
-def camera_geometry(poses: list[tuple], orientations: list[int]) -> dict[str, np.ndarray]:
-    """Per photo, in the COLMAP world: centre, display-up, display-right and the viewing direction."""
+def unit(v: np.ndarray) -> np.ndarray:
+    return v / np.linalg.norm(v, axis=-1, keepdims=True)
+
+
+def apple_gravity(maker_note: bytes) -> np.ndarray | None:
+    """The acceleration vector of an Apple MakerNote, in g; None when the note is not Apple's or lacks one."""
+    if not maker_note.startswith(APPLE_MAKER_NOTE) or maker_note[APPLE_IFD_OFFSET - 2:APPLE_IFD_OFFSET] != b"MM":
+        return None
+    (count,) = struct.unpack_from(">H", maker_note, APPLE_IFD_OFFSET)
+    for i in range(count):
+        tag, kind, n, offset = struct.unpack_from(">HHII", maker_note, APPLE_IFD_OFFSET + 2 + 12 * i)
+        if tag == APPLE_ACCELERATION and kind == EXIF_SRATIONAL and n == 3:
+            values = struct.unpack_from(">6i", maker_note, offset)
+            return np.array([values[j] / values[j + 1] for j in (0, 2, 4)], np.float64)
+    return None
+
+
+def read_device_gravity(photos: list[pathlib.Path]) -> np.ndarray:
+    """Per photo, the gravity its iPhone recorded, in device axes [n, 3]."""
+    found = [apple_gravity(Image.open(p).getexif().get_ifd(EXIF_IFD).get(EXIF_MAKER_NOTE, b"")) for p in photos]
+    missing = [p.name for p, g in zip(photos, found) if g is None]
+    assert not missing, f"{len(missing)} photos carry no Apple acceleration vector, e.g. {missing[:3]}"
+    return np.stack(found)
+
+
+def camera_geometry(poses: list[tuple], orientations: list[int], device_gravity: np.ndarray) -> dict[str, np.ndarray]:
+    """Per photo, in the COLMAP world: centre, gravity up, display-up and the viewing direction."""
     rotations = np.stack([p[0] for p in poses])
     translations = np.stack([p[1] for p in poses])
-    up = np.stack([display_axes(o)[0] for o in orientations])
-    right = np.stack([display_axes(o)[1] for o in orientations])
+    gravity_up = device_gravity @ UP_FROM_DEVICE_GRAVITY.T
+    display_up = np.stack([display_axes(o)[0] for o in orientations])
 
     def world(v: np.ndarray) -> np.ndarray:  # camera-to-world is the transpose
         return np.einsum("nji,nj->ni", rotations, v)
 
-    return {"centres": -world(translations), "up": world(up), "right": world(right),
+    return {"centres": -world(translations), "gravity_up": unit(world(gravity_up)), "display_up": world(display_up),
             "forward": world(np.tile([0.0, 0.0, 1.0], (len(poses), 1)))}
 
 
-def estimate_up(up_vectors: np.ndarray) -> tuple[np.ndarray, dict]:
-    """Gravity up as the robust mean of the photos' display-up vectors (Cauchy-weighted, iterated)."""
-    up = up_vectors.mean(0)
-    up /= np.linalg.norm(up)
+def robust_direction(directions: np.ndarray) -> tuple[np.ndarray, dict]:
+    """The robust mean of unit vectors (Cauchy-weighted, iterated) and how far they spread from it."""
+    mean = unit(directions.mean(0))
     for _ in range(UP_ITERATIONS):
-        angle = np.degrees(np.arccos(np.clip(up_vectors @ up, -1, 1)))
+        angle = np.degrees(np.arccos(np.clip(directions @ mean, -1, 1)))
         weight = 1 / (1 + (angle / UP_SIGMA_DEG) ** 2)
-        up = (weight[:, None] * up_vectors).sum(0)
-        up /= np.linalg.norm(up)
-    angle = np.degrees(np.arccos(np.clip(up_vectors @ up, -1, 1)))
-    return up, {"median_deviation_deg": float(np.median(angle)),
-                "p90_deviation_deg": float(np.percentile(angle, 90)),
-                "mean_up_length": float(np.linalg.norm(up_vectors.mean(0)))}
+        mean = unit((weight[:, None] * directions).sum(0))
+    angle = np.degrees(np.arccos(np.clip(directions @ mean, -1, 1)))
+    return mean, {"median_deviation_deg": float(np.median(angle)),
+                  "p90_deviation_deg": float(np.percentile(angle, 90))}
+
+
+def estimate_up(cameras: dict[str, np.ndarray]) -> tuple[np.ndarray, dict]:
+    """Gravity up in the COLMAP world, from the photos' accelerometers.
+
+    Fails when the photos disagree, as a wrong device-to-camera mapping or re-rotated pixels would make them, or when
+    most photos would show up below their centre, as a sign error would.
+    """
+    up, stats = robust_direction(cameras["gravity_up"])
+    assert stats["median_deviation_deg"] < GRAVITY_AGREEMENT_DEG, \
+        f"the photos' gravity spreads {stats['median_deviation_deg']:.1f} degrees (median) in the COLMAP world"
+    upright = float((cameras["display_up"] @ up > 0).mean())
+    assert upright >= UPRIGHT_FRACTION, f"only {upright:.0%} of the photos show up above their centre"
+    pitch = np.degrees(np.arcsin(np.clip(cameras["forward"] @ up, -1, 1)))
+    return up, {**stats, "upright_fraction": upright, "median_pitch_deg": float(np.median(pitch)),
+                "pitch_range_deg": [float(pitch.min()), float(pitch.max())]}
 
 
 def level_rotation(up: np.ndarray, forward: np.ndarray) -> np.ndarray:
@@ -431,8 +482,8 @@ def main():
     # Level with the photos' gravity and heading.
     photos = sorted(lift.PHOTOS.glob("*.jpg"))
     poses = list(lift.read_cameras(lift.SPARSE)[p.name] for p in photos)
-    cameras = camera_geometry(poses, read_orientations(photos))
-    up, up_stats = estimate_up(cameras["up"])
+    cameras = camera_geometry(poses, read_orientations(photos), read_device_gravity(photos))
+    up, up_stats = estimate_up(cameras)
     forward = cameras["forward"].mean(0)
     rotation = level_rotation(up, forward)
     assert np.linalg.det(rotation) > 0, "the levelling must not mirror the cloud"
@@ -483,8 +534,7 @@ def main():
                          "label_counts": {i + 1: int((labels == i + 1).sum()) for i in range(len(part_ids))}},
               "spz": {"version": SPZ_VERSION, "frame": "RUB", "sh_degree": cloud["degree"], **clipped},
               "levelling": {"up_in_colmap": up.tolist(), "forward_in_colmap": forward.tolist(), **up_stats,
-                            "note": "gravity is the robust mean display-up of the photos; it is biased by the "
-                                    "photos' mean pitch, which poses alone cannot reveal"},
+                            "note": "gravity is the robust mean of the photos' accelerometer readings"},
               "scale": scale_report,
               "placement": {"rotation": rotation.tolist(), "origin": origin.tolist(), "scale": placement.scale},
               "crop": {"min": box_low.tolist(), "max": box_high.tolist(), "margin": float(margin)},

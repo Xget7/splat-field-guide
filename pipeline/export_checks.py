@@ -39,7 +39,8 @@ SEED = 11
 POSITION_TOLERANCE = 0.5 / (1 << export.SPZ_FRACTIONAL_BITS) + 1e-6   # half a fixed-point step
 QUATERNION_TOLERANCE_RAD = 0.01                                        # 9-bit smallest-three
 UP_RECOVERY_DEG = 2.0
-UP_ON_Y_DEG = 10.0            # the plain mean display-up of the real photos lands this close to +Y
+GRAVITY_NOISE_DEG = 1.5       # per-photo accelerometer error in the synthetic sweeps, about the capture's spread
+REAL_UP_ON_Y_DEG = 0.5        # the real photos' robust gravity lands this close to +Y in the pack
 SH_CHECK_TOLERANCE = 1e-5
 RENDER_FRAMES = (0, 40, 80, 120)
 RENDER_SCALE = 1 / 8
@@ -207,18 +208,19 @@ def test_display_axes_match_exif_transpose():
                 f"orientation {orientation}: marker is {offset} from the centre of the photo, expected {expected}"
 
 
-def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int]) -> tuple[list[tuple], list[int]]:
-    """A sweep of cameras looking at the origin from around the horizon, each stored with an EXIF orientation.
+def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int],
+                      pitch_deg: tuple[float, float]) -> tuple[list[tuple], list[int], np.ndarray]:
+    """A sweep of cameras looking at the origin with pitches in `pitch_deg`, each stored with an EXIF orientation.
 
-    Pitches are symmetric about the horizon: the mean display-up is biased by the mean pitch, as export.py reports.
+    Each carries the gravity its accelerometer would record, in device axes, off by about GRAVITY_NOISE_DEG.
     """
     e1 = np.cross(up, [1, 0, 0]) if abs(up[0]) < 0.9 else np.cross(up, [0, 1, 0])
     e1 /= np.linalg.norm(e1)
     e2 = np.cross(up, e1)
-    poses, chosen = [], []
+    poses, chosen, gravity = [], [], []
     for i in range(count):
-        azimuth, pitch = rng.uniform(-1, 1), np.radians(rng.uniform(-25, 25))
-        position = 3 * (np.cos(pitch) * (np.cos(azimuth) * e1 + np.sin(azimuth) * e2) + np.sin(pitch) * up)
+        azimuth, pitch = rng.uniform(-1, 1), np.radians(rng.uniform(*pitch_deg))
+        position = -3 * (np.cos(pitch) * (np.cos(azimuth) * e1 + np.sin(azimuth) * e2) + np.sin(pitch) * up)
         forward = -position / np.linalg.norm(position)
         photo_up = up - (up @ forward) * forward            # the upright photo's up, perpendicular to the view
         photo_up /= np.linalg.norm(photo_up)
@@ -230,27 +232,60 @@ def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int]) 
         rotation = np.stack([x_axis, y_axis, forward])       # world to camera
         poses.append((rotation, -rotation @ position))
         chosen.append(orientation)
-    return poses, chosen
+        noisy_up = _unit((rotation @ up + rng.normal(scale=np.radians(GRAVITY_NOISE_DEG), size=3))[None])[0]
+        gravity.append(export.UP_FROM_DEVICE_GRAVITY.T @ noisy_up)
+    return poses, chosen, np.stack(gravity)
 
 
 def test_levelling_recovers_gravity():
+    """Gravity is recovered however the photos pitch; the old mean display-up was off by their mean pitch."""
     rng = np.random.default_rng(SEED)
-    for _ in range(4):
+    for pitch_deg in ((-25, 25), (-85, -5), (-70, -50)):   # around the horizon, into an engine bay, steeply down
         up = _unit(rng.normal(size=(1, 3)))[0]
-        poses, orientations = synthetic_cameras(rng, up, 400, [1, 3, 6, 8])
-        cameras = export.camera_geometry(poses, orientations)
-        estimate, stats = export.estimate_up(cameras["up"])
-        assert angle_deg(estimate, up) < UP_RECOVERY_DEG, f"off by {angle_deg(estimate, up):.1f} degrees"
+        poses, orientations, gravity = synthetic_cameras(rng, up, 400, [1, 3, 6, 8], pitch_deg)
+        cameras = export.camera_geometry(poses, orientations, gravity)
+        estimate, stats = export.estimate_up(cameras)
+        assert angle_deg(estimate, up) < UP_RECOVERY_DEG, \
+            f"pitches {pitch_deg}: off by {angle_deg(estimate, up):.1f} degrees"
+        expected_pitch = np.mean(pitch_deg)
+        assert abs(stats["median_pitch_deg"] - expected_pitch) < abs(pitch_deg[1] - pitch_deg[0]) / 4, \
+            f"median pitch {stats['median_pitch_deg']:.0f} for pitches {pitch_deg}"
         rotation = export.level_rotation(estimate, cameras["forward"].mean(0))
         assert np.allclose(rotation @ rotation.T, np.eye(3)) and np.linalg.det(rotation) > 0, "not a proper rotation"
         assert np.abs(rotation @ estimate - [0, 1, 0]).max() < 1e-9, "up is not +Y"
-        mean_up = (cameras["up"] @ rotation.T).mean(0)
-        assert angle_deg(mean_up, np.array([0.0, 1, 0])) < UP_RECOVERY_DEG, "mean display-up is not on +Y"
-    # Outliers (a few photos shot upside down) must not drag the estimate.
-    cameras = export.camera_geometry(poses, orientations)
-    skewed = cameras["up"].copy()
+    # A few photos with a wild reading must not drag the estimate.
+    skewed = gravity.copy()
     skewed[:5] *= -1
-    assert angle_deg(export.estimate_up(skewed)[0], up) < 2 * UP_RECOVERY_DEG, "outliers moved the estimate"
+    cameras = export.camera_geometry(poses, orientations, skewed)
+    assert angle_deg(export.estimate_up(cameras)[0], up) < UP_RECOVERY_DEG, "outliers moved the estimate"
+    # Wrong device mappings are refused. A flipped sign agrees with itself, so only the photos being upright catch it.
+    for wrong, reasons in ((-gravity, ("above",)), (gravity @ np.diag([1.0, 1, -1]), ("spreads", "above"))):
+        try:
+            export.estimate_up(export.camera_geometry(poses, orientations, wrong))
+        except AssertionError as e:
+            assert any(r in str(e) for r in reasons), f"refused for another reason: {e}"
+        else:
+            raise AssertionError(f"a wrong device mapping was accepted (expected {reasons})")
+
+
+def maker_note(entries: list[tuple[int, int, int, bytes]]) -> bytes:
+    """An Apple MakerNote with these (tag, type, count, payload) entries, payloads stored after the directory."""
+    head = export.APPLE_MAKER_NOTE + b"\0\x01MM"
+    data_at = len(head) + 2 + 12 * len(entries) + 4
+    directory, data = struct.pack(">H", len(entries)), b""
+    for tag, kind, count, payload in entries:
+        directory += struct.pack(">HHII", tag, kind, count, data_at + len(data))
+        data += payload
+    return head + directory + b"\0" * 4 + data
+
+
+def test_apple_gravity_parses_a_maker_note():
+    vector = struct.pack(">6i", 39, 1000, -737, 1000, -2061, 3000)
+    note = maker_note([(0x0001, 9, 1, b"\0\0\0\x0e"), (export.APPLE_ACCELERATION, export.EXIF_SRATIONAL, 3, vector)])
+    assert np.allclose(export.apple_gravity(note), [0.039, -0.737, -0.687]), export.apple_gravity(note)
+    assert export.apple_gravity(maker_note([(0x0001, 9, 1, b"\0\0\0\x0e")])) is None, "found a vector in none"
+    assert export.apple_gravity(b"Nikon\0" + note[6:]) is None, "read a note that is not Apple's"
+    assert export.apple_gravity(b"") is None, "read an empty note"
 
 
 def test_scale_from_a_battery():
@@ -572,21 +607,20 @@ def test_bounds_and_anchors(pack: pathlib.Path, decoded: dict, labels: np.ndarra
 
 
 def test_levelling_of_the_real_photos(report: dict):
-    """In the pack's frame the photos' mean display-up is +Y, the frame is right-handed and the scale is recorded."""
+    """In the pack's frame the photos' recorded gravity is +Y, the frame is right-handed and the scale is recorded."""
     rotation = np.array(report["placement"]["rotation"])
     assert np.allclose(rotation @ rotation.T, np.eye(3), atol=1e-9), "not orthonormal"
     assert np.linalg.det(rotation) > 0, "mirrored"
     photos = sorted(lift.PHOTOS.glob("*.jpg"))
     poses = [lift.read_cameras(lift.SPARSE)[p.name] for p in photos]
-    up = export.camera_geometry(poses, export.read_orientations(photos))["up"] @ rotation.T
-    deviation = angle_deg(up.mean(0), np.array([0.0, 1, 0]))
-    robust = angle_deg(export.estimate_up(up)[0], np.array([0.0, 1, 0]))
-    assert robust < 0.5, f"robust up is {robust:.2f} degrees off +Y"
-    assert deviation < UP_ON_Y_DEG, f"plain mean display-up is {deviation:.1f} degrees off +Y"
+    cameras = export.camera_geometry(poses, export.read_orientations(photos), export.read_device_gravity(photos))
+    up, stats = export.estimate_up(cameras)
+    robust = angle_deg(rotation @ up, np.array([0.0, 1, 0]))
+    assert robust < REAL_UP_ON_Y_DEG, f"the photos' gravity is {robust:.2f} degrees off +Y"
     scale = report["scale"]
     unit = "metres" if scale["metric"] else "COLMAP units, battery not labelled"
-    return (f"plain mean {deviation:.1f} degrees, robust {robust:.2f} degrees off +Y; "
-            f"scale {scale['scale']:.4g} ({unit})")
+    return (f"gravity {robust:.2f} degrees off +Y, photos agree to {stats['median_deviation_deg']:.1f} degrees, "
+            f"median pitch {stats['median_pitch_deg']:.0f}; scale {scale['scale']:.4g} ({unit})")
 
 
 def view_dependent_colour(cloud: dict, centre: np.ndarray, index: np.ndarray) -> np.ndarray:
@@ -648,6 +682,7 @@ def main():
                      ("rotation, scale and positions follow the transform", test_transform_follows_through),
                      ("display axes match EXIF orientation", test_display_axes_match_exif_transpose),
                      ("levelling recovers gravity", test_levelling_recovers_gravity),
+                     ("Apple MakerNote acceleration vector", test_apple_gravity_parses_a_maker_note),
                      ("scale from a battery", test_scale_from_a_battery),
                      ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
                      ("labels.bin layout", test_labels_bin_layout),
