@@ -47,9 +47,10 @@ std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
     return nullptr;
   }
   if (r->queue_ == nil) return nullptr;
-  for (auto& uniform : r->uniforms_) {
-    uniform = metal::buffer(r->device_, sizeof(CameraUniform));
-    if (uniform == nil) return nullptr;
+  for (uint32_t slot = 0; slot < kFramesInFlight; ++slot) {
+    r->uniforms_[slot] = metal::buffer(r->device_, sizeof(CameraUniform));
+    r->labelStyles_[slot] = metal::buffer(r->device_, sizeof(LabelStyles));
+    if (r->uniforms_[slot] == nil || r->labelStyles_[slot] == nil) return nullptr;
   }
   if (!r->visibility_.create(r->device_, r->library_)) {
     LOGE("GPU visibility and sort pipelines failed");
@@ -247,7 +248,7 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
     return false;
   }
   const uint32_t slot = static_cast<uint32_t>(frame_ % kFramesInFlight);
-  updateCameraUniforms(frame, slot);
+  updateUniforms(frame, slot);
 
   const bool drewWorld = world_ != nullptr;
   id<MTLCommandBuffer> sort = drewWorld ? encodeVisibilityAndSort(frame, slot) : nil;
@@ -271,7 +272,7 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
   return true;
 }
 
-void MetalSplatRenderer::updateCameraUniforms(const Frame& frame, uint32_t slot) {
+void MetalSplatRenderer::updateUniforms(const Frame& frame, uint32_t slot) {
   const Extent extent = drawExtent();
   CameraUniform u{};
   u.view = frame.view;
@@ -286,14 +287,17 @@ void MetalSplatRenderer::updateCameraUniforms(const Frame& frame, uint32_t slot)
   u.cameraPosition[1] = frame.cameraPosition.y;
   u.cameraPosition[2] = frame.cameraPosition.z;
   std::memcpy(uniforms_[slot].contents, &u, sizeof(u));
+  static const LabelStyles kAsCaptured{};
+  const LabelStyles& styles = frame.labelStyles != nullptr ? *frame.labelStyles : kAsCaptured;
+  std::memcpy(labelStyles_[slot].contents, styles.data(), sizeof(styles));
 }
 
 id<MTLCommandBuffer> MetalSplatRenderer::encodeVisibilityAndSort(const Frame& frame,
                                                                  uint32_t slot) {
   id<MTLCommandBuffer> sort = [queue_ commandBuffer];
   const int degree = std::clamp(std::min(frame.shDegree, world_->info().shDegree), 0, kMaxShDegree);
-  if (!visibility_.encode(sort, slot, uniforms_[slot], world_->splats(), world_->harmonics(),
-                          degree, world_->info().count)) {
+  if (!visibility_.encode(sort, slot, uniforms_[slot], labelStyles_[slot], world_->splats(),
+                          world_->harmonics(), degree, world_->info().count)) {
     LOGE("visibility encode failed");
     return nil;
   }

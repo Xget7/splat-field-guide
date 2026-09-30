@@ -25,8 +25,18 @@ struct Splat {
   uint cov0;         // halves: xx, xy
   uint cov1;         // halves: xz, yy
   uint cov2;         // halves: yz, zz
-  uint reserved;     // zero
+  uint partLabel;    // 0 for none
 };
+
+// How the splats of one part label are drawn (the host's LabelStyle, 32 bytes).
+struct LabelStyle {
+  packed_float3 tint;
+  float tintAmount;
+  float brightness;
+  float opacity;
+  float2 reserved;
+};
+constant uint kLabelMask = 0xffu;  // 256 styles, one per label
 
 // Intermediate GPU-projected splat layout (32 bytes)
 struct Projected {

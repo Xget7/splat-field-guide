@@ -77,7 +77,7 @@ void packSplatRange(const splat::SplatCloud& cloud, size_t offset, size_t count,
     g.cov[0] = packHalf2(c[0], c[1]);
     g.cov[1] = packHalf2(c[2], c[3]);
     g.cov[2] = packHalf2(c[4], c[5]);
-    g.reserved = 0;
+    g.partLabel = cloud.labels.empty() ? 0 : cloud.labels[i];
   }
 }
 

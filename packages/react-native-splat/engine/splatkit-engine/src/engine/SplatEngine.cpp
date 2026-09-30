@@ -65,24 +65,30 @@ void SplatEngine::setShDegree(int degree) {
 
 // Loading: decode on the calling thread, report, and leave the result for the frame.
 
-void SplatEngine::loadWorld(const std::uint8_t* data, std::size_t size,
+void SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
                             splat::CoordinateFrame sourceFrame) {
-  report(loader_.loadWorld(data, size, sourceFrame));
+  report(loader_.loadWorld(spz, labels, sourceFrame));
 }
 
-void SplatEngine::loadWorldFile(const std::string& path, splat::CoordinateFrame sourceFrame) {
-  report(loader_.loadWorldFile(path, sourceFrame));
+void SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
+                                splat::CoordinateFrame sourceFrame) {
+  report(loader_.loadWorldFile(spzPath, labelsPath, sourceFrame));
 }
 
 void SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
   if (!report) {
-    LOGE("world load failed: %s", report.error().message.c_str());
-    emit(Event::worldFailed, report.error().message);
+    const splat::Error& error = report.error();
+    LOGE("world load failed: %s", error.message.c_str());
+    emit(error.code == splat::ErrorCode::labelsMismatch ? Event::labelsMismatch
+                                                        : Event::worldFailed,
+         error.message);
     return;
   }
   const auto& r = report.value();
-  LOGI("decoded %zu splats in %.0f ms, sh degree %d, bounds y [%.2f, %.2f], reordered in %.0f ms",
-       r.splatCount, r.decodeMillis, r.shDegree, r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
+  LOGI("decoded %zu %s splats in %.0f ms, sh degree %d, bounds y [%.2f, %.2f], reordered in "
+       "%.0f ms",
+       r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.shDegree,
+       r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
 }
 
 // Uploads what the loader left. True when a new world is drawn from now on.
@@ -159,6 +165,10 @@ void SplatEngine::reframeDefault(Extent extent) {
   redrawNeeded_ = true;
 }
 
+void SplatEngine::setHighlight(const std::uint8_t* labels, std::size_t count) {
+  highlight_.set(labels, count);
+}
+
 splat::Mat4 SplatEngine::projection(Extent extent) const {
   const float aspect = static_cast<float>(extent.width) / static_cast<float>(extent.height);
   return splat::Mat4::perspective(kFieldOfViewRadians, aspect, kNearPlane, kFarPlane);
@@ -196,7 +206,9 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
 
   const Extent extent = renderer_->drawExtent();
   reframeDefault(extent);
-  if (camera_.update(frameSeconds(frameTimeNanos))) redrawNeeded_ = true;
+  const float dt = frameSeconds(frameTimeNanos);
+  if (camera_.update(dt)) redrawNeeded_ = true;
+  if (highlight_.update(dt)) redrawNeeded_ = true;
   const uint32_t generation = renderer_->generation();
   if (generation != lastDrawnGeneration_) redrawNeeded_ = true;
   if (renderer_->reportsPresentTimes()) {
@@ -214,6 +226,7 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   frame.view = camera_.viewMatrix();
   frame.proj = projection(extent);
   frame.cameraPosition = camera_.position();
+  frame.labelStyles = &highlight_.styles();
   if (!renderer_->draw(frame)) {
     stats_.onFrame(frameTimeNanos, false, sampler);
     return false;  // The redraw waits for the next frame; FPS must still age to zero.

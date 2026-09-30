@@ -14,13 +14,15 @@
 #include "splat/math/Mat4.h"
 #include "splatkit/camera/OrbitCamera.h"
 #include "splatkit/diagnostics/StatsPublisher.h"
+#include "splatkit/highlight/Highlight.h"
 #include "splatkit/rendering/SplatRenderer.h"
 
 namespace splatkit {
 
-// The native engine behind one view. It owns the loader, the orbit camera and the
-// platform's renderer and runs them once per vsync: a frame steps the camera and draws
-// only when something visible changed, so a still scene costs no GPU time.
+// The native engine behind one view. It owns the loader, the orbit camera, the highlight
+// and the platform's renderer and runs them once per vsync: a frame steps the camera and
+// the highlight's fade and draws only when something visible changed, so a still scene
+// costs no GPU time.
 //
 // Rendering, input and settings run on the render thread. Loading may run on any
 // thread: it decodes there and leaves the result for the render thread to upload.
@@ -39,15 +41,18 @@ class SplatEngine {
   // Steps the camera and draws if anything visible changed. True when a frame was drawn.
   bool render(int64_t frameTimeNanos);
 
-  // Decodes an SPZ world whose positions are in `sourceFrame`. Thread safe. Errors are
-  // reported and leave the current world.
-  void loadWorld(const std::uint8_t* data, std::size_t size, splat::CoordinateFrame sourceFrame);
-  // The same from a file, mapped rather than copied through the host's heap.
-  void loadWorldFile(const std::string& path, splat::CoordinateFrame sourceFrame);
+  // Decodes an SPZ world whose positions are in `sourceFrame`, with the labels.bin of its
+  // part labels (empty for none). Thread safe. Errors are reported and leave the current
+  // world.
+  void loadWorld(splat::ByteView spz, splat::ByteView labels, splat::CoordinateFrame sourceFrame);
+  // The same from files, mapped rather than copied through the host's heap.
+  void loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
+                     splat::CoordinateFrame sourceFrame);
 
   // What the host needs to know about loading. Ready fires on the render thread once the
-  // world is drawn from; failures fire on whichever thread found them.
-  enum class Event { worldReady = 0, worldFailed = 1 };
+  // world is drawn from; failures fire on whichever thread found them. Labels that do not
+  // fit the cloud are their own failure: the capture is fine, the pack is not.
+  enum class Event { worldReady = 0, worldFailed = 1, labelsMismatch = 2 };
   using EventSink = std::function<void(Event, const std::string& message, uint32_t splatCount)>;
   void setEventSink(EventSink sink) { events_ = std::move(sink); }
 
@@ -63,6 +68,10 @@ class SplatEngine {
   // looks now.
   bool frame(const splat::Bounds& bounds, float seconds);
   const OrbitPose& cameraPose() const { return camera_.pose(); }
+
+  // Emphasises the parts with these labels and dims the rest, fading from the previous
+  // highlight; no labels shows every splat as captured. Render thread.
+  void setHighlight(const std::uint8_t* labels, std::size_t count);
 
   // Fraction of the surface resolution the splats are drawn at, [0.1, 2]. Below one is
   // cheaper, which is what thermal pressure trades first. Render thread.
@@ -108,6 +117,7 @@ class SplatEngine {
   std::unique_ptr<SplatRenderer> renderer_;
   splat::SplatWorldLoader loader_;
   OrbitCamera camera_;
+  Highlight highlight_;
   // The bounds the default framing fits and the view shape it was fitted to; empty once
   // the host places the camera itself.
   bool poseSet_ = false;

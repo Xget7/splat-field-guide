@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "load-spz.h"
+#include "splat/formats/PartLabels.h"
 
 namespace splatkit {
 namespace {
@@ -71,6 +72,18 @@ std::vector<uint8_t> pairBytes() {
   return worldBytes({-1, 0, 2, 1, 0, 2});
 }
 
+// A labels.bin giving these labels to the splats in order.
+std::vector<uint8_t> labelBytes(const std::vector<uint8_t>& labels) {
+  std::vector<uint8_t> bytes(splat::part_labels::kHeaderBytes, 0);
+  std::copy(std::begin(splat::part_labels::kMagic), std::end(splat::part_labels::kMagic),
+            bytes.begin());
+  bytes[4] = splat::part_labels::kVersion;
+  bytes[6] = splat::part_labels::kBytesPerLabel;
+  bytes[8] = static_cast<uint8_t>(labels.size());
+  bytes.insert(bytes.end(), labels.begin(), labels.end());
+  return bytes;
+}
+
 struct Events {
   std::vector<SplatEngine::Event> kinds;
   std::vector<uint32_t> counts;
@@ -93,7 +106,9 @@ class SplatEngineTest : public ::testing::Test {
   // Renders the next vsync.
   bool tick() { return engine->render(++vsync * kVsyncNanos); }
 
-  void load(const std::vector<uint8_t>& bytes) { engine->loadWorld(bytes.data(), bytes.size(), kFrame); }
+  void load(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& labels = {}) {
+    engine->loadWorld({bytes.data(), bytes.size()}, {labels.data(), labels.size()}, kFrame);
+  }
 
   FakeRenderer* renderer = nullptr;
   std::unique_ptr<SplatEngine> engine;
@@ -151,6 +166,15 @@ TEST_F(SplatEngineTest, ReportsBadBytesAtOnceAndKeepsTheWorld) {
   EXPECT_EQ(renderer->world()->count, 2u);
 }
 
+TEST_F(SplatEngineTest, ReportsLabelsForAnotherCloudAsTheirOwnFailure) {
+  Events events;
+  engine->setEventSink(events.sink());
+  load(pairBytes(), labelBytes({1, 2, 3}));
+  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::labelsMismatch});
+  tick();
+  EXPECT_EQ(renderer->world(), std::nullopt);
+}
+
 TEST_F(SplatEngineTest, ReportsAFailedUpload) {
   Events events;
   engine->setEventSink(events.sink());
@@ -185,7 +209,7 @@ TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
     renderer->extent = atLoad;
     SplatEngine engine(std::move(owned));
     const auto bytes = pairBytes();
-    engine.loadWorld(bytes.data(), bytes.size(), kFrame);
+    engine.loadWorld({bytes.data(), bytes.size()}, {}, kFrame);
     engine.render(1);
     renderer->extent = after;
     engine.render(1 + kVsyncNanos);
@@ -244,6 +268,23 @@ TEST_F(SplatEngineTest, RefusesToFrameNonFiniteBounds) {
   splat::Bounds inverted;
   inverted.min = {1, 1, 1};
   EXPECT_FALSE(engine->frame(inverted, 1));
+}
+
+TEST_F(SplatEngineTest, AHighlightFadesInThenTheEngineIdles) {
+  load(pairBytes(), labelBytes({4, 0}));
+  tick();
+  ASSERT_NE(renderer->last.labelStyles, nullptr);
+  EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);  // as captured until asked
+  const uint8_t part = 4;
+  engine->setHighlight(&part, 1);
+  int drawn = 0;
+  while (tick()) ++drawn;
+  // A quarter second of 16.7 ms vsyncs.
+  EXPECT_GE(drawn, 14);
+  EXPECT_LE(drawn, 16);
+  EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, Highlight::kTintAmount);
+  EXPECT_EQ((*renderer->last.labelStyles)[0].brightness, Highlight::kDimBrightness);
+  EXPECT_FALSE(tick());
 }
 
 TEST_F(SplatEngineTest, TheProjectionFollowsTheDrawExtent) {

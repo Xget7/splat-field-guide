@@ -1,4 +1,5 @@
 add_executable(splat_core_tests
+  formats/PartLabelsTest.cpp
   formats/SpzDecoderTest.cpp
   io/MappedFileTest.cpp
   loading/SplatWorldLoaderTest.cpp

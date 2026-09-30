@@ -15,6 +15,7 @@ splat::SplatCloud cloud() {
   c.covariances = {1, 0, 0, 1, 0, 1, 2, 0, 0, 2, 0, 2};
   c.colors = {1, 0, 0, 0, 1, 0};
   c.alphas = {1, 0.5f};
+  c.labels = {7, 0};
   return c;
 }
 
@@ -51,6 +52,9 @@ TEST(MetalWorldTest, UploadsAnEmptyWorldAndRefusesAMalformedOne) {
   EXPECT_EQ(world->info().count, 0u);
   auto malformed = cloud();
   malformed.alphas.clear();
+  EXPECT_EQ(MetalWorld::upload(gpu.device, gpu.queue, malformed, 0), nullptr);
+  malformed = cloud();
+  malformed.labels.push_back(1);  // one label too many
   EXPECT_EQ(MetalWorld::upload(gpu.device, gpu.queue, malformed, 0), nullptr);
 }
 

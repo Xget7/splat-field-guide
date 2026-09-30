@@ -8,6 +8,7 @@
 #include "splat/formats/SplatCloud.h"
 #include "splat/math/Mat4.h"
 #include "splat/math/Vec3.h"
+#include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
 
@@ -54,6 +55,8 @@ class SplatRenderer {
     splat::Mat4 view = splat::Mat4::identity();
     splat::Mat4 proj = splat::Mat4::identity();
     splat::Vec3 cameraPosition;
+    // How each part label is drawn; null draws every splat as captured.
+    const LabelStyles* labelStyles = nullptr;
   };
   // Culls, sorts and draws the whole world, then presents. Returns false when nothing was
   // presented, e.g. the surface was rebuilt instead.

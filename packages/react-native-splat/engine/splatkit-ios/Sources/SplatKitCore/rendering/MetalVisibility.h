@@ -22,9 +22,11 @@ class MetalVisibility {
   uint32_t capacity() const { return capacity_; }
 
   // A count above the reserved capacity fails before encoding any work. The caller owns
-  // the uniforms and source buffers and keeps them unchanged until this frame completes.
-  bool encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms, id<MTLBuffer> splats,
-              id<MTLBuffer> sh, int shDegree, uint32_t count);
+  // the uniforms, the label styles (a LabelStyles) and the source buffers and keeps them
+  // unchanged until this frame completes.
+  bool encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms,
+              id<MTLBuffer> labelStyles, id<MTLBuffer> splats, id<MTLBuffer> sh, int shDegree,
+              uint32_t count);
 
   // Indices into projected(), nearest first.
   id<MTLBuffer> order() const { return sort_.values(); }

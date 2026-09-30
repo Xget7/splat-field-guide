@@ -74,12 +74,13 @@ inline float3 shColor(const device uint* shData, uint index, float3 d) {
   return c;
 }
 
-// False for a splat that would draw nothing: behind the camera, outside the view or
-// smaller than a pixel.
+// False for a splat that would draw nothing: behind the camera, outside the view, smaller
+// than a pixel or made transparent by its part label's style.
 inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device uint* shData,
-                         thread Projected& out) {
+                         constant LabelStyle* styles, thread Projected& out) {
   float4 rgba = unpackUnorm4x8(s.rgba8);
-  float alpha = rgba.a;
+  LabelStyle style = styles[s.partLabel & kLabelMask];
+  float alpha = rgba.a * style.opacity;
 
   float4 viewPos4 = cam.view * float4(s.px, s.py, s.pz, 1.0);
   float3 viewPos = viewPos4.xyz;
@@ -111,6 +112,7 @@ inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device
     float3 dir = normalize(float3(s.px, s.py, s.pz) - cam.cameraPosition.xyz);
     rgb = max(rgb + shColor(shData, index, dir), float3(0.0));
   }
+  rgb = mix(rgb, float3(style.tint), style.tintAmount) * style.brightness;
 
   out.center = clip.xy / clip.w;
   out.axis1 = as_type<uint>(half2(axis1));

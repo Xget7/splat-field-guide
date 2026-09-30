@@ -14,7 +14,7 @@ bool validCloud(const splat::SplatCloud& cloud) {
   const size_t n = cloud.count();
   return n <= std::numeric_limits<uint32_t>::max() && cloud.positions.size() == n * 3 &&
          cloud.covariances.size() == n * 6 && cloud.colors.size() == n * 3 &&
-         cloud.alphas.size() == n;
+         cloud.alphas.size() == n && (cloud.labels.empty() || cloud.labels.size() == n);
 }
 
 id<MTLBuffer> privateBuffer(id<MTLDevice> device, size_t bytes) {

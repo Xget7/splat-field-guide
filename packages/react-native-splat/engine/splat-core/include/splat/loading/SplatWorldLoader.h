@@ -13,15 +13,23 @@
 
 namespace splat {
 
+// Bytes the caller keeps alive for the duration of a call. Empty is no bytes.
+struct ByteView {
+  const std::uint8_t* data = nullptr;
+  std::size_t size = 0;
+  bool empty() const { return size == 0; }
+};
+
 // Prepares worlds for a renderer. Decoding runs on whatever thread calls `load`, the
 // result waits until the render thread takes it, and a newer load replaces one still
-// waiting. A world is decoded from SPZ and reordered spatially. Loads may run
-// concurrently; the last one to finish is the one taken.
+// waiting. A world is decoded from SPZ, given its part labels and reordered spatially.
+// Loads may run concurrently; the last one to finish is the one taken.
 class SplatWorldLoader {
  public:
   struct WorldReport {
     std::size_t splatCount = 0;
     int shDegree = 0;
+    bool labelled = false;
     Bounds bounds;
     double decodeMillis = 0;
     double reorderMillis = 0;
@@ -31,10 +39,13 @@ class SplatWorldLoader {
   void setMaxShDegree(int degree);
   int maxShDegree() const { return maxShDegree_.load(); }
 
-  // An SPZ world whose positions are in `sourceFrame`. Errors leave whatever was waiting.
-  Result<WorldReport> loadWorld(const std::uint8_t* data, std::size_t size,
-                                CoordinateFrame sourceFrame);
-  Result<WorldReport> loadWorldFile(const std::string& path, CoordinateFrame sourceFrame);
+  // An SPZ world whose positions are in `sourceFrame`, with the labels.bin that labels its
+  // splats; without one every splat is unlabelled. Labels for another number of splats
+  // fail as `labelsMismatch`. Errors leave whatever was waiting.
+  Result<WorldReport> loadWorld(ByteView spz, ByteView labels, CoordinateFrame sourceFrame);
+  // The same from files, mapped rather than read. An empty labels path means no labels.
+  Result<WorldReport> loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
+                                    CoordinateFrame sourceFrame);
 
   // The newest world not yet taken, or nothing.
   std::unique_ptr<SplatCloud> takeWorld();

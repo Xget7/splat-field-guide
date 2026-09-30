@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -17,9 +18,24 @@ struct GpuSplat {
   uint32_t rgba8;     // colour and alpha, a real uint: never routed through a float, whose
                       // NaN patterns some mobile compilers canonicalise
   uint32_t cov[3];    // six halves: (xx, xy), (xz, yy), (yz, zz)
-  uint32_t reserved;  // zero
+  uint32_t partLabel;  // 0 for none
 };
 static_assert(sizeof(GpuSplat) == 32, "GpuSplat must match the shader struct");
+
+// How the splats of one part label are drawn: their colour mixed towards `tint` by
+// `tintAmount` and then scaled by `brightness`, their opacity scaled by `opacity`.
+struct LabelStyle {
+  float tint[3] = {0, 0, 0};
+  float tintAmount = 0;
+  float brightness = 1;
+  float opacity = 1;
+  float reserved[2] = {0, 0};
+};
+static_assert(sizeof(LabelStyle) == 32, "LabelStyle must match the shader struct");
+
+// One style per possible part label, indexed by the label.
+constexpr std::size_t kLabelCount = 256;
+using LabelStyles = std::array<LabelStyle, kLabelCount>;
 
 // Uints per splat of the harmonics buffer at a degree: the halves of bands 1 to
 // `degree`, channel fastest, two per uint, each splat starting on a uint.

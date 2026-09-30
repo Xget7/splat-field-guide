@@ -89,6 +89,7 @@ void reorderSpatially(SplatCloud& cloud) {
   permute(cloud.colors, 3, order);
   permute(cloud.alphas, 1, order);
   if (!cloud.sh.empty()) permute(cloud.sh, cloud.sh.size() / n, order);
+  permute(cloud.labels, 1, order);
 }
 
 }  // namespace splat

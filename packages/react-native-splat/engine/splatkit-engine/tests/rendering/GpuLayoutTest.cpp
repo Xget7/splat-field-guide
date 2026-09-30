@@ -13,13 +13,14 @@ splat::SplatCloud twoSplats(int shDegree) {
   cloud.colors = {1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f};
   cloud.alphas = {0.5f, 1.0f};
   cloud.covariances = {1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1};
+  cloud.labels = {0, 9};
   cloud.shDegree = shDegree;
   const auto coefficients = static_cast<std::size_t>((shDegree + 1) * (shDegree + 1) - 1);
   cloud.sh.assign(2 * coefficients * 3, 0.25f);
   return cloud;
 }
 
-TEST(GpuLayout, PacksColourAlphaAndCovarianceIntoThirtyTwoBytes) {
+TEST(GpuLayout, PacksColourAlphaCovarianceAndLabelIntoThirtyTwoBytes) {
   const auto packed = packSplats(twoSplats(0));
   ASSERT_EQ(packed.size(), 2u);
   EXPECT_EQ(packed[0].position[2], 2.0f);
@@ -28,8 +29,16 @@ TEST(GpuLayout, PacksColourAlphaAndCovarianceIntoThirtyTwoBytes) {
   EXPECT_EQ((packed[0].rgba8 >> 24) & 0xffu, 128u);  // a
   EXPECT_EQ(packed[0].cov[0] & 0xffffu, splat::toHalf(1.0f));
   EXPECT_EQ(packed[0].cov[2] >> 16, splat::toHalf(6.0f));
-  EXPECT_EQ(packed[0].reserved, 0u);
   EXPECT_EQ((packed[1].rgba8 >> 24) & 0xffu, 255u);
+  EXPECT_EQ(packed[0].partLabel, 0u);
+  EXPECT_EQ(packed[1].partLabel, 9u);
+}
+
+TEST(GpuLayout, AnUnlabelledCloudPacksLabelZero) {
+  auto cloud = twoSplats(0);
+  cloud.labels.clear();
+  const auto packed = packSplats(cloud);
+  EXPECT_EQ(packed[1].partLabel, 0u);
 }
 
 TEST(GpuLayout, HarmonicsArePackedTwoHalvesPerUintPerSplat) {

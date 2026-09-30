@@ -46,6 +46,16 @@ id<MTLBuffer> cameraAtOrigin() {
   return [Gpu::get().device newBufferWithBytes:&u length:sizeof(u) options:MTLResourceStorageModeShared];
 }
 
+id<MTLBuffer> styleBuffer(const LabelStyles& styles) {
+  return [Gpu::get().device newBufferWithBytes:styles.data()
+                                        length:sizeof(styles)
+                                       options:MTLResourceStorageModeShared];
+}
+
+float halfAt(uint32_t packed, int which) {
+  return splat::fromHalf(static_cast<uint16_t>(packed >> (16 * which)));
+}
+
 class MetalVisibilityTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -56,7 +66,7 @@ class MetalVisibilityTest : public ::testing::Test {
 
   void run(uint32_t slot, id<MTLBuffer> splats, uint32_t count) {
     id<MTLCommandBuffer> cmd = [Gpu::get().queue commandBuffer];
-    ASSERT_TRUE(visibility.encode(cmd, slot, uniforms, splats, nil, 0, count));
+    ASSERT_TRUE(visibility.encode(cmd, slot, uniforms, styles, splats, nil, 0, count));
     [cmd commit];
     [cmd waitUntilCompleted];
     ASSERT_EQ(cmd.status, MTLCommandBufferStatusCompleted);
@@ -87,6 +97,7 @@ class MetalVisibilityTest : public ::testing::Test {
 
   MetalVisibility visibility;
   id<MTLBuffer> uniforms = cameraAtOrigin();
+  id<MTLBuffer> styles = styleBuffer(LabelStyles{});
 };
 
 TEST_F(MetalVisibilityTest, ProjectsEverySplatOfALargeWorldOnce) {
@@ -117,10 +128,11 @@ TEST_F(MetalVisibilityTest, AnEmptyFrameClearsThePreviousDraws) {
 TEST_F(MetalVisibilityTest, RefusesACountAboveCapacityOrABadSlot) {
   id<MTLBuffer> splats = splatBuffer(std::vector<GpuSplat>(4, unitSplat(0, 0, -2)));
   id<MTLCommandBuffer> cmd = [Gpu::get().queue commandBuffer];
-  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, splats, nil, 0, 1));  // nothing reserved
+  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, styles, splats, nil, 0, 1));  // not reserved
   ASSERT_TRUE(visibility.reserve(4));
-  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, splats, nil, 0, 5));
-  EXPECT_FALSE(visibility.encode(cmd, MetalVisibility::kSlots, uniforms, splats, nil, 0, 4));
+  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, styles, splats, nil, 0, 5));
+  EXPECT_FALSE(
+      visibility.encode(cmd, MetalVisibility::kSlots, uniforms, styles, splats, nil, 0, 4));
 }
 
 TEST_F(MetalVisibilityTest, CullsAndOrdersTheSplatsFrontToBack) {
@@ -145,6 +157,47 @@ TEST_F(MetalVisibilityTest, DropsASubpixelGaussianBeforeSorting) {
   ASSERT_TRUE(visibility.reserve(2));
   run(0, splats, 2);
   EXPECT_EQ(drawn(0), (std::vector<uint32_t>{0}));
+}
+
+// Each splat is drawn in its part label's style: tinted, dimmed, or culled when the
+// style makes it transparent.
+TEST_F(MetalVisibilityTest, EachSplatTakesItsLabelsStyle) {
+  std::vector<GpuSplat> source(4, unitSplat(0, 0, -2));
+  source[0].rgba8 = 0xff0000ffu;  // opaque red, unlabelled and as captured
+  source[1].rgba8 = 0xff0000ffu;
+  source[1].partLabel = 1;  // fully tinted blue
+  source[2].rgba8 = 0xff0000ffu;
+  source[2].partLabel = 2;  // dimmed to a quarter
+  source[3].partLabel = 3;  // transparent
+  LabelStyles table{};
+  table[1].tint[2] = 1;
+  table[1].tintAmount = 1;
+  table[2].brightness = 0.25f;
+  table[3].opacity = 0;
+  styles = styleBuffer(table);
+  id<MTLBuffer> splats = splatBuffer(source);
+  ASSERT_TRUE(visibility.reserve(4));
+  run(0, splats, 4);
+  ASSERT_EQ(visibility.count(0), 3u);
+  const auto* projected = static_cast<const ProjectedSplat*>(visibility.projected().contents);
+  for (uint32_t i = 0; i < 3; ++i) {
+    const ProjectedSplat& p = projected[i];
+    SCOPED_TRACE(p.index);
+    const float red = halfAt(p.color0, 0);
+    const float blue = halfAt(p.color1, 0);
+    const float alpha = halfAt(p.color1, 1);
+    EXPECT_EQ(alpha, 1.0f);
+    if (p.index == 0) {
+      EXPECT_EQ(red, 1.0f);
+      EXPECT_EQ(blue, 0.0f);
+    } else if (p.index == 1) {
+      EXPECT_EQ(red, 0.0f);
+      EXPECT_EQ(blue, 1.0f);
+    } else {
+      EXPECT_EQ(p.index, 2u);
+      EXPECT_EQ(red, 0.25f);
+    }
+  }
 }
 
 // Survivors are ranked within SIMD groups of 32 and threadgroups of 256: every tail

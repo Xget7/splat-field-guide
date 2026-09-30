@@ -78,7 +78,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   bool createTarget();
   void waitIdle();
 
-  void updateCameraUniforms(const Frame& frame, uint32_t slot);
+  void updateUniforms(const Frame& frame, uint32_t slot);
   // Encode only: draw() commits these in dependency order after validation succeeds.
   id<MTLCommandBuffer> encodeVisibilityAndSort(const Frame& frame, uint32_t slot);
   void encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot);
@@ -103,6 +103,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   id<MTLTexture> depth_ = nil;                 // GPU-private, the size of the colour target
   bool createDepth(NSUInteger width, NSUInteger height);
   std::array<id<MTLBuffer>, kFramesInFlight> uniforms_{};
+  std::array<id<MTLBuffer>, kFramesInFlight> labelStyles_{};  // a LabelStyles each
   dispatch_semaphore_t inFlight_ = nullptr;
 
   CAMetalLayer* layer_ = nil;

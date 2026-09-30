@@ -21,6 +21,7 @@ SplatCloud randomCloud(std::size_t n, unsigned seed) {
     for (int k = 0; k < 6; ++k) c.covariances.push_back(static_cast<float>(i * 6 + k));
     for (int k = 0; k < 3; ++k) c.colors.push_back(static_cast<float>(i * 3 + k));
     c.alphas.push_back(static_cast<float>(i));
+    c.labels.push_back(static_cast<std::uint8_t>(i % 251));
   }
   return c;
 }
@@ -57,6 +58,7 @@ TEST(SpatialOrder, KeepsEverySplatWithItsAttributes) {
     for (int k = 0; k < 6; ++k)
       EXPECT_EQ(c.covariances[i * 6 + k], before.covariances[from * 6 + k]);
     for (int k = 0; k < 3; ++k) EXPECT_EQ(c.colors[i * 3 + k], before.colors[from * 3 + k]);
+    EXPECT_EQ(c.labels[i], before.labels[from]);
   }
 }
 

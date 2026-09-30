@@ -9,6 +9,7 @@
 #include "splat/io/MappedFile.h"
 #include "splat/sorting/SpatialOrder.h"
 #include "splatkit/camera/OrbitCamera.h"
+#include "splatkit/highlight/Highlight.h"
 
 namespace splatkit {
 namespace {
@@ -85,6 +86,36 @@ TEST_F(MetalRasterTest, ASplatReachesThePresentedPixels) {
   EXPECT_GT(pixels[center + 2], 200);  // red, not the background
   EXPECT_LT(pixels[center + 1], 20);
   EXPECT_EQ(renderer->lastDrawCount(), 1u);
+}
+
+// The highlight reaches the screen: the emphasised part turns towards sky blue, and a
+// part left out of it dims.
+TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
+  constexpr uint8_t kPart = 3;
+  constexpr uint8_t kOtherPart = 4;
+  constexpr size_t kCenter = (32 * 64 + 32) * 4;  // BGRA
+  attach(64, 64);
+  auto cloud = redSplat();
+  cloud.labels = {kPart};
+  ASSERT_TRUE(renderer->uploadWorld(cloud, 0));
+  SplatRenderer::Frame frame;
+  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  const auto asCaptured = drawAndCapture(frame);
+
+  Highlight highlight;
+  highlight.set(&kPart, 1);
+  highlight.update(Highlight::kFadeSeconds);
+  frame.labelStyles = &highlight.styles();
+  const auto emphasised = drawAndCapture(frame);
+  highlight.set(&kOtherPart, 1);
+  highlight.update(Highlight::kFadeSeconds);
+  const auto dimmed = drawAndCapture(frame);
+
+  EXPECT_LT(asCaptured[kCenter], 20);          // no blue in the capture
+  EXPECT_GT(emphasised[kCenter], 70);          // blue from the tint
+  EXPECT_LT(emphasised[kCenter + 2], asCaptured[kCenter + 2]);
+  EXPECT_LT(dimmed[kCenter + 2], asCaptured[kCenter + 2] / 2);  // red, dimmed
+  EXPECT_LT(dimmed[kCenter], 20);
 }
 
 // A real capture at a phone's resolution, framed whole from the front.

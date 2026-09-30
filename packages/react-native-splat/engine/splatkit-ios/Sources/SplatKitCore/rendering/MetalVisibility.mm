@@ -42,8 +42,8 @@ bool MetalVisibility::reserve(uint32_t capacity) {
 }
 
 bool MetalVisibility::encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms,
-                             id<MTLBuffer> splats, id<MTLBuffer> sh, int shDegree,
-                             uint32_t count) {
+                             id<MTLBuffer> labelStyles, id<MTLBuffer> splats, id<MTLBuffer> sh,
+                             int shDegree, uint32_t count) {
   if (slot >= kSlots || capacity_ == 0 || count > capacity_) return false;
   id<MTLBlitCommandEncoder> reset = [cmd blitCommandEncoder];
   [reset fillBuffer:count_[slot] range:NSMakeRange(0, sizeof(uint32_t)) value:0];
@@ -61,6 +61,7 @@ bool MetalVisibility::encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuff
   [cull setBuffer:count_[slot] offset:0 atIndex:5];
   [cull setBuffer:sh offset:0 atIndex:6];
   [cull setBuffer:projected_ offset:0 atIndex:7];
+  [cull setBuffer:labelStyles offset:0 atIndex:8];
   const NSUInteger groups = (size_t{std::max(count, 1u)} + kThreads - 1) / kThreads;
   [cull dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
        threadsPerThreadgroup:MTLSizeMake(kThreads, 1, 1)];

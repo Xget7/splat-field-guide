@@ -12,13 +12,14 @@ kernel void visibility(uint t [[thread_position_in_grid]],
                        device uint* values [[buffer(4)]],
                        device atomic_uint* count [[buffer(5)]],
                        const device uint* shData [[buffer(6)]],
-                       device Projected* projected [[buffer(7)]]) {
+                       device Projected* projected [[buffer(7)]],
+                       constant LabelStyle* styles [[buffer(8)]]) {
   bool visible = false;
   uint key = 0;
   Projected p;
   if (t < splatCount) {
     Splat s = splats[t];
-    visible = projectSplat(cam, s, t, shData, p);
+    visible = projectSplat(cam, s, t, shData, styles, p);
     float3 d = float3(s.px, s.py, s.pz) - cam.cameraPosition.xyz;
     float distance2 = dot(d, d);
     key = as_type<uint>(distance2);
