@@ -1,0 +1,151 @@
+# Authored half of the manifest (spec section 6), one-to-one with the manifest types.
+# The pipeline adds and merges in: schemaVersion, packId, packVersion, title, tiers, camera,
+# and per part: label, bounds, anchor. Facts are sourced in SOURCES.md.
+parts:
+  - id: coolant-reservoir
+    name: Coolant reservoir
+    parent: null
+    aliases: [coolant tank, expansion tank, coolant bottle, radiator reservoir]
+    summary: The translucent pink tank with the blue cap that holds spare engine coolant.
+    details: >-
+      It lets the coolant expand as the engine warms and draws it back as the engine cools.
+      Check the level through the tank wall between the MIN and MAX marks, with the engine cold.
+      A level that keeps dropping means a leak, so have it inspected.
+      Never open the cap while the engine is hot, because the system is under pressure and can spray scalding coolant.
+
+  - id: power-steering-reservoir
+    name: Power steering reservoir
+    parent: null
+    aliases: [power steering tank, steering fluid tank, hydraulic steering reservoir, steering reservoir]
+    summary: The dark square tank with the yellow-green cap that holds the power steering fluid.
+    details: >-
+      It feeds the hydraulic pump that makes the steering light.
+      Check the level against the marks on the tank or cap, and top up only with the fluid named in your owner's manual.
+      A heavy steering wheel or a whine when turning can mean low fluid.
+      Never run the pump dry and never top up with a fluid the manual does not name.
+
+  - id: brake-fluid-reservoir
+    name: Brake fluid reservoir
+    parent: null
+    aliases: [brake reservoir, brake fluid tank, brake fluid bottle, master cylinder reservoir]
+    summary: The white reservoir with the yellow cap that holds the brake fluid.
+    details: >-
+      It supplies the master cylinder that pushes fluid to the brakes.
+      Check that the level sits between MIN and MAX, and keep the cap closed except to top up.
+      A level that falls slowly can be pad wear, but a sudden drop is a leak and needs a workshop before you drive.
+      Never let brake fluid touch the paint, and never use fluid from an opened container that has been stored for a long time.
+
+  - id: battery
+    name: Battery
+    parent: null
+    aliases: [car battery, accumulator]
+    summary: The black 12 volt battery below the air box that starts the engine and powers the electrics.
+    details: >-
+      It supplies the starter and holds power for the electronics when the engine is off.
+      Check that the terminals are tight, clean and free of white or green crust.
+      Keep sparks, flames and metal tools away from it.
+      Never short the terminals with a tool or ring, and always disconnect the negative terminal first.
+
+  - id: fuse-box
+    name: Fuse box
+    parent: null
+    aliases: [fuses, fuse block, relay box, fuse and relay box]
+    summary: The block of fuses and relays that sits on top of the battery.
+    details: >-
+      It protects the car's electrical circuits and switches several of them through relays.
+      Open the cover and read the diagram to find the fuse for a dead circuit.
+      Replace a blown fuse only with the same amperage rating.
+      Never put in a bigger fuse or a wire, and never work on it with wet hands.
+
+  - id: engine
+    name: Engine
+    parent: null
+    aliases: [motor, engine block, 1.6 engine]
+    summary: The 1.6 litre 8 valve petrol engine that drives the car.
+    details: >-
+      It turns fuel and air into power, and it includes the valve cover and the intake manifold.
+      Look for leaks, loose hoses and a level oil reading at the dipstick while it is cold.
+      A running or freshly stopped engine is hot and has moving belts and a fan that can start on their own.
+      Never put hands, loose sleeves or hair near the belts and fan.
+
+  - id: valve-cover
+    name: Valve cover
+    parent: engine
+    aliases: [cam cover, rocker cover, cylinder head cover, tappet cover]
+    summary: The cover on top of the engine that seals the valve train and holds the oil filler cap.
+    details: >-
+      It keeps the oil inside and the dirt out of the valves.
+      Look for oil seeping around its edge, which points to a worn gasket.
+      Never pour anything but engine oil through the filler cap.
+
+  - id: intake-manifold
+    name: Intake manifold
+    parent: engine
+    aliases: [inlet manifold, air intake manifold, manifold]
+    summary: The part that carries air from the air box and throttle to each cylinder.
+    details: >-
+      It spreads the incoming air evenly across the cylinders.
+      Check that its hoses are attached and not cracked, because a loose one lets in unmetered air and the engine runs badly.
+      Never run the engine with the air intake open or the hoses off.
+
+procedures:
+  - id: check-coolant
+    title: Check the coolant level
+    steps:
+      - id: engine-cold
+        text: Park on level ground and switch the engine off. Wait until the engine is completely cold.
+        parts: [engine]
+        caution: Hot coolant is under pressure and can cause severe burns. Do not check a hot engine.
+      - id: locate
+        text: Find the translucent pink tank with the blue cap at the front left of the bay.
+        parts: [coolant-reservoir]
+      - id: read-level
+        text: Read the level through the tank wall. It must sit between the MIN and MAX marks.
+        parts: [coolant-reservoir]
+      - id: top-up
+        text: If it is below MIN, leave the cap on and note it for a top-up with the coolant your owner's manual names. Do not mix coolant types.
+        parts: [coolant-reservoir]
+        caution: Never open the cap unless the engine is cold. Open it slowly.
+      - id: close
+        text: If you opened the cap, close it until it is tight. Check around the tank for wet spots or pink crust.
+        parts: [coolant-reservoir]
+
+  - id: check-brake-fluid
+    title: Check the brake fluid level
+    steps:
+      - id: locate
+        text: Find the white reservoir with the yellow cap near the air box.
+        parts: [brake-fluid-reservoir]
+      - id: clean-cap
+        text: Wipe dirt off the reservoir and cap with a clean cloth before you look.
+        parts: [brake-fluid-reservoir]
+      - id: read-level
+        text: Read the level through the reservoir wall. It must sit between the MIN and MAX marks.
+        parts: [brake-fluid-reservoir]
+      - id: low-level
+        text: If it is below MIN, have the brakes checked before you drive. Top up only with the brake fluid your owner's manual names.
+        parts: [brake-fluid-reservoir]
+        caution: A sudden drop means a leak and unsafe brakes. Brake fluid damages paint, so wipe any spill at once.
+      - id: close
+        text: Close the cap tight. Keep the brake fluid container sealed.
+        parts: [brake-fluid-reservoir]
+
+  - id: check-power-steering-fluid
+    title: Check the power steering fluid level
+    steps:
+      - id: locate
+        text: Find the dark square tank with the yellow-green cap next to the coolant tank.
+        parts: [power-steering-reservoir, coolant-reservoir]
+      - id: clean-cap
+        text: Wipe the tank and cap with a clean cloth before you open it.
+        parts: [power-steering-reservoir]
+      - id: read-level
+        text: Read the level against the marks on the tank or the cap, as shown in your owner's manual.
+        parts: [power-steering-reservoir]
+      - id: top-up
+        text: If it is low, top up with the fluid your owner's manual names, up to the MAX mark.
+        parts: [power-steering-reservoir]
+        caution: Do not use a fluid the manual does not name. Do not overfill.
+      - id: close
+        text: Close the cap tight. Check the tank and hoses for oil leaks.
+        parts: [power-steering-reservoir]
