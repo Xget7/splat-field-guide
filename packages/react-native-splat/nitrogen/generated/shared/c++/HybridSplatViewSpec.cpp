@@ -14,11 +14,21 @@ namespace margelo::nitro::splat {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
+      prototype.registerHybridGetter("source", &HybridSplatViewSpec::getSource);
+      prototype.registerHybridSetter("source", &HybridSplatViewSpec::setSource);
       prototype.registerHybridGetter("highlight", &HybridSplatViewSpec::getHighlight);
       prototype.registerHybridSetter("highlight", &HybridSplatViewSpec::setHighlight);
+      prototype.registerHybridGetter("cameraLimits", &HybridSplatViewSpec::getCameraLimits);
+      prototype.registerHybridSetter("cameraLimits", &HybridSplatViewSpec::setCameraLimits);
       prototype.registerHybridGetter("onReady", &HybridSplatViewSpec::getOnReady);
       prototype.registerHybridSetter("onReady", &HybridSplatViewSpec::setOnReady);
+      prototype.registerHybridGetter("onError", &HybridSplatViewSpec::getOnError);
+      prototype.registerHybridSetter("onError", &HybridSplatViewSpec::setOnError);
       prototype.registerHybridMethod("orbit", &HybridSplatViewSpec::orbit);
+      prototype.registerHybridMethod("dolly", &HybridSplatViewSpec::dolly);
+      prototype.registerHybridMethod("frame", &HybridSplatViewSpec::frame);
+      prototype.registerHybridMethod("pick", &HybridSplatViewSpec::pick);
+      prototype.registerHybridMethod("project", &HybridSplatViewSpec::project);
     });
   }
 

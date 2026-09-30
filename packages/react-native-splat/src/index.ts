@@ -10,10 +10,17 @@ export type {
   SplatDiagnosticsSnapshot,
 } from './SplatDiagnostics.nitro';
 export type {
+  Bounds,
+  CameraLimits,
   PartLabel,
+  SplatError,
+  SplatErrorCode,
+  SplatSource,
   SplatView as SplatViewSpec,
   SplatViewMethods,
   SplatViewProps,
+  Vec3,
+  ViewDirection,
 } from './SplatView.nitro';
 
 export const SplatView = getHostComponent<SplatViewProps, SplatViewMethods>(

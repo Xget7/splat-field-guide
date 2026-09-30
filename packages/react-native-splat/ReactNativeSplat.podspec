@@ -12,8 +12,15 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/xget7/splat-field-guide.git", :tag => "#{s.version}" }
 
-  s.source_files = ["ios/**/*.{swift,h,m,mm}"]
-  s.frameworks   = ["Metal", "QuartzCore"]
+  engine = "ios/Frameworks/SplatKitCore.xcframework"
+  unless File.exist?(File.join(__dir__, engine))
+    raise "#{s.name}: #{engine} is missing; build it with scripts/build-ios-engine.sh, then run pod install again"
+  end
+
+  s.source_files        = ["ios/*.swift"]
+  s.vendored_frameworks = engine
+  s.frameworks          = ["Metal", "QuartzCore"]
+  s.libraries           = ["c++", "z"]
 
   load "nitrogen/generated/ios/ReactNativeSplat+autolinking.rb"
   add_nitrogen_files(s)

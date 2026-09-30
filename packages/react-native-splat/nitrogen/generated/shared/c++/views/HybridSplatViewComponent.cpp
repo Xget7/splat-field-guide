@@ -20,14 +20,20 @@ namespace margelo::nitro::splat::views {
                                              const HybridSplatViewProps& sourceProps,
                                              const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
+    source(nitro::ReactProp<SplatSource>::fromRawValue("SplatView", "source", rawProps, sourceProps.source)),
     highlight(nitro::ReactProp<std::vector<double>>::fromRawValue("SplatView", "highlight", rawProps, sourceProps.highlight)),
+    cameraLimits(nitro::ReactProp<std::optional<CameraLimits>>::fromRawValue("SplatView", "cameraLimits", rawProps, sourceProps.cameraLimits)),
     onReady(nitro::ReactProp<std::function<void()>>::fromRawValue("SplatView", "onReady", rawProps, sourceProps.onReady)),
+    onError(nitro::ReactProp<std::function<void(const SplatError& /* error */)>>::fromRawValue("SplatView", "onError", rawProps, sourceProps.onError)),
     hybridRef(nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridSplatViewSpec>& /* ref */)>>>::fromRawValue("SplatView", "hybridRef", rawProps, sourceProps.hybridRef)) { }
 
   bool HybridSplatViewProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
+      case hashString("source"): return true;
       case hashString("highlight"): return true;
+      case hashString("cameraLimits"): return true;
       case hashString("onReady"): return true;
+      case hashString("onError"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

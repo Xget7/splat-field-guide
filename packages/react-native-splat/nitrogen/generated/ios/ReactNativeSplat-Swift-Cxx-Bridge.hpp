@@ -8,12 +8,20 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `CameraLimits` to properly resolve imports.
+namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatViewSpec; }
 // Forward declaration of `SplatDiagnosticsSnapshot` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatDiagnosticsSnapshot; }
+// Forward declaration of `SplatErrorCode` to properly resolve imports.
+namespace margelo::nitro::splat { enum class SplatErrorCode; }
+// Forward declaration of `SplatError` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatError; }
+// Forward declaration of `ViewDirection` to properly resolve imports.
+namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.
@@ -22,13 +30,21 @@ namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
+#include "CameraLimits.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
+#include "SplatError.hpp"
+#include "SplatErrorCode.hpp"
+#include "ViewDirection.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 /**
@@ -69,6 +85,21 @@ namespace margelo::nitro::splat::bridge::swift {
     return vector;
   }
   
+  // pragma MARK: std::optional<CameraLimits>
+  /**
+   * Specialized version of `std::optional<CameraLimits>`.
+   */
+  using std__optional_CameraLimits_ = std::optional<CameraLimits>;
+  inline std::optional<CameraLimits> create_std__optional_CameraLimits_(const CameraLimits& value) noexcept {
+    return std::optional<CameraLimits>(value);
+  }
+  inline bool has_value_std__optional_CameraLimits_(const std::optional<CameraLimits>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline CameraLimits get_std__optional_CameraLimits_(const std::optional<CameraLimits>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::function<void()>
   /**
    * Specialized version of `std::function<void()>`.
@@ -91,6 +122,99 @@ namespace margelo::nitro::splat::bridge::swift {
     return Func_void_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::function<void(const SplatError& /* error */)>
+  /**
+   * Specialized version of `std::function<void(const SplatError&)>`.
+   */
+  using Func_void_SplatError = std::function<void(const SplatError& /* error */)>;
+  /**
+   * Wrapper class for a `std::function<void(const SplatError& / * error * /)>`, this can be used from Swift.
+   */
+  class Func_void_SplatError_Wrapper final {
+  public:
+    explicit Func_void_SplatError_Wrapper(std::function<void(const SplatError& /* error */)>&& func): _function(std::make_unique<std::function<void(const SplatError& /* error */)>>(std::move(func))) {}
+    inline void call(SplatError error) const noexcept {
+      _function->operator()(error);
+    }
+  private:
+    std::unique_ptr<std::function<void(const SplatError& /* error */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_SplatError create_Func_void_SplatError(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_SplatError_Wrapper wrap_Func_void_SplatError(Func_void_SplatError value) noexcept {
+    return Func_void_SplatError_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<ViewDirection>
+  /**
+   * Specialized version of `std::optional<ViewDirection>`.
+   */
+  using std__optional_ViewDirection_ = std::optional<ViewDirection>;
+  inline std::optional<ViewDirection> create_std__optional_ViewDirection_(const ViewDirection& value) noexcept {
+    return std::optional<ViewDirection>(value);
+  }
+  inline bool has_value_std__optional_ViewDirection_(const std::optional<ViewDirection>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline ViewDirection get_std__optional_ViewDirection_(const std::optional<ViewDirection>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<double>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<double>>`.
+   */
+  using std__shared_ptr_Promise_double__ = std::shared_ptr<Promise<double>>;
+  inline std::shared_ptr<Promise<double>> create_std__shared_ptr_Promise_double__() noexcept {
+    return Promise<double>::create();
+  }
+  inline PromiseHolder<double> wrap_std__shared_ptr_Promise_double__(std::shared_ptr<Promise<double>> promise) noexcept {
+    return PromiseHolder<double>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(double /* result */)>
+  /**
+   * Specialized version of `std::function<void(double)>`.
+   */
+  using Func_void_double = std::function<void(double /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(double / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_double_Wrapper final {
+  public:
+    explicit Func_void_double_Wrapper(std::function<void(double /* result */)>&& func): _function(std::make_unique<std::function<void(double /* result */)>>(std::move(func))) {}
+    inline void call(double result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(double /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
+    return Func_void_double_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  /**
+   * Specialized version of `std::function<void(const std::exception_ptr&)>`.
+   */
+  using Func_void_std__exception_ptr = std::function<void(const std::exception_ptr& /* error */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::exception_ptr& / * error * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__exception_ptr_Wrapper final {
+  public:
+    explicit Func_void_std__exception_ptr_Wrapper(std::function<void(const std::exception_ptr& /* error */)>&& func): _function(std::make_unique<std::function<void(const std::exception_ptr& /* error */)>>(std::move(func))) {}
+    inline void call(std::exception_ptr error) const noexcept {
+      _function->operator()(error);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::exception_ptr& /* error */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
+    return Func_void_std__exception_ptr_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridSplatViewSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridSplatViewSpec>`.
@@ -110,6 +234,24 @@ namespace margelo::nitro::splat::bridge::swift {
   }
   inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
     return Result<void>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<double>>>
+  using Result_std__shared_ptr_Promise_double___ = Result<std::shared_ptr<Promise<double>>>;
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::shared_ptr<Promise<double>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<double>
+  using Result_double_ = Result<double>;
+  inline Result_double_ create_Result_double_(double value) noexcept {
+    return Result<double>::withValue(std::move(value));
+  }
+  inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
+    return Result<double>::withError(error);
   }
 
 } // namespace margelo::nitro::splat::bridge::swift

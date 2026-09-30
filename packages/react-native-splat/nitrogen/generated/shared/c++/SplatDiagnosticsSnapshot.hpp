@@ -44,14 +44,14 @@ namespace margelo::nitro::splat {
     double liveRenderThreads     SWIFT_PRIVATE;
     double renderThreadsStarted     SWIFT_PRIVATE;
     double renderThreadsStopped     SWIFT_PRIVATE;
-    double framesPresented     SWIFT_PRIVATE;
+    double framesDrawn     SWIFT_PRIVATE;
     double orbitCallsOnMainThread     SWIFT_PRIVATE;
     double orbitCallsOffMainThread     SWIFT_PRIVATE;
     std::string lastOrbitThread     SWIFT_PRIVATE;
 
   public:
     SplatDiagnosticsSnapshot() = default;
-    explicit SplatDiagnosticsSnapshot(double liveViews, double liveMetalLayers, double liveRenderThreads, double renderThreadsStarted, double renderThreadsStopped, double framesPresented, double orbitCallsOnMainThread, double orbitCallsOffMainThread, std::string lastOrbitThread): liveViews(liveViews), liveMetalLayers(liveMetalLayers), liveRenderThreads(liveRenderThreads), renderThreadsStarted(renderThreadsStarted), renderThreadsStopped(renderThreadsStopped), framesPresented(framesPresented), orbitCallsOnMainThread(orbitCallsOnMainThread), orbitCallsOffMainThread(orbitCallsOffMainThread), lastOrbitThread(lastOrbitThread) {}
+    explicit SplatDiagnosticsSnapshot(double liveViews, double liveMetalLayers, double liveRenderThreads, double renderThreadsStarted, double renderThreadsStopped, double framesDrawn, double orbitCallsOnMainThread, double orbitCallsOffMainThread, std::string lastOrbitThread): liveViews(liveViews), liveMetalLayers(liveMetalLayers), liveRenderThreads(liveRenderThreads), renderThreadsStarted(renderThreadsStarted), renderThreadsStopped(renderThreadsStopped), framesDrawn(framesDrawn), orbitCallsOnMainThread(orbitCallsOnMainThread), orbitCallsOffMainThread(orbitCallsOffMainThread), lastOrbitThread(lastOrbitThread) {}
 
   public:
     friend bool operator==(const SplatDiagnosticsSnapshot& lhs, const SplatDiagnosticsSnapshot& rhs) = default;
@@ -72,7 +72,7 @@ namespace margelo::nitro {
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "liveRenderThreads"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStarted"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStopped"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "framesPresented"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "framesDrawn"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOnMainThread"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOffMainThread"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "lastOrbitThread")))
@@ -85,7 +85,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "liveRenderThreads"), JSIConverter<double>::toJSI(runtime, arg.liveRenderThreads));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStarted"), JSIConverter<double>::toJSI(runtime, arg.renderThreadsStarted));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStopped"), JSIConverter<double>::toJSI(runtime, arg.renderThreadsStopped));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "framesPresented"), JSIConverter<double>::toJSI(runtime, arg.framesPresented));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "framesDrawn"), JSIConverter<double>::toJSI(runtime, arg.framesDrawn));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOnMainThread"), JSIConverter<double>::toJSI(runtime, arg.orbitCallsOnMainThread));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOffMainThread"), JSIConverter<double>::toJSI(runtime, arg.orbitCallsOffMainThread));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "lastOrbitThread"), JSIConverter<std::string>::toJSI(runtime, arg.lastOrbitThread));
@@ -104,7 +104,7 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "liveRenderThreads")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStarted")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderThreadsStopped")))) return false;
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "framesPresented")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "framesDrawn")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOnMainThread")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "orbitCallsOffMainThread")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "lastOrbitThread")))) return false;

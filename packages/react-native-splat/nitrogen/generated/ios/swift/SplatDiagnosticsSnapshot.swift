@@ -18,8 +18,8 @@ public extension SplatDiagnosticsSnapshot {
   /**
    * Create a new instance of `SplatDiagnosticsSnapshot`.
    */
-  init(liveViews: Double, liveMetalLayers: Double, liveRenderThreads: Double, renderThreadsStarted: Double, renderThreadsStopped: Double, framesPresented: Double, orbitCallsOnMainThread: Double, orbitCallsOffMainThread: Double, lastOrbitThread: String) {
-    self.init(liveViews, liveMetalLayers, liveRenderThreads, renderThreadsStarted, renderThreadsStopped, framesPresented, orbitCallsOnMainThread, orbitCallsOffMainThread, std.string(lastOrbitThread))
+  init(liveViews: Double, liveMetalLayers: Double, liveRenderThreads: Double, renderThreadsStarted: Double, renderThreadsStopped: Double, framesDrawn: Double, orbitCallsOnMainThread: Double, orbitCallsOffMainThread: Double, lastOrbitThread: String) {
+    self.init(liveViews, liveMetalLayers, liveRenderThreads, renderThreadsStarted, renderThreadsStopped, framesDrawn, orbitCallsOnMainThread, orbitCallsOffMainThread, std.string(lastOrbitThread))
   }
 
   @inline(__always)
@@ -48,8 +48,8 @@ public extension SplatDiagnosticsSnapshot {
   }
   
   @inline(__always)
-  var framesPresented: Double {
-    return self.__framesPresented
+  var framesDrawn: Double {
+    return self.__framesDrawn
   }
   
   @inline(__always)

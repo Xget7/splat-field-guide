@@ -6,7 +6,7 @@ export interface SplatDiagnosticsSnapshot {
   liveRenderThreads: number;
   renderThreadsStarted: number;
   renderThreadsStopped: number;
-  framesPresented: number;
+  framesDrawn: number;
   orbitCallsOnMainThread: number;
   orbitCallsOffMainThread: number;
   /** Name of the thread that made the last `orbit` call. */

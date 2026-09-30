@@ -13,10 +13,27 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `SplatSource` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `CameraLimits` to properly resolve imports.
+namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `SplatError` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatError; }
+// Forward declaration of `Bounds` to properly resolve imports.
+namespace margelo::nitro::splat { struct Bounds; }
+// Forward declaration of `ViewDirection` to properly resolve imports.
+namespace margelo::nitro::splat { struct ViewDirection; }
 
-
+#include "SplatSource.hpp"
 #include <vector>
+#include "CameraLimits.hpp"
+#include <optional>
 #include <functional>
+#include "SplatError.hpp"
+#include "Bounds.hpp"
+#include "ViewDirection.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/ArrayBuffer.hpp>
 
 namespace margelo::nitro::splat {
 
@@ -45,14 +62,24 @@ namespace margelo::nitro::splat {
 
     public:
       // Properties
+      virtual SplatSource getSource() = 0;
+      virtual void setSource(const SplatSource& source) = 0;
       virtual std::vector<double> getHighlight() = 0;
       virtual void setHighlight(const std::vector<double>& highlight) = 0;
+      virtual std::optional<CameraLimits> getCameraLimits() = 0;
+      virtual void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) = 0;
       virtual std::function<void()> getOnReady() = 0;
       virtual void setOnReady(const std::function<void()>& onReady) = 0;
+      virtual std::function<void(const SplatError& /* error */)> getOnError() = 0;
+      virtual void setOnError(const std::function<void(const SplatError& /* error */)>& onError) = 0;
 
     public:
       // Methods
       virtual void orbit(double dAzimuth, double dElevation) = 0;
+      virtual void dolly(double factor) = 0;
+      virtual void frame(const Bounds& bounds, double seconds, const std::optional<ViewDirection>& from) = 0;
+      virtual std::shared_ptr<Promise<double>> pick(double x, double y) = 0;
+      virtual double project(const std::shared_ptr<ArrayBuffer>& points, const std::shared_ptr<ArrayBuffer>& out) = 0;
 
     protected:
       // Hybrid Setup

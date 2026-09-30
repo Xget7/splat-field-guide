@@ -1,8 +1,12 @@
 import UIKit
 
-/// Hosts the CAMetalLayer; layout is the only thing the main thread does for it.
+/// Hosts the CAMetalLayer. The main thread only measures it; the render thread sizes its
+/// drawables and draws.
 final class SplatMetalView: UIView {
-  var onLayout: (() -> Void)?
+  /// The layer's size in pixels, after every layout.
+  var onResize: ((_ width: UInt32, _ height: UInt32) -> Void)?
+  /// Whether the view is in a window, where it can be seen.
+  var onWindowChange: ((_ inWindow: Bool) -> Void)?
 
   override class var layerClass: AnyClass { SplatMetalLayer.self }
 
@@ -12,6 +16,7 @@ final class SplatMetalView: UIView {
     super.init(frame: frame)
     SplatInstrumentation.update { $0.liveViews += 1 }
     backgroundColor = .black
+    metalLayer.isOpaque = true
   }
 
   required init?(coder: NSCoder) {
@@ -26,15 +31,13 @@ final class SplatMetalView: UIView {
     super.layoutSubviews()
     let scale = window?.screen.scale ?? UIScreen.main.scale
     metalLayer.contentsScale = scale
-    metalLayer.drawableSize = CGSize(
-      width: bounds.width * scale,
-      height: bounds.height * scale
-    )
-    onLayout?()
+    onResize?(
+      UInt32((bounds.width * scale).rounded()), UInt32((bounds.height * scale).rounded()))
   }
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
+    onWindowChange?(window != nil)
     setNeedsLayout()
   }
 }

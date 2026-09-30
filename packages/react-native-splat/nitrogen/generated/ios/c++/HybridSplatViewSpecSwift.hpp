@@ -12,10 +12,37 @@
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
+// Forward declaration of `SplatSource` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `CameraLimits` to properly resolve imports.
+namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `SplatError` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatError; }
+// Forward declaration of `SplatErrorCode` to properly resolve imports.
+namespace margelo::nitro::splat { enum class SplatErrorCode; }
+// Forward declaration of `Bounds` to properly resolve imports.
+namespace margelo::nitro::splat { struct Bounds; }
+// Forward declaration of `Vec3` to properly resolve imports.
+namespace margelo::nitro::splat { struct Vec3; }
+// Forward declaration of `ViewDirection` to properly resolve imports.
+namespace margelo::nitro::splat { struct ViewDirection; }
+// Forward declaration of `ArrayBufferHolder` to properly resolve imports.
+namespace NitroModules { class ArrayBufferHolder; }
 
-
+#include "SplatSource.hpp"
+#include <string>
 #include <vector>
+#include "CameraLimits.hpp"
+#include <optional>
 #include <functional>
+#include "SplatError.hpp"
+#include "SplatErrorCode.hpp"
+#include "Bounds.hpp"
+#include "Vec3.hpp"
+#include "ViewDirection.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/ArrayBufferHolder.hpp>
 
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
 
@@ -63,6 +90,12 @@ namespace margelo::nitro::splat {
 
   public:
     // Properties
+    inline SplatSource getSource() noexcept override {
+      return _swiftPart.getSource();
+    }
+    inline void setSource(const SplatSource& source) noexcept override {
+      _swiftPart.setSource(std::forward<decltype(source)>(source));
+    }
     inline std::vector<double> getHighlight() noexcept override {
       auto __result = _swiftPart.getHighlight();
       return __result;
@@ -70,12 +103,26 @@ namespace margelo::nitro::splat {
     inline void setHighlight(const std::vector<double>& highlight) noexcept override {
       _swiftPart.setHighlight(highlight);
     }
+    inline std::optional<CameraLimits> getCameraLimits() noexcept override {
+      auto __result = _swiftPart.getCameraLimits();
+      return __result;
+    }
+    inline void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) noexcept override {
+      _swiftPart.setCameraLimits(cameraLimits);
+    }
     inline std::function<void()> getOnReady() noexcept override {
       auto __result = _swiftPart.getOnReady();
       return __result;
     }
     inline void setOnReady(const std::function<void()>& onReady) noexcept override {
       _swiftPart.setOnReady(onReady);
+    }
+    inline std::function<void(const SplatError& /* error */)> getOnError() noexcept override {
+      auto __result = _swiftPart.getOnError();
+      return __result;
+    }
+    inline void setOnError(const std::function<void(const SplatError& /* error */)>& onError) noexcept override {
+      _swiftPart.setOnError(onError);
     }
 
   public:
@@ -85,6 +132,34 @@ namespace margelo::nitro::splat {
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+    }
+    inline void dolly(double factor) override {
+      auto __result = _swiftPart.dolly(std::forward<decltype(factor)>(factor));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void frame(const Bounds& bounds, double seconds, const std::optional<ViewDirection>& from) override {
+      auto __result = _swiftPart.frame(std::forward<decltype(bounds)>(bounds), std::forward<decltype(seconds)>(seconds), from);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::shared_ptr<Promise<double>> pick(double x, double y) override {
+      auto __result = _swiftPart.pick(std::forward<decltype(x)>(x), std::forward<decltype(y)>(y));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline double project(const std::shared_ptr<ArrayBuffer>& points, const std::shared_ptr<ArrayBuffer>& out) override {
+      auto __result = _swiftPart.project(ArrayBufferHolder(points), ArrayBufferHolder(out));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
     }
 
   private:

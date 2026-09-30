@@ -121,6 +121,17 @@ open class HybridSplatViewSpec_cxx {
   }
 
   // Properties
+  public final var source: SplatSource {
+    @inline(__always)
+    get {
+      return self.__implementation.source
+    }
+    @inline(__always)
+    set {
+      self.__implementation.source = newValue
+    }
+  }
+  
   public final var highlight: bridge.std__vector_double_ {
     @inline(__always)
     get {
@@ -135,6 +146,23 @@ open class HybridSplatViewSpec_cxx {
     @inline(__always)
     set {
       self.__implementation.highlight = newValue.map({ __item in __item })
+    }
+  }
+  
+  public final var cameraLimits: bridge.std__optional_CameraLimits_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_CameraLimits_ in
+        if let __unwrappedValue = self.__implementation.cameraLimits {
+          return bridge.create_std__optional_CameraLimits_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.cameraLimits = newValue.value
     }
   }
   
@@ -156,6 +184,25 @@ open class HybridSplatViewSpec_cxx {
       }()
     }
   }
+  
+  public final var onError: bridge.Func_void_SplatError {
+    @inline(__always)
+    get {
+      return { () -> bridge.Func_void_SplatError in
+        let __closureWrapper = Func_void_SplatError(self.__implementation.onError)
+        return bridge.create_Func_void_SplatError(__closureWrapper.toUnsafe())
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onError = { () -> (SplatError) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_SplatError(newValue)
+        return { (__error: SplatError) -> Void in
+          __wrappedFunction.call(__error)
+        }
+      }()
+    }
+  }
 
   // Methods
   @inline(__always)
@@ -166,6 +213,59 @@ open class HybridSplatViewSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func dolly(factor: Double) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.dolly(factor: factor)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func frame(bounds: Bounds, seconds: Double, from: bridge.std__optional_ViewDirection_) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.frame(bounds: bounds, seconds: seconds, from: from.value)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func pick(x: Double, y: Double) -> bridge.Result_std__shared_ptr_Promise_double___ {
+    do {
+      let __result = try self.__implementation.pick(x: x, y: y)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_double__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_double__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_double__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve(__result) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func project(points: ArrayBuffer, out: ArrayBuffer) -> bridge.Result_double_ {
+    do {
+      let __result = try self.__implementation.project(points: points, out: out)
+      let __resultCpp = __result
+      return bridge.create_Result_double_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_double_(__exceptionPtr)
     }
   }
   

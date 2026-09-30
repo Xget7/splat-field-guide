@@ -9,7 +9,7 @@ class HybridSplatDiagnostics: HybridSplatDiagnosticsSpec {
       liveRenderThreads: Double(counts.liveRenderThreads),
       renderThreadsStarted: Double(counts.renderThreadsStarted),
       renderThreadsStopped: Double(counts.renderThreadsStopped),
-      framesPresented: Double(counts.framesPresented),
+      framesDrawn: Double(counts.framesDrawn),
       orbitCallsOnMainThread: Double(counts.orbitCallsOnMainThread),
       orbitCallsOffMainThread: Double(counts.orbitCallsOffMainThread),
       lastOrbitThread: counts.lastOrbitThread

@@ -8,21 +8,45 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `Bounds` to properly resolve imports.
+namespace margelo::nitro::splat { struct Bounds; }
+// Forward declaration of `CameraLimits` to properly resolve imports.
+namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatViewSpec; }
 // Forward declaration of `SplatDiagnosticsSnapshot` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatDiagnosticsSnapshot; }
+// Forward declaration of `SplatErrorCode` to properly resolve imports.
+namespace margelo::nitro::splat { enum class SplatErrorCode; }
+// Forward declaration of `SplatError` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatError; }
+// Forward declaration of `SplatSource` to properly resolve imports.
+namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `Vec3` to properly resolve imports.
+namespace margelo::nitro::splat { struct Vec3; }
+// Forward declaration of `ViewDirection` to properly resolve imports.
+namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Include C++ defined types
+#include "Bounds.hpp"
+#include "CameraLimits.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
+#include "SplatError.hpp"
+#include "SplatErrorCode.hpp"
+#include "SplatSource.hpp"
+#include "Vec3.hpp"
+#include "ViewDirection.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 

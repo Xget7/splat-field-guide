@@ -98,17 +98,35 @@ using namespace margelo::nitro::splat::views;
   if (hasTransactionPropChanges) {
     swiftPart.beforeUpdate();
 
+    // source: struct
+    if (oldViewProps == nullptr
+          ? newViewProps.source.isProvided()
+          : !newViewProps.source.hasSameValue(oldViewProps->source)) {
+      swiftPart.setSource(newViewProps.source.get());
+    }
     // highlight: array
     if (oldViewProps == nullptr
           ? newViewProps.highlight.isProvided()
           : !newViewProps.highlight.hasSameValue(oldViewProps->highlight)) {
       swiftPart.setHighlight(newViewProps.highlight.get());
     }
+    // cameraLimits: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.cameraLimits.isProvided()
+          : !newViewProps.cameraLimits.hasSameValue(oldViewProps->cameraLimits)) {
+      swiftPart.setCameraLimits(newViewProps.cameraLimits.get());
+    }
     // onReady: function
     if (oldViewProps == nullptr
           ? newViewProps.onReady.isProvided()
           : !newViewProps.onReady.hasSameValue(oldViewProps->onReady)) {
       swiftPart.setOnReady(newViewProps.onReady.get());
+    }
+    // onError: function
+    if (oldViewProps == nullptr
+          ? newViewProps.onError.isProvided()
+          : !newViewProps.onError.hasSameValue(oldViewProps->onError)) {
+      swiftPart.setOnError(newViewProps.onError.get());
     }
 
     // Update hybridRef if it changed

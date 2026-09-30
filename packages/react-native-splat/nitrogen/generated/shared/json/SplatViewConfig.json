@@ -4,8 +4,11 @@
   "bubblingEventTypes": {},
   "directEventTypes": {},
   "validAttributes": {
+    "source": true,
     "highlight": true,
+    "cameraLimits": true,
     "onReady": true,
+    "onError": true,
     "hybridRef": true
   }
 }

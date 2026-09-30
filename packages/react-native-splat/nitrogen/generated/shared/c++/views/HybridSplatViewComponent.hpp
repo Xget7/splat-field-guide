@@ -17,11 +17,14 @@
 
 #include <string>
 
+#include "SplatSource.hpp"
 #include <vector>
+#include "CameraLimits.hpp"
+#include <optional>
 #include <functional>
+#include "SplatError.hpp"
 #include <memory>
 #include "HybridSplatViewSpec.hpp"
-#include <optional>
 
 namespace margelo::nitro::splat::views {
 
@@ -43,21 +46,30 @@ namespace margelo::nitro::splat::views {
                          const react::RawProps& rawProps);
 
   public:
+    nitro::ReactProp<SplatSource> source;
     nitro::ReactProp<std::vector<double>> highlight;
+    nitro::ReactProp<std::optional<CameraLimits>> cameraLimits;
     nitro::ReactProp<std::function<void()>> onReady;
+    nitro::ReactProp<std::function<void(const SplatError& /* error */)>> onError;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridSplatViewSpec>& /* ref */)>>> hybridRef;
 
     [[nodiscard]]
     bool hasSameProps(const HybridSplatViewProps& other) const noexcept {
-      return highlight.hasSameValue(other.highlight) &&
+      return source.hasSameValue(other.source) &&
+             highlight.hasSameValue(other.highlight) &&
+             cameraLimits.hasSameValue(other.cameraLimits) &&
              onReady.hasSameValue(other.onReady) &&
+             onError.hasSameValue(other.onError) &&
              hybridRef.hasSameValue(other.hybridRef);
     }
 
     [[nodiscard]]
     bool hasAnyProvidedProps() const noexcept {
-      return highlight.isProvided() ||
+      return source.isProvided() ||
+             highlight.isProvided() ||
+             cameraLimits.isProvided() ||
              onReady.isProvided() ||
+             onError.isProvided() ||
              hybridRef.isProvided();
     }
 

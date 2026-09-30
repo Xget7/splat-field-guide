@@ -9,13 +9,13 @@ enum SplatInstrumentation {
     var liveRenderThreads = 0
     var renderThreadsStarted = 0
     var renderThreadsStopped = 0
-    var framesPresented = 0
+    var framesDrawn = 0
     var orbitCallsOnMainThread = 0
     var orbitCallsOffMainThread = 0
     var lastOrbitThread = ""
   }
 
-  static let logger = Logger(subsystem: "com.fieldguide.splat", category: "spike")
+  static let logger = Logger(subsystem: "com.fieldguide.splat", category: "view")
   private static let lock = NSLock()
   private static var counts = Counts()
 

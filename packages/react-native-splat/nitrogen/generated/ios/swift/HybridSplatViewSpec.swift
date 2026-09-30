@@ -10,11 +10,18 @@ import NitroModules
 /// See ``HybridSplatViewSpec``
 public protocol HybridSplatViewSpec_protocol: HybridObject, HybridView {
   // Properties
+  var source: SplatSource { get set }
   var highlight: [Double] { get set }
+  var cameraLimits: CameraLimits? { get set }
   var onReady: () -> Void { get set }
+  var onError: (_ error: SplatError) -> Void { get set }
 
   // Methods
   func orbit(dAzimuth: Double, dElevation: Double) throws -> Void
+  func dolly(factor: Double) throws -> Void
+  func frame(bounds: Bounds, seconds: Double, from: ViewDirection?) throws -> Void
+  func pick(x: Double, y: Double) throws -> Promise<Double>
+  func project(points: ArrayBuffer, out: ArrayBuffer) throws -> Double
 }
 
 public extension HybridSplatViewSpec_protocol {
