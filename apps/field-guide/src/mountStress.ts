@@ -34,8 +34,16 @@ export async function runMountStress(
   deps: MountStressDeps,
   cycles: number = MountStress.cycles,
 ): Promise<MountStressReport> {
+  // Views go only once JS collects their wrappers, so both counts are taken after that.
+  const settle = async () => {
+    await deps.sleep(MountStress.settleMs);
+    for (let i = 0; i < MountStress.collectPasses; i++) {
+      deps.collectGarbage();
+      await deps.sleep(MountStress.phaseMs);
+    }
+  };
   deps.setMounted(false);
-  await deps.sleep(MountStress.settleMs);
+  await settle();
   const before = deps.snapshot();
   let peakLiveViews = 0;
   let peakLiveMetalLayers = 0;
@@ -58,15 +66,12 @@ export async function runMountStress(
     await deps.sleep(MountStress.phaseMs);
     samplePeaks();
   }
-  await deps.sleep(MountStress.settleMs);
-  for (let i = 0; i < MountStress.collectPasses; i++) {
-    deps.collectGarbage();
-    await deps.sleep(MountStress.phaseMs);
-  }
-
+  await settle();
   const final = deps.snapshot();
-  const threadsStarted = final.renderThreadsStarted - before.renderThreadsStarted;
-  const threadsStopped = final.renderThreadsStopped - before.renderThreadsStopped;
+  const threadsStarted =
+    final.renderThreadsStarted - before.renderThreadsStarted;
+  const threadsStopped =
+    final.renderThreadsStopped - before.renderThreadsStopped;
   const passed =
     final.liveViews === before.liveViews &&
     final.liveMetalLayers === before.liveMetalLayers &&
