@@ -15,6 +15,8 @@ namespace {
 constexpr float kMaxFrameSeconds = 0.1f;
 // Room left around framed bounds, as a fraction of their radius.
 constexpr float kFramingMargin = 1.05f;
+// An aspect below this is treated as this, so a zero-width view still frames.
+constexpr float kMinFramingAspect = 1e-3f;
 
 using Clock = std::chrono::steady_clock;
 
@@ -37,7 +39,7 @@ float framingRadius(const splat::Bounds& bounds, Extent extent) {
                            ? static_cast<float>(extent.width) / extent.height
                            : 1.0f;
   const float halfY = SplatEngine::kFieldOfViewRadians * 0.5f;
-  const float halfX = std::atan(std::tan(halfY) * std::max(aspect, 1e-3f));
+  const float halfX = std::atan(std::tan(halfY) * std::max(aspect, kMinFramingAspect));
   return sphere * kFramingMargin / std::sin(std::min(halfX, halfY));
 }
 
