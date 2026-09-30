@@ -75,6 +75,8 @@ final class SplatRenderThread: Thread {
 
     while let work = nextWork() {
       if work.fireReady {
+        SplatInstrumentation.logger.info(
+          "onReady fired on thread=\(SplatInstrumentation.currentThreadName, privacy: .public)")
         work.state.onReady()
       }
       if work.draw {
