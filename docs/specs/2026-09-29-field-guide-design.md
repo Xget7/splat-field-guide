@@ -28,7 +28,7 @@ In:
 - One pack for one piece of equipment, about eight parts and three procedures.
 - iOS (Metal) and Android (Vulkan) from one React Native 0.87 app.
 - Orbit, pinch zoom, optional gyroscope look, tap to pick, animated framing.
-- Highlight: tint the parts of the current step or the picked part in one accent colour and dim the rest slightly; the goal is only that anyone sees at a glance what is marked, so there is no outline pass.
+- Highlight: tint the parts of the current step or the picked part in one sky-blue accent colour (#38BDF8, about two thirds tint) and dim the rest slightly; the goal is only that anyone sees at a glance what is marked, so there is no outline pass.
 - Parts inside parts: a part may have a parent (the oil filler cap on the engine); a tap picks the smallest part, and showing a parent also highlights everything inside it.
 - Instructor with tools on iOS (Apple Foundation Models); commands on both platforms; remote instructor for Android when online.
 - Hands-free voice during a running procedure, push-to-talk always.
