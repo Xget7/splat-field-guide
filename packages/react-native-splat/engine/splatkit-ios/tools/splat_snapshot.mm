@@ -7,12 +7,14 @@
 //
 // --pose is azimuth and elevation in degrees, then the radius, then optionally the
 // target; --bounds frames six numbers (min then max) instead. Without either the whole
-// cloud is framed from the front.
+// cloud is framed from the front. --pick taps points given as x,y pairs in [0, 1] from the
+// top left: each prints the label it picks and is marked on the image.
 
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
 #import <QuartzCore/CAMetalLayer.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <optional>
@@ -34,6 +36,9 @@ constexpr int kMaxSettleFrames = 600;
 constexpr int64_t kCaptureTimeoutNanos = 60 * NSEC_PER_SEC;
 constexpr uint32_t kDefaultWidth = 1206;  // iPhone 17 Pro, portrait
 constexpr uint32_t kDefaultHeight = 2622;
+constexpr int kMarkerRadius = 24;  // pixels
+constexpr int kMarkerThickness = 3;
+constexpr uint8_t kMarkerBgra[4] = {0xFF, 0x00, 0xFF, 0xFF};  // magenta, unlike anything in a car
 
 struct Options {
   std::string spz;
@@ -42,6 +47,7 @@ struct Options {
   std::vector<uint8_t> highlight;
   std::vector<float> pose;
   std::vector<float> bounds;
+  std::vector<float> picks;
   uint32_t width = kDefaultWidth;
   uint32_t height = kDefaultHeight;
 };
@@ -57,7 +63,8 @@ std::vector<float> numbers(const std::string& list) {
 int usage() {
   std::fprintf(stderr,
                "usage: splat_snapshot --spz FILE [--labels FILE] [--highlight L,L]\n"
-               "       [--pose AZ,EL,R[,X,Y,Z] | --bounds X,Y,Z,X,Y,Z] [--size WxH] --out FILE\n");
+               "       [--pose AZ,EL,R[,X,Y,Z] | --bounds X,Y,Z,X,Y,Z] [--size WxH]\n"
+               "       [--pick X,Y[,X,Y...]] --out FILE\n");
   return 2;
 }
 
@@ -78,6 +85,8 @@ std::optional<Options> parse(int argc, char** argv) {
       o.pose = numbers(value);
     } else if (flag == "--bounds") {
       o.bounds = numbers(value);
+    } else if (flag == "--pick") {
+      o.picks = numbers(value);
     } else if (flag == "--size") {
       if (std::sscanf(value.c_str(), "%ux%u", &o.width, &o.height) != 2) return std::nullopt;
     } else {
@@ -86,10 +95,27 @@ std::optional<Options> parse(int argc, char** argv) {
   }
   const bool poseOk = o.pose.empty() || o.pose.size() == 3 || o.pose.size() == 6;
   const bool boundsOk = o.bounds.empty() || o.bounds.size() == 6;
-  if ((argc - 1) % 2 != 0 || o.spz.empty() || o.out.empty() || !poseOk || !boundsOk) {
+  const bool picksOk = o.picks.size() % 2 == 0;
+  if ((argc - 1) % 2 != 0 || o.spz.empty() || o.out.empty() || !poseOk || !boundsOk || !picksOk) {
     return std::nullopt;
   }
   return o;
+}
+
+// A cross centred on (x, y) in [0, 1], so a review shows where a pick landed.
+void markPoint(std::vector<uint8_t>& bgra, uint32_t width, uint32_t height, float x, float y) {
+  const int cx = static_cast<int>(x * width);
+  const int cy = static_cast<int>(y * height);
+  const auto paint = [&](int px, int py) {
+    if (px < 0 || py < 0 || px >= static_cast<int>(width) || py >= static_cast<int>(height)) return;
+    std::copy(std::begin(kMarkerBgra), std::end(kMarkerBgra), &bgra[(py * width + px) * 4]);
+  };
+  for (int d = -kMarkerRadius; d <= kMarkerRadius; ++d) {
+    for (int t = -kMarkerThickness / 2; t <= kMarkerThickness / 2; ++t) {
+      paint(cx + d, cy + t);
+      paint(cx + t, cy + d);
+    }
+  }
 }
 
 bool writePng(const std::vector<uint8_t>& bgra, uint32_t width, uint32_t height,
@@ -187,6 +213,14 @@ int main(int argc, char** argv) {
                 stats.drawnSplatCount, stats.splatCount, stats.gpuMillis,
                 pose.azimuth / kRadiansPerDegree, pose.elevation / kRadiansPerDegree, pose.radius,
                 pose.target.x, pose.target.y, pose.target.z);
+    for (size_t i = 0; i < o.picks.size(); i += 2) {
+      const auto start = std::chrono::steady_clock::now();
+      const uint8_t label = engine.pick(o.picks[i], o.picks[i + 1]);
+      const double millis =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+      std::printf("pick %.3f,%.3f: label %u in %.1f ms\n", o.picks[i], o.picks[i + 1], label, millis);
+      markPoint(pixels, o.width, o.height, o.picks[i], o.picks[i + 1]);
+    }
     if (!writePng(pixels, o.width, o.height, o.out)) {
       std::fprintf(stderr, "could not write %s\n", o.out.c_str());
       return 1;
