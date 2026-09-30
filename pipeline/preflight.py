@@ -84,6 +84,41 @@ def test_orientation_matches_what_the_browser_shows():
         assert (int(x * w), int(y * h)) == (31, 7), f"orientation {orientation} maps to {(int(x * w), int(y * h))}"
 
 
+def test_marks_checks_catch_bad_marks():
+    parts = {"body": {"parent": None}, "cap": {"parent": "body"}, "lid": {"parent": None}}
+    shape = (20, 30)
+
+    def box(top, left, bottom, right):
+        mask = np.zeros(shape, bool)
+        mask[top:bottom, left:right] = True
+        return mask
+
+    def saved(**masks):
+        return {part: {"marks": {"part": part, "photos": {str(f): {} for f in by_photo}}, "masks": by_photo}
+                for part, by_photo in masks.items()}
+
+    good = saved(body={0: box(2, 2, 18, 20), 1: box(2, 2, 18, 20)}, cap={1: box(4, 4, 8, 8)}, lid={1: box(2, 22, 18, 28)})
+    assert spike_lib.check_marks(good, lambda f: shape, parts) == []
+    wrong_part = saved(body=good["body"]["masks"], cap=good["cap"]["masks"], lid=good["lid"]["masks"])
+    wrong_part["lid"]["marks"]["part"] = "body"
+    unlisted = saved(body=good["body"]["masks"], cap=good["cap"]["masks"], lid=good["lid"]["masks"])
+    unlisted["body"]["marks"]["photos"].pop("0")
+    bad = {
+        "missing part": {p: good[p] for p in ("body", "cap")},
+        "unknown part": {**good, **saved(hood={0: box(2, 2, 9, 9)})},
+        "marks.json names another part": wrong_part,
+        "marks.json and masks disagree": unlisted,
+        "no masks": {**good, **saved(lid={})},
+        "wrong size": {**good, **saved(lid={1: np.ones((30, 20), bool)})},
+        "empty mask": {**good, **saved(lid={1: np.zeros(shape, bool)})},
+        "whole photo": {**good, **saved(lid={1: np.ones(shape, bool)})},
+        "child outside its parent": {**good, **saved(cap={1: box(2, 22, 6, 26)})},
+        "siblings claim the same pixels": {**good, **saved(lid={1: box(4, 4, 16, 18)})},
+    }
+    for case, marks in bad.items():
+        assert spike_lib.check_marks(marks, lambda f: shape, parts), f"{case} passed"
+
+
 def test_prompt_checks_catch_bad_files():
     names = ["a.jpg", "b.jpg"]
     good = {"frames": names, "parts": [{"id": "cap", "clicks": [{"frame": 1, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]}
@@ -655,12 +690,24 @@ def check_real_data(clicks_path: pathlib.Path):
 def check_volume():
     @check("owner's marks on the Modal volume")
     def _():
-        listing = subprocess.run(["modal", "volume", "ls", "sfg-spike-frames", "/marks/engine"],
-                                 capture_output=True, text=True)
-        assert listing.returncode == 0, listing.stderr.strip()
-        masks = sorted(int(pathlib.Path(line.strip()).stem) for line in listing.stdout.splitlines() if line.strip().endswith(".png"))
-        assert masks == spike_lib.KEYFRAMES, f"masks for {masks}, keyframes {spike_lib.KEYFRAMES}"
-        return f"{len(masks)} keyframe masks"
+        import lift
+
+        with tempfile.TemporaryDirectory() as folder:
+            fetched = subprocess.run(["modal", "volume", "get", "sfg-spike-frames", "/marks", folder],
+                                     capture_output=True, text=True)
+            assert fetched.returncode == 0, fetched.stderr.strip()
+            saved = {part.name: {"marks": json.loads((part / "marks.json").read_text()), "masks": lift.load_masks(part)}
+                     for part in sorted(pathlib.Path(folder, "marks").iterdir()) if part.is_dir()}
+        names = sorted(PHOTOS.glob("*.jpg"))
+
+        def stored_shape(photo: int) -> tuple[int, int]:
+            stored = Image.open(names[photo])
+            stored.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+            return stored.height, stored.width
+
+        errors = spike_lib.check_marks(saved, stored_shape)
+        assert not errors, "; ".join(errors)
+        return ", ".join(f"{part} {len(entry['masks'])}" for part, entry in saved.items())
 
     @check("photos on the Modal volume")
     def _():
@@ -689,6 +736,7 @@ def main():
                      ("Modal app definition imports", test_modal_app_builds),
                      ("click orientation matches the browser", test_orientation_matches_what_the_browser_shows),
                      ("prompt checks reject bad files", test_prompt_checks_catch_bad_files),
+                     ("marks checks reject bad marks", test_marks_checks_catch_bad_marks),
                      ("contact sheet survives edge cases", test_contact_sheet_edge_cases),
                      ("mask orientation matches the photo", test_mask_orientation_matches_the_photo),
                      ("page photo matches the tracker frame", test_working_photo_matches_tracker_frames),

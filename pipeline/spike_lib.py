@@ -275,3 +275,62 @@ def iou(a, b) -> float:
 
     union = np.logical_or(a, b).sum()
     return float(np.logical_and(a, b).sum() / union) if union else 1.0
+
+
+MIN_MASK_SHARE = 0.001  # a keyframe mask covering less of its photo than this is a slip, not a part
+MAX_MASK_SHARE = 0.9  # one covering more is the whole photo
+# Share of a child's mask that its parent's mask covers on a photo marked for both. The lift unites the two, so a
+# parent drawn a little short is harmless; a child mostly outside was marked on something else.
+MIN_CHILD_INSIDE = 0.5
+MAX_SIBLING_OVERLAP = 0.5  # share of the smaller of two top-level parts' masks that the other may also claim
+
+
+def check_marks(saved: dict[str, dict], shape_of, parts: dict | None = None) -> list[str]:
+    """What stops the owner's saved marks from being tracked and lifted; empty when nothing does.
+
+    saved[part] = {"marks": its marks.json, "masks": {photo: bool mask in the stored layout}};
+    shape_of(photo) is the stored-layout shape the tracker reads for that photo.
+    """
+    import numpy as np
+
+    parts = PARTS if parts is None else parts
+    errors = [f"{part}: no saved marks" for part in parts if part not in saved]
+    errors += [f"{part}: marks for a part the page does not offer" for part in saved if part not in parts]
+    for part, entry in saved.items():
+        marks, masks = entry["marks"], entry["masks"]
+        if marks.get("part") != part:
+            errors.append(f"{part}: marks.json names part {marks.get('part')!r}")
+        listed = sorted(int(photo) for photo in marks.get("photos", {}))
+        if listed != sorted(masks):
+            errors.append(f"{part}: marks.json lists photos {listed}, masks exist for {sorted(masks)}")
+        if not masks:
+            errors.append(f"{part}: no keyframe masks")
+        for photo, mask in sorted(masks.items()):
+            if mask.shape != tuple(shape_of(photo)):
+                errors.append(f"{part}: mask {photo} is {mask.shape}, the photo {tuple(shape_of(photo))}")
+                continue
+            share = float(np.mean(mask))
+            if not MIN_MASK_SHARE <= share <= MAX_MASK_SHARE:
+                errors.append(f"{part}: mask {photo} covers {share:.2%} of the photo")
+    usable = {part: entry["masks"] for part, entry in saved.items() if part in parts}
+    for part, masks in usable.items():
+        parent = parts[part]["parent"]
+        for photo in sorted(set(masks) & set(usable.get(parent, {}))):
+            child, whole = masks[photo], usable[parent][photo]
+            if child.shape != whole.shape or not child.any():
+                continue
+            inside = float(np.logical_and(child, whole).sum() / child.sum())
+            if inside < MIN_CHILD_INSIDE:
+                errors.append(f"{part}: only {inside:.1%} of its mask on photo {photo} lies inside {parent}'s")
+    top = sorted(part for part in usable if parts[part]["parent"] is None)
+    for i, a in enumerate(top):
+        for b in top[i + 1:]:
+            for photo in sorted(set(usable[a]) & set(usable[b])):
+                ma, mb = usable[a][photo], usable[b][photo]
+                smaller = min(ma.sum(), mb.sum())
+                if ma.shape != mb.shape or not smaller:
+                    continue
+                shared = float(np.logical_and(ma, mb).sum() / smaller)
+                if shared > MAX_SIBLING_OVERLAP:
+                    errors.append(f"{a} and {b}: both claim {shared:.1%} of the smaller mask on photo {photo}")
+    return errors
