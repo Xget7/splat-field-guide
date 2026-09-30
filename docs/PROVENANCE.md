@@ -26,8 +26,13 @@ The guide shows one small world from an orbit camera, so the rest of SplatKit we
 Kept: SPZ decoding, the Morton reorder, the frame loop and the GPU pipeline (visibility, radix sort, front-to-back compositing).
 The walk camera became an orbit camera.
 
-Not imported: SplatKit's release tooling (`packages/splatkit-ios/distribution`), the Android backend (imported later from the same commit), the React Native bridge and the example apps.
+Not imported: SplatKit's release tooling (`packages/splatkit-ios/distribution`), the Android backend (to be imported from the synced commit), the React Native bridge and the example apps.
 Inherited code is alpha quality and is changed only where the guide needs it.
+
+### Synced
+
+SplatKit's cleanups up to commit `a28c8cc4e89fb0b40d98691f40fc8472870dda4c` (30 September 2026) were ported onto the pruned copy, one commit each.
+Hunks on pruned code were dropped, as were the commits that touch only pruned code.
 
 ## Built for this guide
 
