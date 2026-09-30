@@ -1,0 +1,565 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["numpy<2", "opencv-python-headless", "pillow", "modal", "fastapi", "httpx2", "uvicorn", "scipy"]
+# ///
+"""Everything that can be checked without a GPU, before a SAM run is sent to Modal.
+
+Run:  uv run preflight.py [--clicks prompts-v1.json] [--volume]
+      uv run preflight.py --serve-fake     (the marking page on http://127.0.0.1:8765 with a fake SAM)
+Exit code 1 when any check fails; preflight/clicks.jpg shows every click where SAM will see it.
+"""
+
+import argparse
+import io
+import json
+import pathlib
+import py_compile
+import re
+import subprocess
+import sys
+import tempfile
+
+import cv2
+import numpy as np
+from PIL import Image, ImageOps
+
+import spike_lib
+
+HERE = pathlib.Path(__file__).parent
+DATA = HERE.parent / "data"
+PHOTOS = DATA / "capture" / "jpg"
+OUT = DATA / "preflight"
+SUPPORTED_ORIENTATIONS = {1, 3, 6, 8}
+results: list[tuple[bool, str]] = []
+
+
+def check(name: str):
+    def wrap(fn):
+        try:
+            detail = fn()
+            results.append((True, f"{name}{f': {detail}' if detail else ''}"))
+        except Exception as e:  # a failed check is reported, never raised
+            results.append((False, f"{name}: {e}"))
+        return fn
+    return wrap
+
+
+def test_code_compiles():
+    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "preflight.py"]
+    for file in sources:
+        py_compile.compile(str(HERE / file), doraise=True)
+    lint = subprocess.run(["uvx", "ruff", "check", "--quiet", "--select", "F,E9", *sources],
+                          cwd=HERE, capture_output=True, text=True)
+    assert lint.returncode == 0, lint.stdout.strip() or lint.stderr.strip()
+
+
+def test_modal_app_builds():
+    sys.path.insert(0, str(HERE))
+    import sam_clicks  # noqa: F401  (defines the image and function without contacting Modal)
+    import sam_live
+    import sam_track
+
+    assert callable(sam_clicks.main)
+    sam = sam_live.Sam()  # the web function calls these by name, so a rename must fail here, not on Modal
+    missing = [m for m in ("warm", "segment", "save") if not hasattr(sam, m)]
+    assert not missing, f"sam_live.Sam lacks {missing}"
+    assert set(sam_track.HOLDOUTS) <= set(spike_lib.KEYFRAMES), "a held-out photo is not a keyframe"
+    assert {order for order, _ in sam_track.VARIANTS.values()} == {"capture", "view"}
+
+
+def test_orientation_matches_what_the_browser_shows():
+    """For every EXIF orientation, a click on the upright photo must land on the same stored pixel."""
+    w, h = 40, 30
+    for orientation in SUPPORTED_ORIENTATIONS:
+        raw = Image.new("L", (w, h))
+        raw.putpixel((31, 7), 255)
+        exif = raw.getexif()
+        exif[274] = orientation
+        buffer = io.BytesIO()
+        raw.save(buffer, "PNG", exif=exif)
+        shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer)))  # what Chrome displays
+        v, u = np.argwhere(shown == 255)[0]
+        x, y = spike_lib.raw_from_display((u + 0.5) / shown.shape[1], (v + 0.5) / shown.shape[0], orientation)
+        assert (int(x * w), int(y * h)) == (31, 7), f"orientation {orientation} maps to {(int(x * w), int(y * h))}"
+
+
+def test_prompt_checks_catch_bad_files():
+    names = ["a.jpg", "b.jpg"]
+    good = {"frames": names, "parts": [{"id": "cap", "clicks": [{"frame": 1, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]}
+    assert spike_lib.check_prompts(good, names)[0] == []
+    bad = [
+        {**good, "frames": ["b.jpg", "a.jpg"]},
+        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 1, "x": .5, "y": .5, "positive": False}]}]},
+        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 9, "x": .5, "y": .5, "positive": True}]}]},
+        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 0, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]},
+        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 0, "x": 1.2, "y": .5, "positive": True}]}]},
+    ]
+    for i, prompts in enumerate(bad):
+        assert spike_lib.check_prompts(prompts, names)[0], f"bad case {i} passed"
+
+
+def test_contact_sheet_edge_cases():
+    photo = np.full((30, 40, 3), 90, np.uint8)
+    prompts = {"parts": [{"id": "cap", "clicks": [{"frame": 0, "x": .5, "y": .5, "positive": True}]}]}
+    colours = {"cap": (0, 140, 255)}
+    mask = np.zeros((30, 40), bool)
+    mask[10:20, 10:20] = True
+    cases = [
+        ([], {}, {}),                                   # nothing found at all (the run that crashed)
+        ([0, 1], {"cap": {0: mask}}, {0: 6, 1: 1}),     # a frame without a mask, mixed orientations
+    ]
+    for frames, masks, orientations in cases:
+        jpg = spike_lib.contact_sheet(lambda f: photo, frames, masks, colours, prompts, orientations)
+        assert cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR) is not None
+
+
+def test_mask_orientation_matches_the_photo():
+    """A mask drawn on the upright photo must land on the same stored pixels, for every EXIF orientation."""
+    raw = np.zeros((30, 40), bool)
+    raw[3:9, 25:37] = True
+    for orientation in SUPPORTED_ORIENTATIONS:
+        image = Image.fromarray(raw.astype(np.uint8) * 255)
+        exif = image.getexif()
+        exif[274] = orientation
+        buffer = io.BytesIO()
+        image.save(buffer, "PNG", exif=exif)
+        shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer))) > 0
+        back = spike_lib.raw_from_display_mask(shown, orientation)
+        assert back.shape == raw.shape and (back == raw).all(), f"orientation {orientation} does not round-trip"
+
+
+def test_working_photo_matches_tracker_frames():
+    """The page's upright photo, turned back, is exactly the frame the tracker reads (same size, no resampling drift)."""
+    name = sorted(PHOTOS.glob("*.jpg"))[spike_lib.KEYFRAMES[0]]
+    upright = spike_lib.working_photo(Image.open(name))
+    stored = Image.open(name)
+    stored.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+    back = spike_lib.raw_from_display_mask(np.zeros((upright.height, upright.width), bool), stored.getexif().get(274, 1))
+    assert back.shape == (stored.height, stored.width), f"{back.shape} vs {(stored.height, stored.width)}"
+    return f"{upright.size} upright, {stored.size} stored"
+
+
+def test_page_script_parses():
+    page = (HERE / "mark.html").read_text()
+    script = re.search(r"<script>(.*)</script>", page, re.S).group(1)
+    with tempfile.NamedTemporaryFile("w", suffix=".js") as js:
+        js.write(script)
+        js.flush()
+        result = subprocess.run(["node", "--check", js.name], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr.strip()
+
+
+class FakeSam:
+    """Stands in for SAM behind the real web API: discs around the clicks, clipped to the box."""
+
+    def __init__(self, out: pathlib.Path):
+        self.out = out
+        names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
+        self.sizes, self.orientations = {}, {}
+        for frame in spike_lib.photos_to_mark():
+            photo = Image.open(PHOTOS / names[frame])
+            self.orientations[frame] = photo.getexif().get(274, 1)
+            self.sizes[frame] = spike_lib.working_photo(photo).size
+
+    def mask(self, frame, marks):
+        w, h = self.sizes[frame]
+        prompt = spike_lib.sam_prompt(marks, w, h)
+        if prompt is None:
+            return None, 0.0
+        yy, xx = np.mgrid[0:h, 0:w]
+        mask = np.zeros((h, w), bool)
+        if prompt["point_coords"] is not None:
+            for (x, y), label in zip(prompt["point_coords"], prompt["point_labels"]):
+                disc = (xx - x) ** 2 + (yy - y) ** 2 <= (w * (0.12 if label else 0.06)) ** 2
+                mask = mask | disc if label else mask & ~disc
+        if prompt["box"] is not None:
+            x0, y0, x1, y1 = prompt["box"]
+            inside = (xx >= x0) & (xx <= x1) & (yy >= y0) & (yy <= y1)
+            mask = (mask & inside) if mask.any() else inside
+        return mask, 0.5
+
+    async def warm(self):
+        return "fake"
+
+    async def segment(self, frame, marks):
+        mask, score = self.mask(frame, marks)
+        return {"png": None if mask is None else spike_lib.mask_png(mask), "score": score}
+
+    async def save(self, request):
+        masks = {f: m for f, marks in request["photos"].items() if (m := self.mask(f, marks)[0]) is not None}
+        folder = self.out / request["part"]
+        folder.mkdir(parents=True, exist_ok=True)
+        for old in folder.glob("*"):
+            old.unlink()
+        for name, data in spike_lib.marks_files(request, masks, self.orientations).items():
+            (folder / name).write_bytes(data)
+        return sorted(masks)
+
+
+def page_app(out: pathlib.Path):
+    import live_api
+
+    return live_api.make_app(FakeSam(out), PHOTOS, HERE / "mark.html", out)
+
+
+def test_parts_are_well_formed():
+    count = len(list(PHOTOS.glob("*.jpg")))
+    ids = list(spike_lib.PARTS)
+    assert len(ids) < 256 and all(re.fullmatch(r"[a-z]+(-[a-z]+)*", i) for i in ids), ids
+    for part, info in spike_lib.PARTS.items():
+        assert info["name"].strip(), f"{part} has no name"
+        parent = info["parent"]
+        assert parent is None or spike_lib.PARTS.get(parent, {}).get("parent", 1) is None, f"{part}: bad parent {parent}"
+        photos = info["photos"]
+        assert len(photos) >= 3 and len(set(photos)) == len(photos), f"{part}: photos {photos}"
+        assert all(0 <= f < count for f in photos), f"{part}: photo outside 0..{count - 1}"
+    assert spike_lib.PARTS["engine"]["photos"] == spike_lib.KEYFRAMES, "the engine's saved marks use the keyframes"
+    return f"{len(ids)} parts on {len(spike_lib.photos_to_mark())} photos"
+
+
+def test_page_api_with_fake_sam():
+    from fastapi.testclient import TestClient
+
+    with tempfile.TemporaryDirectory() as tmp:
+        client = TestClient(page_app(pathlib.Path(tmp)))
+        assert "<canvas" in client.get("/").text
+        config = client.get("/api/config").json()
+        assert list(config["parts"]) == list(spike_lib.PARTS) and config["saved"] == {}, config["saved"]
+        key = spike_lib.KEYFRAMES[2]
+        outside = min(set(range(len(list(PHOTOS.glob("*.jpg"))))) - set(spike_lib.photos_to_mark()))
+        photo = Image.open(io.BytesIO(client.get(f"/photo/{key}.jpg").content))
+        assert max(photo.size) == spike_lib.WORKING_SIDE and photo.height > photo.width, photo.size
+        assert client.get(f"/photo/{outside}.jpg").status_code == 404, "a photo no part uses was served"
+        assert client.post("/api/warm").json() == {"device": "fake"}
+
+        click = {"x": 0.3, "y": 0.2, "positive": True}
+        answer = client.post("/api/segment", json={"frame": key, "clicks": [click]}).json()
+        shown = Image.open(io.BytesIO(__import__("base64").b64decode(answer["mask"].split(",")[1])))
+        assert shown.size == photo.size and shown.mode == "LA", (shown.size, shown.mode)
+        assert shown.getpixel((int(0.3 * photo.width), int(0.2 * photo.height)))[1] == 255, "mask not under the click"
+        only_no = {"frame": key, "clicks": [{**click, "positive": False}]}
+        assert client.post("/api/segment", json=only_no).json()["mask"] is None
+        for bad in ({"frame": key, "clicks": [{**click, "x": 1.2}]},
+                    {"frame": key, "box": [0.5, 0.1, 0.4, 0.9]},
+                    {"frame": key, "box": [0.1, 0.1, 0.4]}):
+            assert client.post("/api/segment", json=bad).status_code == 422, f"accepted {bad}"
+        assert client.post("/api/segment", json={"frame": outside, "clicks": [click]}).status_code == 404
+
+        request = {"part": "engine", "photos": {str(key): {"clicks": [click], "box": None},
+                                                str(spike_lib.KEYFRAMES[0]): {"clicks": [], "box": [0.1, 0.1, 0.9, 0.9]}}}
+        assert client.post("/api/save", json=request).json() == {"saved": sorted([key, spike_lib.KEYFRAMES[0]])}
+        assert client.post("/api/save", json={**request, "part": "../x"}).status_code == 400
+        assert client.post("/api/save", json={**request, "part": "battery"}).status_code == 404, "saved foreign photos"
+        assert client.get("/api/config").json()["saved"] == {"engine": sorted([key, spike_lib.KEYFRAMES[0]])}
+        saved = pathlib.Path(tmp) / "engine"
+        assert json.loads((saved / "marks.json").read_text())["part"] == "engine"
+        stored = Image.open(saved / f"{key:05d}.png")
+        raw = Image.open(sorted(PHOTOS.glob("*.jpg"))[key])
+        raw.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+        assert stored.size == raw.size, f"saved mask {stored.size}, tracker frame {raw.size}"
+        x, y = spike_lib.raw_from_display(0.3, 0.2, raw.getexif().get(274, 1))
+        assert stored.getpixel((int(x * stored.width), int(y * stored.height))) == 255, "saved mask not under the click"
+
+
+def test_view_order_follows_the_cameras():
+    """Cameras on a ring, shuffled, must come back in ring order (either direction)."""
+    rng = np.random.default_rng(0)
+    angles = np.linspace(0, 2 * np.pi, 30, endpoint=False)
+    centres = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)
+    directions = -centres + [0, 0, -0.2]
+    shuffled = rng.permutation(len(angles))
+    order = spike_lib.view_order(centres[shuffled], directions[shuffled])
+    assert sorted(order) == list(range(len(angles))), "not a permutation"
+    steps = np.diff(shuffled[order]) % len(angles)
+    assert set(steps) <= {1, len(angles) - 1} or (steps == steps[0]).sum() >= len(angles) - 2, f"ring broken: {steps}"
+    assert spike_lib.iou(np.ones((2, 2), bool), np.ones((2, 2), bool)) == 1.0
+    assert spike_lib.iou(np.eye(2, dtype=bool), ~np.eye(2, dtype=bool)) == 0.0
+
+
+def test_small_tile_sheet():
+    photo = np.full((30, 40, 3), 90, np.uint8)
+    frames = list(range(10))
+    jpg = spike_lib.contact_sheet(lambda f: photo, frames, {}, {}, {"parts": []}, {f: 6 for f in frames},
+                                  tile=236, per_row=8, label=lambda f: f"{f} *")
+    sheet = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
+    assert sheet.shape[:2] == (2 * 236, 8 * 236), sheet.shape
+
+
+def test_entrypoints_run_in_the_modal_cli_python():
+    """`modal run` executes local entrypoints with the modal CLI's own Python, which has no numpy or OpenCV."""
+    import os
+    import shutil
+
+    # The modal on PATH outside this preflight's own environment is the one `modal run` uses.
+    own_bin = str(pathlib.Path(sys.prefix) / "bin")
+    path = os.pathsep.join(d for d in os.environ["PATH"].split(os.pathsep) if d.rstrip("/") != own_bin)
+    cli = shutil.which("modal", path=path)
+    assert cli, "no modal CLI on PATH"
+    shebang = pathlib.Path(cli).resolve().read_text(errors="ignore").splitlines()[0]
+    python = shebang.removeprefix("#!").strip()
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, sam_clicks, spike_lib, json; "
+            "plan = sam_track.plan('engine'); assert len(plan['centres']) == 124; "
+            "spike_lib.check_prompts({'frames': [], 'parts': []}, [])")
+    result = subprocess.run([python, "-c", code, str(HERE)], capture_output=True, text=True, cwd=HERE)
+    assert result.returncode == 0, result.stderr.strip().splitlines()[-1]
+    return python
+
+
+def test_cameras_cover_every_photo():
+    cameras = json.loads((HERE / "cameras.json").read_text())
+    assert sorted(map(int, cameras)) == list(range(len(list(PHOTOS.glob("*.jpg"))))), "camera poses and photos differ"
+    return f"{len(cameras)} poses"
+
+
+def test_projection_matches_opencv():
+    """lift.project must agree with OpenCV's model with the same four distortion terms (COLMAP OPENCV, as Brush)."""
+    import lift
+
+    rng = np.random.default_rng(1)
+    fx, fy, cx, cy, *distortion = params = (2017.87, 2017.68, 1416.0, 1062.0, 0.0636, -0.1051, 0.0001, 0.0001)
+    camera = (2832, 2124, params)
+    rotation = cv2.Rodrigues(np.array([0.1, -0.2, 0.05]))[0]
+    translation = np.array([0.2, -0.1, 3.0])
+    in_camera = np.c_[rng.uniform(-0.6, 0.6, (500, 2)), np.ones(500)] * rng.uniform(1, 5, (500, 1))
+    points = (in_camera - translation) @ rotation  # world = R^T (camera - t)
+    u, v, _ = lift.project(points, rotation, translation, camera, 0.5)
+    intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+    expected = cv2.projectPoints(points, cv2.Rodrigues(rotation)[0], translation, intrinsics, np.array(distortion))[0]
+    error = np.abs(np.c_[u, v] - expected[:, 0] * 0.5).max()
+    assert error < 1e-6, f"{error:.3g} px off OpenCV"
+    away = (np.array([[0, 0, -1.0], [9.0, 0, 1.0]]) - translation) @ rotation  # behind; far outside the frame
+    u, v, _ = lift.project(away, rotation, translation, camera, 0.5)
+    assert np.isnan(u).all() and np.isnan(v).all(), f"unseeable points projected to {u}, {v}"
+
+
+def test_compositing_follows_occlusion():
+    import lift
+
+    # Three splats share the first cell (depth order: 1, 0, 2); 3 is alone; 4 falls outside the 64x48 photo.
+    u, v = np.array([1.0, 1.5, 2.0, 30.0, 500.0]), np.array([1.0, 1.2, 1.1, 30.0, 1.0])
+    z, alpha = np.array([2.0, 1.0, 3.0, 1.0, 1.0]), np.array([0.5, 0.5, 0.9, 0.3, 0.9])
+    index, px, py, cell, weight = lift.contributions(u, v, z, alpha, 64, 48)
+    got = dict(zip(index.tolist(), np.round(weight, 6).tolist()))
+    assert got == {1: 0.5, 0: 0.25, 2: 0.225, 3: 0.3}, got
+    share = lift.composite(np.isin(index, [1, 3]).astype(float), cell, weight, 64, 48)
+    assert share.shape == (12, 16), share.shape
+    assert abs(share[0, 0] - 0.5 / 0.975) < 1e-9 and share[7, 7] == 1.0, (share[0, 0], share[7, 7])
+    assert np.isnan(share).sum() == share.size - 2, "cells nothing lands in must be unknown"
+    colour = lift.composite(np.ones((len(index), 3)), cell, weight, 64, 48)
+    assert colour.shape == (12, 16, 3) and colour[0, 0].tolist() == [1.0, 1.0, 1.0], colour.shape
+
+
+def synthetic_scene():
+    """A ball (the part) in front of a wall, seen by seven cameras on an arc; masks are exact ball silhouettes."""
+    import lift
+
+    golden = np.pi * (3 - np.sqrt(5))
+    k = np.arange(3000)
+    height = 1 - 2 * (k + 0.5) / len(k)
+    ring = np.sqrt(1 - height**2)
+    ball = 0.5 * np.c_[ring * np.cos(golden * k), height, ring * np.sin(golden * k)]
+    grid = np.arange(-2.5, 2.501, 0.05)
+    wall = np.c_[np.repeat(grid, len(grid)), np.tile(grid, len(grid)), np.full(len(grid) ** 2, 1.5)]
+    points = np.r_[ball, wall]
+    truth = np.r_[np.ones(len(ball), bool), np.zeros(len(wall), bool)]
+    camera = (160, 120, (200.0, 200.0, 80.0, 60.0, 0.0, 0.0, 0.0, 0.0))
+    poses, views = [], {}
+    for frame, angle in enumerate(np.radians(np.linspace(-30, 30, 7))):
+        centre = 4 * np.array([np.sin(angle), 0, -np.cos(angle)])
+        forward = -centre / 4
+        rotation = np.stack([np.cross([0, 1, 0], forward), [0, 1, 0], forward])
+        poses.append((rotation, -rotation @ centre, camera))
+        u, v = np.meshgrid(np.arange(160) + 0.5, np.arange(120) + 0.5)
+        rays = np.stack([(u - 80) / 200, (v - 60) / 200, np.ones_like(u)], -1) @ rotation
+        rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
+        along = rays @ -centre
+        views[frame] = (np.linalg.norm(-centre - along[..., None] * rays, axis=-1) < 0.5, 1.0)
+    scene = lift.Scene(points, np.full(len(points), 0.9), np.ones((len(points), 3)), poses)
+    return scene, views, truth, len(ball)
+
+
+def test_lift_recovers_a_synthetic_part():
+    scene, views, truth, balls = synthetic_scene()
+    votes = scene.votes(views)
+    labels = scene.labels(votes)
+    wall_wrong = labels[balls:].mean()
+    assert wall_wrong < 0.002, f"{wall_wrong:.2%} of the wall labelled as the part"
+    facing = scene.points[:balls, 2] < -0.15  # faces the arc; the rim and poles are only ever grazed
+    ball_found = labels[:balls][facing].mean()
+    assert ball_found > 0.99, f"only {ball_found:.1%} of the visible ball labelled"
+    left_out = votes - scene.votes({3: views[3]})
+    rebuilt = scene.votes({f: v for f, v in views.items() if f != 3})
+    assert np.allclose(left_out, rebuilt), "leaving a photo out is not subtracting its votes"
+    # Perfect labels do not score 1: a part in front takes every cell it partly covers.
+    lifted = np.array([scene.check(labels, f, mask)[0] for f, (mask, _) in views.items()])
+    perfect = np.array([scene.check(truth, f, mask)[0] for f, (mask, _) in views.items()])
+    assert (lifted >= perfect - 0.01).all() and perfect.min() > 0.75, f"IoU {lifted.round(3)}, perfect {perfect.round(3)}"
+    return f"wall {wall_wrong:.2%} wrong, visible ball {ball_found:.1%} found, IoU {lifted.min():.2f} (perfect {perfect.min():.2f})"
+
+
+def test_lift_ignores_a_tracker_mistake():
+    """Two tracked photos mark the wall instead of the ball: they are outvoted and then stop voting."""
+    import lift
+
+    scene, views, truth, balls = synthetic_scene()
+    keyframes = {f: views[f][0] for f in (0, 3, 6)}
+    tracked = {f: views[f][0] for f in (1, 2, 4, 5)}
+    for f in (2, 4):
+        tracked[f] = np.roll(tracked[f], 45, axis=1)  # the wall beside the ball
+    voting, rejected = lift.voters(scene, keyframes, tracked, 1.0)
+    assert rejected == [2, 4], f"rejected {rejected}"
+    labels = scene.labels(scene.votes(voting))
+    wrong = (labels != truth)[balls:].mean()
+    assert wrong < 0.002, f"{wrong:.2%} of the wall labelled after rejecting"
+    return f"rejected photos {[f + 1 for f in rejected]}"
+
+
+def test_colmap_poses_reproject_their_points():
+    """The poses lift reads must put each COLMAP 3D point back where it was matched, as closely as COLMAP does."""
+    import struct
+
+    import lift
+
+    sparse = lift.SPARSE
+    poses = lift.read_cameras(sparse)
+    with open(sparse / "points3D.bin", "rb") as f:
+        (n,) = struct.unpack("<Q", f.read(8))
+        xyz, reported = {}, []
+        for _ in range(n):
+            point_id, x, y, z = struct.unpack("<Qddd", f.read(32))
+            f.seek(3, 1)
+            error, track = struct.unpack("<dQ", f.read(16))
+            f.seek(8 * track, 1)
+            xyz[point_id] = (x, y, z)
+            reported.append(error)
+    errors = []
+    with open(sparse / "images.bin", "rb") as f:
+        (n,) = struct.unpack("<Q", f.read(8))
+        for _ in range(n):
+            f.seek(64, 1)
+            name = b""
+            while (c := f.read(1)) != b"\0":
+                name += c
+            (count,) = struct.unpack("<Q", f.read(8))
+            observed = np.frombuffer(f.read(24 * count), dtype=[("x", "<f8"), ("y", "<f8"), ("id", "<i8")])
+            observed = observed[observed["id"] >= 0][::20]
+            rotation, translation, camera = poses[pathlib.Path(name.decode()).name]
+            points = np.array([xyz[i] for i in observed["id"]])
+            u, v, _ = lift.project(points, rotation, translation, camera, 1.0)
+            errors.append(np.hypot(u - observed["x"], v - observed["y"]))
+    # A pose or pixel-centre mistake adds error on top of the reconstruction's own residual.
+    ours, colmap = np.median(np.concatenate(errors)), np.median(reported)
+    assert ours < colmap + 0.1, f"median reprojection error {ours:.2f} px, COLMAP's own {colmap:.2f} px"
+    return f"median {ours:.2f} px, COLMAP's own {colmap:.2f} px"
+
+
+def check_real_data(clicks_path: pathlib.Path):
+    names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
+    prompts = json.loads(clicks_path.read_text())
+
+    @check("clicks file matches the photos")
+    def _():
+        errors, warnings = spike_lib.check_prompts(prompts, names)
+        assert not errors, "; ".join(errors)
+        parts = [p for p in prompts["parts"] if p["clicks"]]
+        return f"{len(parts)} parts, {sum(len(p['clicks']) for p in parts)} clicks" + (
+            f"; {len(warnings)} warnings (see below)" if warnings else "")
+
+    @check("photo orientations are supported")
+    def _():
+        found = {Image.open(PHOTOS / n).getexif().get(274, 1) for n in names}
+        assert found <= SUPPORTED_ORIENTATIONS, f"unsupported EXIF orientations {found - SUPPORTED_ORIENTATIONS}"
+        return f"EXIF {sorted(found)}"
+
+    @check("click sheet rendered")
+    def _():
+        orientations, stored = {}, {}
+        for i, n in enumerate(names):
+            orientations[i] = Image.open(PHOTOS / n).getexif().get(274, 1)
+        clicked = sorted({c["frame"] for p in prompts["parts"] for c in p["clicks"]})
+        for f in clicked:
+            # OpenCV applies EXIF by default; SAM gets pixels re-saved without EXIF, so read the stored pixels.
+            photo = cv2.imread(str(PHOTOS / names[f]), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+            scale = 1416 / max(photo.shape[:2])
+            stored[f] = cv2.resize(photo, None, fx=scale, fy=scale)
+        colours = {p["id"]: spike_lib.PALETTE_BGR[i % len(spike_lib.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
+        sheet = spike_lib.contact_sheet(lambda f: stored[f], clicked, {}, colours, prompts, orientations)
+        legend = np.zeros((40 + 28 * len(colours), 520, 3), np.uint8)
+        cv2.putText(legend, "white ring = es esto, red ring = esto no", (10, 26), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 1)
+        for i, p in enumerate(prompts["parts"]):
+            cv2.circle(legend, (20, 52 + 28 * i), 9, colours[p["id"]], -1)
+            cv2.putText(legend, f"{p['name']} ({len(p['clicks'])})", (40, 58 + 28 * i), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 1)
+        OUT.mkdir(exist_ok=True)
+        (OUT / "clicks.jpg").write_bytes(sheet)
+        cv2.imwrite(str(OUT / "legend.png"), legend)
+        return f"{len(clicked)} photos -> {OUT / 'clicks.jpg'}"
+
+    return spike_lib.check_prompts(prompts, names)[1]
+
+
+def check_volume():
+    @check("owner's marks on the Modal volume")
+    def _():
+        listing = subprocess.run(["modal", "volume", "ls", "sfg-spike-frames", "/marks/engine"],
+                                 capture_output=True, text=True)
+        assert listing.returncode == 0, listing.stderr.strip()
+        masks = sorted(int(pathlib.Path(line.strip()).stem) for line in listing.stdout.splitlines() if line.strip().endswith(".png"))
+        assert masks == spike_lib.KEYFRAMES, f"masks for {masks}, keyframes {spike_lib.KEYFRAMES}"
+        return f"{len(masks)} keyframe masks"
+
+    @check("photos on the Modal volume")
+    def _():
+        listing = subprocess.run(["modal", "volume", "ls", "sfg-spike-frames", "/jpg"], capture_output=True, text=True)
+        assert listing.returncode == 0, listing.stderr.strip()
+        remote = listing.stdout.count(".jpg")
+        local = len(list(PHOTOS.glob("*.jpg")))
+        assert remote == local, f"{remote} on the volume, {local} on disk"
+        return f"{remote}"
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--clicks", type=pathlib.Path, help="also check a click file for sam_clicks.py")
+    parser.add_argument("--volume", action="store_true", help="also list the Modal volume (read only)")
+    parser.add_argument("--serve-fake", action="store_true", help="serve the marking page with a fake SAM")
+    args = parser.parse_args()
+    sys.path.insert(0, str(HERE))
+    if args.serve_fake:
+        import uvicorn
+
+        uvicorn.run(page_app(OUT / "marks"), host="127.0.0.1", port=8765)
+        return
+
+    for name, fn in [("code compiles and lints", test_code_compiles),
+                     ("Modal app definition imports", test_modal_app_builds),
+                     ("click orientation matches the browser", test_orientation_matches_what_the_browser_shows),
+                     ("prompt checks reject bad files", test_prompt_checks_catch_bad_files),
+                     ("contact sheet survives edge cases", test_contact_sheet_edge_cases),
+                     ("mask orientation matches the photo", test_mask_orientation_matches_the_photo),
+                     ("page photo matches the tracker frame", test_working_photo_matches_tracker_frames),
+                     ("page script parses", test_page_script_parses),
+                     ("parts are well formed", test_parts_are_well_formed),
+                     ("page API works end to end with a fake SAM", test_page_api_with_fake_sam),
+                     ("view order follows the cameras", test_view_order_follows_the_cameras),
+                     ("small-tile sheet lays out", test_small_tile_sheet),
+                     ("every photo has a camera pose", test_cameras_cover_every_photo),
+                     ("lift projection matches OpenCV", test_projection_matches_opencv),
+                     ("lift compositing follows occlusion", test_compositing_follows_occlusion),
+                     ("lift recovers a synthetic part", test_lift_recovers_a_synthetic_part),
+                     ("lift ignores a tracker mistake", test_lift_ignores_a_tracker_mistake),
+                     ("COLMAP poses reproject their points", test_colmap_poses_reproject_their_points),
+                     ("entrypoints run in the modal CLI's Python", test_entrypoints_run_in_the_modal_cli_python)]:
+        check(name)(fn)
+    warnings = check_real_data(args.clicks) if args.clicks else []
+    if args.volume:
+        check_volume()
+
+    for ok, line in results:
+        print(f"{'PASS' if ok else 'FAIL'}  {line}")
+    for w in warnings:
+        print(f"warn  {w}")
+    sys.exit(0 if all(ok for ok, _ in results) else 1)
+
+
+if __name__ == "__main__":
+    main()
