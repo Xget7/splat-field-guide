@@ -21,7 +21,8 @@ constexpr MTLPixelFormat kDepthFormat = MTLPixelFormatDepth16Unorm;
 constexpr MTLPixelFormat kPixelFormat = MTLPixelFormatBGRA8Unorm;
 // Front to back coverage accumulates in half floats, which 8 bits would round away.
 constexpr MTLPixelFormat kTargetFormat = MTLPixelFormatRGBA16Float;
-constexpr float kBackground[4] = {0.05f, 0.05f, 0.08f, 1.0f};
+// Black like the view before its first frame, so neither loading nor the app around it shows a seam.
+constexpr float kBackground[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 // The simulator has no framebuffer fetch, which the saturation mask reads. Without the mask
 // every batch also draws over saturated pixels: the same picture, only slower.
 constexpr bool kSaturationMask = !TARGET_OS_SIMULATOR;
