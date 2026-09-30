@@ -60,6 +60,7 @@ constexpr CoordinateFrame kFrame = CoordinateFrame::rub;
 
 TEST(SplatWorldLoader, NothingIsWaitingAtFirst) {
   SplatWorldLoader loader;
+  EXPECT_FALSE(loader.hasWorld());
   EXPECT_EQ(loader.takeWorld(), nullptr);
 }
 
@@ -69,10 +70,12 @@ TEST(SplatWorldLoader, TheCloudWaitsForTheRenderer) {
   auto report = loader.loadWorld(view(bytes), {}, kFrame);
   ASSERT_TRUE(report.ok()) << report.error().message;
   EXPECT_EQ(report.value().splatCount, 50u);
+  EXPECT_TRUE(loader.hasWorld());
 
   auto world = loader.takeWorld();
   ASSERT_NE(world, nullptr);
   EXPECT_EQ(world->count(), 50u);
+  EXPECT_FALSE(loader.hasWorld());
   EXPECT_EQ(loader.takeWorld(), nullptr);  // taken once
 }
 

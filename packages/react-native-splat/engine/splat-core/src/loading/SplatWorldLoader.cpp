@@ -83,4 +83,9 @@ std::unique_ptr<SplatCloud> SplatWorldLoader::takeWorld() {
   return std::move(pendingWorld_);
 }
 
+bool SplatWorldLoader::hasWorld() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return pendingWorld_ != nullptr;
+}
+
 }  // namespace splat

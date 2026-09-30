@@ -49,10 +49,12 @@ class SplatWorldLoader {
 
   // The newest world not yet taken, or nothing.
   std::unique_ptr<SplatCloud> takeWorld();
+  // Whether a world waits to be taken.
+  bool hasWorld() const;
 
  private:
   std::atomic<int> maxShDegree_{3};
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   std::unique_ptr<SplatCloud> pendingWorld_;
 };
 
