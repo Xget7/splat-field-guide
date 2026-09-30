@@ -2,7 +2,7 @@
 
 Status: accepted
 
-Training a splat at full resolution runs at about 5 steps per second on an M4 Pro, so a 30k-step run takes hours, and a 6 GB RTX 2060 cannot hold full-resolution photos with millions of splats.
+Training a splat at full resolution took 3 h 8 min for 30k steps on an M4 Pro, and a 6 GB RTX 2060 cannot hold full-resolution photos with millions of splats.
 SAM 3.1 and gsplat also expect CUDA.
 Each pipeline stage runs as a Modal function on a data-centre GPU, caches its output by input hash, and the pack server is a Modal web endpoint.
 

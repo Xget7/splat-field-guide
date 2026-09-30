@@ -22,10 +22,12 @@ Guided matching on CPU took 36 minutes for the first of nine blocks and was aban
 ## Training (Brush 0.3.0, Metal via WebGPU)
 
 At 1600 px Brush trained at about 20 steps per second.
-At full resolution (2832 px, 30k steps, default growth) it trained at about 5 steps per second, slowing as splats grew: about 110k splats at step 2,000, 430k at 6,000 and 730k at 8,000.
+At full resolution (2832 px, 30k steps, default growth) it started at about 5 steps per second and slowed as splats grew: about 110k splats at step 2,000, 430k at 6,000 and 730k at 8,000.
+Growth stopped by step 16,000 at 2,696,872 splats (a 636 MB PLY), and the rest of the run only refined them.
+The whole run took 3 h 8 min, about 2.7 steps per second on average.
 
 ## What it means for the pipeline
 
 - The capture is good enough to register completely; coverage below the band and close-ups of demo parts are the likely gaps.
 - Full-resolution training on this Mac takes hours, which is why training runs on Modal ([ADR 0008](../adr/0008-pipeline-on-modal.md)).
-- Splat growth must be capped by a budget, not left to default densification ([ADR 0010](../adr/0010-no-level-of-detail.md)).
+- Splat growth must be capped by a budget, not left to default densification: left alone it reached 2.7M, almost twice the 1.5M iPhone target ([ADR 0010](../adr/0010-no-level-of-detail.md)).
