@@ -29,15 +29,18 @@ LabelStyle dimmed() {
 }  // namespace
 
 void Highlight::set(const std::uint8_t* labels, std::size_t count) {
-  LabelStyles to;
-  if (labels != nullptr && count > 0) {
-    to.fill(dimmed());
-    for (std::size_t i = 0; i < count; ++i) to[labels[i]] = emphasised();
-  } else {
-    to.fill(LabelStyle{});
-  }
+  std::bitset<kLabelCount> parts;
+  for (std::size_t i = 0; labels != nullptr && i < count; ++i) parts.set(labels[i]);
+  if (parts == parts_) return;
+  parts_ = parts;
   from_ = current_;
-  to_ = to;
+  if (parts.none()) {
+    to_.fill(LabelStyle{});
+  } else {
+    for (std::size_t label = 0; label < kLabelCount; ++label) {
+      to_[label] = parts.test(label) ? emphasised() : dimmed();
+    }
+  }
   elapsed_ = 0;
 }
 

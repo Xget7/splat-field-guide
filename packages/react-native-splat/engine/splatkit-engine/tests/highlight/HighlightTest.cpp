@@ -87,5 +87,25 @@ TEST(Highlight, ANewSetStartsFromWhereTheFadeWas) {
   EXPECT_EQ(highlight.styles()[second].tintAmount, Highlight::kTintAmount);
 }
 
+TEST(Highlight, TheSetItHeadsForAgainChangesNothing) {
+  Highlight highlight;
+  const std::vector<std::uint8_t> labels = {3, 7};
+  const std::vector<std::uint8_t> sameParts = {7, 3, 7};
+  highlight.set(labels.data(), labels.size());
+  ASSERT_TRUE(highlight.update(Highlight::kFadeSeconds / 2));
+  highlight.set(sameParts.data(), sameParts.size());  // a re-render sends the parts again
+  ASSERT_TRUE(highlight.update(Highlight::kFadeSeconds / 2));
+  EXPECT_FALSE(highlight.fading());
+  highlight.set(sameParts.data(), sameParts.size());
+  EXPECT_FALSE(highlight.fading());
+  EXPECT_EQ(highlight.styles()[3].tintAmount, Highlight::kTintAmount);
+}
+
+TEST(Highlight, ClearingWhatIsNotHighlightedChangesNothing) {
+  Highlight highlight;
+  highlight.set(nullptr, 0);
+  EXPECT_FALSE(highlight.fading());
+}
+
 }  // namespace
 }  // namespace splatkit

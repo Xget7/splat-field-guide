@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 
@@ -13,7 +14,8 @@ namespace splatkit {
 class Highlight {
  public:
   // Emphasises the parts with `labels` in sky blue and dims every other splat, the
-  // unlabelled ones included. No labels draws every splat as captured.
+  // unlabelled ones included. No labels draws every splat as captured. The parts it already
+  // shows or heads for change nothing, so a caller may send them again.
   void set(const std::uint8_t* labels, std::size_t count);
 
   // Advances the fade by `dtSeconds`. True when the styles changed.
@@ -29,6 +31,7 @@ class Highlight {
   static constexpr float kDimBrightness = 0.3f;
 
  private:
+  std::bitset<kLabelCount> parts_;
   LabelStyles from_{};
   LabelStyles to_{};
   LabelStyles current_{};
