@@ -37,7 +37,6 @@ class SplatWorldLoader {
 
   // Highest SH degree materialized for worlds loaded from now on. The source SPZ remains full.
   void setMaxShDegree(int degree);
-  int maxShDegree() const { return maxShDegree_.load(); }
 
   // An SPZ world whose positions are in `sourceFrame`, with the labels.bin that labels its
   // splats; without one every splat is unlabelled. Labels for another number of splats
