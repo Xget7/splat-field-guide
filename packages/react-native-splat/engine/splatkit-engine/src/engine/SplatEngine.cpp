@@ -275,9 +275,15 @@ bool SplatEngine::needsFrame() const {
          renderer_->generation() != lastDrawnGeneration_;
 }
 
+bool SplatEngine::render(int64_t frameTimeNanos) {
+  const bool drawn = step(frameTimeNanos);
+  if (!needsFrame()) lastFrameNanos_ = 0;
+  return drawn;
+}
+
 // Every vsync steps the camera, but the GPU only draws when something visible changed:
 // a still scene costs no GPU time and almost no battery.
-bool SplatEngine::render(int64_t frameTimeNanos) {
+bool SplatEngine::step(int64_t frameTimeNanos) {
   if (renderer_->failed()) {
     if (!gpuFailureReported_) {
       gpuFailureReported_ = true;

@@ -229,8 +229,9 @@ TEST_F(SplatEngineTest, FramingAPartAnimatesThereThenIdles) {
   ASSERT_TRUE(engine->frame(part, 0.1f));
   int drawn = 0;
   while (tick()) ++drawn;
-  EXPECT_GE(drawn, 5);  // six vsyncs of 16.7 ms, the last reaching the end
-  EXPECT_LE(drawn, 7);
+  // Its first frame where it starts, then six vsyncs of 16.7 ms, the last reaching the end.
+  EXPECT_GE(drawn, 6);
+  EXPECT_LE(drawn, 8);
   EXPECT_NEAR(engine->cameraPose().target.x, 1, kTolerance);
   EXPECT_NEAR(engine->cameraPose().target.z, 2, kTolerance);
   EXPECT_FALSE(tick());
@@ -311,9 +312,24 @@ TEST_F(SplatEngineTest, AStallStepsTheAnimationByAtMostATenthOfASecond) {
   part.min = {10, 0, 0};
   part.max = {11, 1, 1};
   ASSERT_TRUE(engine->frame(part, 1));
+  tick();
   const float start = engine->cameraPose().target.x;
   engine->render((vsync + 300) * kVsyncNanos);  // five seconds later
   EXPECT_LT(engine->cameraPose().target.x, start + (10.5f - start) * 0.1f);
+}
+
+TEST_F(SplatEngineTest, TimeStandsStillWhileTheEngineRests) {
+  load(pairBytes(), labelBytes({4, 0}));
+  while (engine->needsFrame()) tick();
+  vsync += 300;  // the host stops its display link for five seconds
+  const uint8_t part = 4;
+  engine->setHighlight(&part, 1);
+  ASSERT_TRUE(tick());
+  EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);  // the fade's first frame
+  int drawn = 1;
+  while (tick()) ++drawn;
+  EXPECT_GE(drawn, 15);  // the whole quarter second
+  EXPECT_LE(drawn, 17);
 }
 
 TEST_F(SplatEngineTest, RefusesToFrameNonFiniteBounds) {
@@ -334,9 +350,9 @@ TEST_F(SplatEngineTest, AHighlightFadesInThenTheEngineIdles) {
   engine->setHighlight(&part, 1);
   int drawn = 0;
   while (tick()) ++drawn;
-  // A quarter second of 16.7 ms vsyncs.
-  EXPECT_GE(drawn, 14);
-  EXPECT_LE(drawn, 16);
+  // Its first frame, then a quarter second of 16.7 ms vsyncs.
+  EXPECT_GE(drawn, 15);
+  EXPECT_LE(drawn, 17);
   EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, Highlight::kTintAmount);
   EXPECT_EQ((*renderer->last.labelStyles)[0].brightness, Highlight::kDimBrightness);
   EXPECT_FALSE(tick());

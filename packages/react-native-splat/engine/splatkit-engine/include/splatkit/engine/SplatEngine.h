@@ -41,6 +41,8 @@ class SplatEngine {
   SplatRenderer& renderer() { return *renderer_; }
 
   // Steps the camera and draws if anything visible changed. True when a frame was drawn.
+  // Time stands still while the engine rests: what starts after it ran out of work starts
+  // on the next frame, however long the host waited.
   bool render(int64_t frameTimeNanos);
   // Render thread: whether the next vsync has anything to do. False while the scene is still
   // and while there is no surface to draw on, so a host can stop its display link; any call
@@ -134,6 +136,7 @@ class SplatEngine {
   bool applyPendingWorld();
   void refit(Extent extent);
   void reportShown();
+  bool step(int64_t frameTimeNanos);
   float frameSeconds(int64_t frameTimeNanos);
   splat::Mat4 projection(Extent extent) const;
   StatsPublisher::Sample sample() const;
