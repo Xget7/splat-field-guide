@@ -28,7 +28,8 @@ In:
 - One pack for one piece of equipment, about eight parts and three procedures.
 - iOS (Metal) and Android (Vulkan) from one React Native 0.87 app.
 - Orbit, pinch zoom, optional gyroscope look, tap to pick, animated framing.
-- Highlight: emphasise the parts of the current step or the picked part, dim the rest.
+- Highlight: tint the parts of the current step or the picked part in one accent colour and dim the rest slightly; the goal is only that anyone sees at a glance what is marked, so there is no outline pass.
+- Parts inside parts: a part may have a parent (the oil filler cap on the engine); a tap picks the smallest part, and showing a parent also highlights everything inside it.
 - Instructor with tools on iOS (Apple Foundation Models); commands on both platforms; remote instructor for Android when online.
 - Hands-free voice during a running procedure, push-to-talk always.
 - Offline-first packs: one bundled, updates downloaded and verified.
@@ -147,6 +148,7 @@ function framingFor(state: SessionState, pack: Pack): Bounds | null
 
 A pure reducer, not a state-machine library: the session has three fields and six events.
 Selecting a part during a procedure overrides the step highlight until the next step.
+Each splat carries only the label of the smallest part it belongs to, so `highlightFor` expands a part into its own label plus the labels of every part inside it.
 
 ### 5.5 Commands and instructor (`src/instructor`)
 
@@ -192,6 +194,7 @@ Each stage is a Modal function keyed by the hash of its inputs, storing outputs 
 4. **Export**: PLY to SPZ with no filtering, then decode that SPZ; every later stage works on the decoded cloud, in its order ([ADR 0003](../adr/0003-part-labels-sidecar.md)).
 5. **Masks**: SAM 3.1, one text prompt per part (with optional click points from the content file), propagated through the photo sequence.
 6. **Lift**: render the final cloud from every photo's camera with gsplat and accumulate each splat's contribution to each part's mask; a splat takes the part with the clear majority of its weight, otherwise zero; then a neighbourhood vote cleans stray labels.
+   A parent's mask covers its children, so a child's weight is also counted for its parent when deciding whether a splat belongs to either, and the splat then takes the child when the child holds the majority.
    Per-part bounds (robust percentiles) and a label anchor are computed here.
 7. **Review**: a turntable render of each part highlighted, for a human to approve before packing.
 8. **Pack**: `labels.bin`, `manifest.json` from the content YAML plus computed bounds and camera limits, hashes, and a smaller tier if the Mi 9 needs one.
@@ -221,7 +224,7 @@ Pack folder:
               "labels": { "path": "high/labels.bin", "bytes": 0, "sha256": "" } }],
   "camera": { "home": { "azimuth": 0, "elevation": 35, "radius": 1.2 },
               "limits": { "minElevation": 10, "maxElevation": 80, "minRadius": 0.25, "maxRadius": 2.5 } },
-  "parts": [{ "id": "coolant-reservoir", "label": 3, "name": "Coolant reservoir",
+  "parts": [{ "id": "coolant-reservoir", "label": 3, "parent": null, "name": "Coolant reservoir",
               "aliases": ["coolant tank", "expansion tank"], "summary": "", "details": "",
               "bounds": { "min": [0, 0, 0], "max": [0, 0, 0] }, "anchor": [0, 0, 0] }],
   "procedures": [{ "id": "check-coolant", "title": "Check the coolant level",

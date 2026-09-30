@@ -14,6 +14,7 @@ _Avoid_: asset, model, object, vehicle
 **Part**:
 A named physical component of the equipment that a person can point at, such as the coolant reservoir.
 A part has a stable id that never changes between pack versions.
+A part may sit inside a larger part, its parent, such as the oil filler cap on the engine; showing the parent shows the parts inside it too.
 _Avoid_: component, piece, segment, object
 
 **Part label**:
