@@ -30,5 +30,18 @@ target 'FieldGuide' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Swift pods add the toolchain's Swift libraries, which back-deployed Swift before iOS 12.2,
+    # to the app's search paths; Xcode 27 resolves the toolchain to the Metal one, which has no
+    # such folder, so ld warned about it on every link.
+    toolchain_swift = '"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}"'
+    installer.aggregate_targets.each do |target|
+      target.xcconfigs.each do |name, xcconfig|
+        paths = xcconfig.attributes['LIBRARY_SEARCH_PATHS']
+        next unless paths&.include?(toolchain_swift)
+        xcconfig.attributes['LIBRARY_SEARCH_PATHS'] = paths.sub(toolchain_swift, '').squeeze(' ')
+        xcconfig.save_as(target.xcconfig_path(name))
+      end
+    end
   end
 end
