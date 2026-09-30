@@ -117,6 +117,7 @@ sfg_orbit_pose sfg_camera_pose(const sfg_engine* engine) {
 
 bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* limits) {
   splatkit::OrbitLimits l;
+  if (limits == nullptr) return engineOf(engine).setCameraLimits(l);
   l.minAzimuth = limits->min_azimuth;
   l.maxAzimuth = limits->max_azimuth;
   l.minElevation = limits->min_elevation;

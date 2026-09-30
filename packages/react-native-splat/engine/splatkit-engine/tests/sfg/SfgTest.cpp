@@ -140,6 +140,18 @@ TEST_F(SfgTest, PlacesAndLimitsTheCamera) {
   EXPECT_FALSE(sfg_set_camera_pose(engine, &bad));
 }
 
+TEST_F(SfgTest, NoLimitsTurnsFreelyAgain) {
+  const sfg_camera_limits limits{-0.5f, 0.5f, 0.1f, 1.0f, 1.0f, 10.0f};
+  ASSERT_TRUE(sfg_set_camera_limits(engine, &limits));
+  ASSERT_TRUE(sfg_set_camera_limits(engine, nullptr));
+  const sfg_orbit_pose behind{{0, 0, 0}, 50, 3, -0.5f};
+  ASSERT_TRUE(sfg_set_camera_pose(engine, &behind));
+  const sfg_orbit_pose pose = sfg_camera_pose(engine);
+  EXPECT_EQ(pose.radius, 50.0f);
+  EXPECT_EQ(pose.azimuth, 3.0f);
+  EXPECT_EQ(pose.elevation, -0.5f);
+}
+
 TEST_F(SfgTest, FramesBoundsFromADirectionOrFromWhereItLooks) {
   const sfg_bounds part{{0, 0, 0}, {1, 1, 1}};
   const sfg_view_direction from{0.4f, 0.3f};

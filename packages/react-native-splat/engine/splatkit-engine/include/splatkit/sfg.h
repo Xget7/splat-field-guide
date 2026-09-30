@@ -105,8 +105,8 @@ bool sfg_dolly(sfg_engine* engine, float factor);
 bool sfg_set_camera_pose(sfg_engine* engine, const sfg_orbit_pose* pose);
 sfg_orbit_pose sfg_camera_pose(const sfg_engine* engine);
 // False, changing nothing, for limits that are not finite, inverted, wider than a full turn
-// or past a pole.
-bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* limits);
+// or past a pole. NULL turns freely again, as a new engine does.
+bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* SFG_NULLABLE limits);
 // Eases the camera over `seconds` until `bounds` fills the view, looking from `from` or, when
 // NULL, from where it looks now. The framing holds through a change of the view's shape until
 // a pinch or a pose replaces it.
