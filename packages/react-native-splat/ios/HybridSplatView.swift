@@ -96,8 +96,8 @@ final class HybridSplatView: HybridSplatViewSpec {
     }
     if changed.contains(.source) {
       loop.load(
-        splatPath: source.splatPath,
-        labelsPath: source.labelsPath.isEmpty ? nil : source.labelsPath)
+        splatPath: Self.resolved(source.splatPath),
+        labelsPath: source.labelsPath.isEmpty ? nil : Self.resolved(source.labelsPath))
     }
     changed.removeAll()
   }
@@ -166,6 +166,14 @@ final class HybridSplatView: HybridSplatViewSpec {
 
   private func updatePaused() {
     loop.setPaused(!(inWindow && appActive))
+  }
+
+  /// A relative path is inside the app bundle's resources, where an app ships its packs.
+  private static func resolved(_ path: String) -> String {
+    guard !path.isEmpty, !path.hasPrefix("/"), let resources = Bundle.main.resourceURL else {
+      return path
+    }
+    return resources.appendingPathComponent(path).path
   }
 
   /// The highlight's part labels as the engine takes them; anything that is not one is

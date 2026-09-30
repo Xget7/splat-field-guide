@@ -39,7 +39,7 @@ export interface CameraLimits {
   maxRadius: number;
 }
 
-/** A pack tier's files on disk. */
+/** A pack tier's files on disk: absolute, or relative to the app bundle's resources. */
 export interface SplatSource {
   splatPath: string;
   labelsPath: string;

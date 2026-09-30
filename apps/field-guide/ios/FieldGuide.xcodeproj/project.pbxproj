@@ -112,6 +112,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+				82D2640CFD32081F689FB2D2 /* Copy the bundled packs */,
 			);
 			buildRules = (
 			);
@@ -199,6 +200,25 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FieldGuide/Pods-FieldGuide-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		82D2640CFD32081F689FB2D2 /* Copy the bundled packs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy the bundled packs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The app loads its packs from packs/<id>/<version>/ in its resources (react-native-splat\n# resolves a relative source path there). rsync keeps a rebuild with an unchanged pack quick.\nset -euo pipefail\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\nif [ ! -d \"$PACKS\" ]; then\n  echo \"error: no packs at $PACKS; run pipeline/export.py first\" >&2\n  exit 1\nfi\nmkdir -p \"$DEST\"\nrsync -a --delete \"$PACKS/\" \"$DEST/\"\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
