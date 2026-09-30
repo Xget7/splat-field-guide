@@ -1,5 +1,7 @@
 #include "splatkit/engine/SplatEngine.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -19,9 +21,27 @@ using test::solidPairBytes;
 
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
+constexpr float kFramingMargin = 1.05f;
+constexpr float kMinFramingAspect = 1e-3f;
+constexpr std::size_t kBoxCornerCount = 8;
 constexpr splat::CoordinateFrame kFrame = splat::CoordinateFrame::rub;
 constexpr Extent kLandscape{2000, 1000};
 constexpr Extent kPortrait{1000, 2000};
+
+std::array<float, kBoxCornerCount * 3> cornerPoints(const splat::Bounds& bounds) {
+  std::array<float, kBoxCornerCount * 3> points;
+  std::size_t i = 0;
+  for (const float x : {bounds.min[0], bounds.max[0]}) {
+    for (const float y : {bounds.min[1], bounds.max[1]}) {
+      for (const float z : {bounds.min[2], bounds.max[2]}) {
+        points[i++] = x;
+        points[i++] = y;
+        points[i++] = z;
+      }
+    }
+  }
+  return points;
+}
 
 struct Events {
   std::vector<SplatEngine::Event> kinds;
@@ -47,6 +67,19 @@ class SplatEngineTest : public ::testing::Test {
 
   void load(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& labels = {}) {
     engine->loadWorld({bytes.data(), bytes.size()}, {labels.data(), labels.size()}, kFrame);
+  }
+
+  void expectTightFit(const splat::Bounds& bounds) {
+    const auto points = cornerPoints(bounds);
+    std::array<float, kBoxCornerCount * 2> out;
+    ASSERT_EQ(engine->project(points.data(), kBoxCornerCount, out.data()), kBoxCornerCount);
+    float maxNdc = 0;
+    for (const float uv : out) {
+      const float ndc = std::abs(2 * uv - 1);
+      EXPECT_LE(ndc, 1 / kFramingMargin + kTolerance);
+      maxNdc = std::max(maxNdc, ndc);
+    }
+    EXPECT_NEAR(maxNdc, 1 / kFramingMargin, kTolerance);
   }
 
   FakeRenderer* renderer = nullptr;
@@ -180,8 +213,8 @@ TEST_F(SplatEngineTest, FramesAWorldWholeFromTheCurrentDirection) {
   EXPECT_NEAR(pose.target.x, 0, kTolerance);
   EXPECT_NEAR(pose.target.z, 2, kTolerance);
   EXPECT_EQ(pose.azimuth, 0.0f);
-  // The pair's bounding sphere, radius 1, fits the 65 degree field of view with a margin.
-  const float expected = 1.05f / std::sin(SplatEngine::kFieldOfViewRadians / 2);
+  // The pair spans two metres across the view, with no depth offset.
+  const float expected = kFramingMargin / std::tan(SplatEngine::kFieldOfViewRadians / 2);
   EXPECT_NEAR(pose.radius, expected, kTolerance);
   // What the frame draws is where the camera is.
   EXPECT_NEAR(renderer->last.cameraPosition.z, 2 + expected, kTolerance);
@@ -252,12 +285,13 @@ TEST_F(SplatEngineTest, FramesAPartFromTheDirectionAsked) {
   EXPECT_NEAR(engine->cameraPose().target.x, 1, kTolerance);
 }
 
-// The radius that fits the part below in a view of `extent`, framed there directly.
-float fittedRadius(Extent extent, const splat::Bounds& bounds) {
+// The radius that fits these bounds in this view shape and direction, framed there directly.
+float fittedRadius(Extent extent, const splat::Bounds& bounds,
+                   SplatEngine::ViewDirection from = {}) {
   auto owned = std::make_unique<FakeRenderer>();
   owned->extent = extent;
   SplatEngine engine(std::move(owned));
-  EXPECT_TRUE(engine.frame(bounds, 0));
+  EXPECT_TRUE(engine.frame(bounds, 0, from));
   return engine.cameraPose().radius;
 }
 
@@ -266,6 +300,102 @@ splat::Bounds unitPart() {
   part.min = {0, 0, 0};
   part.max = {1, 1, 1};
   return part;
+}
+
+TEST_F(SplatEngineTest, ALongFlatBoxFitsTightlyFromTheRequestedOrCurrentDirection) {
+  splat::Bounds part;
+  part.min = {2, 1.9f, 3.75f};
+  part.max = {4, 2.1f, 4.25f};
+  const SplatEngine::ViewDirection from{-0.08f, 0.85f};
+  renderer->extent = kPortrait;
+  for (const bool requested : {true, false}) {
+    SCOPED_TRACE(requested);
+    OrbitPose start;
+    if (!requested) {
+      start.azimuth = from.azimuth;
+      start.elevation = from.elevation;
+    }
+    ASSERT_TRUE(engine->setCameraPose(start));
+    ASSERT_TRUE(engine->frame(part, 0, requested ? std::optional{from} : std::nullopt));
+    ASSERT_TRUE(tick());
+    expectTightFit(part);
+  }
+}
+
+TEST_F(SplatEngineTest, TheBoxFitIsNeverFartherThanTheOldSphereFit) {
+  splat::Bounds flat;
+  flat.min = {-1, -0.1f, -0.25f};
+  flat.max = {1, 0.1f, 0.25f};
+  splat::Bounds tall;
+  tall.min = {-0.1f, -2, -0.5f};
+  tall.max = {0.1f, 2, 0.5f};
+  const SplatEngine::ViewDirection directions[] = {
+      {}, {-0.08f, 0.85f}, {1.2f, -0.4f},
+      {0.5f, OrbitLimits{}.minElevation}, {-0.5f, OrbitLimits{}.maxElevation}};
+  for (const auto& bounds : {flat, tall, unitPart()}) {
+    const splat::Vec3 half{(bounds.max[0] - bounds.min[0]) * 0.5f,
+                           (bounds.max[1] - bounds.min[1]) * 0.5f,
+                           (bounds.max[2] - bounds.min[2]) * 0.5f};
+    for (const Extent extent : {kPortrait, kLandscape, Extent{1000, 1000}, Extent{}}) {
+      const float aspect = extent.width > 0 && extent.height > 0
+                               ? static_cast<float>(extent.width) / extent.height
+                               : 1.0f;
+      const float halfY = SplatEngine::kFieldOfViewRadians * 0.5f;
+      const float halfX = std::atan(std::tan(halfY) * std::max(aspect, kMinFramingAspect));
+      const float sphereFit = splat::length(half) * kFramingMargin /
+                              std::sin(std::min(halfX, halfY));
+      for (const auto from : directions) {
+        SCOPED_TRACE(::testing::Message() << "aspect " << aspect << ", azimuth " << from.azimuth
+                                         << ", elevation " << from.elevation);
+        EXPECT_LE(fittedRadius(extent, bounds, from), sphereFit + kTolerance);
+      }
+    }
+  }
+}
+
+TEST_F(SplatEngineTest, AFramingFitsFromTheDirectionAllowedByTheCameraLimits) {
+  OrbitLimits limits;
+  limits.minAzimuth = -0.1f;
+  limits.maxAzimuth = 0.1f;
+  limits.minElevation = -0.2f;
+  limits.maxElevation = 0.2f;
+  ASSERT_TRUE(engine->setCameraLimits(limits));
+  renderer->extent = kPortrait;
+  ASSERT_TRUE(engine->frame(unitPart(), 0, SplatEngine::ViewDirection{0.5f, 0.8f}));
+  ASSERT_TRUE(tick());
+  EXPECT_NEAR(engine->cameraPose().azimuth, limits.maxAzimuth, kTolerance);
+  EXPECT_NEAR(engine->cameraPose().elevation, limits.maxElevation, kTolerance);
+  expectTightFit(unitPart());
+}
+
+TEST_F(SplatEngineTest, ATinyBoxKeepsEveryCornerInFrontOfTheNearPlane) {
+  splat::Bounds part;
+  part.min = {-0.0001f, -0.0001f, -0.01f};
+  part.max = {0.0001f, 0.0001f, 0.01f};
+  ASSERT_TRUE(engine->frame(part, 0));
+  ASSERT_TRUE(tick());
+  const auto points = cornerPoints(part);
+  float minDepth = engine->cameraPose().radius;
+  for (std::size_t i = 0; i < kBoxCornerCount; ++i) {
+    const float depth = -renderer->last.view.transformPoint(
+        {points[i * 3], points[i * 3 + 1], points[i * 3 + 2]}).z;
+    EXPECT_GE(depth, SplatEngine::kNearPlane - kTolerance);
+    minDepth = std::min(minDepth, depth);
+  }
+  EXPECT_NEAR(minDepth, SplatEngine::kNearPlane, kTolerance);
+}
+
+TEST_F(SplatEngineTest, AZeroSizeBoxStillUsesTheMinimumCameraRadius) {
+  OrbitLimits limits;
+  limits.minRadius = SplatEngine::kNearPlane * 0.5f;
+  ASSERT_TRUE(engine->setCameraLimits(limits));
+  splat::Bounds part;
+  part.min = part.max = {3, 2, 4};
+  ASSERT_TRUE(engine->frame(part, 0));
+  EXPECT_EQ(engine->cameraPose().radius, limits.minRadius);
+  EXPECT_EQ(engine->cameraPose().target.x, part.min[0]);
+  EXPECT_EQ(engine->cameraPose().target.y, part.min[1]);
+  EXPECT_EQ(engine->cameraPose().target.z, part.min[2]);
 }
 
 TEST_F(SplatEngineTest, AFramingBeforeTheViewHasASizeGoesThereAtOnceAndFitsItLater) {
@@ -282,11 +412,13 @@ TEST_F(SplatEngineTest, AFramingHoldsThroughAChangeOfShapeButNotAPinch) {
   ASSERT_TRUE(engine->frame(unitPart(), 0.1f));
   while (tick()) {
   }
-  ASSERT_TRUE(engine->orbit(0.2f, 0));  // turning keeps it: a sphere fits from any side
+  ASSERT_TRUE(engine->orbit(0.2f, 0));  // resizing must refit from the direction after the turn
   renderer->extent = kPortrait;
   ++renderer->surfaceGeneration;
   tick();
-  EXPECT_NEAR(engine->cameraPose().radius, fittedRadius(kPortrait, unitPart()), kTolerance);
+  const OrbitPose pose = engine->cameraPose();
+  EXPECT_NEAR(pose.radius, fittedRadius(kPortrait, unitPart(), {pose.azimuth, pose.elevation}),
+              kTolerance);
   ASSERT_TRUE(engine->dolly(2));
   const float pinched = engine->cameraPose().radius;
   renderer->extent = kLandscape;

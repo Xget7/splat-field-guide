@@ -13,7 +13,7 @@ namespace {
 
 // A frame longer than this (a stall, a resume) steps the camera as if it were this long.
 constexpr float kMaxFrameSeconds = 0.1f;
-// Room left around framed bounds, as a fraction of their radius.
+// A framed box fills at most 1 / this of the view's half width and half height.
 constexpr float kFramingMargin = 1.05f;
 // An aspect below this is treated as this, so a zero-width view still frames.
 constexpr float kMinFramingAspect = 1e-3f;
@@ -29,18 +29,37 @@ splat::Vec3 centre(const splat::Bounds& b) {
           (b.min[2] + b.max[2]) * 0.5f};
 }
 
-// The distance at which the bounding sphere of `bounds` fits the narrower field of view.
-float framingRadius(const splat::Bounds& bounds, Extent extent) {
+// The closest distance that keeps every corner inside the screen margin and near plane.
+float framingRadius(const splat::Bounds& bounds, Extent extent,
+                    SplatEngine::ViewDirection from) {
   const splat::Vec3 half{(bounds.max[0] - bounds.min[0]) * 0.5f,
                          (bounds.max[1] - bounds.min[1]) * 0.5f,
                          (bounds.max[2] - bounds.min[2]) * 0.5f};
-  const float sphere = splat::length(half);
+  if (splat::length(half) == 0) return 0;
   const float aspect = extent.width > 0 && extent.height > 0
                            ? static_cast<float>(extent.width) / extent.height
                            : 1.0f;
-  const float halfY = SplatEngine::kFieldOfViewRadians * 0.5f;
-  const float halfX = std::atan(std::tan(halfY) * std::max(aspect, kMinFramingAspect));
-  return sphere * kFramingMargin / std::sin(std::min(halfX, halfY));
+  const float tanY = std::tan(SplatEngine::kFieldOfViewRadians * 0.5f);
+  const float tanX = tanY * std::max(aspect, kMinFramingAspect);
+  const float horizontal = std::cos(from.elevation);
+  const splat::Vec3 forward{-horizontal * std::sin(from.azimuth), -std::sin(from.elevation),
+                            -horizontal * std::cos(from.azimuth)};
+  // Match OrbitCamera's view basis so the offsets are the ones the projection sees.
+  const splat::Vec3 right = splat::normalize(splat::cross(forward, {0, 1, 0}));
+  const splat::Vec3 up = splat::cross(right, forward);
+  float radius = 0;
+  for (const float x : {-half.x, half.x}) {
+    for (const float y : {-half.y, half.y}) {
+      for (const float z : {-half.z, half.z}) {
+        const splat::Vec3 p{x, y, z};
+        const float depth = splat::dot(p, forward);
+        radius = std::max({radius, kFramingMargin * std::abs(splat::dot(p, right)) / tanX - depth,
+                           kFramingMargin * std::abs(splat::dot(p, up)) / tanY - depth,
+                           SplatEngine::kNearPlane - depth});
+      }
+    }
+  }
+  return radius;
 }
 
 bool finite(const splat::Bounds& b) {
@@ -161,9 +180,13 @@ bool SplatEngine::frame(const splat::Bounds& bounds, float seconds,
   if (from) {
     to.azimuth = from->azimuth;
     to.elevation = from->elevation;
+    // Fit from the direction the camera's limits will allow.
+    OrbitCamera directed = camera_;
+    if (!directed.setPose(to)) return false;
+    to = directed.pose();
   }
   to.target = centre(bounds);
-  to.radius = framingRadius(bounds, extent);
+  to.radius = framingRadius(bounds, extent, {to.azimuth, to.elevation});
   // Nothing is on screen before the view has a size, so there is nothing to ease from.
   const bool sized = extent.width > 0 && extent.height > 0;
   if (!camera_.animateTo(to, sized ? seconds : 0)) return false;
@@ -183,7 +206,7 @@ void SplatEngine::refit(Extent extent) {
   framedExtent_ = extent;
   OrbitPose pose = camera_.pose();
   pose.target = centre(*framedBounds_);
-  pose.radius = framingRadius(*framedBounds_, extent);
+  pose.radius = framingRadius(*framedBounds_, extent, {pose.azimuth, pose.elevation});
   camera_.setPose(pose);
   redrawNeeded_ = true;
 }
