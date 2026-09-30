@@ -49,11 +49,11 @@ class SplatEngine {
   bool needsFrame() const;
 
   // Decodes an SPZ world whose positions are in `sourceFrame`, with the labels.bin of its
-  // part labels (empty for none). Thread safe. Errors are reported and leave the current
-  // world.
-  void loadWorld(splat::ByteView spz, splat::ByteView labels, splat::CoordinateFrame sourceFrame);
+  // part labels (empty for none). Thread safe. False when it failed, which is reported too
+  // and leaves the current world.
+  bool loadWorld(splat::ByteView spz, splat::ByteView labels, splat::CoordinateFrame sourceFrame);
   // The same from files, mapped rather than copied through the host's heap.
-  void loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
+  bool loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                      splat::CoordinateFrame sourceFrame);
 
   // What the host needs to know about loading and the GPU. Ready fires on the render thread
@@ -130,7 +130,7 @@ class SplatEngine {
   void emit(Event event, const std::string& message = {}, uint32_t splatCount = 0) const {
     if (events_) events_(event, message, splatCount);
   }
-  void report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
+  bool report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
   bool applyPendingWorld();
   void refit(Extent extent);
   void reportShown();

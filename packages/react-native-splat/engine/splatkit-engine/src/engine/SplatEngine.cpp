@@ -66,30 +66,31 @@ void SplatEngine::setShDegree(int degree) {
 
 // Loading: decode on the calling thread, report, and leave the result for the frame.
 
-void SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
+bool SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
                             splat::CoordinateFrame sourceFrame) {
-  report(loader_.loadWorld(spz, labels, sourceFrame));
+  return report(loader_.loadWorld(spz, labels, sourceFrame));
 }
 
-void SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
+bool SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                                 splat::CoordinateFrame sourceFrame) {
-  report(loader_.loadWorldFile(spzPath, labelsPath, sourceFrame));
+  return report(loader_.loadWorldFile(spzPath, labelsPath, sourceFrame));
 }
 
-void SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
+bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
   if (!report) {
     const splat::Error& error = report.error();
     LOGE("world load failed: %s", error.message.c_str());
     emit(error.code == splat::ErrorCode::labelsMismatch ? Event::labelsMismatch
                                                         : Event::worldFailed,
          error.message);
-    return;
+    return false;
   }
   const auto& r = report.value();
   LOGI("decoded %zu %s splats in %.0f ms, sh degree %d, bounds y [%.2f, %.2f], reordered in "
        "%.0f ms",
        r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.shDegree,
        r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
+  return true;
 }
 
 // Uploads what the loader left. True when a new world is drawn from now on.
