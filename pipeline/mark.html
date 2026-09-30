@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Marcar partes</title>
+<style>
+  :root {
+    --bg: #111315; --panel: #1a1d20; --line: #2a2e33; --text: #e8eaed; --muted: #9aa0a6;
+    --accent: #38bdf8; --pos: #34c759; --neg: #ff453a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  body { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+    height: 100vh; }
+  nav { display: flex; gap: 6px; padding: 8px 16px; background: #0c0e10; border-bottom: 1px solid var(--line);
+    overflow-x: auto; }
+  nav button { border-radius: 999px; padding: 4px 12px; color: var(--muted); background: transparent; }
+  nav button .parent { color: #6b7178; }
+  nav button.saved::after { content: " ✓"; color: var(--accent); }
+  nav button.on { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+  nav button.on .parent { color: #134e66; }
+  nav button.on.saved::after { color: #111; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; white-space: nowrap; }
+  header h1 span { color: var(--accent); }
+  header h1 small { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .hint { color: var(--muted); flex: 1; min-width: 280px; }
+  .hint b { color: var(--text); font-weight: 600; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  button { background: #2a2e33; color: var(--text); border: 1px solid #3a3f45; border-radius: 6px;
+    padding: 6px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: #5a6068; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+  button.primary.clean { background: transparent; color: var(--accent); }
+  .mode { display: flex; border: 1px solid #3a3f45; border-radius: 6px; overflow: hidden; }
+  .mode button { border: 0; border-radius: 0; background: transparent; color: var(--muted); }
+  .mode button::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 6px; background: currentColor; vertical-align: 0; }
+  .mode button.on.pos { background: var(--pos); color: #111; }
+  .mode button.on.neg { background: var(--neg); color: #111; }
+  .stage { position: relative; min-height: 0; display: flex; align-items: center; justify-content: center;
+    padding: 12px; overflow: hidden; }
+  .stage { cursor: crosshair; touch-action: none; user-select: none; }
+  canvas { display: block; border-radius: 4px; }
+  .readout { position: absolute; left: 16px; top: 16px; background: rgba(17, 19, 21, .82); padding: 4px 10px;
+    border-radius: 6px; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .readout b { color: var(--text); }
+  footer { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--panel);
+    border-top: 1px solid var(--line); }
+  .status { width: 220px; flex: none; color: var(--muted); }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #5a6068;
+    margin-right: 6px; }
+  .status.ready .dot { background: var(--pos); }
+  .status.busy .dot { background: var(--accent); animation: pulse 1s infinite alternate; }
+  .status.error { color: var(--neg); }
+  .status.error .dot { background: var(--neg); }
+  @keyframes pulse { to { opacity: .3; } }
+  .strip { display: flex; gap: 8px; overflow-x: auto; flex: 1; }
+  .thumb { position: relative; flex: none; padding: 0; border: 2px solid transparent; border-radius: 6px;
+    background: #000; overflow: hidden; }
+  .thumb img { display: block; height: 84px; width: 63px; object-fit: cover; }
+  .thumb.on { border-color: var(--accent); }
+  .thumb .label { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; padding: 1px 4px;
+    background: rgba(0, 0, 0, .65); color: var(--text); text-align: left; }
+  .thumb .done { position: absolute; right: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); color: #111; font-size: 11px; line-height: 16px; font-weight: 700; display: none; }
+  .thumb.marked .done { display: block; }
+  .toast { position: fixed; right: 16px; bottom: 120px; padding: 8px 14px; border-radius: 6px; color: #111;
+    background: var(--pos); font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--neg); }
+</style>
+</head>
+<body>
+<nav id="parts" aria-label="Piezas"></nav>
+<header>
+  <h1>Marcá: <span id="partName">…</span> <small id="partParent"></small></h1>
+  <div class="hint">
+    Marcala en cada foto donde se vea; si no se ve, salteá la foto.
+    <b>Arrastrá un rectángulo</b> alrededor de la pieza, <b>clic</b> donde falte y <b>clic derecho</b> donde sobre.
+    Clic sobre un punto lo borra. Z deshace, ← → cambia de foto.
+  </div>
+  <div class="controls">
+    <div class="mode" role="group" aria-label="Qué marca el clic">
+      <button id="modePos" class="pos on">Es</button>
+      <button id="modeNeg" class="neg">No es</button>
+    </div>
+    <button id="undo" title="Z">Deshacer</button>
+    <button id="clear">Borrar foto</button>
+    <button id="save" class="primary">Guardar</button>
+  </div>
+</header>
+<div class="stage" id="stage">
+  <canvas id="view" aria-label="Foto para marcar"></canvas>
+  <div class="readout" id="readout"></div>
+</div>
+<footer>
+  <div class="status busy" id="status"><span class="dot"></span><span id="statusText">Cargando…</span></div>
+  <div class="strip" id="strip"></div>
+</footer>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+const DRAG_THRESHOLD_PX = 6;
+const POINT_RADIUS_PX = 7;
+const HIT_RADIUS_PX = 11;
+const MIN_BOX = 0.01;
+const TINT = "rgba(56, 189, 248, 0.4)";
+const OUTLINE = "#38bdf8";
+const DIM = "rgba(0, 0, 0, 0.5)";
+
+const view = document.getElementById("view");
+const ctx = view.getContext("2d");
+const stage = document.getElementById("stage");
+let part = null;                 // the part being marked, from ?part= or the first one
+let keyframes = [];              // the photos this part is marked on
+let current = 0;                 // index into keyframes
+let mode = "pos";
+let drag = null;
+let marks = {};                  // frame -> {clicks: [{x, y, positive}], box: [x0, y0, x1, y1] | null}
+let savedState = null;           // the marked photos as last saved, to know whether there is anything to save
+const undoStack = {};            // frame -> previous marks, newest last
+const photos = {};               // frame -> HTMLImageElement
+const masks = {};                // frame -> {key, img, score, base}
+const latest = {};               // frame -> newest request id, so late answers never overwrite newer ones
+let requestId = 0;
+const sam = { ready: false, pending: 0, error: null, saving: false };
+
+const storageKey = kind => `sfg-${kind}-v1:${part}`;
+function load(kind) {
+  try { return JSON.parse(localStorage.getItem(storageKey(kind))); } catch { return null; }
+}
+function persist() {
+  try { localStorage.setItem(storageKey("marks"), JSON.stringify(marks)); } catch {}
+  refreshSave();
+}
+const markedPhotos = () => Object.fromEntries(Object.entries(marks).filter(([, m]) => hasPrompt(m)));
+const dirty = () => JSON.stringify(markedPhotos()) !== savedState;
+function refreshSave() {
+  const button = document.getElementById("save");
+  const clean = savedState !== null && !dirty();
+  button.textContent = clean ? "Guardado" : "Guardar";
+  button.classList.toggle("clean", clean);
+}
+const frame = () => keyframes[current];
+const marksFor = f => marks[f] || { clicks: [], box: null };
+const hasPrompt = m => m.box !== null || m.clicks.some(c => c.positive);
+
+function refreshStatus() {
+  const [kind, text] =
+    sam.error ? ["error", sam.error] :
+    sam.saving ? ["busy", "Guardando…"] :
+    sam.pending ? ["busy", sam.ready ? "SAM recortando…" : "Despertando SAM (1-2 min)…"] :
+    sam.ready ? ["ready", "SAM listo"] : ["busy", "Despertando SAM (1-2 min)…"];
+  document.getElementById("status").className = `status ${kind}`;
+  document.getElementById("statusText").textContent = text;
+}
+function toast(text, error = false) {
+  const el = document.getElementById("toast");
+  el.textContent = text;
+  el.className = `toast show${error ? " error" : ""}`;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.className = "toast", 2600);
+}
+async function api(path, body) {
+  const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}) });
+  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+  return response.json();
+}
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`no pude cargar ${src.slice(0, 40)}`));
+    img.src = src;
+  });
+}
+
+// --- drawing ---------------------------------------------------------------------------------
+
+function fit() {
+  const img = photos[frame()];
+  if (!img) return;
+  const scale = Math.min((stage.clientWidth - 24) / img.naturalWidth, (stage.clientHeight - 24) / img.naturalHeight);
+  view.style.width = `${Math.floor(img.naturalWidth * scale)}px`;
+  view.style.height = `${Math.floor(img.naturalHeight * scale)}px`;
+}
+const canvasPerCssPx = () => view.width / view.clientWidth;
+
+// Photo with the part tinted, the rest dimmed and a thin outline, cached per mask.
+function base(f) {
+  const photo = photos[f];
+  const entry = masks[f];
+  if (!entry || !entry.img) return photo;
+  if (entry.base) return entry.base;
+  const w = photo.naturalWidth, h = photo.naturalHeight;
+  const out = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const o = out.getContext("2d");
+  const layer = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const g = layer.getContext("2d");
+  o.drawImage(photo, 0, 0);
+  g.fillStyle = DIM; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = "destination-out"; g.drawImage(entry.img, 0, 0, w, h);
+  o.drawImage(layer, 0, 0);
+  g.globalCompositeOperation = "source-over"; g.clearRect(0, 0, w, h); g.drawImage(entry.img, 0, 0, w, h);
+  g.globalCompositeOperation = "source-in"; g.fillStyle = TINT; g.fillRect(0, 0, w, h);
+  o.drawImage(layer, 0, 0);
+  const r = Math.max(2, Math.round(w / 500));
+  g.globalCompositeOperation = "source-over"; g.clearRect(0, 0, w, h);
+  for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, -r], [r, -r], [-r, r]]) g.drawImage(entry.img, dx, dy, w, h);
+  g.globalCompositeOperation = "destination-out"; g.drawImage(entry.img, 0, 0, w, h);
+  g.globalCompositeOperation = "source-in"; g.fillStyle = OUTLINE; g.fillRect(0, 0, w, h);
+  o.drawImage(layer, 0, 0);
+  entry.base = out;
+  return out;
+}
+
+function drawBox(box, s, pending) {
+  const [x0, y0, x1, y1] = box;
+  ctx.save();
+  ctx.lineWidth = 2 * s;
+  ctx.setLineDash(pending ? [8 * s, 6 * s] : []);
+  ctx.strokeStyle = "rgba(0, 0, 0, .6)";
+  ctx.strokeRect(x0 * view.width, y0 * view.height, (x1 - x0) * view.width, (y1 - y0) * view.height);
+  ctx.lineWidth = 1.25 * s;
+  ctx.strokeStyle = "#fff";
+  ctx.strokeRect(x0 * view.width, y0 * view.height, (x1 - x0) * view.width, (y1 - y0) * view.height);
+  ctx.restore();
+}
+
+function redraw() {
+  const f = frame();
+  const photo = photos[f];
+  if (!photo) return;
+  if (view.width !== photo.naturalWidth || view.height !== photo.naturalHeight) {
+    view.width = photo.naturalWidth; view.height = photo.naturalHeight; fit();
+  }
+  ctx.drawImage(base(f), 0, 0);
+  const s = canvasPerCssPx();
+  const m = marksFor(f);
+  if (m.box) drawBox(m.box, s, false);
+  if (drag && drag.moved) drawBox(boxFrom(drag.start, drag.now), s, true);
+  for (const c of m.clicks) {
+    ctx.beginPath();
+    ctx.arc(c.x * view.width, c.y * view.height, POINT_RADIUS_PX * s, 0, 2 * Math.PI);
+    ctx.fillStyle = c.positive ? "#34c759" : "#ff453a";
+    ctx.fill();
+    ctx.lineWidth = 2 * s; ctx.strokeStyle = "#fff"; ctx.stroke();
+  }
+  const entry = masks[f];
+  const positives = m.clicks.filter(c => c.positive).length;
+  document.getElementById("readout").innerHTML =
+    `<b>foto ${f + 1}</b> · ${positives} sí · ${m.clicks.length - positives} no` +
+    (m.box ? " · rectángulo" : "") + (entry && entry.img ? ` · calidad ${entry.score.toFixed(2)}` : "");
+}
+
+// --- marks -----------------------------------------------------------------------------------
+
+function relative(e) {
+  const r = view.getBoundingClientRect();
+  return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+           y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+}
+function boxFrom(a, b) {
+  return [Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y)];
+}
+function change(f, next) {
+  (undoStack[f] ||= []).push(structuredClone(marksFor(f)));
+  if (next.clicks.length === 0 && next.box === null) delete marks[f]; else marks[f] = next;
+  persist();
+  segment(f);
+  redraw();
+}
+function undo() {
+  const f = frame();
+  const previous = (undoStack[f] || []).pop();
+  if (!previous) return;
+  if (previous.clicks.length === 0 && previous.box === null) delete marks[f]; else marks[f] = previous;
+  persist();
+  segment(f);
+  redraw();
+}
+
+stage.addEventListener("contextmenu", e => e.preventDefault());
+stage.addEventListener("pointerdown", e => {
+  if (!photos[frame()]) return;
+  stage.setPointerCapture(e.pointerId);
+  const r = view.getBoundingClientRect();
+  const onPhoto = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  drag = { start: relative(e), now: relative(e), moved: false, onPhoto,
+           negative: e.button === 2 || e.altKey || mode === "neg", button: e.button };
+});
+stage.addEventListener("pointermove", e => {
+  if (!drag || drag.negative) return;
+  drag.now = relative(e);
+  const s = view.clientWidth;
+  const distance = Math.hypot((drag.now.x - drag.start.x) * s, (drag.now.y - drag.start.y) * view.clientHeight);
+  if (distance > DRAG_THRESHOLD_PX) drag.moved = true;
+  if (drag.moved) redraw();
+});
+stage.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  const f = frame();
+  const m = structuredClone(marksFor(f));
+  if (d.moved) {
+    const box = boxFrom(d.start, relative(e));
+    if (box[2] - box[0] < MIN_BOX || box[3] - box[1] < MIN_BOX) { redraw(); return; }
+    m.box = box;
+    change(f, m);
+    return;
+  }
+  if (!d.onPhoto) { redraw(); return; }  // a click beside the photo is not a mark
+  const hit = m.clicks.findIndex(c =>
+    Math.hypot((c.x - d.start.x) * view.clientWidth, (c.y - d.start.y) * view.clientHeight) <= HIT_RADIUS_PX);
+  if (hit >= 0) m.clicks.splice(hit, 1);
+  else m.clicks.push({ x: d.start.x, y: d.start.y, positive: !d.negative });
+  change(f, m);
+});
+stage.addEventListener("pointercancel", () => { drag = null; redraw(); });
+
+// --- SAM -------------------------------------------------------------------------------------
+
+async function segment(f) {
+  const m = marksFor(f);
+  const key = JSON.stringify(m);
+  if (masks[f] && masks[f].key === key) return;
+  if (!hasPrompt(m)) {
+    masks[f] = { key, img: null, score: 0, base: null };
+    markThumb(f);
+    if (f === frame()) redraw();
+    return;
+  }
+  const id = ++requestId;
+  latest[f] = id;
+  sam.pending++;
+  refreshStatus();
+  try {
+    const answer = await api("/api/segment", { frame: f, ...m });
+    const img = answer.mask ? await loadImage(answer.mask) : null;
+    sam.ready = true;
+    sam.error = null;
+    if (latest[f] !== id) return;
+    masks[f] = { key, img, score: answer.score, base: null };
+    markThumb(f);
+    if (f === frame()) redraw();
+  } catch (error) {
+    if (latest[f] === id) sam.error = "SAM falló; marcá de nuevo";
+    console.error(error);
+  } finally {
+    sam.pending--;
+    refreshStatus();
+  }
+}
+
+// --- photos and navigation -------------------------------------------------------------------
+
+function markThumb(f) {
+  const el = document.querySelector(`.thumb[data-frame="${f}"]`);
+  if (el) el.classList.toggle("marked", Boolean(masks[f] && masks[f].img));
+}
+async function show(index) {
+  current = (index + keyframes.length) % keyframes.length;
+  document.querySelectorAll(".thumb").forEach((el, i) => el.classList.toggle("on", i === current));
+  document.querySelector(".thumb.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const f = frame();
+  photos[f] ||= await loadImage(`/photo/${f}.jpg`);
+  if (f !== frame()) return;
+  redraw();
+  fit();
+  redraw();
+  segment(f);
+}
+function setMode(next) {
+  mode = next;
+  document.getElementById("modePos").classList.toggle("on", mode === "pos");
+  document.getElementById("modeNeg").classList.toggle("on", mode === "neg");
+}
+
+document.getElementById("modePos").onclick = () => setMode("pos");
+document.getElementById("modeNeg").onclick = () => setMode("neg");
+document.getElementById("undo").onclick = undo;
+document.getElementById("clear").onclick = () => change(frame(), { clicks: [], box: null });
+async function save() {
+  const photosMarked = markedPhotos();
+  if (Object.keys(photosMarked).length === 0) { toast("Todavía no marcaste ninguna foto", true); return false; }
+  sam.saving = true;
+  refreshStatus();
+  try {
+    const { saved } = await api("/api/save", { part, photos: photosMarked });
+    savedState = JSON.stringify(photosMarked);
+    try { localStorage.setItem(storageKey("saved"), savedState); } catch {}
+    document.querySelector(`nav button[data-part="${part}"]`)?.classList.add("saved");
+    refreshSave();
+    toast(`Guardado: ${saved.length} de ${keyframes.length} fotos`);
+    return true;
+  } catch (error) {
+    toast("No se pudo guardar; probá de nuevo", true);
+    console.error(error);
+    return false;
+  } finally {
+    sam.saving = false;
+    refreshStatus();
+  }
+}
+// Moving to another part saves this one first, so nothing marked is left unsaved.
+async function openPart(id) {
+  if (id === part) return;
+  if (dirty() && Object.keys(markedPhotos()).length > 0 && !(await save())) return;
+  location.search = new URLSearchParams({ part: id }).toString();
+}
+document.getElementById("save").onclick = save;
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey) return;
+  if (e.key === "ArrowRight") show(current + 1);
+  else if (e.key === "ArrowLeft") show(current - 1);
+  else if (e.key === "z" || e.key === "Z") undo();
+  else if (e.key === "n" || e.key === "N") setMode(mode === "pos" ? "neg" : "pos");
+  else if (e.key === "Escape" && drag) { drag = null; redraw(); }
+});
+new ResizeObserver(() => { fit(); redraw(); }).observe(stage);
+
+(async function start() {
+  const config = await (await fetch("/api/config")).json();
+  part = new URLSearchParams(location.search).get("part") || Object.keys(config.parts)[0];
+  const info = config.parts[part];
+  if (!info) { sam.error = `No existe la pieza "${part}"`; refreshStatus(); return; }
+  document.getElementById("partName").textContent = info.name;
+  const parent = info.parent && config.parts[info.parent];
+  document.getElementById("partParent").textContent = parent ? `(parte del ${parent.name.toLowerCase()})` : "";
+  document.title = `Marcar ${info.name.toLowerCase()}`;
+  const nav = document.getElementById("parts");
+  for (const [id, p] of Object.entries(config.parts)) {
+    const el = document.createElement("button");
+    el.dataset.part = id;
+    el.className = `${id === part ? "on" : ""} ${config.saved[id] ? "saved" : ""}`;
+    const owner = p.parent && config.parts[p.parent];
+    el.innerHTML = owner ? `<span class="parent">${owner.name} › </span>${p.name}` : p.name;
+    el.onclick = () => openPart(id);
+    nav.append(el);
+  }
+  nav.querySelector(".on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  marks = load("marks") || {};
+  savedState = load("saved") === null ? null : JSON.stringify(load("saved"));
+  // Saved before this page tracked saves (the engine): what is here is what was saved.
+  if (savedState === null && config.saved[part]) savedState = JSON.stringify(markedPhotos());
+  refreshSave();
+  keyframes = info.photos;
+  const strip = document.getElementById("strip");
+  keyframes.forEach((f, i) => {
+    const el = document.createElement("button");
+    el.className = "thumb";
+    el.dataset.frame = f;
+    el.innerHTML = `<img src="/photo/${f}.jpg" alt=""><span class="label">foto ${f + 1}</span><span class="done">✓</span>`;
+    el.onclick = () => show(i);
+    strip.append(el);
+  });
+  refreshStatus();
+  api("/api/warm").then(({ device }) => {
+    sam.ready = true;
+    refreshStatus();
+    console.info(`SAM on ${device}`);
+    for (const f of keyframes) if (marks[f]) segment(f);  // thumbnails show which saved marks have a mask
+  }).catch(error => { sam.error = "SAM no arrancó; recargá la página"; refreshStatus(); console.error(error); });
+  await show(0);
+})();
+</script>
+</body>
+</html>
