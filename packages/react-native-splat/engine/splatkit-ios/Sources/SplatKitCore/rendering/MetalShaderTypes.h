@@ -34,4 +34,7 @@ struct alignas(8) ProjectedSplat {
 static_assert(sizeof(ProjectedSplat) == 32);
 static_assert(offsetof(ProjectedSplat, index) == 28);
 
+// Index of the shaders' [[function_constant(n)]] declaration for the SH degree.
+inline constexpr size_t kFnShDegree = 0;
+
 }  // namespace splatkit

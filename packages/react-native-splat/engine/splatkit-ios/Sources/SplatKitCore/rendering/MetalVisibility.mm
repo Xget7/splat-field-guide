@@ -12,7 +12,7 @@ bool MetalVisibility::create(id<MTLDevice> device, id<MTLLibrary> library) {
   for (int degree = 0; degree < kShDegrees; ++degree) {
     MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
     const uint32_t value = static_cast<uint32_t>(degree);
-    [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:0];
+    [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:kFnShDegree];
     const auto pipeline = metal::pipeline(device, library, "visibility", constants);
     visibility_[static_cast<size_t>(degree)] = pipeline;
     // The compaction ranks survivors within a SIMD group of 32.
