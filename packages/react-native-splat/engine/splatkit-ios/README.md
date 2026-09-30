@@ -18,6 +18,7 @@ The shaders are compiled at run time from source embedded by [`cmake/`](cmake), 
 Sources/SplatKitCore/rendering/          renderer, world upload, visibility, radix sort
 Sources/SplatKitCore/rendering/shaders/  MSL, one file per stage, included by Splat.metal
 tests/                                   GPU tests that run on a Mac
+tools/splat_snapshot.mm                  draws a pack through the engine into a PNG, on a Mac
 ```
 
 ## Build and test
@@ -30,3 +31,9 @@ ctest --test-dir build --output-on-failure
 
 This also builds and tests `splat-core` and `splatkit-engine`.
 Set `SPLAT_SPZ_PATH` to any SPZ to render it at phone resolution in `MetalRasterTest.ARealWorldFillsTheView`.
+
+`splat_snapshot` draws a cloud and its labels exactly as the app does, from a pose, with parts highlighted:
+
+```
+build/splat_snapshot --spz high/cloud.spz --labels high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out engine.png
+```

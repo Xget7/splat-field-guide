@@ -12,11 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# The Metal code runs on a Mac too, so its tests are a macOS build of this package.
+# The Metal code runs on a Mac too, so its tests and tools are a macOS build of this package.
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
   set(SPLATKIT_IOS_BUILD_TESTS OFF)
+  set(SPLATKIT_IOS_BUILD_TOOLS OFF)
 else()
   option(SPLATKIT_IOS_BUILD_TESTS "Build splatkit_ios unit tests (macOS)" ${PROJECT_IS_TOP_LEVEL})
+  option(SPLATKIT_IOS_BUILD_TOOLS "Build splat_snapshot (macOS)" ${PROJECT_IS_TOP_LEVEL})
 endif()
 set(SPLATKIT_ENGINE_BUILD_TESTS ${SPLATKIT_IOS_BUILD_TESTS} CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../splatkit-engine splatkit-engine)
@@ -44,6 +46,12 @@ target_link_libraries(splatkit_ios PUBLIC splatkit_engine
   "-framework Metal" "-framework QuartzCore" "-framework Foundation"
   "-framework CoreGraphics" "-framework ImageIO" "-framework UniformTypeIdentifiers")
 add_dependencies(splatkit_ios splatkit_ios_shaders)
+
+if(SPLATKIT_IOS_BUILD_TOOLS)
+  add_executable(splat_snapshot tools/splat_snapshot.mm)
+  target_link_libraries(splat_snapshot PRIVATE splatkit_ios)
+  target_compile_options(splat_snapshot PRIVATE -Wall -Wextra -Werror -fobjc-arc)
+endif()
 
 if(SPLATKIT_IOS_BUILD_TESTS)
   enable_testing()
