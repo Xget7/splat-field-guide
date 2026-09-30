@@ -5,50 +5,20 @@
 
 #include <gtest/gtest.h>
 
+#include "FakeRenderer.h"
 #include "load-spz.h"
 #include "splat/formats/PartLabels.h"
 
 namespace splatkit {
 namespace {
 
+using test::FakeRenderer;
+
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
 constexpr splat::CoordinateFrame kFrame = splat::CoordinateFrame::rub;
-
-// Records what the engine asks of a platform renderer.
-class FakeRenderer final : public SplatRenderer {
- public:
-  void setRenderScale(float scale) override { scale_ = scale; }
-  float renderScale() const override { return scale_; }
-  bool ready() const override { return isReady; }
-  Extent drawExtent() const override { return extent; }
-  uint32_t generation() const override { return surfaceGeneration; }
-  bool uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) override {
-    if (failUploads) return false;
-    world_ = GpuWorldInfo{static_cast<uint32_t>(cloud.count()), std::min(cloud.shDegree, maxShDegree)};
-    return true;
-  }
-  std::optional<GpuWorldInfo> world() const override { return world_; }
-  bool draw(const Frame& frame) override {
-    last = frame;
-    ++frames;
-    return true;
-  }
-  double lastGpuMillis() const override { return 0; }
-  const std::string& deviceDescription() const override { return description_; }
-
-  bool isReady = true;
-  bool failUploads = false;
-  Extent extent{1000, 1000};
-  uint32_t surfaceGeneration = 0;
-  Frame last;
-  uint32_t frames = 0;
-
- private:
-  float scale_ = 1;
-  std::optional<GpuWorldInfo> world_;
-  std::string description_ = "fake";
-};
+constexpr Extent kLandscape{2000, 1000};
+constexpr Extent kPortrait{1000, 2000};
 
 // Splats at `positions` (x, y, z each) in an SPZ file, one metre across and half opaque
 // unless told otherwise.
@@ -153,14 +123,63 @@ TEST_F(SplatEngineTest, DrawsNothingWithoutASurface) {
   EXPECT_NE(renderer->world(), std::nullopt);
 }
 
-TEST_F(SplatEngineTest, ReportsAWorldReadyOnceItIsUploaded) {
+TEST_F(SplatEngineTest, ReportsAWorldReadyOnceItIsOnScreen) {
+  Events events;
+  engine->setEventSink(events.sink());
+  renderer->gpuFinished = false;
+  load(pairBytes());
+  EXPECT_TRUE(events.kinds.empty());  // decoded, not yet drawn from
+  EXPECT_TRUE(tick());
+  EXPECT_TRUE(events.kinds.empty());  // drawn, but the GPU is still at it
+  EXPECT_TRUE(engine->needsFrame());  // so the host keeps asking
+  EXPECT_FALSE(tick());
+  renderer->gpuFinished = true;
+  EXPECT_FALSE(tick());  // nothing to draw, only to say
+  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady});
+  EXPECT_EQ(events.counts[0], 2u);
+  EXPECT_FALSE(engine->needsFrame());
+}
+
+TEST_F(SplatEngineTest, NeedsFramesOnlyWhileThereIsSomethingToDo) {
+  EXPECT_TRUE(engine->needsFrame());  // the first frame clears the view
+  tick();
+  EXPECT_FALSE(engine->needsFrame());
+  load(pairBytes(), labelBytes({1, 0}));
+  EXPECT_TRUE(engine->needsFrame());  // a world waits to be uploaded
+  tick();
+  EXPECT_FALSE(engine->needsFrame());
+  ASSERT_TRUE(engine->orbit(0.1f, 0));
+  EXPECT_TRUE(engine->needsFrame());
+  tick();
+  EXPECT_FALSE(engine->needsFrame());
+  const uint8_t part = 1;
+  engine->setHighlight(&part, 1);
+  int frames = 0;
+  while (engine->needsFrame()) {
+    ASSERT_TRUE(tick());  // every frame of the fade draws
+    ++frames;
+  }
+  EXPECT_GT(frames, 1);
+  ++renderer->surfaceGeneration;
+  EXPECT_TRUE(engine->needsFrame());
+  renderer->isReady = false;  // but not without a surface to draw on
+  EXPECT_FALSE(engine->needsFrame());
+}
+
+TEST_F(SplatEngineTest, ReportsAGpuFailureOnceThenRestsForGood) {
   Events events;
   engine->setEventSink(events.sink());
   load(pairBytes());
-  EXPECT_TRUE(events.kinds.empty());  // decoded, not yet drawn from
   tick();
-  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady});
-  EXPECT_EQ(events.counts[0], 2u);
+  renderer->gpuFailed = true;
+  ASSERT_TRUE(engine->orbit(0.1f, 0));
+  EXPECT_TRUE(engine->needsFrame());  // to say so
+  EXPECT_FALSE(tick());
+  ASSERT_EQ(events.kinds.back(), SplatEngine::Event::gpuFailed);
+  EXPECT_FALSE(engine->needsFrame());
+  const size_t reported = events.kinds.size();
+  EXPECT_FALSE(tick());
+  EXPECT_EQ(events.kinds.size(), reported);
 }
 
 TEST_F(SplatEngineTest, ReportsBadBytesAtOnceAndKeepsTheWorld) {
@@ -212,7 +231,6 @@ TEST_F(SplatEngineTest, FramesAWorldWholeFromTheCurrentDirection) {
 // A phone that turns to portrait while a world loads must end up where one held in
 // portrait all along does.
 TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
-  constexpr Extent kPortrait{1000, 2000};
   const auto radiusFor = [](Extent atLoad, Extent after) {
     auto owned = std::make_unique<FakeRenderer>();
     FakeRenderer* renderer = owned.get();
@@ -225,7 +243,7 @@ TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
     engine.render(1 + kVsyncNanos);
     return engine.cameraPose().radius;
   };
-  EXPECT_NEAR(radiusFor({2000, 1000}, kPortrait), radiusFor(kPortrait, kPortrait), kTolerance);
+  EXPECT_NEAR(radiusFor(kLandscape, kPortrait), radiusFor(kPortrait, kPortrait), kTolerance);
   // Narrower is further away.
   EXPECT_GT(radiusFor(kPortrait, kPortrait), radiusFor({1000, 1000}, {1000, 1000}));
 }

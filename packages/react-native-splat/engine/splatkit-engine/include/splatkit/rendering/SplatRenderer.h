@@ -62,6 +62,13 @@ class SplatRenderer {
   // presented, e.g. the surface was rebuilt instead.
   virtual bool draw(const Frame& frame) = 0;
 
+  // Any thread. True once a frame drawn from the current world has finished on the GPU,
+  // which is when the world is on screen. A renderer that cannot tell reports every world
+  // as finished, so the engine counts it on screen once it is drawn.
+  virtual bool hasCompletedWorldFrame() const { return true; }
+  // True once the GPU reported an error. The renderer draws nothing more.
+  virtual bool failed() const { return false; }
+
   // GPU time of the most recently completed frame, from timestamps at both ends of it.
   // Zero until the first frame completes or if unsupported.
   virtual double lastGpuMillis() const = 0;

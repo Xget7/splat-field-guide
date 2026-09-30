@@ -108,10 +108,17 @@ bool SplatEngine::applyPendingWorld() {
     framedBounds_ = cloud->bounds;
     framedExtent_ = {};
   }
+  showing_ = Showing::awaitingDraw;
   const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
   LOGI("uploaded %u splats in %.0f ms, sh degree %d", gpu.count, millisSince(start), gpu.shDegree);
-  emit(Event::worldReady, {}, sourceCount_);
   return true;
+}
+
+// Ready once the world is on screen: a host that shows its view then shows the world.
+void SplatEngine::reportShown() {
+  if (showing_ != Showing::awaitingGpu || !renderer_->hasCompletedWorldFrame()) return;
+  showing_ = Showing::nothing;
+  emit(Event::worldReady, {}, sourceCount_);
 }
 
 // Camera.
@@ -248,9 +255,25 @@ float SplatEngine::frameSeconds(int64_t frameTimeNanos) {
   return std::clamp(dt, 0.0f, kMaxFrameSeconds);
 }
 
+bool SplatEngine::needsFrame() const {
+  if (renderer_->failed()) return !gpuFailureReported_;
+  if (!renderer_->ready()) return false;
+  return redrawNeeded_ || showing_ != Showing::nothing || camera_.animating() ||
+         highlight_.fading() || loader_.hasWorld() ||
+         renderer_->generation() != lastDrawnGeneration_;
+}
+
 // Every vsync steps the camera, but the GPU only draws when something visible changed:
 // a still scene costs no GPU time and almost no battery.
 bool SplatEngine::render(int64_t frameTimeNanos) {
+  if (renderer_->failed()) {
+    if (!gpuFailureReported_) {
+      gpuFailureReported_ = true;
+      LOGE("the GPU failed; this view draws nothing more");
+      emit(Event::gpuFailed, "The GPU reported an error");
+    }
+    return false;
+  }
   if (!renderer_->ready()) return false;
   if (applyPendingWorld()) redrawNeeded_ = true;
 
@@ -268,6 +291,7 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   const auto sampler = [this] { return sample(); };
   if (!redrawNeeded_) {
     stats_.onFrame(frameTimeNanos, false, sampler);
+    reportShown();
     return false;
   }
 
@@ -283,8 +307,10 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   }
   redrawNeeded_ = false;
   lastDrawnGeneration_ = generation;
+  if (showing_ == Showing::awaitingDraw) showing_ = Showing::awaitingGpu;
   publishView(frame);
   stats_.onFrame(frameTimeNanos, true, sampler);
+  reportShown();
   return true;
 }
 

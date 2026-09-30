@@ -52,9 +52,12 @@ class MetalSplatRenderer final : public SplatRenderer {
 
   bool draw(const Frame& frame) override;
 
-  // Any thread. A successful GPU frame of the current world has finished; uploads
-  // alone and background frames do not qualify. Reset when the world is replaced.
-  bool hasCompletedWorldFrame() const { return !gpuFailed_.load() && completedWorldFrame_.load(); }
+  // A successful GPU frame of the current world has finished; uploads alone and background
+  // frames do not qualify. Reset when the world is replaced.
+  bool hasCompletedWorldFrame() const override {
+    return !gpuFailed_.load() && completedWorldFrame_.load();
+  }
+  bool failed() const override { return gpuFailed_.load(); }
 
   // Pixels of a presented frame: BGRA, 8 bits each, rows top down, `width` by `height`.
   using CaptureHandler =

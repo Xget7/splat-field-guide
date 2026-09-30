@@ -42,6 +42,11 @@ class SplatEngine {
 
   // Steps the camera and draws if anything visible changed. True when a frame was drawn.
   bool render(int64_t frameTimeNanos);
+  // Render thread: whether the next vsync has anything to do. False while the scene is still
+  // and while there is no surface to draw on, so a host can stop its display link; any call
+  // into the engine, a finished load or a new surface is a reason to start it again. Stats
+  // stop ageing while it is stopped.
+  bool needsFrame() const;
 
   // Decodes an SPZ world whose positions are in `sourceFrame`, with the labels.bin of its
   // part labels (empty for none). Thread safe. Errors are reported and leave the current
@@ -51,10 +56,11 @@ class SplatEngine {
   void loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                      splat::CoordinateFrame sourceFrame);
 
-  // What the host needs to know about loading. Ready fires on the render thread once the
-  // world is drawn from; failures fire on whichever thread found them. Labels that do not
-  // fit the cloud are their own failure: the capture is fine, the pack is not.
-  enum class Event { worldReady = 0, worldFailed = 1, labelsMismatch = 2 };
+  // What the host needs to know about loading and the GPU. Ready fires on the render thread
+  // once a frame of the new world has finished on the GPU, so it is on screen; failures fire
+  // on whichever thread found them. Labels that do not fit the cloud are their own failure:
+  // the capture is fine, the pack is not. A GPU failure is final for this engine.
+  enum class Event { worldReady = 0, worldFailed = 1, labelsMismatch = 2, gpuFailed = 3 };
   using EventSink = std::function<void(Event, const std::string& message, uint32_t splatCount)>;
   void setEventSink(EventSink sink) { events_ = std::move(sink); }
 
@@ -120,6 +126,7 @@ class SplatEngine {
   void report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
   bool applyPendingWorld();
   void reframeDefault(Extent extent);
+  void reportShown();
   float frameSeconds(int64_t frameTimeNanos);
   splat::Mat4 projection(Extent extent) const;
   StatsPublisher::Sample sample() const;
@@ -151,6 +158,11 @@ class SplatEngine {
   std::shared_ptr<const PickIndex> pickIndex_;
   mutable std::mutex viewMutex_;
   std::optional<View> view_;
+
+  // A world is on screen once drawn and then finished by the GPU; ready waits for both.
+  enum class Showing { nothing, awaitingDraw, awaitingGpu };
+  Showing showing_ = Showing::nothing;
+  bool gpuFailureReported_ = false;
 
   int shDegree_ = kMaxShDegree;
   uint32_t sourceCount_ = 0;

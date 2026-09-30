@@ -20,6 +20,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "rendering/MetalSplatRenderer.h"
@@ -31,8 +32,10 @@ using splatkit::SplatEngine;
 
 constexpr float kRadiansPerDegree = 3.14159265358979f / 180.0f;
 constexpr int64_t kVsyncNanos = 16666667;
-// Enough vsyncs for any framing or fade to finish.
+// Enough vsyncs for any framing or fade to finish and the GPU to catch up.
 constexpr int kMaxSettleFrames = 600;
+// How long a vsync that drew nothing waits for the GPU before the next.
+constexpr auto kGpuPoll = std::chrono::milliseconds(1);
 constexpr int64_t kCaptureTimeoutNanos = 60 * NSEC_PER_SEC;
 constexpr uint32_t kDefaultWidth = 1206;  // iPhone 17 Pro, portrait
 constexpr uint32_t kDefaultHeight = 2622;
@@ -161,9 +164,15 @@ int main(int argc, char** argv) {
 
     SplatEngine engine(std::move(metal));
     std::string failure;
-    engine.setEventSink([&failure](SplatEngine::Event event, const std::string& message, uint32_t) {
-      if (event != SplatEngine::Event::worldReady) failure = message;
-    });
+    bool shown = false;
+    engine.setEventSink(
+        [&failure, &shown](SplatEngine::Event event, const std::string& message, uint32_t) {
+          if (event == SplatEngine::Event::worldReady) {
+            shown = true;
+          } else {
+            failure = message;
+          }
+        });
     engine.loadWorldFile(o.spz, o.labels, splat::CoordinateFrame::rub);
     if (!failure.empty()) {
       std::fprintf(stderr, "load failed: %s\n", failure.c_str());
@@ -187,11 +196,18 @@ int main(int argc, char** argv) {
     }
     engine.setHighlight(o.highlight.data(), o.highlight.size());
 
-    // Let the world upload and any framing or fade finish, as a still phone would.
-    int64_t now = kVsyncNanos;
-    for (int frame = 0; frame < kMaxSettleFrames; ++frame, now += kVsyncNanos) {
-      if (!engine.render(now) && frame > 0) break;
+    // Let the world upload and any framing or fade finish, as a still phone would, until the
+    // engine says the world is on screen and it has nothing left to do.
+    int64_t now = 0;
+    for (int frame = 0; frame < kMaxSettleFrames && engine.needsFrame(); ++frame) {
+      now += kVsyncNanos;
+      if (!engine.render(now)) std::this_thread::sleep_for(kGpuPoll);
     }
+    if (!shown || !failure.empty()) {
+      std::fprintf(stderr, "the world never reached the screen: %s\n", failure.c_str());
+      return 1;
+    }
+    now += kVsyncNanos;
     dispatch_semaphore_t captured = dispatch_semaphore_create(0);
     std::vector<uint8_t> pixels;
     renderer->captureNextFrame([&](std::vector<uint8_t> image, uint32_t, uint32_t) {
