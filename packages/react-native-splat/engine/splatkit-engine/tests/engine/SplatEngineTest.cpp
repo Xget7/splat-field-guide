@@ -277,6 +277,74 @@ TEST_F(SplatEngineTest, FramingAPartAnimatesThereThenIdles) {
   EXPECT_FALSE(tick());
 }
 
+TEST_F(SplatEngineTest, FramesAPartFromTheDirectionAsked) {
+  load(pairBytes());
+  tick();
+  splat::Bounds part;
+  part.min = {0.5f, -0.5f, 1.5f};
+  part.max = {1.5f, 0.5f, 2.5f};
+  const SplatEngine::ViewDirection from{0.5f, 0.3f};
+  ASSERT_TRUE(engine->frame(part, 0.1f, from));
+  while (tick()) {
+  }
+  EXPECT_NEAR(engine->cameraPose().azimuth, from.azimuth, kTolerance);
+  EXPECT_NEAR(engine->cameraPose().elevation, from.elevation, kTolerance);
+  EXPECT_NEAR(engine->cameraPose().target.x, 1, kTolerance);
+}
+
+// The radius that fits the part below in a view of `extent`, framed there directly.
+float fittedRadius(Extent extent, const splat::Bounds& bounds) {
+  auto owned = std::make_unique<FakeRenderer>();
+  owned->extent = extent;
+  SplatEngine engine(std::move(owned));
+  EXPECT_TRUE(engine.frame(bounds, 0));
+  return engine.cameraPose().radius;
+}
+
+splat::Bounds unitPart() {
+  splat::Bounds part;
+  part.min = {0, 0, 0};
+  part.max = {1, 1, 1};
+  return part;
+}
+
+TEST_F(SplatEngineTest, AFramingBeforeTheViewHasASizeGoesThereAtOnceAndFitsItLater) {
+  renderer->extent = {};
+  ASSERT_TRUE(engine->frame(unitPart(), 1));
+  EXPECT_NEAR(engine->cameraPose().target.x, 0.5f, kTolerance);  // no easing from nowhere
+  renderer->extent = kPortrait;
+  tick();
+  EXPECT_NEAR(engine->cameraPose().radius, fittedRadius(kPortrait, unitPart()), kTolerance);
+}
+
+TEST_F(SplatEngineTest, AFramingHoldsThroughAChangeOfShapeButNotAPinch) {
+  renderer->extent = kLandscape;
+  ASSERT_TRUE(engine->frame(unitPart(), 0.1f));
+  while (tick()) {
+  }
+  ASSERT_TRUE(engine->orbit(0.2f, 0));  // turning keeps it: a sphere fits from any side
+  renderer->extent = kPortrait;
+  ++renderer->surfaceGeneration;
+  tick();
+  EXPECT_NEAR(engine->cameraPose().radius, fittedRadius(kPortrait, unitPart()), kTolerance);
+  ASSERT_TRUE(engine->dolly(2));
+  const float pinched = engine->cameraPose().radius;
+  renderer->extent = kLandscape;
+  ++renderer->surfaceGeneration;
+  tick();
+  EXPECT_EQ(engine->cameraPose().radius, pinched);
+}
+
+TEST_F(SplatEngineTest, AChangeOfShapeDuringAFramingIsFittedAsItEnds) {
+  renderer->extent = kLandscape;
+  ASSERT_TRUE(engine->frame(unitPart(), 0.1f));
+  tick();
+  renderer->extent = kPortrait;
+  ++renderer->surfaceGeneration;
+  while (engine->needsFrame()) tick();
+  EXPECT_NEAR(engine->cameraPose().radius, fittedRadius(kPortrait, unitPart()), kTolerance);
+}
+
 TEST_F(SplatEngineTest, AStallStepsTheAnimationByAtMostATenthOfASecond) {
   load(pairBytes());
   tick();

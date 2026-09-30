@@ -64,17 +64,24 @@ class SplatEngine {
   using EventSink = std::function<void(Event, const std::string& message, uint32_t splatCount)>;
   void setEventSink(EventSink sink) { events_ = std::move(sink); }
 
-  // Camera, on the render thread. Until the host sets a pose, each world loaded is framed
-  // whole from the current direction, and framed again when the view changes shape.
+  // Camera, on the render thread. Until the host places the camera, each world loaded is
+  // framed whole from the current direction.
   bool setCameraPose(const OrbitPose& pose);
   bool setCameraLimits(const OrbitLimits& limits);
   // Radians; a drag stops any framing animation.
   bool orbit(float deltaAzimuth, float deltaElevation);
   // A pinch's scale: above one moves closer.
   bool dolly(float factor);
-  // Eases the camera over `seconds` until `bounds` fills the view, looking from where it
-  // looks now.
-  bool frame(const splat::Bounds& bounds, float seconds);
+  // Where a framing looks from, in radians as an OrbitPose turns.
+  struct ViewDirection {
+    float azimuth = 0;
+    float elevation = 0;
+  };
+  // Eases the camera over `seconds` until `bounds` fills the view, looking from `from` or
+  // else from where it looks now. Until the view has a size it goes there at once. A framing
+  // holds until a pinch or a pose replaces it: when the view changes shape it is fitted again.
+  bool frame(const splat::Bounds& bounds, float seconds,
+             std::optional<ViewDirection> from = std::nullopt);
   const OrbitPose& cameraPose() const { return camera_.pose(); }
 
   // Emphasises the parts with these labels and dims the rest, fading from the previous
@@ -125,7 +132,7 @@ class SplatEngine {
   }
   void report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
   bool applyPendingWorld();
-  void reframeDefault(Extent extent);
+  void refit(Extent extent);
   void reportShown();
   float frameSeconds(int64_t frameTimeNanos);
   splat::Mat4 projection(Extent extent) const;
@@ -147,8 +154,8 @@ class SplatEngine {
   splat::SplatWorldLoader loader_;
   OrbitCamera camera_;
   Highlight highlight_;
-  // The bounds the default framing fits and the view shape it was fitted to; empty once
-  // the host places the camera itself.
+  // The bounds the framing fits and the view shape it was fitted to, empty once a pinch or a
+  // pose replaces it. Until the host places the camera, each world is framed whole.
   bool poseSet_ = false;
   std::optional<splat::Bounds> framedBounds_;
   Extent framedExtent_;

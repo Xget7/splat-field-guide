@@ -145,26 +145,37 @@ bool SplatEngine::orbit(float deltaAzimuth, float deltaElevation) {
 
 bool SplatEngine::dolly(float factor) {
   if (!camera_.dolly(factor)) return false;
-  redrawNeeded_ = true;
-  return true;
-}
-
-bool SplatEngine::frame(const splat::Bounds& bounds, float seconds) {
-  if (!finite(bounds)) return false;
-  OrbitPose to = camera_.pose();
-  to.target = centre(bounds);
-  to.radius = framingRadius(bounds, renderer_->drawExtent());
-  if (!camera_.animateTo(to, seconds)) return false;
-  poseSet_ = true;
   framedBounds_.reset();
   redrawNeeded_ = true;
   return true;
 }
 
-// A world loaded before the view's final shape, or a phone turned, would otherwise keep a
-// framing for the wrong aspect: too close after landscape to portrait.
-void SplatEngine::reframeDefault(Extent extent) {
-  if (!framedBounds_ || extent.width == 0 || extent.height == 0) return;
+bool SplatEngine::frame(const splat::Bounds& bounds, float seconds,
+                        std::optional<ViewDirection> from) {
+  if (!finite(bounds)) return false;
+  const Extent extent = renderer_->drawExtent();
+  OrbitPose to = camera_.pose();
+  if (from) {
+    to.azimuth = from->azimuth;
+    to.elevation = from->elevation;
+  }
+  to.target = centre(bounds);
+  to.radius = framingRadius(bounds, extent);
+  // Nothing is on screen before the view has a size, so there is nothing to ease from.
+  const bool sized = extent.width > 0 && extent.height > 0;
+  if (!camera_.animateTo(to, sized ? seconds : 0)) return false;
+  poseSet_ = true;
+  framedBounds_ = bounds;
+  framedExtent_ = extent;
+  redrawNeeded_ = true;
+  return true;
+}
+
+// A framing made before the view's final shape, or kept through a turn of the phone, would
+// otherwise fit the wrong aspect: too close after landscape to portrait. A running animation
+// finishes first.
+void SplatEngine::refit(Extent extent) {
+  if (!framedBounds_ || extent.width == 0 || extent.height == 0 || camera_.animating()) return;
   if (extent.width == framedExtent_.width && extent.height == framedExtent_.height) return;
   framedExtent_ = extent;
   OrbitPose pose = camera_.pose();
@@ -278,9 +289,10 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   if (applyPendingWorld()) redrawNeeded_ = true;
 
   const Extent extent = renderer_->drawExtent();
-  reframeDefault(extent);
   const float dt = frameSeconds(frameTimeNanos);
   if (camera_.update(dt)) redrawNeeded_ = true;
+  // After the step: the frame that ends an animation is the first one free to refit.
+  refit(extent);
   if (highlight_.update(dt)) redrawNeeded_ = true;
   const uint32_t generation = renderer_->generation();
   if (generation != lastDrawnGeneration_) redrawNeeded_ = true;
