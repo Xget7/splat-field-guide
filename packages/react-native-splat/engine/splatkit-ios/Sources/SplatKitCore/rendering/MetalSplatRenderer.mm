@@ -22,6 +22,9 @@ constexpr MTLPixelFormat kPixelFormat = MTLPixelFormatBGRA8Unorm;
 // Front to back coverage accumulates in half floats, which 8 bits would round away.
 constexpr MTLPixelFormat kTargetFormat = MTLPixelFormatRGBA16Float;
 constexpr float kBackground[4] = {0.05f, 0.05f, 0.08f, 1.0f};
+// The simulator has no framebuffer fetch, which the saturation mask reads. Without the mask
+// every batch also draws over saturated pixels: the same picture, only slower.
+constexpr bool kSaturationMask = !TARGET_OS_SIMULATOR;
 }  // namespace
 
 std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
@@ -32,10 +35,14 @@ std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
     return nullptr;
   }
   // The embedded library uses SIMD reductions; reject unsupported GPUs before compiling it.
+  // The simulator claims only Apple family 2 but runs on the Mac's GPU, which has them, so
+  // there the compile below decides.
+#if !TARGET_OS_SIMULATOR
   if (![r->device_ supportsFamily:MTLGPUFamilyApple7]) {
     LOGE("SplatKit requires Apple GPU family 7 or newer (A14/M1+)");
     return nullptr;
   }
+#endif
   r->queue_ = [r->device_ newCommandQueue];
   NSError* error = nil;
   // SIMD prefix reductions are available on iOS starting with MSL 2.3.
@@ -175,16 +182,18 @@ bool MetalSplatRenderer::createPipelines() {
     return false;
   }
   // The saturation mask touches the depth buffer only.
-  MTLRenderPipelineDescriptor* mask = [MTLRenderPipelineDescriptor new];
-  mask.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
-  mask.fragmentFunction = [library_ newFunctionWithName:@"saturationMask"];
-  mask.colorAttachments[0].pixelFormat = kTargetFormat;
-  mask.colorAttachments[0].writeMask = MTLColorWriteMaskNone;
-  mask.depthAttachmentPixelFormat = kDepthFormat;
-  maskPipeline_ = [device_ newRenderPipelineStateWithDescriptor:mask error:&error];
-  if (maskPipeline_ == nil) {
-    LOGE("saturation mask pipeline: %s", error.localizedDescription.UTF8String);
-    return false;
+  if (kSaturationMask) {
+    MTLRenderPipelineDescriptor* mask = [MTLRenderPipelineDescriptor new];
+    mask.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
+    mask.fragmentFunction = [library_ newFunctionWithName:@"saturationMask"];
+    mask.colorAttachments[0].pixelFormat = kTargetFormat;
+    mask.colorAttachments[0].writeMask = MTLColorWriteMaskNone;
+    mask.depthAttachmentPixelFormat = kDepthFormat;
+    maskPipeline_ = [device_ newRenderPipelineStateWithDescriptor:mask error:&error];
+    if (maskPipeline_ == nil) {
+      LOGE("saturation mask pipeline: %s", error.localizedDescription.UTF8String);
+      return false;
+    }
   }
   MTLDepthStencilDescriptor* depth = [MTLDepthStencilDescriptor new];
   depth.depthCompareFunction = MTLCompareFunctionLessEqual;
@@ -339,7 +348,7 @@ void MetalSplatRenderer::encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot) {
     id<MTLBuffer> arguments = visibility_.drawArguments(slot);
     for (uint32_t batch = 0; batch < MetalVisibility::kDrawBatches; ++batch) {
       // Pixels the earlier batches saturated are masked so later ones skip them.
-      if (batch > 0) {
+      if (batch > 0 && kSaturationMask) {
         [encoder setRenderPipelineState:maskPipeline_];
         [encoder setDepthStencilState:maskDepth_];
         [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
