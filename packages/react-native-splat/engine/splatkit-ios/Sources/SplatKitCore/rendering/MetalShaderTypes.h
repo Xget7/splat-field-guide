@@ -15,13 +15,11 @@ struct alignas(16) CameraUniform {
   float focal[2];
   float tanHalfFov[2];
   float screenSize[2];
-  uint32_t outputLinear;
-  uint32_t pad;
+  uint32_t pad[2];
   float cameraPosition[4];
 };
 static_assert(sizeof(CameraUniform) == 176);
 static_assert(offsetof(CameraUniform, focal) == 128);
-static_assert(offsetof(CameraUniform, outputLinear) == 152);
 static_assert(offsetof(CameraUniform, cameraPosition) == 160);
 
 struct alignas(8) ProjectedSplat {

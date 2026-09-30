@@ -13,8 +13,6 @@
 #include <string>
 #include <vector>
 
-#include "rendering/MetalLOD.h"
-#include "rendering/MetalTileRaster.h"
 #include "rendering/MetalVisibility.h"
 #include "rendering/MetalWorld.h"
 #include "splatkit/rendering/GpuLayout.h"
@@ -23,12 +21,13 @@
 namespace splatkit {
 
 // Everything between a CAMetalLayer and a presented frame: the device and queue, the
-// pipelines built for the layer's pixel format, the offscreen target a render scale
-// needs, and the world bound to them. The layer is attached and sized by the view; the
-// world stays through a detach. Render thread only, except where noted.
+// pipelines, the half-float target the splats are composited into, and the world bound to
+// them. Each frame culls and sorts the world on the GPU, draws it front to back and blits
+// the result to the drawable. The layer is attached and sized by the view; the world stays
+// through a detach. Render thread only, except where noted.
 class MetalSplatRenderer final : public SplatRenderer {
  public:
-  // Null when the device has no Metal.
+  // Null when the device has no Metal or is older than Apple GPU family 7.
   static std::unique_ptr<MetalSplatRenderer> create();
   ~MetalSplatRenderer() override;
 
@@ -43,22 +42,12 @@ class MetalSplatRenderer final : public SplatRenderer {
 
   void setRenderScale(float scale) override;
   float renderScale() const override { return renderScale_; }
-  void setLinearBlending(bool linear) override;
-  bool linearBlending() const override { return linearBlending_; }
-  void setVsync(bool vsync) override;
 
-  DeviceCapabilities deviceCapabilities() const override;
-  bool applyRenderPolicy(const RenderPolicy& policy, std::string* reason) override;
-
-  bool ready() const override { return layer_ != nil && width_ > 0 && height_ > 0; }
+  bool ready() const override { return layer_ != nil && target_ != nil; }
   Extent drawExtent() const override;
   uint32_t generation() const override { return generation_; }
 
   bool uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) override;
-  bool selectsLodOnGpu() const override { return gpuSort_; }
-  bool uploadLodWorld(const splat::LodTree& tree, int maxShDegree, uint32_t budget) override;
-  bool createSlab(uint32_t capacity, int shDegree) override;
-  bool uploadTile(uint32_t offset, const splat::SplatCloud& cloud) override;
   std::optional<GpuWorldInfo> world() const override;
 
   bool draw(const Frame& frame) override;
@@ -74,25 +63,8 @@ class MetalSplatRenderer final : public SplatRenderer {
   // capture at a time; a request while one is pending replaces it.
   void captureNextFrame(CaptureHandler handler);
   double lastGpuMillis() const override { return gpuFailed_.load() ? 0 : lastGpuMillis_.load(); }
-  // The cull and the sort run as compute passes on the GPU (MetalVisibility); the engine
-  // hands over the ranges to draw and never sorts on the CPU for this renderer.
-  bool sortsOnGpu() const override { return gpuSort_; }
   double lastSortMillis() const override { return gpuFailed_.load() ? 0 : lastSortMillis_.load(); }
   uint32_t lastDrawCount() const override { return gpuFailed_.load() ? 0 : lastDrawCount_.load(); }
-  uint32_t lastSelectedCount() const override {
-    return gpuFailed_.load() ? 0 : lastSelectedCount_.load();
-  }
-  double lastSelectMillis() const override {
-    return gpuFailed_.load() ? 0 : lastSelectMillis_.load();
-  }
-  // The threshold the next selection runs at, at least the policy's. Render thread.
-  float lodPixels() const { return lodPixels_; }
-  uint32_t lastLodLimitedCount() const { return lod_ ? lastLodLimitedCount_.load() : 0; }
-  uint32_t lastLodEvaluatedCount() const { return lod_ ? lastLodEvaluatedCount_.load() : 0; }
-  ScreenTileStats lastScreenTileStats() const override {
-    if (gpuFailed_.load()) return {};
-    return {lastComputeTiles_.load(), lastNonemptyComputeTiles_.load(), lastHardwareTiles_.load()};
-  }
   bool reportsPresentTimes() const override { return true; }
   uint32_t takePresentTimes(std::vector<int64_t>* times) override;
   const std::string& deviceDescription() const override { return description_; }
@@ -104,33 +76,25 @@ class MetalSplatRenderer final : public SplatRenderer {
   MetalSplatRenderer() = default;
   bool createPipelines();
   bool createTarget();
-  MTLPixelFormat pixelFormat() const;
-  // Where the splats are drawn: the drawable's format, or half floats when the GPU order
-  // path accumulates coverage front to back, which 8 bits would round away.
-  MTLPixelFormat targetFormat() const;
   void waitIdle();
 
   void updateCameraUniforms(const Frame& frame, uint32_t slot);
   // Encode only: draw() commits these in dependency order after validation succeeds.
-  id<MTLCommandBuffer> encodeSelection(uint32_t slot);
   id<MTLCommandBuffer> encodeVisibilityAndSort(const Frame& frame, uint32_t slot);
-  bool encodeRaster(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture, const Frame& frame,
-                    uint32_t slot, uint32_t drawCount, bool gpuOrder);
+  void encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot);
   void encodeOutput(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture);
   id<MTLBuffer> encodeCapture(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture,
                               CaptureHandler* onCapture);
   // Transfers the acquired inFlight_ slot to the final completion handler.
-  void submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawable> drawable, uint32_t slot,
-                   bool tileRendered, bool drewWorld, id<MTLBuffer> captured,
-                   CaptureHandler onCapture);
+  void submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawable> drawable, bool drewWorld,
+                   id<MTLBuffer> captured, CaptureHandler onCapture);
 
   id<MTLDevice> device_ = nil;
   id<MTLCommandQueue> queue_ = nil;
   id<MTLLibrary> library_ = nil;
-  std::array<id<MTLRenderPipelineState>, kMaxShDegree + 1> splatPipelines_{};
+  // The splats go front to back in batches with a saturation mask between them, the
+  // background last, and a blit takes the result to the drawable.
   id<MTLRenderPipelineState> blitPipeline_ = nil;
-  // The GPU order path: front to back in batches, a saturation mask between them, the
-  // background last.
   id<MTLRenderPipelineState> projectedPipeline_ = nil;
   id<MTLRenderPipelineState> maskPipeline_ = nil;
   id<MTLRenderPipelineState> backgroundPipeline_ = nil;
@@ -138,17 +102,15 @@ class MetalSplatRenderer final : public SplatRenderer {
   id<MTLDepthStencilState> maskDepth_ = nil;   // always write
   id<MTLTexture> depth_ = nil;                 // GPU-private, the size of the colour target
   bool createDepth(NSUInteger width, NSUInteger height);
-  MTLPixelFormat pipelineFormat_ = MTLPixelFormatInvalid;
   std::array<id<MTLBuffer>, kFramesInFlight> uniforms_{};
   dispatch_semaphore_t inFlight_ = nullptr;
 
   CAMetalLayer* layer_ = nil;
   uint32_t width_ = 0;
   uint32_t height_ = 0;
-  id<MTLTexture> target_ = nil;  // scaled rendering or half-float GPU compositing
+  id<MTLTexture> target_ = nil;  // half floats: front to back coverage needs more than 8 bits
   std::unique_ptr<MetalWorld> world_;
   float renderScale_ = 1.0f;
-  bool linearBlending_ = false;
   uint32_t generation_ = 0;
   uint64_t frame_ = 0;
   std::atomic<double> lastGpuMillis_{0};
@@ -161,33 +123,10 @@ class MetalSplatRenderer final : public SplatRenderer {
   std::shared_ptr<PresentLog> presents_ = std::make_shared<PresentLog>();
   std::atomic<bool> completedWorldFrame_{false};
   MetalVisibility visibility_;
-  std::unique_ptr<MetalLOD> lod_;
-  std::array<id<MTLBuffer>, kFramesInFlight> lodReadback_{};
-  std::atomic<uint32_t> lastSelectedCount_{0};
-  std::atomic<uint32_t> lastLodLimitedCount_{0}, lastLodEvaluatedCount_{0};
-  std::atomic<double> lastSelectMillis_{0};
-  float minPixelRadius_ = 0.5f;
-  float lodErrorPixels_ = 1.0f;
-  uint32_t lodSplatLimit_ = 0;
-  // The threshold selection runs at: the policy's, raised while a cut would exceed the splat
-  // limit so detail thins evenly instead of stopping wherever traversal ran out of room.
-  float lodPixels_ = 1.0f;
-  std::atomic<uint32_t> lodReadbacks_{0};  // completed selections, so each adapts once
-  uint32_t lodAdaptedReadback_ = 0;
-  void adaptLodThreshold();
-  MetalRadixSort::KeyBits depthBits_ = MetalRadixSort::KeyBits::Full32;
-  MetalTileRaster tileRaster_;
-  // Pipelines exist once a view first asks for hybrid tiles; computeRaster_ is the policy.
-  bool tileRasterReady_ = false;
-  bool computeRaster_ = false;
   // A GPU error latches this renderer off. Never repeatedly resubmit failed work.
   std::atomic<bool> gpuFailed_{false};
-  bool gpuSort_ = false;
   std::atomic<double> lastSortMillis_{0};
   std::atomic<uint32_t> lastDrawCount_{0};
-  std::atomic<uint32_t> lastComputeTiles_{0};
-  std::atomic<uint32_t> lastNonemptyComputeTiles_{0};
-  std::atomic<uint32_t> lastHardwareTiles_{0};
   CaptureHandler capture_;
   std::string description_;
 };

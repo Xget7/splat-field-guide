@@ -9,8 +9,7 @@ struct Camera {
   float2 focal;         // pixels: screenSize * proj[0][0] / 2, screenSize * proj[1][1] / 2
   float2 tanHalfFov;   // 1 / proj[0][0], 1 / proj[1][1]
   float2 screenSize;   // pixels
-  uint outputLinear;   // 1 when the target is sRGB and expects linear values
-  uint pad;
+  uint2 pad;
   float4 cameraPosition;  // world space
 };
 
@@ -26,7 +25,7 @@ struct Splat {
   uint cov0;         // halves: xx, xy
   uint cov1;         // halves: xz, yy
   uint cov2;         // halves: yz, zz
-  uint lodAlpha;     // float bits of an opacity above 1, else 0
+  uint reserved;     // zero
 };
 
 // Intermediate GPU-projected splat layout (32 bytes)
@@ -56,11 +55,6 @@ struct MaskOut {
   float depth [[depth(any)]];
 };
 
-struct Range {
-  uint offset;
-  uint count;
-};
-
 struct SortDispatch {
   uint threadgroupsX, threadgroupsY, threadgroupsZ;
   uint blocks;
@@ -76,7 +70,6 @@ constant float kMaskDepth = 0.25;
 constant float kSaturated = 254.0 / 255.0;
 
 constant float kBoundsRadius = 3.0;
-constant float kLodBoundsRadius = 5.0;
 constant float kMinPixelRadius = 1.0;
 constant float2 kCorners[4] = {float2(-1, -1), float2(-1, 1), float2(1, -1), float2(1, 1)};
 

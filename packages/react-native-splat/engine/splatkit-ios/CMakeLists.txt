@@ -30,17 +30,14 @@ splatkit_embed_text(splatkit_ios_shaders
 )
 
 add_library(splatkit_ios STATIC
+  Sources/SplatKitCore/rendering/MetalRadixSort.mm
   Sources/SplatKitCore/rendering/MetalSplatRenderer.mm
   Sources/SplatKitCore/rendering/MetalVisibility.mm
-  Sources/SplatKitCore/rendering/MetalLOD.mm
-  Sources/SplatKitCore/rendering/MetalRadixSort.mm
-  Sources/SplatKitCore/rendering/MetalTileRaster.mm
   Sources/SplatKitCore/rendering/MetalWorld.mm
-  Sources/SplatKitCore/engine/SKSplatEngine.mm
 )
 target_include_directories(splatkit_ios
-  PUBLIC Sources/SplatKitCore/include
-  PRIVATE Sources/SplatKitCore ${CMAKE_CURRENT_BINARY_DIR}/embedded
+  PUBLIC Sources/SplatKitCore
+  PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded
 )
 target_compile_options(splatkit_ios PRIVATE -Wall -Wextra -Werror -fobjc-arc)
 target_link_libraries(splatkit_ios PUBLIC splatkit_engine

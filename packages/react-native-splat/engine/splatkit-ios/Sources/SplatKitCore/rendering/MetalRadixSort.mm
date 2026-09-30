@@ -4,10 +4,8 @@
 
 namespace splatkit {
 
-bool MetalRadixSort::create(id<MTLDevice> device, id<MTLLibrary> library,
-                            MTLResourceOptions storage) {
+bool MetalRadixSort::create(id<MTLDevice> device, id<MTLLibrary> library) {
   device_ = device;
-  storage_ = storage;
   prepare_ = metal::pipeline(device, library, "prepareRadixSort");
   histogram_ = metal::pipeline(device, library, "radixHistogram");
   scan_ = metal::pipeline(device, library, "radixScan");
@@ -18,8 +16,8 @@ bool MetalRadixSort::create(id<MTLDevice> device, id<MTLLibrary> library,
     LOGE("radix sort requires 32-lane SIMD groups");
     return false;
   }
-  totals_ = metal::buffer(device, kBins * sizeof(uint32_t), storage_);
-  dispatch_ = metal::buffer(device, 4 * sizeof(uint32_t), storage_);
+  totals_ = metal::buffer(device, kBins * sizeof(uint32_t));
+  dispatch_ = metal::buffer(device, 4 * sizeof(uint32_t));
   return prepare_ != nil && histogram_ != nil && scan_ != nil && scatter_ != nil &&
          totals_ != nil && dispatch_ != nil;
 }
@@ -30,11 +28,9 @@ bool MetalRadixSort::reserve(uint32_t capacity) {
   const size_t blocks = (size_t{capacity} + kBlock - 1) / kBlock;
   std::array<id<MTLBuffer>, 2> keys{};
   std::array<id<MTLBuffer>, 2> values{};
-  for (auto& key : keys)
-    key = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t), storage_);
-  for (auto& value : values)
-    value = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t), storage_);
-  id<MTLBuffer> histogram = metal::buffer(device_, blocks * kBins * sizeof(uint32_t), storage_);
+  for (auto& key : keys) key = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t));
+  for (auto& value : values) value = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t));
+  id<MTLBuffer> histogram = metal::buffer(device_, blocks * kBins * sizeof(uint32_t));
   if (keys[0] == nil || keys[1] == nil || values[0] == nil || values[1] == nil ||
       histogram == nil) {
     LOGE("sort buffers for %u pairs failed", capacity);
@@ -47,19 +43,17 @@ bool MetalRadixSort::reserve(uint32_t capacity) {
   return true;
 }
 
-void MetalRadixSort::encode(id<MTLCommandBuffer> cmd, id<MTLBuffer> count, KeyBits bits) {
+void MetalRadixSort::encode(id<MTLCommandBuffer> cmd, id<MTLBuffer> count) {
   id<MTLBuffer> dispatch = dispatch_;
   id<MTLComputeCommandEncoder> enc = [cmd computeCommandEncoder];
-  enc.label = bits == KeyBits::Low16 ? @"Splat radix sort (16 bits / 2 passes)"
-                                     : @"Splat radix sort (32 bits / 4 passes)";
+  enc.label = @"Splat radix sort";
   [enc setComputePipelineState:prepare_];
   [enc setBuffer:count offset:0 atIndex:0];
   [enc setBuffer:dispatch offset:0 atIndex:1];
   [enc dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
 
   const MTLSize threads = MTLSizeMake(kThreads, 1, 1);
-  const uint32_t passes = bits == KeyBits::Low16 ? 2u : 4u;
-  for (uint32_t pass = 0; pass < passes; ++pass) {
+  for (uint32_t pass = 0; pass < kPasses; ++pass) {
     const uint32_t shift = pass * kDigitBits;
     const uint32_t in = pass & 1u;
     const uint32_t out = in ^ 1u;

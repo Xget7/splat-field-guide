@@ -1,7 +1,6 @@
 #include "rendering/MetalWorld.h"
 
 #include <algorithm>
-#include <cstring>
 #include <limits>
 
 #include "rendering/MetalCompute.h"
@@ -29,7 +28,7 @@ id<MTLBuffer> privateBuffer(id<MTLDevice> device, size_t bytes) {
 std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLCommandQueue> queue,
                                                const splat::SplatCloud& cloud, int maxShDegree) {
   if (!validCloud(cloud)) return nullptr;
-  auto world = std::unique_ptr<MetalWorld>(new MetalWorld(device));
+  auto world = std::unique_ptr<MetalWorld>(new MetalWorld());
   world->count_ = static_cast<uint32_t>(cloud.count());
   const int degree = std::clamp(std::min(cloud.shDegree, maxShDegree), 0, 3);
   world->shDegree_ = carriesSh(cloud, degree) ? degree : 0;
@@ -82,55 +81,6 @@ std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLComma
     }
   }
   return world;
-}
-
-std::unique_ptr<MetalWorld> MetalWorld::slab(id<MTLDevice> device, uint32_t capacity,
-                                             int shDegree) {
-  if (capacity == 0) return nullptr;
-  auto world = std::unique_ptr<MetalWorld>(new MetalWorld(device));
-  world->count_ = capacity;
-  world->shDegree_ = std::clamp(shDegree, 0, 3);
-  world->slab_ = true;
-  const size_t shBytes = world->shDegree_ > 0
-                             ? size_t{capacity} * shStride(world->shDegree_) * sizeof(uint32_t)
-                             : sizeof(uint32_t);
-  world->splats_ = metal::buffer(device, size_t{capacity} * sizeof(GpuSplat));
-  world->sh_ = metal::buffer(device, shBytes);
-  if (world->splats_ == nil || world->sh_ == nil) return nullptr;
-  return world;
-}
-
-bool MetalWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) {
-  if (!slab_ || !validCloud(cloud)) return false;
-  const size_t n = cloud.count();
-  if (offset > count_ || n > count_ - offset) return false;
-  if (n == 0) return true;
-  const auto packed = packSplats(cloud);
-  std::memcpy(static_cast<GpuSplat*>(splats_.contents) + offset, packed.data(),
-              packed.size() * sizeof(GpuSplat));
-  if (shDegree_ == 0) return true;
-  const size_t stride = shStride(shDegree_);
-  const auto sh =
-      carriesSh(cloud, shDegree_) ? packSh(cloud, shDegree_) : std::vector<uint32_t>(n * stride, 0);
-  std::memcpy(static_cast<uint32_t*>(sh_.contents) + size_t{offset} * stride, sh.data(),
-              sh.size() * sizeof(uint32_t));
-  return true;
-}
-
-bool MetalWorld::writeOrder(const uint32_t* order, uint32_t count) {
-  if (count > count_ || (count > 0 && order == nullptr)) return false;
-  if (orders_[0] == nil) {
-    std::array<id<MTLBuffer>, 2> orders{};
-    for (auto& buffer : orders) buffer = metal::buffer(device_, size_t{count_} * sizeof(uint32_t));
-    if (orders[0] == nil || orders[1] == nil) return false;
-    orders_ = orders;
-  }
-  const uint32_t next = currentOrder_ ^ 1u;
-  if (count > 0) {
-    std::memcpy(orders_[next].contents, order, size_t{count} * sizeof(uint32_t));
-  }
-  currentOrder_ = next;
-  return true;
 }
 
 }  // namespace splatkit

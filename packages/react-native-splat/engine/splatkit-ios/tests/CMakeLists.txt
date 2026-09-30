@@ -1,10 +1,8 @@
 add_executable(splatkit_ios_tests
-  MetalVisibilityTest.mm
-  MetalLODTest.mm
   MetalRadixSortTest.mm
-  MetalWorldTest.mm
   MetalRasterTest.mm
-  MetalTileRasterTest.mm
+  MetalVisibilityTest.mm
+  MetalWorldTest.mm
 )
 target_include_directories(splatkit_ios_tests PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../Sources/SplatKitCore ${CMAKE_CURRENT_BINARY_DIR}/../embedded

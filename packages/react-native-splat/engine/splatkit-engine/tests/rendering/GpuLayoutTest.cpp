@@ -1,7 +1,5 @@
 #include "splatkit/rendering/GpuLayout.h"
 
-#include <cstring>
-
 #include <gtest/gtest.h>
 
 #include "splat/math/Half.h"
@@ -13,7 +11,7 @@ splat::SplatCloud twoSplats(int shDegree) {
   splat::SplatCloud cloud;
   cloud.positions = {0, 1, 2, 3, 4, 5};
   cloud.colors = {1.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f};
-  cloud.alphas = {0.5f, 2.0f};
+  cloud.alphas = {0.5f, 1.0f};
   cloud.covariances = {1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1};
   cloud.shDegree = shDegree;
   const auto coefficients = static_cast<std::size_t>((shDegree + 1) * (shDegree + 1) - 1);
@@ -30,15 +28,8 @@ TEST(GpuLayout, PacksColourAlphaAndCovarianceIntoThirtyTwoBytes) {
   EXPECT_EQ((packed[0].rgba8 >> 24) & 0xffu, 128u);  // a
   EXPECT_EQ(packed[0].cov[0] & 0xffffu, splat::toHalf(1.0f));
   EXPECT_EQ(packed[0].cov[2] >> 16, splat::toHalf(6.0f));
-  EXPECT_EQ(packed[0].lodAlpha, 0u);
-}
-
-TEST(GpuLayout, AnOpacityAboveOneIsKeptAsFloatBits) {
-  const auto packed = packSplats(twoSplats(0));
-  float alpha = 0;
-  std::memcpy(&alpha, &packed[1].lodAlpha, sizeof(alpha));
-  EXPECT_EQ(alpha, 2.0f);
-  EXPECT_EQ((packed[1].rgba8 >> 24) & 0xffu, 255u);  // clamped in the byte
+  EXPECT_EQ(packed[0].reserved, 0u);
+  EXPECT_EQ((packed[1].rgba8 >> 24) & 0xffu, 255u);
 }
 
 TEST(GpuLayout, HarmonicsArePackedTwoHalvesPerUintPerSplat) {

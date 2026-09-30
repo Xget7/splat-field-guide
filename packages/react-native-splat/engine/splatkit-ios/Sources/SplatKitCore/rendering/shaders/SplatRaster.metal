@@ -1,25 +1,8 @@
 #include "SplatTypes.metalh"
 #include "SplatProjection.metalh"
 
-// Rasterization and compositing, including the CPU order compatibility path.
-vertex SplatVertex splatVertex(uint vertexId [[vertex_id]], uint instanceId [[instance_id]],
-                               constant Camera& cam [[buffer(0)]],
-                               const device Splat* splats [[buffer(1)]],
-                               const device uint* order [[buffer(2)]],
-                               const device uint* shData [[buffer(3)]]) {
-  uint index = order[instanceId];
-  Projected p;
-  if (!projectSplat(cam, splats[index], index, shData, p)) {
-    SplatVertex out;
-    out.position = float4(0.0, 0.0, 2.0, 1.0);
-    out.relativePosition = float2(0.0);
-    out.color = float4(0.0);
-    return out;
-  }
-  return expandQuad(cam, p, vertexId);
-}
-
-// GPU order path vertex shader
+// Rasterization and compositing of the splats the visibility pass projected and sorted,
+// front to back.
 vertex SplatVertex projectedVertex(uint vertexId [[vertex_id]], uint instanceId [[instance_id]],
                                    constant Camera& cam [[buffer(0)]],
                                    const device Projected* projected [[buffer(1)]],
@@ -27,13 +10,7 @@ vertex SplatVertex projectedVertex(uint vertexId [[vertex_id]], uint instanceId 
   return expandQuad(cam, projected[order[instanceId]], vertexId);
 }
 
-// Fragment Shaders
-fragment float4 splatFragment(SplatVertex in [[stage_in]]) {
-  float alpha = splatAlpha(in);
-  if (alpha < 1.0 / 255.0) discard_fragment();
-  return float4(in.color.rgb, alpha);
-}
-
+// Premultiplied, for "under" blending into a target that starts transparent.
 fragment float4 splatFragmentUnder(SplatVertex in [[stage_in]]) {
   half2 relative = half2(in.relativePosition);
   half r2 = dot(relative, relative);

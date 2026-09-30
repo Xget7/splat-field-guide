@@ -1,11 +1,8 @@
 add_executable(splatkit_engine_tests
-  camera/WalkCameraTest.cpp
-  diagnostics/BenchmarkTest.cpp
+  camera/OrbitCameraTest.cpp
   diagnostics/StatsPublisherTest.cpp
-  engine/SplatEnginePolicyTest.cpp
+  engine/SplatEngineTest.cpp
   rendering/GpuLayoutTest.cpp
-  rendering/FrameOrderTest.cpp
-  rendering/RenderPolicyTest.cpp
 )
 # spz already reaches the link line through the static splat_core; only its headers are added
 # here, so Apple's linker does not warn about the duplicate archive.

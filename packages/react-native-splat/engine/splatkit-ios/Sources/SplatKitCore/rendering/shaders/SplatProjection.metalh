@@ -1,7 +1,6 @@
 #pragma once
 #include "SplatTypes.metalh"
 
-// Shared by the visibility compute pass and the CPU-order vertex path.
 // Projects the 3D covariance to screen space: Sigma' = J W Sigma W^T J^T.
 inline float3 projectCovariance(constant Camera& cam, float3 viewPos, float4 covA, float2 covB) {
   float invZ = 1.0 / viewPos.z;
@@ -75,30 +74,24 @@ inline float3 shColor(const device uint* shData, uint index, float3 d) {
   return c;
 }
 
+// False for a splat that would draw nothing: behind the camera, outside the view or
+// smaller than a pixel.
 inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device uint* shData,
-                         thread Projected& out, bool tightCulling = false,
-                         float minPixelRadius = 0.5) {
+                         thread Projected& out) {
   float4 rgba = unpackUnorm4x8(s.rgba8);
-  // This is the peak opacity actually sent to rasterization, including LoD's
-  // above-one override. There is no separate opacity multiplier (scale = 1).
-  // exp(-r²/2) <= 1: if the peak fails the fragment cutoff, every pixel fails.
-  // Keep equality: the fragment uses <, not <=. Do not cull dark but opaque splats.
-  float alpha = s.lodAlpha != 0u ? as_type<float>(s.lodAlpha) : rgba.a;
-  if (tightCulling && alpha < 1.0 / 255.0) return false;
+  float alpha = rgba.a;
 
   float4 viewPos4 = cam.view * float4(s.px, s.py, s.pz, 1.0);
   float3 viewPos = viewPos4.xyz;
   if (viewPos.z >= 0.0) return false;
   float4 clip = cam.proj * viewPos4;
   float bounds = 1.2 * clip.w;
-  // Metal's perspective clip depth is [0,w], not OpenGL's [-w,w].
-  // For this camera, clip.w = -viewPos.z and near = proj[3][2] / proj[2][2].
-  // Keep the existing centre near/far convention; side planes use footprint bounds below.
-  if (clip.z < 0.0 || clip.z > clip.w ||
-      (!tightCulling && (clip.x < -bounds || clip.x > bounds || clip.y < -bounds || clip.y > bounds))) {
+  // Metal's perspective clip depth is [0,w], not OpenGL's [-w,w]. The centre is culled
+  // with a 20% margin, so splats reaching in from just outside the view still draw.
+  if (clip.z < 0.0 || clip.z > clip.w || clip.x < -bounds || clip.x > bounds ||
+      clip.y < -bounds || clip.y > bounds) {
     return false;
   }
-  if (tightCulling && clip.w <= cam.proj[3][2] / cam.proj[2][2]) return false;
 
   float2 c0 = unpackHalf2(s.cov0);
   float2 c1 = unpackHalf2(s.cov1);
@@ -107,35 +100,17 @@ inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device
   float2 axis1, axis2;
   ellipseAxes(cov2D, axis1, axis2);
 
-  float radius = min(s.lodAlpha != 0u ? kLodBoundsRadius : kBoundsRadius, sqrt(2.0 * log(max(alpha * 255.0, 1.0))));
-
-  if (tightCulling) {
-    // Use the unfiltered covariance eigenvalue for the configurable source-footprint
-    // approximation. ellipseAxes' stabilizing floor is for drawing, not culling.
-    float halfDifference = 0.5 * (cov2D.x - cov2D.z);
-    float sourceVariance = 0.5 * (cov2D.x + cov2D.z) +
-        sqrt(halfDifference * halfDifference + cov2D.y * cov2D.y) - 0.3;
-    if (sqrt(max(sourceVariance, 0.0)) * radius < minPixelRadius) return false;
-
-    // Bound the actual half-packed raster quad, not just its centre or a fixed
-    // 20% margin. Large/anisotropic splats crossing an edge must survive.
-    float2 packedAxis1 = float2(half2(axis1));
-    float2 packedAxis2 = float2(half2(axis2));
-    float2 extentPixels = radius * (abs(packedAxis1) + abs(packedAxis2));
-    float2 margin = (extentPixels + 0.5) * 2.0 * clip.w / cam.screenSize;
-    if (any(abs(clip.xy) > clip.w + margin)) return false;
-  } else {
-    float maxVariance = max(dot(axis1, axis1), dot(axis2, axis2));
-    float maxSourceSigma = sqrt(max(maxVariance - 0.3, 0.0));
-    if (maxSourceSigma * radius < kMinPixelRadius) return false;
-  }
+  // Out to where the Gaussian falls below one 8-bit step, and never past kBoundsRadius.
+  float radius = min(kBoundsRadius, sqrt(2.0 * log(max(alpha * 255.0, 1.0))));
+  float maxVariance = max(dot(axis1, axis1), dot(axis2, axis2));
+  float maxSourceSigma = sqrt(max(maxVariance - 0.3, 0.0));
+  if (maxSourceSigma * radius < kMinPixelRadius) return false;
 
   float3 rgb = rgba.rgb;
   if (SH_DEGREE >= 1u) {
     float3 dir = normalize(float3(s.px, s.py, s.pz) - cam.cameraPosition.xyz);
     rgb = max(rgb + shColor(shData, index, dir), float3(0.0));
   }
-  if (cam.outputLinear == 1u) rgb = pow(rgb, float3(2.2));
 
   out.center = clip.xy / clip.w;
   out.axis1 = as_type<uint>(half2(axis1));
@@ -157,7 +132,3 @@ inline SplatVertex expandQuad(constant Camera& cam, Projected p, uint vertexId) 
   return out;
 }
 
-inline float splatAlpha(SplatVertex in) {
-  float r2 = dot(in.relativePosition, in.relativePosition);
-  return min(exp(-0.5 * r2) * in.color.a, 1.0);
-}

@@ -13,14 +13,11 @@ namespace splatkit {
 // Scratch is shared across frames: all encodes and their consumers use one queue.
 class MetalRadixSort {
  public:
-  // Low16 requires zero upper bits. Keys remain uint32 storage in both modes.
-  enum class KeyBits : uint32_t { Low16 = 16, Full32 = 32 };
-  bool create(id<MTLDevice> device, id<MTLLibrary> library,
-              MTLResourceOptions storage = MTLResourceStorageModeShared);
+  bool create(id<MTLDevice> device, id<MTLLibrary> library);
   // Transactional allocation: failure preserves the previous buffers and capacity.
   bool reserve(uint32_t capacity);
   uint32_t capacity() const { return capacity_; }
-  void encode(id<MTLCommandBuffer> cmd, id<MTLBuffer> count, KeyBits bits = KeyBits::Full32);
+  void encode(id<MTLCommandBuffer> cmd, id<MTLBuffer> count);
   id<MTLBuffer> keys() const { return keys_[0]; }
   id<MTLBuffer> values() const { return values_[0]; }
 
@@ -28,13 +25,13 @@ class MetalRadixSort {
   static constexpr uint32_t kBlock = kThreads * 16;
 
  private:
+  static constexpr uint32_t kKeyBits = 32;
   static constexpr uint32_t kDigitBits = 8;
+  static constexpr uint32_t kPasses = kKeyBits / kDigitBits;
   static constexpr uint32_t kBins = 1u << kDigitBits;
-  static_assert(16 / kDigitBits % 2 == 0 && 32 / kDigitBits % 2 == 0,
-                "Both key widths must finish in the input buffers");
+  static_assert(kPasses % 2 == 0, "The sorted pairs must end in the input buffers");
 
   id<MTLDevice> device_ = nil;
-  MTLResourceOptions storage_ = MTLResourceStorageModeShared;
   id<MTLComputePipelineState> prepare_ = nil;
   id<MTLComputePipelineState> histogram_ = nil;
   id<MTLComputePipelineState> scan_ = nil;

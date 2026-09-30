@@ -17,7 +17,7 @@ struct GpuSplat {
   uint32_t rgba8;     // colour and alpha, a real uint: never routed through a float, whose
                       // NaN patterns some mobile compilers canonicalise
   uint32_t cov[3];    // six halves: (xx, xy), (xz, yy), (yz, zz)
-  uint32_t lodAlpha;  // float bits of an opacity above 1 (level of detail nodes), else 0
+  uint32_t reserved;  // zero
 };
 static_assert(sizeof(GpuSplat) == 32, "GpuSplat must match the shader struct");
 

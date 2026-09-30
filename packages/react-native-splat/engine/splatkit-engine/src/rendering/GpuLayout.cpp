@@ -73,12 +73,11 @@ void packSplatRange(const splat::SplatCloud& cloud, size_t offset, size_t count,
     const float alpha = cloud.alphas[i];
     g.rgba8 =
         packRgba8(cloud.colors[i * 3], cloud.colors[i * 3 + 1], cloud.colors[i * 3 + 2], alpha);
-    if (alpha > 1.0f) std::memcpy(&g.lodAlpha, &alpha, sizeof(g.lodAlpha));
     const float* c = &cloud.covariances[i * 6];  // xx, xy, xz, yy, yz, zz
     g.cov[0] = packHalf2(c[0], c[1]);
     g.cov[1] = packHalf2(c[2], c[3]);
     g.cov[2] = packHalf2(c[4], c[5]);
-    if (alpha <= 1.0f) g.lodAlpha = 0;
+    g.reserved = 0;
   }
 }
 

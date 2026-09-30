@@ -1,4 +1,0 @@
-module SplatKitCore {
-  header "SplatKit/SKSplatEngine.h"
-  export *
-}

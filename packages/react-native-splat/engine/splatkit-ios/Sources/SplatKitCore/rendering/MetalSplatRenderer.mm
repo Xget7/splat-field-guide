@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -19,7 +18,10 @@ namespace splatkit {
 
 namespace {
 constexpr MTLPixelFormat kDepthFormat = MTLPixelFormatDepth16Unorm;
-constexpr MTLClearColor kBackground = {0.05, 0.05, 0.08, 1.0};
+constexpr MTLPixelFormat kPixelFormat = MTLPixelFormatBGRA8Unorm;
+// Front to back coverage accumulates in half floats, which 8 bits would round away.
+constexpr MTLPixelFormat kTargetFormat = MTLPixelFormatRGBA16Float;
+constexpr float kBackground[4] = {0.05f, 0.05f, 0.08f, 1.0f};
 }  // namespace
 
 std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
@@ -49,23 +51,11 @@ std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
     uniform = metal::buffer(r->device_, sizeof(CameraUniform));
     if (uniform == nil) return nullptr;
   }
-  // Internal creation-time opt-in for tight culling and GPU-private scratch buffers.
-  // The public render policy controls sort key width independently of this flag;
-  // its sub-pixel threshold is supported only when tight culling is enabled.
-  // See deviceCapabilities() and applyRenderPolicy() for the per-instance contract.
-  const char* experimentValue = std::getenv("SPLATKIT_METAL_CULLING_EXPERIMENT");
-  const bool experiment = experimentValue != nullptr && std::strcmp(experimentValue, "1") == 0;
-  r->minPixelRadius_ = 0.5f;
-  r->depthBits_ = MetalRadixSort::KeyBits::Full32;
-  r->gpuSort_ =
-      r->visibility_.create(r->device_, r->library_, experiment, r->minPixelRadius_, r->depthBits_);
-  LOGI("Metal depth keys: %u bits, %u radix passes (uint32 scratch)",
-       static_cast<uint32_t>(r->depthBits_), static_cast<uint32_t>(r->depthBits_) / 8);
-  if (experiment)
-    LOGI("Metal culling experiment: opacity < 1/255, footprint bounds, %.2fpx, view depth, private "
-         "scratch",
-         r->minPixelRadius_);
-  if (!r->gpuSort_) LOGW("GPU sort unavailable, sorting on the CPU");
+  if (!r->visibility_.create(r->device_, r->library_)) {
+    LOGE("GPU visibility and sort pipelines failed");
+    return nullptr;
+  }
+  if (!r->createPipelines()) return nullptr;
   r->inFlight_ = dispatch_semaphore_create(kFramesInFlight);
   r->description_ = std::string(r->device_.name.UTF8String) + ", Metal";
   LOGI("%s", r->description_.c_str());
@@ -91,13 +81,9 @@ void MetalSplatRenderer::setLayer(CAMetalLayer* layer) {
   layer_ = layer;
   if (layer_ == nil) return;
   layer_.device = device_;
-  layer_.pixelFormat = pixelFormat();
+  layer_.pixelFormat = kPixelFormat;
   layer_.framebufferOnly = YES;
   ++generation_;
-  if (pipelineFormat_ != targetFormat() && !createPipelines()) {
-    LOGE("rendering stopped: no pipelines");
-    layer_ = nil;
-  }
 }
 
 void MetalSplatRenderer::setDrawableSize(uint32_t width, uint32_t height) {
@@ -115,128 +101,6 @@ void MetalSplatRenderer::setRenderScale(float scale) {
   renderScale_ = scale;
   ++generation_;
   createTarget();
-}
-
-void MetalSplatRenderer::setLinearBlending(bool linear) {
-  if (linear == linearBlending_) return;
-  linearBlending_ = linear;
-  waitIdle();
-  if (layer_ != nil) layer_.pixelFormat = pixelFormat();
-  ++generation_;
-  createTarget();
-  if (!createPipelines()) {
-    LOGE("rendering stopped: no pipelines");
-    layer_ = nil;
-  }
-}
-
-void MetalSplatRenderer::setVsync(bool vsync) {
-  // Presentation is tied to the display link that drives the frames; a benchmark
-  // without vsync would need its own loop. Host frame intervals and GPU times differ.
-  (void)vsync;
-}
-
-DeviceCapabilities MetalSplatRenderer::deviceCapabilities() const {
-  DeviceCapabilities caps;
-  // MetalLOD caps a selected cut at 4M nodes; the engine's residency window is [100k, 32M].
-  caps.limits.maxLodCapacitySplats = MetalLOD::kMaxBudget;
-  caps.limits.minResidencyCapacitySplats = 100'000;
-  caps.limits.maxResidencyCapacitySplats = 32'000'000;
-  // Hybrid screen tiles need GPU ordering; their pipelines are built on first request.
-  caps.supportsComputeTiles = gpuSort_;
-  caps.supportsHiZOcclusion = false;
-  caps.supportsSubgroups = gpuSort_;
-  // Metal exposes no texture-dimension query; Apple family 7, the minimum this renderer
-  // accepts, supports 16384x16384.
-  caps.maxTextureDimension = device_ != nil ? 16384u : 0u;
-  RenderPolicySupport& policy = caps.policy;
-  policy.fallback.raster = RasterStrategy::hardware;
-  policy.fallback.tileSize = 16;
-  policy.fallback.lodErrorPixels = 1.0f;
-  policy.fallback.alphaThreshold = 1.0f / 255.0f;
-  policy.fallback.subpixelThreshold = minPixelRadius_;
-  policy.fallback.sortDepth =
-      depthBits_ == MetalRadixSort::KeyBits::Low16 ? SortKeyBits::low16 : SortKeyBits::full32;
-  policy.fallback.enableFrustumCulling = true;
-  policy.fallback.enableEarlyTermination = true;
-  // The key width and hybrid tiles are public per-instance controls. The sub-pixel radius is
-  // meaningful only under the internal tight-culling experiment; alpha, tile size and
-  // occlusion stay fixed shader/rasterization choices. Pure compute tiles are not built.
-  // The LOD error threshold applies live to a hierarchy world and at its next upload.
-  policy.lodErrorPixels = gpuSort_;
-  policy.minLodErrorPixels = 0.1f;
-  policy.maxLodErrorPixels = 16.0f;
-  policy.lodSplatLimit = gpuSort_;
-  policy.raster = gpuSort_;
-  policy.rasterMask = 1u << static_cast<uint32_t>(RasterStrategy::hardware) |
-                      1u << static_cast<uint32_t>(RasterStrategy::hybrid);
-  policy.sortDepth = gpuSort_;
-  policy.subpixelThreshold = visibility_.tightCulling();
-  return caps;
-}
-
-bool MetalSplatRenderer::applyRenderPolicy(const RenderPolicy& policy, std::string* reason) {
-  const MetalRadixSort::KeyBits bits = policy.sortDepth == SortKeyBits::low16
-                                           ? MetalRadixSort::KeyBits::Low16
-                                           : MetalRadixSort::KeyBits::Full32;
-  const bool tiles = policy.raster == RasterStrategy::hybrid;
-  const bool visibilityChanged = bits != depthBits_ || policy.subpixelThreshold != minPixelRadius_;
-  const bool lodChanged =
-      policy.lodErrorPixels != lodErrorPixels_ || policy.lodSplatLimit != lodSplatLimit_;
-  if (!visibilityChanged && tiles == computeRaster_ && !lodChanged) return true;
-  if (!gpuSort_) {
-    // No GPU ordering pipelines exist; nothing the policy can reach.
-    if (reason != nullptr) *reason = "Metal GPU ordering is unavailable";
-    return false;
-  }
-  // Rebuilding pipelines or the target while frames may still encode against them is unsafe.
-  waitIdle();
-  // Each step that fails reverts the earlier ones, so a failure keeps the previous policy.
-  if (tiles && !tileRasterReady_) {
-    tileRasterReady_ = tileRaster_.create(device_, library_);
-    if (!tileRasterReady_) {
-      if (reason != nullptr) *reason = "Metal tile raster pipelines are unavailable";
-      return false;
-    }
-  }
-  const auto setTiles = [this](bool enabled) {
-    computeRaster_ = enabled;
-    // The compute compositor writes into the target, which needs shader-write usage.
-    return createTarget();
-  };
-  const bool tilesChanged = tiles != computeRaster_;
-  if (tilesChanged && !setTiles(tiles)) {
-    setTiles(!tiles);
-    if (reason != nullptr) *reason = "Metal render target rebuild failed";
-    return false;
-  }
-  if (visibilityChanged && !visibility_.reconfigure(policy.subpixelThreshold, bits)) {
-    if (tilesChanged) setTiles(!tiles);
-    if (reason != nullptr) *reason = "Metal visibility pipeline rebuild failed";
-    return false;
-  }
-  minPixelRadius_ = policy.subpixelThreshold;
-  depthBits_ = bits;
-  if (tilesChanged && !tiles) tileRaster_.releaseScratch();
-  // Plain configuration read by the next selection encode; it cannot fail, so it goes last.
-  lodErrorPixels_ = policy.lodErrorPixels;
-  lodSplatLimit_ = policy.lodSplatLimit;
-  lodPixels_ = lodErrorPixels_;
-  // Frames are idle here, so every readback so far describes the previous policy.
-  lodAdaptedReadback_ = lodReadbacks_.load();
-  if (lod_) {
-    lod_->setPixelLimit(lodPixels_);
-    lod_->setSplatLimit(lodSplatLimit_);
-  }
-  LOGI("Metal policy: %u-bit sort keys, %.3fpx sub-pixel radius, %.2fpx LOD error, %u LOD "
-       "splat limit, %s raster",
-       static_cast<uint32_t>(bits), minPixelRadius_, lodErrorPixels_, lodSplatLimit_,
-       computeRaster_ ? "hybrid" : "hardware");
-  return true;
-}
-
-MTLPixelFormat MetalSplatRenderer::pixelFormat() const {
-  return linearBlending_ ? MTLPixelFormatBGRA8Unorm_sRGB : MTLPixelFormatBGRA8Unorm;
 }
 
 Extent MetalSplatRenderer::drawExtent() const {
@@ -263,20 +127,15 @@ bool MetalSplatRenderer::createDepth(NSUInteger width, NSUInteger height) {
   return depth_ != nil;
 }
 
-MTLPixelFormat MetalSplatRenderer::targetFormat() const {
-  return gpuSort_ ? MTLPixelFormatRGBA16Float : pixelFormat();
-}
-
 bool MetalSplatRenderer::createTarget() {
   target_ = nil;
-  if ((renderScale_ == 1.0f && !gpuSort_) || width_ == 0 || height_ == 0) return true;
+  if (width_ == 0 || height_ == 0) return true;
   MTLTextureDescriptor* desc = [MTLTextureDescriptor
-      texture2DDescriptorWithPixelFormat:targetFormat()
+      texture2DDescriptorWithPixelFormat:kTargetFormat
                                    width:std::max(1u, static_cast<uint32_t>(width_ * renderScale_))
                                   height:std::max(1u, static_cast<uint32_t>(height_ * renderScale_))
                                mipmapped:NO];
   desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-  if (computeRaster_) desc.usage |= MTLTextureUsageShaderWrite;
   desc.storageMode = MTLStorageModePrivate;
   target_ = [device_ newTextureWithDescriptor:desc];
   if (target_ == nil) {
@@ -286,50 +145,15 @@ bool MetalSplatRenderer::createTarget() {
   return target_ != nil;
 }
 
-// One splat pipeline per spherical harmonics degree, specialised through a function
-// constant so a degree 0 world pays nothing for SH, plus the render scale pass.
 bool MetalSplatRenderer::createPipelines() {
-  pipelineFormat_ = targetFormat();
   NSError* error = nil;
-  id<MTLFunction> fragment = [library_ newFunctionWithName:@"splatFragment"];
-  for (int degree = 0; degree <= kMaxShDegree; ++degree) {
-    MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
-    uint32_t value = static_cast<uint32_t>(degree);
-    [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:0];
-    id<MTLFunction> vertex = [library_ newFunctionWithName:@"splatVertex"
-                                            constantValues:constants
-                                                     error:&error];
-    if (vertex == nil) {
-      LOGE("splat vertex function: %s", error.localizedDescription.UTF8String);
-      return false;
-    }
-    MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
-    desc.vertexFunction = vertex;
-    desc.fragmentFunction = fragment;
-    desc.colorAttachments[0].pixelFormat = pipelineFormat_;
-    desc.depthAttachmentPixelFormat = kDepthFormat;
-    // "Over" compositing, back to front: out = src.a * src + (1 - src.a) * dst.
-    desc.colorAttachments[0].blendingEnabled = YES;
-    desc.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
-    desc.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
-    desc.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
-    desc.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
-    id<MTLRenderPipelineState> state = [device_ newRenderPipelineStateWithDescriptor:desc
-                                                                               error:&error];
-    if (state == nil) {
-      LOGE("splat pipeline degree %d: %s", degree, error.localizedDescription.UTF8String);
-      return false;
-    }
-    splatPipelines_[static_cast<size_t>(degree)] = state;
-  }
-
-  // The GPU order path draws the projections the visibility kernel wrote, front to
+  // The splats are drawn from the projections the visibility kernel wrote, front to
   // back with "under" compositing of premultiplied colour onto a clear of zero:
   // out = (1 - dst.a) * src + dst, for colour and coverage alike.
   MTLRenderPipelineDescriptor* under = [MTLRenderPipelineDescriptor new];
   under.vertexFunction = [library_ newFunctionWithName:@"projectedVertex"];
   under.fragmentFunction = [library_ newFunctionWithName:@"splatFragmentUnder"];
-  under.colorAttachments[0].pixelFormat = pipelineFormat_;
+  under.colorAttachments[0].pixelFormat = kTargetFormat;
   under.depthAttachmentPixelFormat = kDepthFormat;
   under.colorAttachments[0].blendingEnabled = YES;
   under.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOneMinusDestinationAlpha;
@@ -353,7 +177,7 @@ bool MetalSplatRenderer::createPipelines() {
   MTLRenderPipelineDescriptor* mask = [MTLRenderPipelineDescriptor new];
   mask.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
   mask.fragmentFunction = [library_ newFunctionWithName:@"saturationMask"];
-  mask.colorAttachments[0].pixelFormat = pipelineFormat_;
+  mask.colorAttachments[0].pixelFormat = kTargetFormat;
   mask.colorAttachments[0].writeMask = MTLColorWriteMaskNone;
   mask.depthAttachmentPixelFormat = kDepthFormat;
   maskPipeline_ = [device_ newRenderPipelineStateWithDescriptor:mask error:&error];
@@ -372,13 +196,12 @@ bool MetalSplatRenderer::createPipelines() {
   MTLRenderPipelineDescriptor* blit = [MTLRenderPipelineDescriptor new];
   blit.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
   blit.fragmentFunction = [library_ newFunctionWithName:@"blitFragment"];
-  blit.colorAttachments[0].pixelFormat = pixelFormat();
+  blit.colorAttachments[0].pixelFormat = kPixelFormat;
   blitPipeline_ = [device_ newRenderPipelineStateWithDescriptor:blit error:&error];
   if (blitPipeline_ == nil) {
     LOGE("blit pipeline: %s", error.localizedDescription.UTF8String);
     return false;
   }
-  LOGI("pipelines for format %lu", static_cast<unsigned long>(pipelineFormat_));
   return true;
 }
 
@@ -388,64 +211,10 @@ bool MetalSplatRenderer::uploadWorld(const splat::SplatCloud& cloud, int maxShDe
   auto world = MetalWorld::upload(device_, queue_, cloud, maxShDegree);
   if (!world) return false;
   waitIdle();
-  if (gpuSort_ && !visibility_.reserve(world->info().count)) return false;
-  world_ = std::move(world);
-  lod_.reset();
-  completedWorldFrame_.store(false);
-  lastSelectedCount_.store(0);
-  lastSelectMillis_.store(0);
-  return true;
-}
-
-bool MetalSplatRenderer::uploadLodWorld(const splat::LodTree& tree, int maxShDegree,
-                                        uint32_t budget) {
-  if (!gpuSort_) return false;
-  waitIdle();
-  auto lod = std::make_unique<MetalLOD>();
-  if (!lod->create(device_, library_) || !lod->upload(queue_, tree, budget, lodErrorPixels_))
-    return false;
-  lod->setSplatLimit(lodSplatLimit_);
-  // Compact projections and radix scratch scale with the cut, not all resident nodes.
-  MetalVisibility visibility;
-  if (!visibility.create(device_, library_, true, minPixelRadius_, depthBits_) ||
-      !visibility.reserve(static_cast<uint32_t>(tree.nodeCount()), lod->budget()))
-    return false;
-  std::array<id<MTLBuffer>, kFramesInFlight> readback{};
-  for (auto& buffer : readback) {
-    buffer = metal::buffer(device_, 6 * sizeof(uint32_t));
-    if (!buffer) return false;
-  }
-  auto world = MetalWorld::upload(device_, queue_, tree.nodes, maxShDegree);
-  if (!world) return false;
-  visibility_ = std::move(visibility);
-  lod_ = std::move(lod);
-  lodReadback_ = readback;
-  lodPixels_ = lodErrorPixels_;
-  lodAdaptedReadback_ = lodReadbacks_.load();
-  lastLodLimitedCount_.store(0);
-  lastLodEvaluatedCount_.store(0);
+  if (!visibility_.reserve(world->info().count)) return false;
   world_ = std::move(world);
   completedWorldFrame_.store(false);
-  lastSelectedCount_.store(0);
-  lastSelectMillis_.store(0);
   return true;
-}
-
-bool MetalSplatRenderer::createSlab(uint32_t capacity, int shDegree) {
-  auto world = MetalWorld::slab(device_, capacity, shDegree);
-  if (!world) return false;
-  waitIdle();
-  if (gpuSort_ && !visibility_.reserve(capacity)) return false;
-  world_ = std::move(world);
-  lod_.reset();
-  completedWorldFrame_.store(false);
-  lastSelectedCount_.store(0);
-  lastSelectMillis_.store(0);
-  return true;
-}
-
-bool MetalSplatRenderer::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) {
-  return world_ && world_->uploadTile(offset, cloud);
 }
 
 std::optional<GpuWorldInfo> MetalSplatRenderer::world() const {
@@ -453,23 +222,6 @@ std::optional<GpuWorldInfo> MetalSplatRenderer::world() const {
 }
 
 // The frame.
-
-// Selection counts arrive a frame or two late, so the threshold climbs fast while refinements
-// are denied and relaxes slowly, holding inside a 10% band below the limit.
-void MetalSplatRenderer::adaptLodThreshold() {
-  constexpr float kRaise = 1.1f;
-  constexpr float kRelax = 1.03f;
-  constexpr float kMaxPixels = 64.0f;
-  const uint32_t readbacks = lodReadbacks_.load();
-  if (readbacks == lodAdaptedReadback_) return;
-  lodAdaptedReadback_ = readbacks;
-  if (lastLodLimitedCount_.load() > 0) {
-    lodPixels_ = std::min(lodPixels_ * kRaise, std::max(kMaxPixels, lodErrorPixels_));
-  } else if (lastSelectedCount_.load() < lod_->limit() / 10 * 9) {
-    lodPixels_ = std::max(lodPixels_ / kRelax, lodErrorPixels_);
-  }
-  lod_->setPixelLimit(lodPixels_);
-}
 
 uint32_t MetalSplatRenderer::takePresentTimes(std::vector<int64_t>* times) {
   times->clear();
@@ -480,7 +232,7 @@ uint32_t MetalSplatRenderer::takePresentTimes(std::vector<int64_t>* times) {
 
 bool MetalSplatRenderer::draw(const Frame& frame) {
   if (gpuFailed_.load()) return false;
-  if (!ready() || splatPipelines_[0] == nil) return false;
+  if (!ready()) return false;
   dispatch_semaphore_wait(inFlight_, DISPATCH_TIME_FOREVER);
   // Until submitFrame(), every failure returns the acquired slot synchronously.
   if (gpuFailed_.load()) {
@@ -495,39 +247,26 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
     return false;
   }
   const uint32_t slot = static_cast<uint32_t>(frame_ % kFramesInFlight);
-
-  // A new order goes into the buffer the frame in flight is not reading.
-  uint32_t drawCount = 0;
-  if (world_) {
-    if (frame.order != nullptr && !world_->writeOrder(frame.order, frame.orderCount)) {
-      dispatch_semaphore_signal(inFlight_);
-      return false;
-    }
-    drawCount = std::min(frame.drawCount, world_->info().count);
-  }
   updateCameraUniforms(frame, slot);
 
-  const bool gpuOrder = world_ && frame.orderSource == OrderSource::gpu && gpuSort_;
-  id<MTLCommandBuffer> selection = gpuOrder && lod_ ? encodeSelection(slot) : nil;
-  id<MTLCommandBuffer> sort = gpuOrder ? encodeVisibilityAndSort(frame, slot) : nil;
-  if (gpuOrder && sort == nil) {
-    // Selection has only been encoded, so no GPU work can still use this slot.
+  const bool drewWorld = world_ != nullptr;
+  id<MTLCommandBuffer> sort = drewWorld ? encodeVisibilityAndSort(frame, slot) : nil;
+  if (drewWorld && sort == nil) {
+    // Nothing was committed, so no GPU work can still use this slot.
     dispatch_semaphore_signal(inFlight_);
     return false;
   }
 
   id<MTLCommandBuffer> cmd = [queue_ commandBuffer];
-  const bool tileRendered = encodeRaster(cmd, drawable.texture, frame, slot, drawCount, gpuOrder);
+  encodeRaster(cmd, drewWorld ? slot : kFramesInFlight);
   encodeOutput(cmd, drawable.texture);
   CaptureHandler onCapture;
   id<MTLBuffer> captured = encodeCapture(cmd, drawable.texture, &onCapture);
 
   // Submit dependencies in order on the same queue. The final completion releases
-  // the slot only after selection, visibility/sort and rendering have finished.
-  if (selection != nil) [selection commit];
+  // the slot only after visibility, sort and rendering have finished.
   if (sort != nil) [sort commit];
-  const bool drewWorld = world_ && (gpuOrder || drawCount > 0);
-  submitFrame(cmd, drawable, slot, tileRendered, drewWorld, captured, std::move(onCapture));
+  submitFrame(cmd, drawable, drewWorld, captured, std::move(onCapture));
   ++frame_;
   return true;
 }
@@ -543,52 +282,10 @@ void MetalSplatRenderer::updateCameraUniforms(const Frame& frame, uint32_t slot)
   u.focal[1] = u.screenSize[1] * frame.proj.at(1, 1) / 2;
   u.tanHalfFov[0] = 1 / frame.proj.at(0, 0);
   u.tanHalfFov[1] = 1 / frame.proj.at(1, 1);
-  u.outputLinear = linearBlending_ ? 1u : 0u;
   u.cameraPosition[0] = frame.cameraPosition.x;
   u.cameraPosition[1] = frame.cameraPosition.y;
   u.cameraPosition[2] = frame.cameraPosition.z;
   std::memcpy(uniforms_[slot].contents, &u, sizeof(u));
-}
-
-id<MTLCommandBuffer> MetalSplatRenderer::encodeSelection(uint32_t slot) {
-  adaptLodThreshold();
-  auto selection = [queue_ commandBuffer];
-  selection.label = @"GPU LOD selection";
-  lod_->encode(selection, uniforms_[slot]);
-  id<MTLBuffer> selectedCount = lodReadback_[slot];
-  auto readback = [selection blitCommandEncoder];
-  [readback copyFromBuffer:lod_->count()
-              sourceOffset:0
-                  toBuffer:selectedCount
-         destinationOffset:0
-                      size:24];
-  [readback endEncoding];
-  std::atomic<uint32_t>* selected = &lastSelectedCount_;
-  std::atomic<double>* milliseconds = &lastSelectMillis_;
-  std::atomic<uint32_t>* limited = &lastLodLimitedCount_;
-  std::atomic<uint32_t>* evaluated = &lastLodEvaluatedCount_;
-  const bool logLod = frame_ % 120 == 0;
-  std::atomic<uint32_t>* readbacks = &lodReadbacks_;
-  const float pixels = lodPixels_;
-  std::atomic<bool>* failed = &gpuFailed_;
-  [selection addCompletedHandler:^(id<MTLCommandBuffer> done) {
-    if (done.status == MTLCommandBufferStatusError) {
-      failed->store(true);
-      LOGE("LOD command failed: %s", done.error.localizedDescription.UTF8String);
-      return;
-    }
-    selected->store(*static_cast<const uint32_t*>(selectedCount.contents));
-    const auto* counters = static_cast<const uint32_t*>(selectedCount.contents);
-    limited->store(counters[4]);
-    evaluated->store(counters[5]);
-    readbacks->fetch_add(1);
-    if (logLod)
-      LOGI("LOD SSE: %u selected, %u evaluated interiors, %u quality-limited refinements, "
-           "%.2f px",
-           counters[0], counters[5], counters[4], pixels);
-    milliseconds->store((done.GPUEndTime - done.GPUStartTime) * 1000.0);
-  }];
-  return selection;
 }
 
 id<MTLCommandBuffer> MetalSplatRenderer::encodeVisibilityAndSort(const Frame& frame,
@@ -596,9 +293,8 @@ id<MTLCommandBuffer> MetalSplatRenderer::encodeVisibilityAndSort(const Frame& fr
   id<MTLCommandBuffer> sort = [queue_ commandBuffer];
   const int degree = std::clamp(std::min(frame.shDegree, world_->info().shDegree), 0, kMaxShDegree);
   if (!visibility_.encode(sort, slot, uniforms_[slot], world_->splats(), world_->harmonics(),
-                          degree, lod_ ? nullptr : frame.ranges, lod_ ? 0 : frame.rangeCount,
-                          lod_ ? lod_->indices() : nil, lod_ ? lod_->count() : nil)) {
-    LOGE("invalid visibility ranges");
+                          degree, world_->info().count)) {
+    LOGE("visibility encode failed");
     return nil;
   }
   std::atomic<double>* sortMillis = &lastSortMillis_;
@@ -617,88 +313,57 @@ id<MTLCommandBuffer> MetalSplatRenderer::encodeVisibilityAndSort(const Frame& fr
   return sort;
 }
 
-bool MetalSplatRenderer::encodeRaster(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture,
-                                      const Frame& frame, uint32_t slot, uint32_t drawCount,
-                                      bool gpuOrder) {
+// `slot` is the frame's visibility slot, or kFramesInFlight for a frame without a world.
+void MetalSplatRenderer::encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot) {
   MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
-  id<MTLTexture> colour = target_ != nil ? target_ : drawableTexture;
-  const bool tileRendered =
-      gpuOrder && computeRaster_ && target_ != nil &&
-      tileRaster_.encode(cmd, uniforms_[slot], visibility_.projected(), visibility_.order(),
-                         visibility_.countBuffer(slot), visibility_.capacity(), target_, slot);
-  // Hardware completes overflow tiles, or the entire frame when compute is off.
-  pass.colorAttachments[0].texture = colour;
-  pass.colorAttachments[0].loadAction = tileRendered ? MTLLoadActionLoad : MTLLoadActionClear;
+  pass.colorAttachments[0].texture = target_;
+  pass.colorAttachments[0].loadAction = MTLLoadActionClear;
   pass.colorAttachments[0].storeAction = MTLStoreActionStore;
   // Front to back accumulates onto nothing and puts the background under at the end.
-  pass.colorAttachments[0].clearColor = gpuOrder ? MTLClearColorMake(0, 0, 0, 0) : kBackground;
-  if (createDepth(colour.width, colour.height)) {
+  pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+  if (createDepth(target_.width, target_.height)) {
     pass.depthAttachment.texture = depth_;
     pass.depthAttachment.loadAction = MTLLoadActionClear;
     pass.depthAttachment.storeAction = MTLStoreActionDontCare;
     pass.depthAttachment.clearDepth = 1.0;
   }
   id<MTLRenderCommandEncoder> encoder = [cmd renderCommandEncoderWithDescriptor:pass];
-  if (world_ && (drawCount > 0 || gpuOrder)) {
+  if (slot < kFramesInFlight) {
     [encoder setVertexBuffer:uniforms_[slot] offset:0 atIndex:0];
-    if (gpuOrder) {
-      [encoder setVertexBuffer:visibility_.projected() offset:0 atIndex:1];
-      [encoder setVertexBuffer:visibility_.order() offset:0 atIndex:2];
-      id<MTLBuffer> arguments = visibility_.drawArguments(slot);
-      for (uint32_t batch = 0; batch < MetalVisibility::kDrawBatches; ++batch) {
-        // Completed compute tiles have alpha one and must be masked before even
-        // the first batch. Transparent overflow tiles receive all hardware splats.
-        if (batch > 0 || tileRendered) {
-          [encoder setRenderPipelineState:maskPipeline_];
-          [encoder setDepthStencilState:maskDepth_];
-          [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-        }
-        [encoder setRenderPipelineState:projectedPipeline_];
-        [encoder setDepthStencilState:splatDepth_];
-        [encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip
-                  indirectBuffer:arguments
-            indirectBufferOffset:batch * MetalVisibility::kDrawArgumentBytes];
+    [encoder setVertexBuffer:visibility_.projected() offset:0 atIndex:1];
+    [encoder setVertexBuffer:visibility_.order() offset:0 atIndex:2];
+    id<MTLBuffer> arguments = visibility_.drawArguments(slot);
+    for (uint32_t batch = 0; batch < MetalVisibility::kDrawBatches; ++batch) {
+      // Pixels the earlier batches saturated are masked so later ones skip them.
+      if (batch > 0) {
+        [encoder setRenderPipelineState:maskPipeline_];
+        [encoder setDepthStencilState:maskDepth_];
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
       }
-    } else {
-      const int degree =
-          std::clamp(std::min(frame.shDegree, world_->info().shDegree), 0, kMaxShDegree);
-      [encoder setRenderPipelineState:splatPipelines_[static_cast<size_t>(degree)]];
+      [encoder setRenderPipelineState:projectedPipeline_];
       [encoder setDepthStencilState:splatDepth_];
-      [encoder setVertexBuffer:world_->splats() offset:0 atIndex:1];
-      [encoder setVertexBuffer:world_->harmonics() offset:0 atIndex:3];
-      [encoder setVertexBuffer:world_->order() offset:0 atIndex:2];
       [encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip
-                  vertexStart:0
-                  vertexCount:4
-                instanceCount:drawCount];
+                indirectBuffer:arguments
+          indirectBufferOffset:batch * MetalVisibility::kDrawArgumentBytes];
     }
   }
-  if (gpuOrder) {
-    const float background[4] = {static_cast<float>(kBackground.red),
-                                 static_cast<float>(kBackground.green),
-                                 static_cast<float>(kBackground.blue), 1.0f};
-    [encoder setRenderPipelineState:backgroundPipeline_];
-    [encoder setDepthStencilState:splatDepth_];
-    [encoder setFragmentBytes:background length:sizeof(background) atIndex:0];
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-  }
+  [encoder setRenderPipelineState:backgroundPipeline_];
+  [encoder setDepthStencilState:splatDepth_];
+  [encoder setFragmentBytes:kBackground length:sizeof(kBackground) atIndex:0];
+  [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
   [encoder endEncoding];
-
-  return tileRendered;
 }
 
 void MetalSplatRenderer::encodeOutput(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture) {
-  if (target_ != nil) {
-    MTLRenderPassDescriptor* blit = [MTLRenderPassDescriptor renderPassDescriptor];
-    blit.colorAttachments[0].texture = drawableTexture;
-    blit.colorAttachments[0].loadAction = MTLLoadActionDontCare;
-    blit.colorAttachments[0].storeAction = MTLStoreActionStore;
-    id<MTLRenderCommandEncoder> scale = [cmd renderCommandEncoderWithDescriptor:blit];
-    [scale setRenderPipelineState:blitPipeline_];
-    [scale setFragmentTexture:target_ atIndex:0];
-    [scale drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-    [scale endEncoding];
-  }
+  MTLRenderPassDescriptor* blit = [MTLRenderPassDescriptor renderPassDescriptor];
+  blit.colorAttachments[0].texture = drawableTexture;
+  blit.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+  blit.colorAttachments[0].storeAction = MTLStoreActionStore;
+  id<MTLRenderCommandEncoder> scale = [cmd renderCommandEncoderWithDescriptor:blit];
+  [scale setRenderPipelineState:blitPipeline_];
+  [scale setFragmentTexture:target_ atIndex:0];
+  [scale drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+  [scale endEncoding];
 }
 
 id<MTLBuffer> MetalSplatRenderer::encodeCapture(id<MTLCommandBuffer> cmd,
@@ -733,8 +398,8 @@ id<MTLBuffer> MetalSplatRenderer::encodeCapture(id<MTLCommandBuffer> cmd,
 }
 
 void MetalSplatRenderer::submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawable> drawable,
-                                     uint32_t slot, bool tileRendered, bool drewWorld,
-                                     id<MTLBuffer> captured, CaptureHandler onCapture) {
+                                     bool drewWorld, id<MTLBuffer> captured,
+                                     CaptureHandler onCapture) {
   // presentedTime is when the frame reached the display, zero when it was never shown.
   // The simulator's Metal has no presentation handler, so it reports no present timing.
 #if !TARGET_OS_SIMULATOR
@@ -756,11 +421,6 @@ void MetalSplatRenderer::submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawabl
   const uint32_t width = width_;
   const uint32_t height = height_;
   auto* worldFrame = &completedWorldFrame_;
-  id<MTLBuffer> tileStats = tileRendered ? tileRaster_.diagnostics(slot) : nil;
-  auto* computeTiles = &lastComputeTiles_;
-  auto* nonemptyTiles = &lastNonemptyComputeTiles_;
-  auto* hardwareTiles = &lastHardwareTiles_;
-  const bool logTileStats = frame_ < 4 || frame_ % 120 == 0;
   [cmd addCompletedHandler:^(id<MTLCommandBuffer> done) {
     if (done.status == MTLCommandBufferStatusError) {
       failed->store(true);
@@ -773,17 +433,6 @@ void MetalSplatRenderer::submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawabl
     }
     gpuMillis->store((done.GPUEndTime - done.GPUStartTime) * 1000.0);
     if (drewWorld && !failed->load()) worldFrame->store(true);
-    // Consume only completed GPU diagnostics, never wait for an in-flight frame.
-    const auto* tileValues =
-        tileStats == nil ? nullptr : static_cast<const uint32_t*>(tileStats.contents);
-    computeTiles->store(tileValues ? tileValues[0] : 0);
-    nonemptyTiles->store(tileValues ? tileValues[3] : 0);
-    hardwareTiles->store(tileValues ? tileValues[1] : 0);
-    if (tileStats != nil && logTileStats) {
-      const auto* values = static_cast<const uint32_t*>(tileStats.contents);
-      LOGI("hybrid tiles: %u compute (%u nonempty), %u hardware, invalid input %u", values[0],
-           values[3], values[1], values[2]);
-    }
     if (onCapture) {
       const auto* bytes = static_cast<const uint8_t*>(captured.contents);
       onCapture(std::vector<uint8_t>(bytes, bytes + size_t{width} * height * 4), width, height);
