@@ -65,6 +65,9 @@ function fail(code: PackErrorCode, path: string, message: string): never {
 
 type Json = Record<string, unknown>;
 
+const FULL_TURN_DEGREES = 360;
+const POLE_DEGREES = 90;
+
 function at(path: string, key: string | number): string {
   if (typeof key === 'number') {
     return `${path}[${key}]`;
@@ -178,19 +181,83 @@ function readCamera(
   const limits = readObject(object.limits, at(path, 'limits'));
   const num = (source: Json, base: string, key: string) =>
     readNumber(source[key], at(at(path, base), key));
-  return {
+  const camera = {
     home: {
       azimuth: num(home, 'home', 'azimuth'),
       elevation: num(home, 'home', 'elevation'),
       radius: num(home, 'home', 'radius'),
     },
     limits: {
+      minAzimuth: num(limits, 'limits', 'minAzimuth'),
+      maxAzimuth: num(limits, 'limits', 'maxAzimuth'),
       minElevation: num(limits, 'limits', 'minElevation'),
       maxElevation: num(limits, 'limits', 'maxElevation'),
       minRadius: num(limits, 'limits', 'minRadius'),
       maxRadius: num(limits, 'limits', 'maxRadius'),
     },
   };
+  checkCamera(camera, path);
+  return camera;
+}
+
+function checkCamera(
+  camera: { home: CameraHome; limits: CameraLimits },
+  path: string,
+): void {
+  const limitsPath = at(path, 'limits');
+  const homePath = at(path, 'home');
+  const { home, limits } = camera;
+  const invalid = (where: string, message: string) =>
+    fail(PackErrorCode.invalidField, where, message);
+
+  (['minAzimuth', 'maxAzimuth'] as const).forEach(key => {
+    if (Math.abs(limits[key]) > FULL_TURN_DEGREES) {
+      invalid(
+        at(limitsPath, key),
+        `expected degrees within ${-FULL_TURN_DEGREES} to ${FULL_TURN_DEGREES}`,
+      );
+    }
+  });
+  if (limits.minAzimuth >= limits.maxAzimuth) {
+    invalid(at(limitsPath, 'maxAzimuth'), 'maxAzimuth must exceed minAzimuth');
+  }
+  if (limits.maxAzimuth - limits.minAzimuth > FULL_TURN_DEGREES) {
+    invalid(
+      at(limitsPath, 'maxAzimuth'),
+      `azimuth span exceeds ${FULL_TURN_DEGREES} degrees`,
+    );
+  }
+  (['minElevation', 'maxElevation'] as const).forEach(key => {
+    if (Math.abs(limits[key]) >= POLE_DEGREES) {
+      invalid(
+        at(limitsPath, key),
+        `expected degrees strictly between ${-POLE_DEGREES} and ${POLE_DEGREES}`,
+      );
+    }
+  });
+  if (limits.minElevation > limits.maxElevation) {
+    invalid(
+      at(limitsPath, 'maxElevation'),
+      'maxElevation is below minElevation',
+    );
+  }
+  if (limits.minRadius <= 0) {
+    invalid(at(limitsPath, 'minRadius'), 'expected a positive radius');
+  }
+  if (limits.minRadius > limits.maxRadius) {
+    invalid(at(limitsPath, 'maxRadius'), 'maxRadius is below minRadius');
+  }
+  const inside = (key: keyof CameraHome, low: number, high: number): void => {
+    if (home[key] < low || home[key] > high) {
+      invalid(
+        at(homePath, key),
+        `home ${key} ${home[key]} is outside the limits ${low} to ${high}`,
+      );
+    }
+  };
+  inside('azimuth', limits.minAzimuth, limits.maxAzimuth);
+  inside('elevation', limits.minElevation, limits.maxElevation);
+  inside('radius', limits.minRadius, limits.maxRadius);
 }
 
 function readLabel(value: unknown, path: string): number {

@@ -44,6 +44,8 @@ export const fixtureManifest = {
   camera: {
     home: { azimuth: 0, elevation: 35, radius: 1.2 },
     limits: {
+      minAzimuth: -90,
+      maxAzimuth: 90,
       minElevation: 10,
       maxElevation: 80,
       minRadius: 0.25,

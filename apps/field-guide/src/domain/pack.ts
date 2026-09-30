@@ -35,6 +35,9 @@ export interface CameraHome {
 }
 
 export interface CameraLimits {
+  /** Degrees; a span of exactly 360 means the orbit has no azimuth limit. */
+  readonly minAzimuth: number;
+  readonly maxAzimuth: number;
   readonly minElevation: number;
   readonly maxElevation: number;
   readonly minRadius: number;

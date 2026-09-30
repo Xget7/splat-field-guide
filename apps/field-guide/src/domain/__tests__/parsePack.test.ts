@@ -184,6 +184,16 @@ describe('parsePack', () => {
       (m: any) => delete m.camera.limits.minRadius,
       'camera.limits.minRadius',
     ],
+    [
+      'a missing minimum azimuth',
+      (m: any) => delete m.camera.limits.minAzimuth,
+      'camera.limits.minAzimuth',
+    ],
+    [
+      'a missing maximum azimuth',
+      (m: any) => delete m.camera.limits.maxAzimuth,
+      'camera.limits.maxAzimuth',
+    ],
     ['a missing camera home', (m: any) => delete m.camera.home, 'camera.home'],
     [
       'a non-object procedure',
@@ -205,5 +215,86 @@ describe('parsePack', () => {
     const error = errorOf(mutate);
     expect(error.code).toBe(PackErrorCode.invalidField);
     expect(error.path).toBe(path);
+  });
+
+  describe('camera', () => {
+    const setLimits = (limits: Record<string, number>) => (m: any) =>
+      Object.assign(m.camera.limits, limits);
+
+    it.each([
+      ['an empty azimuth range', { minAzimuth: 90, maxAzimuth: 90 }],
+      ['an inverted azimuth range', { minAzimuth: 90, maxAzimuth: -90 }],
+    ])('refuses %s', (_name, limits) => {
+      const error = errorOf(setLimits(limits));
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe('camera.limits.maxAzimuth');
+    });
+
+    it('refuses an azimuth span above a full turn', () => {
+      const error = errorOf(setLimits({ minAzimuth: -180, maxAzimuth: 181 }));
+      expect(error.path).toBe('camera.limits.maxAzimuth');
+    });
+
+    it.each([
+      ['minAzimuth', -361],
+      ['maxAzimuth', 361],
+    ])('refuses %s beyond 360 degrees', (key, value) => {
+      const error = errorOf(setLimits({ [key]: value }));
+      expect(error.path).toBe(`camera.limits.${key}`);
+    });
+
+    it('accepts a full-turn azimuth span as unlimited', () => {
+      const manifest = fixtureCopy();
+      Object.assign(manifest.camera.limits, {
+        minAzimuth: -180,
+        maxAzimuth: 180,
+      });
+      expect(parsePack(manifest).ok).toBe(true);
+    });
+
+    it.each([
+      ['azimuth', 'minAzimuth', 'maxAzimuth', -91, 91],
+      ['elevation', 'minElevation', 'maxElevation', 9, 81],
+      ['radius', 'minRadius', 'maxRadius', 0.2, 2.6],
+    ] as const)(
+      'refuses a home %s outside the limits',
+      (key, lo, hi, below, above) => {
+        const low = errorOf(m => (m.camera.home[key] = below));
+        const high = errorOf(m => (m.camera.home[key] = above));
+        expect(low.path).toBe(`camera.home.${key}`);
+        expect(high.path).toBe(`camera.home.${key}`);
+        expect(fixtureManifest.camera.limits[lo]).toBeGreaterThan(below);
+        expect(fixtureManifest.camera.limits[hi]).toBeLessThan(above);
+      },
+    );
+
+    it('accepts a home on the limits', () => {
+      const manifest = fixtureCopy();
+      manifest.camera.home = { azimuth: -90, elevation: 80, radius: 0.25 };
+      expect(parsePack(manifest).ok).toBe(true);
+    });
+
+    it('refuses inverted elevation limits', () => {
+      const error = errorOf(setLimits({ minElevation: 50, maxElevation: 40 }));
+      expect(error.path).toBe('camera.limits.maxElevation');
+    });
+
+    it.each([
+      ['minElevation', -90],
+      ['maxElevation', 90],
+    ])('refuses %s at a pole', (key, value) => {
+      const error = errorOf(setLimits({ [key]: value }));
+      expect(error.path).toBe(`camera.limits.${key}`);
+    });
+
+    it('refuses inverted radius limits', () => {
+      const error = errorOf(setLimits({ minRadius: 3, maxRadius: 2 }));
+      expect(error.path).toBe('camera.limits.maxRadius');
+    });
+
+    it.each([0, -1])('refuses a minimum radius of %p', radius => {
+      const error = errorOf(setLimits({ minRadius: radius }));
+      expect(error.path).toBe('camera.limits.minRadius');
+    });
   });
 });
