@@ -11,7 +11,8 @@ Apple first; each task names the requirements it serves ([REQUIREMENTS.md](REQUI
 - [ ] Track each part from its own marked photos (R2, R3).
 - [ ] Lift every part at once, a child's splats counted for its parent (R3, R8).
 - [ ] Retrain capped at 1.5M splats and lift again on that cloud (R10).
-- [ ] Export SPZ and `labels.bin` in SPZ order (R6).
+- [x] Export SPZ and `labels.bin` in SPZ order, levelled with the photos' gravity, orbit limits from the photos (R6).
+- [ ] Final export with every part, scaled from the battery (R6).
 - [ ] Review render of each part highlighted (R7).
 
 ## Engine and library
@@ -19,10 +20,10 @@ Apple first; each task names the requirements it serves ([REQUIREMENTS.md](REQUI
 - [x] Import SplatKit at a recorded commit, then prune it (R4).
 - [ ] Build the core and the Metal backend for iOS (R4).
 - [x] Nitro spike on React Native 0.87: mount, worklet call, render-thread callback (R4, R5); iOS simulator only, the iPhone run is pending.
-- [ ] Labels carried through Morton order and checked against the cloud (R6).
-- [ ] Highlight table in the Metal shaders (R7, R8).
+- [x] Labels carried through Morton order and checked against the cloud (R6).
+- [x] Highlight table in the Metal shaders (R7, R8); checked on the real pack with `splat_snapshot` on a Mac.
 - [ ] Pick by ray against splat ellipsoids (R6).
-- [ ] Animated framing (R9).
+- [x] Animated framing and orbit limits, azimuth included (R9).
 - [ ] `<SplatView>` with orbit and pinch from gesture worklets (R5).
 - [ ] 60 fps orbit and no idle frames on the iPhone (R10).
 
