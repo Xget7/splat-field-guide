@@ -1,0 +1,90 @@
+# Run with scripts/lint-cpp.sh; CI fails on any warning.
+# The style checks that would fight the way the code is deliberately written are off:
+# braces around every statement, magic numbers in shader and Vulkan setup, trailing
+# return types, the identifier length rule, enum sizing (the enums cross JNI as ints),
+# recursion (tree walks), and the optional access check, which does not understand
+# ASSERT_TRUE and flags every `if (opt) use(*opt)` in the sorter. Multiplying a
+# uint32_t splat index by the attribute stride is how every array is addressed; the
+# counts are millions, so the widening check is off too. Unused parameters stay
+# unnamed (JNI and Vulkan callbacks), and a const Vulkan handle is a const pointer on
+# purpose, which the misplaced-const check cannot tell from a mistake.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-unchecked-optional-access,
+  clang-analyzer-*,
+  cppcoreguidelines-avoid-goto,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-narrowing-conversions,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-special-member-functions,
+  cppcoreguidelines-virtual-class-destructor,
+  google-*,
+  -google-readability-todo,
+  -google-readability-braces-around-statements,
+  misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  -misc-misplaced-const,
+  -misc-use-anonymous-namespace,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays,
+  -modernize-use-nodiscard,
+  -modernize-raw-string-literal,
+  performance-*,
+  -performance-enum-size,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-named-parameter,
+  -readability-function-cognitive-complexity,
+  -readability-braces-around-statements,
+  -readability-implicit-bool-conversion,
+  -readability-uppercase-literal-suffix,
+  -readability-avoid-nested-conditional-operator,
+  -readability-else-after-return,
+  -readability-suspicious-call-argument,
+  -readability-use-anyofallof
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(splat-core/(include|src|tests|tools)|splatkit-android/src/main/cpp)/.*'
+FormatStyle: file
+CheckOptions:
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  # Implicit int to float is arithmetic on counts; size_t to int is what to catch.
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  cppcoreguidelines-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+  cppcoreguidelines-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.FunctionCase: camelBack
+  readability-identifier-naming.FunctionIgnoredRegexp: '^(Java_.*|JNI_OnLoad)$'
+  readability-identifier-naming.MethodCase: camelBack
+  readability-identifier-naming.VariableCase: camelBack
+  readability-identifier-naming.ParameterCase: camelBack
+  readability-identifier-naming.MemberCase: camelBack
+  readability-identifier-naming.PrivateMemberSuffix: '_'
+  readability-identifier-naming.ProtectedMemberSuffix: '_'
+  readability-identifier-naming.EnumConstantCase: camelBack
+  readability-identifier-naming.ScopedEnumConstantCase: camelBack
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: 'k'
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: 'k'
+  readability-identifier-naming.ClassConstantCase: CamelCase
+  readability-identifier-naming.ClassConstantPrefix: 'k'
+  readability-identifier-naming.GlobalVariableCase: CamelCase
+  readability-identifier-naming.GlobalVariablePrefix: 'g'
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
