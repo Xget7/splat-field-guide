@@ -265,7 +265,9 @@ describe('framingFor', () => {
 
   it('frames a step with several parts as one box', () => {
     const multi = JSON.parse(JSON.stringify(pack));
-    multi.procedures[1].steps[0].parts = ['battery', 'fuse-box'];
+    multi.procedures.find(
+      (p: { id: string }) => p.id === 'check-brake-fluid',
+    ).steps[0].parts = ['battery', 'fuse-box'];
     expect(framingFor(run([start('check-brake-fluid')]), multi)).toEqual({
       min: [6, 0, 0],
       max: [9, 1, 1],

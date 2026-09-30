@@ -14,6 +14,7 @@ import {
   Tier,
   Vec3,
 } from './pack';
+import { TOUR_ID, tourOf } from './tour';
 
 export const PackErrorCode = {
   invalidField: 'invalidField',
@@ -26,6 +27,7 @@ export const PackErrorCode = {
   unknownStepPart: 'unknownStepPart',
   duplicateProcedureId: 'duplicateProcedureId',
   duplicateStepId: 'duplicateStepId',
+  reservedProcedureId: 'reservedProcedureId',
 } as const;
 export type PackErrorCode = (typeof PackErrorCode)[keyof typeof PackErrorCode];
 
@@ -385,6 +387,13 @@ function checkProcedures(
   const procedureIds = new Set<string>();
   procedures.forEach((procedure, p) => {
     const base = at('procedures', p);
+    if (procedure.id === TOUR_ID) {
+      fail(
+        PackErrorCode.reservedProcedureId,
+        at(base, 'id'),
+        `procedure id "${TOUR_ID}" is kept for the parts tour`,
+      );
+    }
     if (procedureIds.has(procedure.id)) {
       fail(
         PackErrorCode.duplicateProcedureId,
@@ -441,14 +450,15 @@ function buildPack(value: unknown): Pack {
   );
   checkParts(parts);
   checkProcedures(procedures, parts);
+  const camera = readCamera(root.camera, 'camera');
   return {
     schemaVersion: version,
     packId: readName(root.packId, 'packId'),
     packVersion: readCount(root.packVersion, 'packVersion'),
     title: readName(root.title, 'title'),
     tiers,
-    camera: readCamera(root.camera, 'camera'),
+    camera,
     parts,
-    procedures,
+    procedures: [tourOf({ parts, camera }), ...procedures],
   };
 }

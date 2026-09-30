@@ -1,6 +1,7 @@
-import { PART_LABEL_MAX, PART_LABEL_MIN } from '../pack';
+import { findProcedure, PART_LABEL_MAX, PART_LABEL_MIN } from '../pack';
 import { PackErrorCode, parsePack } from '../parsePack';
 import { fixtureCopy, fixtureManifest } from '../testing/fixturePack';
+import { TOUR_ID } from '../tour';
 
 function errorOf(mutate: (manifest: Record<string, any>) => void) {
   const manifest = fixtureCopy();
@@ -18,7 +19,12 @@ describe('parsePack', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.pack.parts).toHaveLength(8);
-      expect(result.pack.procedures).toHaveLength(3);
+      expect(result.pack.procedures.map(p => p.id)).toEqual([
+        TOUR_ID,
+        'check-coolant',
+        'check-brake-fluid',
+        'check-power-steering-fluid',
+      ]);
       expect(result.pack.parts[6].parent).toBe('engine');
     }
   });
@@ -30,7 +36,10 @@ describe('parsePack', () => {
     delete manifest.procedures[0].steps[0].caution;
     const result = parsePack(manifest);
     expect(result.ok && result.pack.parts[0].aliases).toEqual([]);
-    expect(result.ok && result.pack.procedures[0].steps[0].caution).toBe('');
+    expect(
+      result.ok &&
+        findProcedure(result.pack, 'check-coolant')?.steps[0].caution,
+    ).toBe('');
   });
 
   it.each([null, 'pack', 3, [], undefined])('refuses %p as a manifest', v => {
@@ -120,6 +129,12 @@ describe('parsePack', () => {
   it('refuses duplicate procedure ids', () => {
     const error = errorOf(m => (m.procedures[1].id = 'check-coolant'));
     expect(error.code).toBe(PackErrorCode.duplicateProcedureId);
+  });
+
+  it('keeps the tour id for the parts tour', () => {
+    const error = errorOf(m => (m.procedures[1].id = TOUR_ID));
+    expect(error.code).toBe(PackErrorCode.reservedProcedureId);
+    expect(error.path).toBe('procedures[1].id');
   });
 
   it('refuses duplicate step ids inside a procedure', () => {

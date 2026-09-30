@@ -77,6 +77,7 @@ export interface Pack {
   readonly tiers: readonly Tier[];
   readonly camera: { readonly home: CameraHome; readonly limits: CameraLimits };
   readonly parts: readonly Part[];
+  /** The parts tour first, then the authored procedures. */
   readonly procedures: readonly Procedure[];
 }
 
