@@ -233,8 +233,10 @@ int main(int argc, char** argv) {
       const auto start = std::chrono::steady_clock::now();
       const uint8_t label = engine.pick(o.picks[i], o.picks[i + 1]);
       const double millis =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-      std::printf("pick %.3f,%.3f: label %u in %.1f ms\n", o.picks[i], o.picks[i + 1], label, millis);
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+              .count();
+      std::printf("pick %.3f,%.3f: label %u in %.1f ms\n", o.picks[i], o.picks[i + 1], label,
+                  millis);
       markPoint(pixels, o.width, o.height, o.picks[i], o.picks[i + 1]);
     }
     if (!writePng(pixels, o.width, o.height, o.out)) {
