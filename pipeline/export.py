@@ -90,6 +90,7 @@ LABELS_HEADER = struct.Struct("<4sHHII")
 LABELS_VERSION, LABEL_BYTES = 1, 1
 FRAME_FOV_DEG = 45.0            # assumed field of view when framing the labelled parts
 ELEVATION_LIMIT_DEG = (5.0, 85.0)  # the orbit never goes below the floor or over the pole
+LIMIT_DECIMALS = 1              # angles in the manifest are rounded to this many decimals, limits outwards
 CAMERA_PERCENTILE = 2.0         # limits follow the photos' own viewpoints between these percentiles
 RADIUS_MARGIN = 0.8             # minimum radius: this fraction of the closest photo's distance
 
@@ -420,21 +421,35 @@ def part_geometry(parts: list[dict], labels: np.ndarray, points: np.ndarray,
     return geometry, missing
 
 
+def outward(low: float, high: float) -> tuple[float, float]:
+    """A range rounded to LIMIT_DECIMALS without shrinking, so what was inside stays inside."""
+    step = 10.0 ** -LIMIT_DECIMALS
+    return round(math.floor(low / step) * step, LIMIT_DECIMALS), round(math.ceil(high / step) * step, LIMIT_DECIMALS)
+
+
 def camera_block(camera_points: np.ndarray, extent: float) -> dict:
-    """Home and limits from where the photos were taken, seen from the origin (the labelled parts' centre)."""
+    """Home and limits from where the photos were taken, seen from the origin (the labelled parts' centre).
+
+    The azimuth range keeps the orbit on the side the photos saw, measured around the home so it may cross 180.
+    """
     horizontal = np.hypot(camera_points[:, 0], camera_points[:, 2])
     elevation = np.degrees(np.arctan2(camera_points[:, 1], horizontal))
     distance = np.linalg.norm(camera_points, axis=1)
     azimuth = np.degrees(np.arctan2(camera_points[:, 0].sum(), camera_points[:, 2].sum()))  # 0 is on +Z
+    around_home = (np.degrees(np.arctan2(camera_points[:, 0], camera_points[:, 2])) - azimuth + 180) % 360 - 180
+    az_low, az_high = outward(*(azimuth + np.percentile(around_home, [CAMERA_PERCENTILE, 100 - CAMERA_PERCENTILE])))
     low, high = np.clip(np.percentile(elevation, [CAMERA_PERCENTILE, 100 - CAMERA_PERCENTILE]), *ELEVATION_LIMIT_DEG)
     home_radius = float(np.median(distance))
     fit_radius = extent / 2 / math.sin(math.radians(FRAME_FOV_DEG / 2))  # the labelled parts fill the view
     home_elevation = float(np.clip(np.median(elevation), low, high))
     min_radius = min(RADIUS_MARGIN * np.percentile(distance, CAMERA_PERCENTILE), fit_radius)
     max_radius = max(np.percentile(distance, 100 - CAMERA_PERCENTILE), home_radius)
-    return {"home": {"azimuth": round(float(azimuth), 1), "elevation": round(home_elevation, 1),
-                     "radius": round(home_radius, 3)},
-            "limits": {"minElevation": round(float(low), 1), "maxElevation": round(float(high), 1),
+    def angle(degrees: float) -> float:
+        return round(float(degrees), LIMIT_DECIMALS)
+
+    return {"home": {"azimuth": angle(azimuth), "elevation": angle(home_elevation), "radius": round(home_radius, 3)},
+            "limits": {"minAzimuth": az_low, "maxAzimuth": az_high,
+                       "minElevation": angle(low), "maxElevation": angle(high),
                        "minRadius": round(float(min_radius), 3), "maxRadius": round(float(max_radius), 3)}}
 
 

@@ -47,6 +47,7 @@ RENDER_SCALE = 1 / 8
 RENDER_COLOUR_TOLERANCE = 0.03   # mean absolute colour difference over compared cells (colour is 0 to 1)
 RENDER_COVERAGE_TOLERANCE = 0.01  # cells covered in only one of the two renders
 BOUNDS_TOLERANCE = 1e-3
+FULL_TURN_DEG, POLE_DEG = 360.0, 90.0      # parsePack's FULL_TURN_DEGREES and POLE_DEGREES
 SPZ_DIMS = {0: 0, 1: 3, 2: 8, 3: 15, 4: 24}
 
 
@@ -445,9 +446,11 @@ def parse_pack(root):
                 name(part, f"{s}.parts[{j}]")
     camera = obj(root.get("camera"), "camera")
     for group, keys in (("home", ("azimuth", "elevation", "radius")),
-                        ("limits", ("minElevation", "maxElevation", "minRadius", "maxRadius"))):
+                        ("limits", ("minAzimuth", "maxAzimuth", "minElevation", "maxElevation", "minRadius",
+                                    "maxRadius"))):
         for key in keys:
             num(obj(camera.get(group), f"camera.{group}").get(key), f"camera.{group}.{key}")
+    check_camera(camera["home"], camera["limits"])
     name(root.get("packId"), "packId"), count(root.get("packVersion"), "packVersion"), name(root.get("title"), "title")
     ids, labels = set(), set()
     for i, part in enumerate(parts):
@@ -483,6 +486,30 @@ def parse_pack(root):
                     raise PackError("unknownStepPart", f"procedures[{i}].steps[{k}].parts[{j}]")
 
 
+def check_camera(home: dict, limits: dict):
+    """parsePack's checkCamera: limits in order and in range, and the home inside them."""
+    def invalid(where: str):
+        raise PackError("invalidField", where)
+
+    for key in ("minAzimuth", "maxAzimuth"):
+        if abs(limits[key]) > FULL_TURN_DEG:
+            invalid(f"camera.limits.{key}")
+    if limits["minAzimuth"] >= limits["maxAzimuth"] or limits["maxAzimuth"] - limits["minAzimuth"] > FULL_TURN_DEG:
+        invalid("camera.limits.maxAzimuth")
+    for key in ("minElevation", "maxElevation"):
+        if abs(limits[key]) >= POLE_DEG:
+            invalid(f"camera.limits.{key}")
+    if limits["minElevation"] > limits["maxElevation"]:
+        invalid("camera.limits.maxElevation")
+    if limits["minRadius"] <= 0:
+        invalid("camera.limits.minRadius")
+    if limits["minRadius"] > limits["maxRadius"]:
+        invalid("camera.limits.maxRadius")
+    for key, name in (("azimuth", "Azimuth"), ("elevation", "Elevation"), ("radius", "Radius")):
+        if not limits[f"min{name}"] <= home[key] <= limits[f"max{name}"]:
+            invalid(f"camera.home.{key}")
+
+
 def sample_manifest() -> dict:
     content = yaml.safe_load(export.CONTENT.read_text())
     zero = {"bounds": {"min": [0.0] * 3, "max": [1.0] * 3}, "anchor": [0.0, 1.0, 0.0]}
@@ -490,7 +517,8 @@ def sample_manifest() -> dict:
     return {"schemaVersion": 1, "packId": "p", "packVersion": 1, "title": "t",
             "tiers": [{"id": "high", "splatCount": 1, "cloud": entry, "labels": entry}],
             "camera": {"home": {"azimuth": 0, "elevation": 35, "radius": 1.2},
-                       "limits": {"minElevation": 10, "maxElevation": 80, "minRadius": 0.25, "maxRadius": 2.5}},
+                       "limits": {"minAzimuth": -90, "maxAzimuth": 90, "minElevation": 10, "maxElevation": 80,
+                                  "minRadius": 0.25, "maxRadius": 2.5}},
             "parts": [{"id": p["id"], "label": i + 1, "parent": p["parent"], "name": p["name"],
                        "aliases": p["aliases"], "summary": p["summary"], "details": p["details"], **zero}
                       for i, p in enumerate(content["parts"])],
@@ -518,6 +546,16 @@ def test_manifest_mirror():
     broken(lambda m: m["parts"][0].update(label=0), "labelOutOfRange")
     broken(lambda m: m["parts"][0].update(parent="nope"), "unknownParent")
     broken(lambda m: m["parts"][0].update(bounds={"min": [1, 1, 1], "max": [0, 0, 0]}), "invalidField")
+    broken(lambda m: m["camera"]["limits"].pop("minAzimuth"), "invalidField")
+    broken(lambda m: m["camera"]["limits"].update(minAzimuth=90, maxAzimuth=-90), "invalidField")
+    broken(lambda m: m["camera"]["limits"].update(minAzimuth=-181, maxAzimuth=180), "invalidField")
+    broken(lambda m: m["camera"]["home"].update(azimuth=120), "invalidField")
+    broken(lambda m: m["camera"]["home"].update(elevation=5), "invalidField")
+    broken(lambda m: m["camera"]["limits"].update(maxElevation=90), "invalidField")
+    broken(lambda m: m["camera"]["limits"].update(minRadius=0), "invalidField")
+    full_turn = copy.deepcopy(good)
+    full_turn["camera"]["limits"].update(minAzimuth=-180, maxAzimuth=180)
+    parse_pack(full_turn)
     broken(lambda m: m["procedures"][0]["steps"][0].update(parts=["nope"]), "unknownStepPart")
     broken(lambda m: m["parts"][5].update(parent="valve-cover"), "parentCycle")
 
@@ -550,8 +588,7 @@ def test_manifest_against_files(pack: pathlib.Path):
     assert identity == (1, export.PACK_ID, export.PACK_VERSION)
     camera = manifest["camera"]
     home, limits = camera["home"], camera["limits"]
-    assert limits["minElevation"] <= home["elevation"] <= limits["maxElevation"], "home elevation"
-    assert limits["minRadius"] <= home["radius"] <= limits["maxRadius"], "home radius"
+    check_camera(home, limits)
     return f"{len(manifest['parts'])} parts, {tier['splatCount']:,} splats"
 
 
