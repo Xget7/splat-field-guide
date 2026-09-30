@@ -29,6 +29,7 @@ PHOTOS = DATA / "capture" / "jpg"
 CELL = 4                    # compositing cell in mask pixels; coarse enough that splat centres cover it
 FOV_MARGIN = 1.3            # how far past the image corner (squared normalised radius) a ray may still project
 MIN_WEIGHT = 0.05           # a neighbourhood contributing less than this over all photos stays unlabelled
+MAJORITY = 0.5              # a splat belongs to a part when more than this share of its light went through the masks
 NEIGHBOURS = 16             # splats whose votes are pooled, the splat itself included
 REJECT_IOU = 0.3            # a tracked mask this far from what the other photos agree on stops voting
 HIGHLIGHT_RGB = (0.22, 0.74, 0.97)  # the guide's accent, sky blue (#38BDF8)
@@ -132,6 +133,13 @@ def load_masks(folder: pathlib.Path) -> dict[int, np.ndarray]:
     return {int(p.stem): cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) > 0 for p in sorted(folder.glob("[0-9]*.png"))}
 
 
+def load_tracked(folder: pathlib.Path, keyframes) -> dict[int, np.ndarray]:
+    """sam_track's masks for the photos that are not keyframes, except where the tracker lost the part."""
+    scores = json.loads((folder / "report.json").read_text())["photos"]
+    # A negative score means the tracker lost the part, not that it is absent: such a mask must not vote.
+    return {f: m for f, m in load_masks(folder / "masks").items() if f not in keyframes and scores[str(f)]["score"] > 0}
+
+
 class Scene:
     """Splat centres (opacity, base colour) and the posed photos, numbered like the photos sorted by name."""
 
@@ -164,14 +172,19 @@ class Scene:
             votes[1] += trust * np.bincount(index, weight, len(self.points))
         return votes
 
-    def labels(self, votes: np.ndarray) -> np.ndarray:
-        """Majority of the light each splat's neighbourhood sent through the masks."""
+    def share(self, votes: np.ndarray) -> np.ndarray:
+        """Per splat: the fraction of the light its neighbourhood sent through the masks; 0 where there was too little."""
         if self.neighbours is None:
             from scipy.spatial import cKDTree
 
             _, self.neighbours = cKDTree(self.points).query(self.points, NEIGHBOURS, workers=-1)
         inside, total = votes[:, self.neighbours].sum(-1)
-        return (total >= MIN_WEIGHT) & (inside > 0.5 * total)
+        seen = total >= MIN_WEIGHT
+        return np.where(seen, inside / np.where(seen, total, 1), 0.0)
+
+    def labels(self, votes: np.ndarray) -> np.ndarray:
+        """Majority of the light each splat's neighbourhood sent through the masks."""
+        return self.share(votes) > MAJORITY
 
     def check(self, labels: np.ndarray, frame: int, mask: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
         """Composite the labels in a photo and compare with its mask cell by cell: IoU, rendered cells, mask cells.
@@ -251,10 +264,7 @@ def main():
     keyframes = load_masks(args.masks)
     tracked = {}
     if args.tracked:
-        scores = json.loads((args.tracked / "report.json").read_text())["photos"]
-        # A negative score means the tracker lost the part, not that it is absent: such a mask must not vote.
-        tracked = {f: m for f, m in load_masks(args.tracked / "masks").items()
-                   if f not in keyframes and scores[str(f)]["score"] > 0}
+        tracked = load_tracked(args.tracked, keyframes)
     views, rejected = voters(scene, keyframes, tracked, args.tracked_trust)
     print(f"{len(scene.points):,} splats; {len(keyframes)} keyframes and {len(tracked) - len(rejected)} tracked "
           f"photos vote; rejected {[f + 1 for f in rejected]} ({time.time() - started:.0f} s)")

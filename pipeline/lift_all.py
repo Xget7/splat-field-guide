@@ -1,0 +1,185 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["numpy<2", "opencv-python-headless", "pillow", "scipy", "pyyaml"]
+# ///
+"""Lift every marked part at once: one uint8 label per splat, in PLY order.
+
+Each part's votes come from lift.py (its keyframes plus the tracked photos that survive lift.voters). A splat then
+takes the part holding the clear majority of its neighbourhood's light, otherwise 0 (spec 5.8, step 6):
+  - Top-level parts compete: the one with the largest share above MAJORITY wins the splat.
+  - A parent's mask covers its children, so for deciding whether a splat belongs to a parent or any of its children
+    the votes use the parent's mask united with its children's masks, photo by photo.
+  - The splat then takes the child with the largest share above MAJORITY, else the parent.
+Parts without saved marks are skipped and reported. The neighbourhood pooling in lift.Scene.share is the vote that
+cleans stray labels: a splat with too little light of its own takes what its neighbours send.
+
+Label numbers are 1-based in the order of content/gol-trend-engine-bay/pack.yaml; 0 means no part.
+Run:  uv run lift_all.py [--marks ../data/segment/marks] [--tracks ../data/segment/tracks]
+In:   <marks>/<part>/*.png (modal volume get sfg-spike-frames /marks/<part> ...) and <tracks>/<part>/ from sam_track.py
+Out:  data/segment/lift/all/labels.npy, report.json, views_<part>.jpg per part and parts.ply (each part tinted).
+"""
+
+import argparse
+import json
+import pathlib
+import time
+
+import cv2
+import numpy as np
+
+import lift
+import spike_lib
+
+HERE = pathlib.Path(__file__).parent
+DATA = HERE.parent / "data"
+PACK = HERE.parent / "content" / "gol-trend-engine-bay" / "pack.yaml"
+NO_PART = 0
+MAX_LABEL = 255  # labels are uint8
+# Distinct tints (RGB, 0 to 1) by label number - 1; the viewer's own highlight is lift.HIGHLIGHT_RGB.
+PART_RGB = [(0.95, 0.35, 0.65), (0.98, 0.75, 0.15), (0.20, 0.85, 0.40), (0.55, 0.40, 0.95), (0.95, 0.50, 0.10),
+            (0.22, 0.74, 0.97), (0.90, 0.20, 0.20), (0.10, 0.85, 0.85), (0.70, 0.90, 0.20), (0.60, 0.30, 0.10)]
+
+
+def pack_parts() -> dict[str, dict]:
+    """Part id -> {"label", "parent"} in the pack's order. The marking page's parts must be the same parts."""
+    import yaml
+
+    authored = yaml.safe_load(PACK.read_text())["parts"]
+    parts = {p["id"]: {"label": i + 1, "parent": p["parent"]} for i, p in enumerate(authored)}
+    assert len(parts) == len(authored), "two parts share an id in pack.yaml"
+    assert len(parts) <= MAX_LABEL, f"{len(parts)} parts do not fit a uint8 label"
+    assert len(parts) <= len(PART_RGB), f"{len(parts)} parts, {len(PART_RGB)} tints"
+    assert {k: v["parent"] for k, v in parts.items()} == {k: v["parent"] for k, v in spike_lib.PARTS.items()}, (
+        "pack.yaml and spike_lib.PARTS differ in part ids or parents")
+    return parts
+
+
+def union_views(parent: dict, children: list[dict]) -> dict[int, tuple[np.ndarray, float]]:
+    """The votes of a parent united with its children: each photo's masks combined.
+
+    Photos come from the parent's own voters; without a parent mask they come from the children.
+    """
+    sources = [v for v in (parent, *children) if v]
+    frames = set(parent) if parent else set().union(*children)
+    return {f: (np.any([v[f][0] for v in sources if f in v], axis=0), max(v[f][1] for v in sources if f in v))
+            for f in frames}
+
+
+def assign(parts: dict[str, dict], shares: dict[str, np.ndarray], group_shares: dict[str, np.ndarray]) -> np.ndarray:
+    """One label per splat from each part's share and each top-level part's group share (see the module doc).
+
+    shares: part id -> share of its own masks; group_shares: top-level id -> share of it united with its children.
+    """
+    size = len(next(iter(group_shares.values())))
+    tops = [t for t, p in parts.items() if p["parent"] is None and t in group_shares]
+    best, owner = np.zeros(size), np.full(size, NO_PART, np.uint8)
+    for top in tops:  # siblings compete: the larger share wins, the earlier part on a tie
+        won = (group_shares[top] > lift.MAJORITY) & (group_shares[top] > best)
+        best[won], owner[won] = group_shares[top][won], parts[top]["label"]
+    labels = np.full(size, NO_PART, np.uint8)
+    for top in tops:
+        mine = owner == parts[top]["label"]
+        if top in shares:
+            labels[mine] = parts[top]["label"]
+        kids = [c for c, p in parts.items() if p["parent"] == top and c in shares]
+        if kids:
+            kid_shares = np.stack([shares[c] for c in kids])
+            strongest = kid_shares.argmax(0)
+            holds = mine & (kid_shares.max(0) > lift.MAJORITY)
+            for i, kid in enumerate(kids):
+                labels[holds & (strongest == i)] = parts[kid]["label"]
+    return labels
+
+
+def load_part(scene: lift.Scene, part: str, marks: pathlib.Path, tracks: pathlib.Path) -> dict | None:
+    """The photos that vote for a part, or None when the owner has not marked it."""
+    keyframes = lift.load_masks(marks / part)
+    if not keyframes:
+        return None
+    tracked = lift.load_tracked(tracks / part, keyframes) if (tracks / part / "report.json").exists() else {}
+    views, rejected = lift.voters(scene, keyframes, tracked, 1.0)
+    return {"keyframes": keyframes, "tracked": tracked, "views": views, "rejected": rejected}
+
+
+def lift_parts(scene: lift.Scene, parts: dict[str, dict], loaded: dict[str, dict]) -> np.ndarray:
+    shares = {part: scene.share(scene.votes(info["views"])) for part, info in loaded.items()}
+    group_shares = {}
+    for top in (t for t, p in parts.items() if p["parent"] is None):
+        kids = [c for c, p in parts.items() if p["parent"] == top and c in loaded]
+        if top not in loaded and not kids:
+            continue
+        if not kids:
+            group_shares[top] = shares[top]
+            continue
+        united = scene.share(scene.votes(union_views(loaded.get(top, {}).get("views"), [loaded[c]["views"] for c in kids])))
+        group_shares[top] = np.maximum(united, np.stack([shares[c] for c in kids]).max(0))
+    return assign(parts, shares, group_shares)
+
+
+def tint(splat: np.ndarray, labels: np.ndarray) -> np.ndarray:
+    """A copy of the splat with each part's colour mixed into its splats."""
+    tinted = np.array(splat)
+    for number in np.unique(labels[labels != NO_PART]):
+        rgb = (np.array(PART_RGB[number - 1]) - 0.5) / lift.SH_C0
+        mine = labels == number
+        for channel in range(3):
+            name = f"f_dc_{channel}"
+            tinted[name][mine] = (1 - lift.HIGHLIGHT_MIX) * tinted[name][mine] + lift.HIGHLIGHT_MIX * rgb[channel]
+    return tinted
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--marks", type=pathlib.Path, default=DATA / "segment" / "marks")
+    parser.add_argument("--tracks", type=pathlib.Path, default=DATA / "segment" / "tracks")
+    parser.add_argument("--out", type=pathlib.Path, default=DATA / "segment" / "lift" / "all")
+    args = parser.parse_args()
+    started = time.time()
+    parts = pack_parts()
+
+    splat, header = lift.read_ply(lift.SPLAT)
+    scene = lift.load_scene(splat)
+    loaded = {}
+    for part in parts:
+        info = load_part(scene, part, args.marks, args.tracks)
+        if info:
+            loaded[part] = info
+            print(f"{part}: {len(info['keyframes'])} keyframes, {len(info['tracked']) - len(info['rejected'])} tracked "
+                  f"photos vote, rejected {[f + 1 for f in info['rejected']]} ({time.time() - started:.0f} s)")
+    missing = [p for p in parts if p not in loaded]
+    untracked = [p for p, info in loaded.items() if not info["tracked"]]
+    print(f"no marks yet: {missing or 'none'}; keyframes only (no tracks): {untracked or 'none'}")
+    assert loaded, f"no marks under {args.marks}"
+
+    labels = lift_parts(scene, parts, loaded)
+    args.out.mkdir(parents=True, exist_ok=True)
+    np.save(args.out / "labels.npy", labels)
+    report = {"splats": len(labels), "labels": {p: v["label"] for p, v in parts.items()},
+              "missing_marks": missing, "keyframes_only": untracked,
+              "unlabelled": int((labels == NO_PART).sum()), "parts": {}}
+    for part, info in loaded.items():
+        family = [part] + [c for c, p in parts.items() if p["parent"] == part]
+        covered = np.isin(labels, [parts[f]["label"] for f in family])  # a parent's mask covers its children
+        views, tiles = {}, []
+        for frame, (mask, _) in sorted(info["views"].items()):
+            score, rendered, truth = scene.check(covered, frame, mask)
+            views[frame] = round(score, 4)
+            if frame in info["keyframes"]:
+                tiles.append(lift.label(scene.preview(frame, mask, rendered, truth), f"{frame + 1}: IoU {score:.2f}"))
+        cv2.imwrite(str(args.out / f"views_{part}.jpg"), lift.sheet(tiles), [cv2.IMWRITE_JPEG_QUALITY, 85])
+        report["parts"][part] = {
+            "label": parts[part]["label"], "keyframes": sorted(info["keyframes"]),
+            "tracked": sorted(set(info["tracked"]) - set(info["rejected"])), "rejected": info["rejected"],
+            "labelled": int((labels == parts[part]["label"]).sum()), "labelled_with_children": int(covered.sum()),
+            "mean_iou": float(np.mean(list(views.values()))), "views": views}
+        print(f"{part} (label {parts[part]['label']}): {report['parts'][part]['labelled']:,} splats, "
+              f"mean IoU {report['parts'][part]['mean_iou']:.3f} ({time.time() - started:.0f} s)")
+    (args.out / "report.json").write_text(json.dumps(report, indent=2))
+    with open(args.out / "parts.ply", "wb") as f:
+        f.write(header)
+        f.write(tint(splat, labels).tobytes())
+    print(f"written to {args.out} ({time.time() - started:.0f} s)")
+
+
+if __name__ == "__main__":
+    main()

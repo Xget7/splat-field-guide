@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["numpy<2", "opencv-python-headless", "pillow", "modal", "fastapi", "httpx2", "uvicorn", "scipy"]
+# dependencies = ["numpy<2", "opencv-python-headless", "pillow", "modal", "fastapi", "httpx2", "uvicorn", "scipy", "pyyaml"]
 # ///
 """Everything that can be checked without a GPU, before a SAM run is sent to Modal.
 
@@ -45,7 +45,7 @@ def check(name: str):
 
 
 def test_code_compiles():
-    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "preflight.py"]
+    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "lift_all.py", "preflight.py"]
     for file in sources:
         py_compile.compile(str(HERE / file), doraise=True)
     lint = subprocess.run(["uvx", "ruff", "check", "--quiet", "--select", "F,E9", *sources],
@@ -63,7 +63,7 @@ def test_modal_app_builds():
     sam = sam_live.Sam()  # the web function calls these by name, so a rename must fail here, not on Modal
     missing = [m for m in ("warm", "segment", "save") if not hasattr(sam, m)]
     assert not missing, f"sam_live.Sam lacks {missing}"
-    assert set(sam_track.HOLDOUTS) <= set(spike_lib.KEYFRAMES), "a held-out photo is not a keyframe"
+    assert sam_track.DEFAULT_VARIANT in sam_track.VARIANTS
     assert {order for order, _ in sam_track.VARIANTS.values()} == {"capture", "view"}
 
 
@@ -298,7 +298,7 @@ def test_entrypoints_run_in_the_modal_cli_python():
     shebang = pathlib.Path(cli).resolve().read_text(errors="ignore").splitlines()[0]
     python = shebang.removeprefix("#!").strip()
     code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, sam_clicks, spike_lib, json; "
-            "plan = sam_track.plan('engine'); assert len(plan['centres']) == 124; "
+            "plan = sam_track.plan('engine'); assert len(plan['centres']) == 124; sam_track.choose_variant([], 'view order, all keyframes'); "
             "spike_lib.check_prompts({'frames': [], 'parts': []}, [])")
     result = subprocess.run([python, "-c", code, str(HERE)], capture_output=True, text=True, cwd=HERE)
     assert result.returncode == 0, result.stderr.strip().splitlines()[-1]
@@ -349,21 +349,24 @@ def test_compositing_follows_occlusion():
     assert colour.shape == (12, 16, 3) and colour[0, 0].tolist() == [1.0, 1.0, 1.0], colour.shape
 
 
-def synthetic_scene():
-    """A ball (the part) in front of a wall, seen by seven cameras on an arc; masks are exact ball silhouettes."""
+def arc_scene(balls: dict[str, tuple[tuple[float, float, float], float]]):
+    """Balls (the parts, id -> centre, radius) in front of a wall, seen by seven cameras on an arc.
+
+    Returns the scene, each ball's exact silhouette in every photo, each ball's splat indices and the wall's.
+    """
     import lift
 
     golden = np.pi * (3 - np.sqrt(5))
     k = np.arange(3000)
     height = 1 - 2 * (k + 0.5) / len(k)
     ring = np.sqrt(1 - height**2)
-    ball = 0.5 * np.c_[ring * np.cos(golden * k), height, ring * np.sin(golden * k)]
+    sphere = np.c_[ring * np.cos(golden * k), height, ring * np.sin(golden * k)]
     grid = np.arange(-2.5, 2.501, 0.05)
     wall = np.c_[np.repeat(grid, len(grid)), np.tile(grid, len(grid)), np.full(len(grid) ** 2, 1.5)]
-    points = np.r_[ball, wall]
-    truth = np.r_[np.ones(len(ball), bool), np.zeros(len(wall), bool)]
+    points = np.concatenate([r * sphere + c for c, r in balls.values()] + [wall])
+    members = {name: np.arange(i * len(k), (i + 1) * len(k)) for i, name in enumerate(balls)}
     camera = (160, 120, (200.0, 200.0, 80.0, 60.0, 0.0, 0.0, 0.0, 0.0))
-    poses, views = [], {}
+    poses, silhouettes = [], {name: {} for name in balls}
     for frame, angle in enumerate(np.radians(np.linspace(-30, 30, 7))):
         centre = 4 * np.array([np.sin(angle), 0, -np.cos(angle)])
         forward = -centre / 4
@@ -372,10 +375,161 @@ def synthetic_scene():
         u, v = np.meshgrid(np.arange(160) + 0.5, np.arange(120) + 0.5)
         rays = np.stack([(u - 80) / 200, (v - 60) / 200, np.ones_like(u)], -1) @ rotation
         rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
-        along = rays @ -centre
-        views[frame] = (np.linalg.norm(-centre - along[..., None] * rays, axis=-1) < 0.5, 1.0)
+        for name, (ball, radius) in balls.items():
+            to_ball = np.asarray(ball) - centre
+            along = rays @ to_ball
+            silhouettes[name][frame] = np.linalg.norm(to_ball - along[..., None] * rays, axis=-1) < radius
     scene = lift.Scene(points, np.full(len(points), 0.9), np.ones((len(points), 3)), poses)
-    return scene, views, truth, len(ball)
+    return scene, silhouettes, members, np.arange(len(k) * len(balls), len(points))
+
+
+def synthetic_scene():
+    """A ball (the part) in front of a wall, seen by seven cameras on an arc; masks are exact ball silhouettes."""
+    scene, silhouettes, members, wall = arc_scene({"ball": ((0.0, 0.0, 0.0), 0.5)})
+    views = {frame: (mask, 1.0) for frame, mask in silhouettes["ball"].items()}
+    truth = np.r_[np.ones(len(members["ball"]), bool), np.zeros(len(wall), bool)]
+    return scene, views, truth, len(members["ball"])
+
+
+def as_views(masks: dict[int, np.ndarray]) -> dict[int, tuple[np.ndarray, float]]:
+    return {frame: (mask, 1.0) for frame, mask in masks.items()}
+
+
+def lift_shares(scene, parts, masks: dict[str, dict[int, np.ndarray]]) -> np.ndarray:
+    import lift_all
+
+    return lift_all.lift_parts(scene, parts, {part: {"views": as_views(m)} for part, m in masks.items()})
+
+
+def facing(scene, indices, centre, keep=lambda d: True) -> np.ndarray:
+    """The splats of a ball that the arc sees (the rim and far side are only grazed), filtered by distance."""
+    points = scene.points[indices]
+    offset = points - np.asarray(centre)
+    return indices[(offset[:, 2] < -0.15) & keep(np.linalg.norm(offset, axis=1))]
+
+
+def test_siblings_are_kept_apart():
+    """Two reservoirs side by side each take their own splats; a mask bleeding onto the neighbour loses to its owner."""
+    import lift_all
+
+    parts = {"a": {"label": 1, "parent": None}, "b": {"label": 2, "parent": None}}
+    balls = {"a": ((-0.3, 0.0, 0.0), 0.25), "b": ((0.3, 0.0, 0.0), 0.25)}
+    scene, sil, members, wall = arc_scene(balls)
+    labels = lift_shares(scene, parts, sil)
+    assert labels.dtype == np.uint8
+    found = {}
+    for name, number in (("a", 1), ("b", 2)):
+        mine = facing(scene, members[name], balls[name][0])
+        found[name] = (labels[mine] == number).mean()
+        assert found[name] > 0.95, f"{name}: only {found[name]:.1%} of its visible splats labelled {number}"
+    assert (labels[wall] != lift_all.NO_PART).mean() < 0.002, "wall labelled as a part"
+    # a's mask also covers b in five of seven photos (a share of 5/7 there); b's own share is 1, so b keeps them.
+    bleeding = {f: m | sil["b"][f] if f < 5 else m for f, m in sil["a"].items()}
+    crossed = lift_shares(scene, parts, {"a": bleeding, "b": sil["b"]})
+    kept = (crossed[facing(scene, members["b"], balls["b"][0])] == 2).mean()
+    assert kept > 0.95, f"the bleeding sibling took {1 - kept:.1%} of b"
+    return f"a {found['a']:.1%}, b {found['b']:.1%}"
+
+
+def test_child_counts_for_its_parent():
+    """A parent covers its child: the child wins where it holds the majority, the parent keeps the rest."""
+    import lift_all
+
+    parts = {"engine": {"label": 1, "parent": None}, "cover": {"label": 2, "parent": "engine"}}
+    balls = {"engine": ((0.0, 0.0, 0.0), 0.5), "cover": ((0.0, 0.0, -0.55), 0.2)}  # the cover bulges out of the engine
+    scene, sil, members, wall = arc_scene(balls)
+    cover_centre = balls["cover"][0]
+    cap = facing(scene, members["cover"], cover_centre, lambda d: d > 0)
+    cap = cap[np.linalg.norm(scene.points[cap], axis=1) > 0.55]  # the part of the cover outside the engine
+    body = facing(scene, members["engine"], (0, 0, 0))
+    body = body[np.linalg.norm(scene.points[body] - cover_centre, axis=1) > 0.35]  # clear of the cover
+    both = lift_shares(scene, parts, sil)
+    assert (both[cap] == 2).mean() > 0.95 and (both[body] == 1).mean() > 0.95, (
+        f"engine mask covering its cover: cap {(both[cap] == 2).mean():.1%} cover, body {(both[body] == 1).mean():.1%} engine")
+    assert (both[wall] != lift_all.NO_PART).mean() < 0.002, "wall labelled as a part"
+    # The owner left the cover out of the engine's mask: the engine share is 0 there, the cover still wins its splats.
+    hole = {f: m & ~sil["cover"][f] for f, m in sil["engine"].items()}
+    holed = lift_shares(scene, parts, {"engine": hole, "cover": sil["cover"]})
+    assert (holed[cap] == 2).mean() > 0.95 and (holed[body] == 1).mean() > 0.95, "a hole in the engine mask lost the cover"
+    # Only the engine marked: the cover's splats are the engine's.
+    alone = lift_shares(scene, parts, {"engine": sil["engine"]})
+    assert (alone[cap] == 1).mean() > 0.95 and (alone[body] == 1).mean() > 0.95, "an unmarked child must stay in its parent"
+    # Only the cover marked: its splats are labelled, the engine has no say.
+    child_only = lift_shares(scene, parts, {"cover": sil["cover"]})
+    assert (child_only[cap] == 2).mean() > 0.95 and (child_only[body] != 1).all(), "an unmarked parent got labels"
+    # The cover is seen in photos 0-1 and the engine in 3-5 (a hole where the cover is, elsewhere): neither holds a
+    # majority alone (2/7 and 3/7), together they do (5/7). The splat belongs to the engine, and the cover, lacking
+    # the majority, does not take it.
+    split_cover = {f: m if f < 2 else np.zeros_like(m) for f, m in sil["cover"].items()}
+    split_engine = {f: m if 3 <= f < 6 else m & ~sil["cover"][f] for f, m in sil["engine"].items()}
+    split = lift_shares(scene, parts, {"engine": split_engine, "cover": split_cover})
+    # Shares are fuzzy at 2/7 and 3/7, so this checks the bulk: without the union most would be 0 (the engine alone
+    # holds more than half on about a quarter of them), and with it the engine takes them and the cover few.
+    split_share = np.bincount(split[cap], minlength=3) / len(cap)
+    assert split_share[1] > 0.7 and split_share[2] < 0.2, f"a split cap: none, engine, cover = {split_share.round(2)}"
+    return f"cap {(both[cap] == 2).mean():.1%} cover, body {(both[body] == 1).mean():.1%} engine"
+
+
+def test_assign_on_shares():
+    """The rule on hand-made shares: competition, majority threshold, child over parent, label dtype."""
+    import lift_all
+
+    parts = {"a": {"label": 1, "parent": None}, "b": {"label": 2, "parent": None},
+             "p": {"label": 3, "parent": None}, "c1": {"label": 4, "parent": "p"}, "c2": {"label": 5, "parent": "p"}}
+    shares = {"a": np.array([0.9, 0.6, 0.5, 0.0, 0.0, 0.0]), "b": np.array([0.3, 0.8, 0.5, 0.0, 0.0, 0.0]),
+              "p": np.array([0.0, 0.0, 0.0, 0.9, 0.9, 0.4]), "c1": np.array([0.0, 0.0, 0.0, 0.7, 0.4, 0.0]),
+              "c2": np.array([0.0, 0.0, 0.0, 0.6, 0.45, 0.6])}
+    groups = {"a": shares["a"], "b": shares["b"], "p": np.maximum(shares["p"], np.maximum(shares["c1"], shares["c2"]))}
+    got = lift_all.assign(parts, shares, groups)
+    # a wins 0, b wins 1 (larger share), 2 is a tie at exactly 0.5 (no majority), c1 beats c2, p keeps 4, c2 has a
+    # majority with the group's share only 0.6 so it wins 5.
+    assert got.dtype == np.uint8 and got.tolist() == [1, 2, 0, 4, 3, 5], got.tolist()
+
+
+def test_pack_and_parts_agree():
+    import lift_all
+
+    parts = lift_all.pack_parts()  # asserts the ids and parents match spike_lib.PARTS
+    assert [p["label"] for p in parts.values()] == list(range(1, len(parts) + 1)), "labels are not 1-based in pack order"
+    assert set(parts) == set(spike_lib.PARTS), "a part is missing on one side"
+    assert all(p["parent"] is None or p["parent"] in parts for p in parts.values()), "a parent is not a part"
+    return f"{len(parts)} parts, labels 1..{len(parts)}"
+
+
+def test_parts_ply_tints_each_part():
+    import lift
+    import lift_all
+
+    dtype = [(f"f_dc_{c}", "<f4") for c in range(3)]
+    splat = np.zeros(4, dtype)
+    tinted = lift_all.tint(splat, np.array([0, 1, 2, 1], np.uint8))
+    colour = np.stack([tinted[f"f_dc_{c}"] for c in range(3)], 1)
+    assert (colour[0] == 0).all() and (colour[1] == colour[3]).all() and not np.allclose(colour[1], colour[2])
+    rgb = 0.5 + lift.SH_C0 * colour[1]  # the tint moves the colour towards the part's own
+    assert (rgb - 0.5) @ (np.array(lift_all.PART_RGB[0]) - 0.5) > 0 and (splat["f_dc_0"] == 0).all()
+
+
+def test_holdouts_and_variant_choice():
+    angles = np.linspace(0, 2 * np.pi, 30, endpoint=False)
+    centres = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)
+    directions = -centres + [0, 0, -0.2]
+    # Four cameras bunched together and one opposite: the opposite one and the bunch's far end are hardest to predict.
+    assert spike_lib.pick_holdouts([0, 1, 2, 3, 15], centres, directions) == [0, 15]
+    hidden = spike_lib.pick_holdouts([20, 4, 9, 1], centres, directions)
+    assert len(hidden) == 2 and set(hidden) <= {1, 4, 9, 20}, hidden
+    assert spike_lib.pick_holdouts([0, 5, 9], centres, directions) == [], "scoring with fewer than 4 keyframes"
+    import sam_track
+
+    default = sam_track.DEFAULT_VARIANT
+    assert sam_track.choose_variant([1, 2, 3], "") == (False, default)
+    assert sam_track.choose_variant([1, 2, 3, 4], "") == (True, "")
+    named = "capture order, all keyframes"
+    assert sam_track.choose_variant([1, 2, 3, 4, 5], named) == (False, named)
+    try:
+        sam_track.choose_variant([1, 2, 3, 4], "nope")
+    except AssertionError:
+        return f"holdouts [0, 15]; unscored runs {default!r}"
+    raise AssertionError("an unknown variant was accepted")
 
 
 def test_lift_recovers_a_synthetic_part():
@@ -547,6 +701,12 @@ def main():
                      ("lift compositing follows occlusion", test_compositing_follows_occlusion),
                      ("lift recovers a synthetic part", test_lift_recovers_a_synthetic_part),
                      ("lift ignores a tracker mistake", test_lift_ignores_a_tracker_mistake),
+                     ("pack.yaml and the marking page agree on parts", test_pack_and_parts_agree),
+                     ("multi-part rule on hand-made shares", test_assign_on_shares),
+                     ("sibling parts stay apart", test_siblings_are_kept_apart),
+                     ("a child counts for its parent", test_child_counts_for_its_parent),
+                     ("parts.ply tints each part", test_parts_ply_tints_each_part),
+                     ("keyframe holdouts and variant choice", test_holdouts_and_variant_choice),
                      ("COLMAP poses reproject their points", test_colmap_poses_reproject_their_points),
                      ("entrypoints run in the modal CLI's Python", test_entrypoints_run_in_the_modal_cli_python)]:
         check(name)(fn)
