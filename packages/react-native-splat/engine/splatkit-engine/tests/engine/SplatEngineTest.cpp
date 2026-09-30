@@ -50,15 +50,17 @@ class FakeRenderer final : public SplatRenderer {
   std::string description_ = "fake";
 };
 
-// Splats at `positions` (x, y, z each) in an SPZ file.
-std::vector<uint8_t> worldBytes(std::vector<float> positions) {
+// Splats at `positions` (x, y, z each) in an SPZ file, one metre across and half opaque
+// unless told otherwise.
+std::vector<uint8_t> worldBytes(std::vector<float> positions, float logScale = 0,
+                                float alphaLogit = 0) {
   spz::GaussianCloud cloud;
   cloud.numPoints = static_cast<int>(positions.size() / 3);
   cloud.positions = std::move(positions);
-  cloud.scales.assign(cloud.positions.size(), 0);
+  cloud.scales.assign(cloud.positions.size(), logScale);
   cloud.rotations.clear();
   for (int i = 0; i < cloud.numPoints; ++i) cloud.rotations.insert(cloud.rotations.end(), {0, 0, 0, 1});
-  cloud.alphas.assign(static_cast<size_t>(cloud.numPoints), 0);
+  cloud.alphas.assign(static_cast<size_t>(cloud.numPoints), alphaLogit);
   cloud.colors.assign(cloud.positions.size(), 0);
   spz::PackOptions options;
   options.version = 2;
@@ -70,6 +72,14 @@ std::vector<uint8_t> worldBytes(std::vector<float> positions) {
 // Two splats 2 m apart around (0, 0, 2).
 std::vector<uint8_t> pairBytes() {
   return worldBytes({-1, 0, 2, 1, 0, 2});
+}
+
+// The same pair as small opaque splats, 5 cm across, that a tap can tell apart.
+constexpr float kSmallLogScale = -3.0f;
+constexpr float kOpaqueLogit = 5.0f;
+constexpr float kPairPoints[] = {-1, 0, 2, 1, 0, 2};
+std::vector<uint8_t> solidPairBytes() {
+  return worldBytes({std::begin(kPairPoints), std::end(kPairPoints)}, kSmallLogScale, kOpaqueLogit);
 }
 
 // A labels.bin giving these labels to the splats in order.
@@ -294,6 +304,57 @@ TEST_F(SplatEngineTest, TheProjectionFollowsTheDrawExtent) {
   const splat::Mat4& proj = renderer->last.proj;
   EXPECT_NEAR(proj.at(0, 0) / proj.at(1, 1), 2.0f, kTolerance);  // aspect one half
   EXPECT_NEAR(proj.at(1, 1), 1 / std::tan(SplatEngine::kFieldOfViewRadians / 2), kTolerance);
+}
+
+TEST_F(SplatEngineTest, PicksThePartWhereAPointShowsInTheLastFrame) {
+  load(solidPairBytes(), labelBytes({1, 2}));
+  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);  // nothing drawn yet
+  ASSERT_TRUE(tick());
+  // Framed whole from +Z: the splat at -x shows left of the centre, both on the horizon.
+  float at[4];
+  ASSERT_EQ(engine->project(kPairPoints, 2, at), 2u);
+  EXPECT_LT(at[0], 0.5f);
+  EXPECT_GT(at[2], 0.5f);
+  EXPECT_NEAR(at[1], 0.5f, kTolerance);
+  EXPECT_NEAR(at[0] + at[2], 1, kTolerance);
+  // The labels were reordered with their splats, so each point picks its own part.
+  EXPECT_EQ(engine->pick(at[0], at[1]), 1);
+  EXPECT_EQ(engine->pick(at[2], at[3]), 2);
+  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);  // the gap between them
+  ASSERT_TRUE(engine->orbit(0.3f, 0.2f));
+  ASSERT_TRUE(tick());
+  ASSERT_EQ(engine->project(kPairPoints, 2, at), 2u);
+  EXPECT_EQ(engine->pick(at[0], at[1]), 1);  // still, from wherever the camera went
+}
+
+TEST_F(SplatEngineTest, ProjectsTheTargetToTheCentreAndNothingBehindTheCamera) {
+  load(pairBytes());
+  const float target[] = {0, 0, 2};
+  float at[2];
+  EXPECT_EQ(engine->project(target, 1, at), 0u);  // nothing drawn yet
+  EXPECT_TRUE(std::isnan(at[0]) && std::isnan(at[1]));
+  ASSERT_TRUE(tick());
+  const OrbitPose pose = engine->cameraPose();
+  const float points[] = {0, 0, 2, 0, 0, 2 + 2 * pose.radius};
+  float out[4];
+  EXPECT_EQ(engine->project(points, 2, out), 1u);
+  EXPECT_NEAR(out[0], 0.5f, kTolerance);
+  EXPECT_NEAR(out[1], 0.5f, kTolerance);
+  EXPECT_TRUE(std::isnan(out[2]) && std::isnan(out[3]));
+}
+
+TEST_F(SplatEngineTest, PickSeesANewWorldOnlyOnceItIsDrawn) {
+  load(solidPairBytes(), labelBytes({1, 2}));
+  ASSERT_TRUE(tick());
+  float at[4];
+  ASSERT_EQ(engine->project(kPairPoints, 2, at), 2u);
+  load(solidPairBytes(), labelBytes({3, 4}));
+  EXPECT_EQ(engine->pick(at[0], at[1]), 1);  // the frame on screen is still the old world
+  ASSERT_TRUE(tick());
+  EXPECT_EQ(engine->pick(at[0], at[1]), 3);
+  load(solidPairBytes());
+  ASSERT_TRUE(tick());
+  EXPECT_EQ(engine->pick(at[0], at[1]), 0);  // an unlabelled world picks nothing
 }
 
 }  // namespace

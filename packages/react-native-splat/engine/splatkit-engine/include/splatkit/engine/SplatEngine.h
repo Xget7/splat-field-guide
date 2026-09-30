@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "splatkit/camera/OrbitCamera.h"
 #include "splatkit/diagnostics/StatsPublisher.h"
 #include "splatkit/highlight/Highlight.h"
+#include "splatkit/pick/PickIndex.h"
 #include "splatkit/rendering/SplatRenderer.h"
 
 namespace splatkit {
@@ -73,6 +75,15 @@ class SplatEngine {
   // highlight; no labels shows every splat as captured. Render thread.
   void setHighlight(const std::uint8_t* labels, std::size_t count);
 
+  // Any thread: the label of the part at (x, y), in [0, 1] from the top left of the view,
+  // in the frame last drawn; 0 for none. It casts against the whole cloud, milliseconds of
+  // work, so it belongs on a worker thread rather than the render thread.
+  std::uint8_t pick(float x, float y) const;
+  // Any thread: where each world point (x, y, z) of `points` shows in the frame last drawn,
+  // written to `out` as (x, y) in [0, 1] from the top left, NaN for a point behind the
+  // camera. Returns how many are in front.
+  std::size_t project(const float* points, std::size_t count, float* out) const;
+
   // Fraction of the surface resolution the splats are drawn at, [0.1, 2]. Below one is
   // cheaper, which is what thermal pressure trades first. Render thread.
   void setRenderScale(float scale) { renderer_->setRenderScale(scale); }
@@ -112,6 +123,17 @@ class SplatEngine {
   float frameSeconds(int64_t frameTimeNanos);
   splat::Mat4 projection(Extent extent) const;
   StatsPublisher::Sample sample() const;
+  void publishView(const SplatRenderer::Frame& frame);
+
+  // What pick and project read from any thread: the last drawn frame's camera and world.
+  struct View {
+    splat::Mat4 view = splat::Mat4::identity();
+    splat::Mat4 cameraToWorld = splat::Mat4::identity();
+    float projX = 0;  // the projection's x and y scales
+    float projY = 0;
+    std::shared_ptr<const PickIndex> pickIndex;
+  };
+  View publishedView() const;
 
   EventSink events_;
   std::unique_ptr<SplatRenderer> renderer_;
@@ -125,6 +147,10 @@ class SplatEngine {
   Extent framedExtent_;
   StatsPublisher stats_;
   std::vector<int64_t> presentTimes_;
+  // The uploaded world's pick index, published with the first frame drawn from it.
+  std::shared_ptr<const PickIndex> pickIndex_;
+  mutable std::mutex viewMutex_;
+  std::optional<View> view_;
 
   int shDegree_ = kMaxShDegree;
   uint32_t sourceCount_ = 0;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 #include "splatkit/Log.h"
@@ -102,6 +103,7 @@ bool SplatEngine::applyPendingWorld() {
     return false;
   }
   sourceCount_ = static_cast<uint32_t>(cloud->count());
+  pickIndex_ = PickIndex::take(*cloud);
   if (!poseSet_) {
     framedBounds_ = cloud->bounds;
     framedExtent_ = {};
@@ -174,6 +176,54 @@ splat::Mat4 SplatEngine::projection(Extent extent) const {
   return splat::Mat4::perspective(kFieldOfViewRadians, aspect, kNearPlane, kFarPlane);
 }
 
+// Pick and project, from any thread, against the last drawn frame.
+
+void SplatEngine::publishView(const SplatRenderer::Frame& frame) {
+  View view;
+  view.view = frame.view;
+  view.cameraToWorld = frame.view.rigidInverse();
+  view.projX = frame.proj.at(0, 0);
+  view.projY = frame.proj.at(1, 1);
+  view.pickIndex = pickIndex_;
+  std::lock_guard<std::mutex> lock(viewMutex_);
+  view_ = std::move(view);
+}
+
+SplatEngine::View SplatEngine::publishedView() const {
+  std::lock_guard<std::mutex> lock(viewMutex_);
+  return view_.value_or(View{});
+}
+
+std::uint8_t SplatEngine::pick(float x, float y) const {
+  const View view = publishedView();
+  if (!view.pickIndex || !std::isfinite(x) || !std::isfinite(y)) return 0;
+  // Back through the projection: the point's direction in camera space, looking down -Z.
+  const splat::Vec3 inCamera{(2 * x - 1) / view.projX, (1 - 2 * y) / view.projY, -1};
+  Ray ray;
+  ray.origin = view.cameraToWorld.transformPoint({0, 0, 0});
+  ray.direction = splat::normalize(view.cameraToWorld.transformDirection(inCamera));
+  return view.pickIndex->pick(ray);
+}
+
+std::size_t SplatEngine::project(const float* points, std::size_t count, float* out) const {
+  const View view = publishedView();
+  std::size_t inFront = 0;
+  for (std::size_t i = 0; i < count; ++i) {
+    const splat::Vec3 p =
+        view.view.transformPoint({points[i * 3], points[i * 3 + 1], points[i * 3 + 2]});
+    const float depth = -p.z;
+    float* uv = out + i * 2;
+    if (view.projX == 0 || depth < kNearPlane) {
+      uv[0] = uv[1] = std::numeric_limits<float>::quiet_NaN();
+      continue;
+    }
+    uv[0] = (view.projX * p.x / depth + 1) * 0.5f;
+    uv[1] = (1 - view.projY * p.y / depth) * 0.5f;
+    ++inFront;
+  }
+  return inFront;
+}
+
 // Stats.
 
 void SplatEngine::publishStats() {
@@ -233,6 +283,7 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   }
   redrawNeeded_ = false;
   lastDrawnGeneration_ = generation;
+  publishView(frame);
   stats_.onFrame(frameTimeNanos, true, sampler);
   return true;
 }
