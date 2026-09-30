@@ -12,6 +12,7 @@ The SPZ reader here is written from nianticlabs/spz load-spz.cc, not from export
 import argparse
 import gzip
 import io
+import itertools
 import json
 import math
 import pathlib
@@ -525,6 +526,34 @@ def sample_manifest() -> dict:
             "procedures": content["procedures"]}
 
 
+def test_framing_radius_fits_a_box():
+    """Head on, a cube's near face sets the distance; turned, a long flat box ends whole in the view, touching its
+    margin. The view basis here is built as a look-at, independently of export.framing_radius."""
+    half = 0.5
+    tan_y = math.tan(math.radians(export.ENGINE_FOV_Y_DEG) / 2)
+    for aspect in (1.0, export.NARROWEST_VIEW_ASPECT):
+        radius = export.framing_radius(np.full(3, -half), np.full(3, half), 0.0, 0.0, aspect)
+        expected = export.ENGINE_FRAMING_MARGIN * half / (tan_y * min(aspect, 1.0)) + half
+        assert math.isclose(radius, expected, rel_tol=1e-9), (aspect, radius, expected)
+
+    low, high, azimuth, elevation = np.array([-1.0, 0.0, -0.3]), np.array([1.0, 0.2, 0.2]), 30.0, 40.0
+    aspect = export.NARROWEST_VIEW_ASPECT
+    radius = export.framing_radius(low, high, azimuth, elevation, aspect)
+    a, e = math.radians(azimuth), math.radians(elevation)
+    centre = (low + high) / 2
+    camera = centre + radius * np.array([math.cos(e) * math.sin(a), math.sin(e), math.cos(e) * math.cos(a)])
+    forward = (centre - camera) / np.linalg.norm(centre - camera)
+    right = np.cross(forward, [0.0, 1.0, 0.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+    corners = np.array(list(itertools.product(*zip(low, high)))) - camera
+    depth = corners @ forward
+    ndc = np.maximum(np.abs(corners @ right) / (depth * tan_y * aspect), np.abs(corners @ up) / (depth * tan_y))
+    assert (depth > export.ENGINE_NEAR_PLANE - 1e-9).all()
+    assert math.isclose(ndc.max(), 1 / export.ENGINE_FRAMING_MARGIN, rel_tol=1e-9), ndc.max()
+    return f"cube {expected:.3f} m upright, long box {radius:.3f} m, fills {ndc.max():.3f} of the half view"
+
+
 def test_manifest_mirror():
     import copy
 
@@ -671,6 +700,18 @@ def test_home_outside_crop(pack: pathlib.Path, report: dict):
     return f"camera {camera.round(3).tolist()}, crop top {high[1]:.3f}"
 
 
+def test_parts_fit_the_view(pack: pathlib.Path):
+    """Each part framed from the home direction on an upright phone stays within the radius limits."""
+    manifest = json.loads((pack / "manifest.json").read_text())
+    home, limits = manifest["camera"]["home"], manifest["camera"]["limits"]
+    fits = {part["id"]: export.framing_radius(np.array(part["bounds"]["min"]), np.array(part["bounds"]["max"]),
+                                              home["azimuth"], home["elevation"], export.NARROWEST_VIEW_ASPECT)
+            for part in manifest["parts"]}
+    widest = max(fits, key=fits.get)
+    assert fits[widest] <= limits["maxRadius"], f"{widest} needs {fits[widest]:.3f} m, limit {limits['maxRadius']}"
+    return f"{widest} needs {fits[widest]:.3f} m of {limits['maxRadius']} m"
+
+
 def view_dependent_colour(cloud: dict, centre: np.ndarray, index: np.ndarray) -> np.ndarray:
     sh = cloud["sh"][index]
     direction = _unit(cloud["positions"][index] - centre)
@@ -728,6 +769,7 @@ SYNTHETIC_CHECKS = [("SH basis is orthonormal", test_sh_basis_is_orthonormal),
                     ("scale from a battery", test_scale_from_a_battery),
                     ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
                     ("labels.bin layout", test_labels_bin_layout),
+                    ("framing radius fits a box", test_framing_radius_fits_a_box),
                     ("manifest mirror rejects what parsePack rejects", test_manifest_mirror)]
 
 
@@ -743,6 +785,7 @@ def main():
 
     if (args.pack / "manifest.json").exists():
         check("manifest matches pack.yaml and the files")(lambda: test_manifest_against_files(args.pack))
+        check("every part fits the view within the radius limits")(lambda: test_parts_fit_the_view(args.pack))
         loaded = {}
 
         def pack_files():

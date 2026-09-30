@@ -18,6 +18,7 @@ Check the result with export_checks.py.
 import argparse
 import gzip
 import hashlib
+import itertools
 import json
 import math
 import pathlib
@@ -94,6 +95,13 @@ ELEVATION_LIMIT_DEG = (5.0, 85.0)  # the orbit never goes below the floor or ove
 LIMIT_DECIMALS = 1              # angles in the manifest are rounded to this many decimals, limits outwards
 CAMERA_PERCENTILE = 2.0         # limits follow the photos' own viewpoints between these percentiles
 RADIUS_MARGIN = 0.8             # minimum radius: this fraction of the closest photo's distance
+RADIUS_DECIMALS = 3             # radii in the manifest, rounded outwards too
+# The app frames one part at a time with the engine's `frame`. These mirror SplatEngine.cpp, so the radius limit
+# leaves room for the largest part on the narrowest view the app draws in.
+ENGINE_FOV_Y_DEG = 65.0         # SplatEngine::kFieldOfViewRadians
+ENGINE_FRAMING_MARGIN = 1.05    # kFramingMargin: a framed box fills at most 1 / this of the half view
+ENGINE_NEAR_PLANE = 0.05        # kNearPlane
+NARROWEST_VIEW_ASPECT = 9 / 19.5  # width over height of a phone held upright, the view full screen
 
 
 def sha256(path: pathlib.Path) -> str:
@@ -422,16 +430,36 @@ def part_geometry(parts: list[dict], labels: np.ndarray, points: np.ndarray,
     return geometry, missing
 
 
-def outward(low: float, high: float) -> tuple[float, float]:
-    """A range rounded to LIMIT_DECIMALS without shrinking, so what was inside stays inside."""
-    step = 10.0 ** -LIMIT_DECIMALS
-    return round(math.floor(low / step) * step, LIMIT_DECIMALS), round(math.ceil(high / step) * step, LIMIT_DECIMALS)
+def outward(low: float, high: float, decimals: int = LIMIT_DECIMALS) -> tuple[float, float]:
+    """A range rounded to `decimals` without shrinking, so what was inside stays inside."""
+    step = 10.0 ** -decimals
+    return round(math.floor(low / step) * step, decimals), round(math.ceil(high / step) * step, decimals)
 
 
-def camera_block(camera_points: np.ndarray, extent: float) -> dict:
+def framing_radius(low: np.ndarray, high: np.ndarray, azimuth_deg: float, elevation_deg: float,
+                   aspect: float) -> float:
+    """How far the engine's `frame` puts the camera from the box centre, looking from this direction: the closest
+    distance at which every corner is inside the view, less the margin, and in front of the near plane."""
+    azimuth, elevation = math.radians(azimuth_deg), math.radians(elevation_deg)
+    forward = -np.array([math.cos(elevation) * math.sin(azimuth), math.sin(elevation),
+                         math.cos(elevation) * math.cos(azimuth)])
+    right = np.array([math.cos(azimuth), 0.0, -math.sin(azimuth)])
+    up = np.cross(right, forward)
+    tan_y = math.tan(math.radians(ENGINE_FOV_Y_DEG) / 2)
+    tan_x = tan_y * aspect
+    corners = np.array(list(itertools.product(*zip(low, high)))) - (np.asarray(low) + np.asarray(high)) / 2
+    depth = corners @ forward
+    need = np.maximum.reduce([ENGINE_FRAMING_MARGIN * np.abs(corners @ right) / tan_x - depth,
+                              ENGINE_FRAMING_MARGIN * np.abs(corners @ up) / tan_y - depth,
+                              ENGINE_NEAR_PLANE - depth])
+    return float(need.max())
+
+
+def camera_block(camera_points: np.ndarray, extent: float, part_boxes: list[tuple[np.ndarray, np.ndarray]]) -> dict:
     """Home and limits from where the photos were taken, seen from the origin (the labelled parts' centre).
 
     The azimuth range keeps the orbit on the side the photos saw, measured around the home so it may cross 180.
+    The radius reaches far enough to frame each part whole from the home direction on an upright phone.
     """
     horizontal = np.hypot(camera_points[:, 0], camera_points[:, 2])
     elevation = np.degrees(np.arctan2(camera_points[:, 1], horizontal))
@@ -443,15 +471,21 @@ def camera_block(camera_points: np.ndarray, extent: float) -> dict:
     home_radius = float(np.median(distance))
     fit_radius = extent / 2 / math.sin(math.radians(FRAME_FOV_DEG / 2))  # the labelled parts fill the view
     home_elevation = float(np.clip(np.median(elevation), low, high))
-    min_radius = min(RADIUS_MARGIN * np.percentile(distance, CAMERA_PERCENTILE), fit_radius)
-    max_radius = max(np.percentile(distance, 100 - CAMERA_PERCENTILE), home_radius)
     def angle(degrees: float) -> float:
         return round(float(degrees), LIMIT_DECIMALS)
 
-    return {"home": {"azimuth": angle(azimuth), "elevation": angle(home_elevation), "radius": round(home_radius, 3)},
+    home_azimuth, home_elevation = angle(azimuth), angle(home_elevation)
+    part_fit = max(framing_radius(low_box, high_box, home_azimuth, home_elevation, NARROWEST_VIEW_ASPECT)
+                   for low_box, high_box in part_boxes)
+    min_radius, max_radius = outward(min(RADIUS_MARGIN * np.percentile(distance, CAMERA_PERCENTILE), fit_radius),
+                                     max(np.percentile(distance, 100 - CAMERA_PERCENTILE), home_radius, part_fit),
+                                     RADIUS_DECIMALS)
+
+    return {"home": {"azimuth": home_azimuth, "elevation": home_elevation,
+                     "radius": round(home_radius, RADIUS_DECIMALS)},
             "limits": {"minAzimuth": az_low, "maxAzimuth": az_high,
                        "minElevation": angle(low), "maxElevation": angle(high),
-                       "minRadius": round(float(min_radius), 3), "maxRadius": round(float(max_radius), 3)}}
+                       "minRadius": min_radius, "maxRadius": max_radius}}
 
 
 def file_entry(root: pathlib.Path, rel: str) -> dict:
@@ -542,7 +576,8 @@ def main():
     geometry, missing = part_geometry(content["parts"], labels, placed, args.allow_missing_parts)
     marked_points = placed[labels > 0]
     extent = float(np.linalg.norm(np.ptp(marked_points, axis=0)))
-    camera = camera_block(placement.points(cameras["centres"]), extent)
+    boxes = [(np.array(g["bounds"]["min"]), np.array(g["bounds"]["max"])) for g in geometry.values()]
+    camera = camera_block(placement.points(cameras["centres"]), extent, boxes)
     manifest = build_manifest(content, out, len(keep), geometry, camera)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
