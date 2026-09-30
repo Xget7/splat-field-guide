@@ -2,7 +2,8 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// Metal buffer layouts. The host counterparts live in MetalShaderTypes.h.
+// Buffer layouts shared with the host: MetalShaderTypes.h for Camera and Projected,
+// splatkit/rendering/GpuLayout.h for Splat.
 struct Camera {
   float4x4 view;
   float4x4 proj;
@@ -13,12 +14,11 @@ struct Camera {
   float4 cameraPosition;  // world space
 };
 
-// Spherical harmonics constants
+// Spherical harmonics: degree by function constant, so degree 0 pays nothing.
 constant uint SH_DEGREE [[function_constant(0)]];
 constant uint SH_COEFFICIENTS = (SH_DEGREE + 1) * (SH_DEGREE + 1) - 1;
 constant uint SH_STRIDE = (SH_COEFFICIENTS * 3 + 1) / 2;
 
-// Core data layout for Splats
 struct Splat {
   float px, py, pz;  // world position
   uint rgba8;        // colour and alpha, 8 bits each
@@ -38,7 +38,7 @@ struct LabelStyle {
 };
 constant uint kLabelMask = 0xffu;  // 256 styles, one per label
 
-// Intermediate GPU-projected splat layout (32 bytes)
+// A splat after projection: the quad the raster stage expands (32 bytes).
 struct Projected {
   float2 center;
   uint axis1;
@@ -49,7 +49,6 @@ struct Projected {
   uint index;
 };
 
-// Render Pipeline Vertex/Fragment Interfaces
 struct SplatVertex {
   float4 position [[position]];
   float2 relativePosition;
@@ -74,16 +73,16 @@ struct DrawArguments {
   uint vertexCount, instanceCount, vertexStart, baseInstance;
 };
 
-// Render Constants
+// Splats draw at kSplatDepth under a LessEqual test; the saturation mask writes the nearer
+// kMaskDepth, so a pixel that is already opaque rejects every later splat.
 constant float kSplatDepth = 0.5;
 constant float kMaskDepth = 0.25;
-constant float kSaturated = 254.0 / 255.0;
+constant float kSaturated = 254.0 / 255.0;  // coverage at which a pixel counts as opaque
 
-constant float kBoundsRadius = 3.0;
+constant float kBoundsRadius = 3.0;  // draw out to 3 sigma; beyond that nothing is visible
 constant float kMinPixelRadius = 1.0;
 constant float2 kCorners[4] = {float2(-1, -1), float2(-1, 1), float2(1, -1), float2(1, 1)};
 
-// Helper unpacking functions
 inline float2 unpackHalf2(uint packed) {
   return float2(as_type<half2>(packed));
 }

@@ -20,7 +20,7 @@ fragment float4 splatFragmentUnder(SplatVertex in [[stage_in]]) {
   return float4(float3(rgb), float(alpha));
 }
 
-// Fullscreen Blit / Render Scale
+// One oversized triangle covers the screen.
 vertex BlitVertex blitVertex(uint vertexId [[vertex_id]]) {
   const float2 corners[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
   BlitVertex out;
