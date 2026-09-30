@@ -45,7 +45,8 @@ def check(name: str):
 
 
 def test_code_compiles():
-    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "lift_all.py", "preflight.py"]
+    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "lift_all.py",
+               "export.py", "export_checks.py", "preflight.py"]
     for file in sources:
         py_compile.compile(str(HERE / file), doraise=True)
     lint = subprocess.run(["uvx", "ruff", "check", "--quiet", "--select", "F,E9", *sources],
@@ -710,6 +711,10 @@ def main():
                      ("COLMAP poses reproject their points", test_colmap_poses_reproject_their_points),
                      ("entrypoints run in the modal CLI's Python", test_entrypoints_run_in_the_modal_cli_python)]:
         check(name)(fn)
+    import export_checks  # the export's maths, so a pack is not built on a broken transform
+
+    for name, fn in export_checks.SYNTHETIC_CHECKS:
+        check(f"export: {name}")(fn)
     warnings = check_real_data(args.clicks) if args.clicks else []
     if args.volume:
         check_volume()

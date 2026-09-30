@@ -707,6 +707,19 @@ def test_render_matches_original(decoded: dict, keep: np.ndarray, splat, placeme
     return "mean colour difference per photo: " + ", ".join(details)
 
 
+# The checks that need no pack, which preflight.py runs too.
+SYNTHETIC_CHECKS = [("SH basis is orthonormal", test_sh_basis_is_orthonormal),
+                    ("SH rotation preserves the colour along rotated directions", test_sh_rotation_preserves_colour),
+                    ("rotation, scale and positions follow the transform", test_transform_follows_through),
+                    ("display axes match EXIF orientation", test_display_axes_match_exif_transpose),
+                    ("levelling recovers gravity", test_levelling_recovers_gravity),
+                    ("Apple MakerNote acceleration vector", test_apple_gravity_parses_a_maker_note),
+                    ("scale from a battery", test_scale_from_a_battery),
+                    ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
+                    ("labels.bin layout", test_labels_bin_layout),
+                    ("manifest mirror rejects what parsePack rejects", test_manifest_mirror)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pack", type=pathlib.Path, default=PACK)
@@ -714,16 +727,7 @@ def main():
     parser.add_argument("--mask-part", default="engine")
     args = parser.parse_args()
 
-    for name, fn in [("SH basis is orthonormal", test_sh_basis_is_orthonormal),
-                     ("SH rotation preserves the colour along rotated directions", test_sh_rotation_preserves_colour),
-                     ("rotation, scale and positions follow the transform", test_transform_follows_through),
-                     ("display axes match EXIF orientation", test_display_axes_match_exif_transpose),
-                     ("levelling recovers gravity", test_levelling_recovers_gravity),
-                     ("Apple MakerNote acceleration vector", test_apple_gravity_parses_a_maker_note),
-                     ("scale from a battery", test_scale_from_a_battery),
-                     ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
-                     ("labels.bin layout", test_labels_bin_layout),
-                     ("manifest mirror rejects what parsePack rejects", test_manifest_mirror)]:
+    for name, fn in SYNTHETIC_CHECKS:
         check(name)(fn)
 
     if (args.pack / "manifest.json").exists():
