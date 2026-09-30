@@ -522,6 +522,29 @@ def test_assign_on_shares():
     assert got.dtype == np.uint8 and got.tolist() == [1, 2, 0, 4, 3, 5], got.tolist()
 
 
+def test_strays_are_dropped():
+    """A far piece of a part goes (to no part, or to the parent for a child); a near piece and a child stay."""
+    import lift_all
+
+    rng = np.random.default_rng(1)
+
+    def blob(centre, size, count):
+        return np.asarray(centre) + rng.uniform(-size / 2, size / 2, (count, 3))
+
+    parts = {"cap": {"label": 1, "parent": None}, "engine": {"label": 2, "parent": None},
+             "cover": {"label": 3, "parent": "engine"}}
+    pieces = [(blob([0, 0, 0], 1.0, 4000), 1), (blob([0.75, 0, 0], 0.3, 300), 1), (blob([9, 0, 0], 0.5, 600), 1),
+              (blob([20, 0, 0], 2.0, 6000), 2), (blob([20, 1.2, 0], 1.0, 1500), 3), (blob([30, 0, 0], 0.4, 200), 3),
+              (blob([19.5, -0.5, 0], 0.2, 100), 3)]
+    points = np.concatenate([p for p, _ in pieces])
+    labels = np.concatenate([np.full(len(p), label, np.uint8) for p, label in pieces])
+    got = lift_all.drop_strays(parts, labels, points)
+    starts = np.cumsum([0] + [len(p) for p, _ in pieces])
+    kept = [np.unique(got[a:b]).tolist() for a, b in zip(starts[:-1], starts[1:])]
+    assert kept == [[1], [1], [0], [2], [3], [0], [2]], kept
+    return f"{int((got != labels).sum())} of {len(labels)} dropped"
+
+
 def test_pack_and_parts_agree():
     import lift_all
 
@@ -752,6 +775,7 @@ def main():
                      ("lift ignores a tracker mistake", test_lift_ignores_a_tracker_mistake),
                      ("pack.yaml and the marking page agree on parts", test_pack_and_parts_agree),
                      ("multi-part rule on hand-made shares", test_assign_on_shares),
+                     ("stray pieces are dropped", test_strays_are_dropped),
                      ("sibling parts stay apart", test_siblings_are_kept_apart),
                      ("a child counts for its parent", test_child_counts_for_its_parent),
                      ("parts.ply tints each part", test_parts_ply_tints_each_part),

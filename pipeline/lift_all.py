@@ -10,6 +10,8 @@ takes the part holding the clear majority of its neighbourhood's light, otherwis
   - A parent's mask covers its children, so for deciding whether a splat belongs to a parent or any of its children
     the votes use the parent's mask united with its children's masks, photo by photo.
   - The splat then takes the child with the largest share above MAJORITY, else the parent.
+A part is then one object: pieces of it that lie away from its body are another object the tracker took for it
+(a second blue cap across the bay), so they are dropped, a child's to its parent.
 Parts without saved marks are skipped and reported. The neighbourhood pooling in lift.Scene.share is the vote that
 cleans stray labels: a splat with too little light of its own takes what its neighbours send.
 
@@ -35,6 +37,11 @@ DATA = HERE.parent / "data"
 PACK = HERE.parent / "content" / "gol-trend-engine-bay" / "pack.yaml"
 NO_PART = 0
 MAX_LABEL = 255  # labels are uint8
+# Splats nearer than this share of their part's extent join one piece of it.
+PIECE_LINK = 0.05
+# A piece farther from the part's largest piece than this share of that piece's extent is another object.
+PIECE_REACH = 0.25
+EXTENT_PERCENTILE = 2.0  # a point set's extent: the diagonal from its 2nd to its 98th percentile
 # Distinct tints (RGB, 0 to 1) by label number - 1; the viewer's own highlight is lift.HIGHLIGHT_RGB.
 PART_RGB = [(0.95, 0.35, 0.65), (0.98, 0.75, 0.15), (0.20, 0.85, 0.40), (0.55, 0.40, 0.95), (0.95, 0.50, 0.10),
             (0.22, 0.74, 0.97), (0.90, 0.20, 0.20), (0.10, 0.85, 0.85), (0.70, 0.90, 0.20), (0.60, 0.30, 0.10)]
@@ -89,6 +96,60 @@ def assign(parts: dict[str, dict], shares: dict[str, np.ndarray], group_shares: 
             for i, kid in enumerate(kids):
                 labels[holds & (strongest == i)] = parts[kid]["label"]
     return labels
+
+
+def extent(points: np.ndarray) -> float:
+    low, high = np.percentile(points, [EXTENT_PERCENTILE, 100 - EXTENT_PERCENTILE], axis=0)
+    return float(np.linalg.norm(high - low))
+
+
+def pieces(points: np.ndarray, link: float) -> np.ndarray:
+    """A piece index per point: points in touching grid cells of side `link` belong to one piece."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    cells, cell_of = np.unique(np.floor(points / link).astype(np.int64), axis=0, return_inverse=True)
+    cells -= cells.min(0) - 1  # a one-cell border, so no neighbour wraps into another row
+    span = cells.max(0) + 2
+    keys = (cells[:, 0] * span[1] + cells[:, 1]) * span[2] + cells[:, 2]  # sorted, as np.unique sorts the rows
+    rows, cols = [], []
+    for offset in np.stack(np.meshgrid([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]), -1).reshape(-1, 3):
+        wanted = keys + (offset[0] * span[1] + offset[1]) * span[2] + offset[2]
+        at = np.minimum(np.searchsorted(keys, wanted), len(keys) - 1)
+        found = keys[at] == wanted
+        rows.append(np.flatnonzero(found))
+        cols.append(at[found])
+    rows, cols = np.concatenate(rows), np.concatenate(cols)
+    _, piece = connected_components(coo_matrix((np.ones(len(rows)), (rows, cols)), shape=(len(keys),) * 2),
+                                    directed=False)
+    return piece[cell_of.ravel()]
+
+
+def body(points: np.ndarray) -> np.ndarray:
+    """Which points are the object's body: its largest piece and every piece within reach of it."""
+    from scipy.spatial import cKDTree
+
+    piece = pieces(points, PIECE_LINK * extent(points))
+    largest = piece == np.bincount(piece).argmax()
+    reach = PIECE_REACH * extent(points[largest])
+    gap, _ = cKDTree(points[largest]).query(points[~largest], distance_upper_bound=reach)
+    nearest = np.full(piece.max() + 1, np.inf)
+    np.minimum.at(nearest, piece[~largest], gap)
+    return largest | (nearest[piece] <= reach)
+
+
+def drop_strays(parts: dict[str, dict], labels: np.ndarray, points: np.ndarray) -> np.ndarray:
+    """Labels without the pieces that lie away from their part's body: a top-level part's pieces go to no part, a
+    child's to its parent. A top-level part's body includes its children's splats."""
+    out = labels.copy()
+    tops = [t for t, p in parts.items() if p["parent"] is None]
+    for part in tops + [c for c in parts if c not in tops]:  # parents first, so a child keeps what they drop
+        parent = parts[part]["parent"]
+        family = [parts[part]["label"]] + [p["label"] for p in parts.values() if p["parent"] == part]
+        mine = np.flatnonzero(np.isin(out, family))
+        if len(mine):
+            out[mine[~body(points[mine])]] = NO_PART if parent is None else parts[parent]["label"]
+    return out
 
 
 def load_part(scene: lift.Scene, part: str, marks: pathlib.Path, tracks: pathlib.Path) -> dict | None:
@@ -151,12 +212,18 @@ def main():
     print(f"no marks yet: {missing or 'none'}; keyframes only (no tracks): {untracked or 'none'}")
     assert loaded, f"no marks under {args.marks}"
 
-    labels = lift_parts(scene, parts, loaded)
+    lifted = lift_parts(scene, parts, loaded)
+    labels = drop_strays(parts, lifted, scene.points)
+    for part, info in parts.items():
+        dropped = int(((lifted == info["label"]) & (labels != info["label"])).sum())
+        if dropped:
+            print(f"{part}: dropped {dropped:,} splats away from its body")
     args.out.mkdir(parents=True, exist_ok=True)
     np.save(args.out / "labels.npy", labels)
     report = {"splats": len(labels), "labels": {p: v["label"] for p, v in parts.items()},
               "missing_marks": missing, "keyframes_only": untracked,
-              "unlabelled": int((labels == NO_PART).sum()), "parts": {}}
+              "unlabelled": int((labels == NO_PART).sum()),
+              "dropped_away_from_body": int((lifted != labels).sum()), "parts": {}}
     for part, info in loaded.items():
         family = [part] + [c for c, p in parts.items() if p["parent"] == part]
         covered = np.isin(labels, [parts[f]["label"] for f in family])  # a parent's mask covers its children
