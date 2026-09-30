@@ -1,0 +1,33 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": [
+    "splat"
+  ],
+  "ios": {
+    "iosModuleName": "ReactNativeSplat"
+  },
+  "android": {
+    "androidNamespace": [
+      "splat"
+    ],
+    "androidCxxLibName": "reactnativesplat"
+  },
+  "autolinking": {
+    "SplatView": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSplatView"
+      }
+    },
+    "SplatDiagnostics": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSplatDiagnostics"
+      }
+    }
+  },
+  "ignorePaths": [
+    "node_modules",
+    "engine"
+  ]
+}

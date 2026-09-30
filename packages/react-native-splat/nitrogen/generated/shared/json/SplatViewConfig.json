@@ -1,0 +1,11 @@
+{
+  "uiViewClassName": "SplatView",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "highlight": true,
+    "onReady": true,
+    "hybridRef": true
+  }
+}

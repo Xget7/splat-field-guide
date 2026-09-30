@@ -1,0 +1,38 @@
+{
+  "name": "react-native-splat",
+  "version": "0.0.1",
+  "description": "Gaussian-splat view for React Native, exposed with Nitro Views",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "react-native": "src/index.ts",
+  "files": [
+    "src",
+    "ios",
+    "nitrogen",
+    "nitro.json",
+    "ReactNativeSplat.podspec",
+    "!ios/build"
+  ],
+  "scripts": {
+    "codegen": "nitrogen",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-nitro-modules": "^0.37.1"
+  },
+  "devDependencies": {
+    "@react-native/eslint-config": "0.87.1",
+    "@react-native/typescript-config": "0.87.1",
+    "@types/react": "^19.2.0",
+    "eslint": "^8.19.0",
+    "nitrogen": "^0.37.1",
+    "prettier": "2.8.8",
+    "react": "19.2.3",
+    "react-native": "0.87.1",
+    "react-native-nitro-modules": "^0.37.1",
+    "typescript": "^6.0.3"
+  }
+}
