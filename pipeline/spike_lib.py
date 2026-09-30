@@ -221,6 +221,25 @@ def view_distance(centres, directions):
     return travel + turn
 
 
+MIN_KEYFRAMES_TO_SCORE = 4  # hiding one of fewer would leave the tracker under three marks
+HOLDOUT_COUNT = 2
+
+
+def pick_holdouts(keyframes: list[int], centres, directions) -> list[int]:
+    """The keyframes to hide when scoring variants: those farthest (mean view distance) from the other keyframes.
+
+    Empty below MIN_KEYFRAMES_TO_SCORE keyframes. The hardest photos to predict show a variant's real quality.
+    """
+    import numpy as np
+
+    if len(keyframes) < MIN_KEYFRAMES_TO_SCORE:
+        return []
+    cost = view_distance(centres, directions)[np.ix_(keyframes, keyframes)]
+    far = cost.sum(1) / (len(keyframes) - 1)
+    ranked = sorted(range(len(keyframes)), key=lambda i: (-far[i], keyframes[i]))
+    return sorted(keyframes[i] for i in ranked[:HOLDOUT_COUNT])
+
+
 def view_order(centres, directions) -> list[int]:
     """Photo order in which each photo looks like the one before it, so a video tracker can follow the part."""
     cost = view_distance(centres, directions)

@@ -1,11 +1,13 @@
 """Carry a part's keyframe masks (drawn on the marking page) to every photo with the SAM 3 tracker.
 
-The photos are not a video, so the order they are fed in matters. Each variant below is scored by hiding one
-keyframe the owner drew, tracking from the others and comparing the prediction with the owner's mask (IoU).
-The best variant then runs with every keyframe.
+The keyframes are whatever masks the owner saved for the part under /marks/<part>/. The photos are not a video,
+so the order they are fed in matters. With four or more keyframes each variant below is scored by hiding one of the
+two keyframes farthest from the others (spike_lib.pick_holdouts), tracking from the rest and comparing the
+prediction with the owner's mask (IoU); the best variant then runs with every keyframe. With fewer keyframes, or
+with --variant, nothing is scored and one variant runs directly (DEFAULT_VARIANT unless named).
 
 Check first:  uv run preflight.py
-Run:          modal run sam_track.py [--part engine]
+Run:          modal run sam_track.py --part engine [--variant "view order, all keyframes"]
 Out:          a mask per photo on the volume at /tracks/<part>/, and data/segment/tracks/<part>/ previews plus report.json.
 """
 
@@ -27,7 +29,16 @@ VARIANTS = {
     "capture order, all keyframes": ("capture", -1),
     "view order, all keyframes": ("view", -1),
 }
-HOLDOUTS = [44, 87]  # keyframes far from the others in capture order, so the hardest to predict
+DEFAULT_VARIANT = "view order, all keyframes"  # won on the engine; used when there are too few keyframes to score
+
+
+def choose_variant(keyframes: list[int], requested: str = "") -> tuple[bool, str]:
+    """Whether to score the variants, and which one runs when they are not scored."""
+    assert not requested or requested in VARIANTS, f"unknown variant {requested!r}; choose from {list(VARIANTS)}"
+    if requested or len(keyframes) < spike_lib.MIN_KEYFRAMES_TO_SCORE:
+        return False, requested or DEFAULT_VARIANT
+    return True, ""
+
 
 app = modal.App("sfg-sam-track")
 frames_volume = modal.Volume.from_name("sfg-spike-frames", create_if_missing=True)
@@ -61,7 +72,7 @@ image = (
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=40 * 60,
 )
-def track(part: str, centres: list[list[float]], directions: list[list[float]]) -> dict[str, bytes]:
+def track(part: str, centres: list[list[float]], directions: list[list[float]], variant: str = "") -> dict[str, bytes]:
     import os
     import tempfile
     import time
@@ -121,24 +132,30 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]]) 
         assert len(out) == len(order), f"tracked {len(out)} of {len(order)} photos"
         return out
 
-    report = {"keyframes": sorted(drawn), "variants": {}}
+    keyframes = sorted(drawn)
+    scoring, best = choose_variant(keyframes, variant)
+    holdouts = spike_lib.pick_holdouts(keyframes, centres, directions) if scoring else []
+    report = {"keyframes": keyframes, "holdouts": holdouts, "variants": {}}
     held_out_tiles = {}
-    for variant, (order_name, max_cond) in VARIANTS.items():
+    for variant_name, (order_name, max_cond) in (VARIANTS if scoring else {}).items():
         started = time.time()
         scores = {}
-        for hidden in HOLDOUTS:
-            predicted = session(order_name, max_cond, [f for f in drawn if f != hidden])[hidden][0]
+        for hidden in holdouts:
+            predicted = session(order_name, max_cond, [f for f in keyframes if f != hidden])[hidden][0]
             scores[hidden] = spike_lib.iou(predicted, drawn[hidden])
-            held_out_tiles[(variant, hidden)] = predicted
-        report["variants"][variant] = {"iou": scores, "mean": float(np.mean(list(scores.values()))),
-                                       "seconds": round(time.time() - started)}
-        print(f"{variant}: IoU {scores} in {time.time() - started:.0f} s")
+            held_out_tiles[(variant_name, hidden)] = predicted
+        report["variants"][variant_name] = {"iou": scores, "mean": float(np.mean(list(scores.values()))),
+                                            "seconds": round(time.time() - started)}
+        print(f"{variant_name}: IoU {scores} in {time.time() - started:.0f} s")
 
-    best = max(report["variants"], key=lambda v: report["variants"][v]["mean"])
+    if scoring:
+        best = max(report["variants"], key=lambda v: report["variants"][v]["mean"])
     report["best"] = best
-    final = session(*VARIANTS[best], sorted(drawn))
+    print(f"{len(keyframes)} keyframes {keyframes}; " + (f"held out {holdouts}" if scoring else "scoring skipped") +
+          f"; running {best}")
+    final = session(*VARIANTS[best], keyframes)
     report["photos"] = {frame: {"area": float(mask.mean()), "score": score} for frame, (mask, score) in final.items()}
-    print(f"best: {best}; engine found in {sum(m.any() for m, _ in final.values())} of {len(final)} photos")
+    print(f"{part} found in {sum(m.any() for m, _ in final.values())} of {len(final)} photos")
 
     out_dir = pathlib.Path("/frames/tracks") / part
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -157,19 +174,19 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]]) 
         orientations, tile=236, per_row=8,
         label=lambda f: f"{f + 1}{' *' if f in drawn else ''} {final[f][1]:+.0f}",
     )
-    # Held-out check: the owner's mask first, then what each variant predicted without it.
-    tiles, masks = [], {}
-    for hidden in HOLDOUTS:
-        for column, variant in enumerate(["owner", *VARIANTS]):
-            key = hidden * 10 + column
-            tiles.append(key)
-            masks[key] = drawn[hidden] if variant == "owner" else held_out_tiles[(variant, hidden)]
-    files["held_out.jpg"] = spike_lib.contact_sheet(
-        lambda k: stored[k // 10], tiles, {part: masks}, colours, none, {k: orientations[k // 10] for k in tiles},
-        per_row=len(VARIANTS) + 1,
-        label=lambda k: f"{k // 10 + 1} " + ("owner" if k % 10 == 0 else f"v{k % 10} "
-                        f"{report['variants'][list(VARIANTS)[k % 10 - 1]]['iou'][k // 10]:.2f}"),
-    )
+    if scoring:  # the owner's mask first, then what each variant predicted without it
+        tiles, masks = [], {}
+        for hidden in holdouts:
+            for column, name in enumerate(["owner", *VARIANTS]):
+                key = hidden * 10 + column
+                tiles.append(key)
+                masks[key] = drawn[hidden] if name == "owner" else held_out_tiles[(name, hidden)]
+        files["held_out.jpg"] = spike_lib.contact_sheet(
+            lambda k: stored[k // 10], tiles, {part: masks}, colours, none, {k: orientations[k // 10] for k in tiles},
+            per_row=len(VARIANTS) + 1,
+            label=lambda k: f"{k // 10 + 1} " + ("owner" if k % 10 == 0 else f"v{k % 10} "
+                            f"{report['variants'][list(VARIANTS)[k % 10 - 1]]['iou'][k // 10]:.2f}"),
+        )
     return files
 
 
@@ -184,13 +201,14 @@ def plan(part: str) -> dict:
 
 
 @app.local_entrypoint()
-def main(part: str = "engine"):
+def main(part: str = "engine", variant: str = ""):
+    choose_variant([], variant)  # a misspelt variant fails here, not after the GPU is up
     out = DATA / "segment" / "tracks" / part
-    for name, data in track.remote(**plan(part)).items():
+    for name, data in track.remote(**plan(part), variant=variant).items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     report = json.loads((out / "report.json").read_text())
-    for variant, result in report["variants"].items():
-        print(f"{variant}: mean IoU {result['mean']:.3f} {result['iou']}")
+    for name, result in report["variants"].items():
+        print(f"{name}: mean IoU {result['mean']:.3f} {result['iou']}")
     print(f"best: {report['best']}; written to {out}")
