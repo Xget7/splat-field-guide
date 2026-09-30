@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(splatkit_ios LANGUAGES C CXX OBJCXX)
 
-# Configure for a device with the iOS toolchain flags, e.g.
-#   cmake -S packages/splatkit-ios -B build/ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS \
-#         -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0
-# scripts/build-ios.sh does exactly that and leaves the static libraries where the
-# dev app and the Swift package pick them up.
+# For iOS, scripts/build-ios-engine.sh in the React Native package configures this with the
+# iOS toolchain flags for devices and the simulator and packages the result as the
+# XCFramework the pod vendors. On a Mac it builds the tests and tools.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
