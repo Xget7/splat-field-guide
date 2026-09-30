@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
+import { Modal } from 'react-native';
 import {
   useExclusiveGestures,
   usePanGesture,
@@ -10,6 +11,7 @@ import type { SplatViewSpec } from 'react-native-splat';
 import App from '../App';
 import { framingFor, highlightFor } from '../src/domain/derive';
 import { SessionEventType } from '../src/domain/session';
+import { TOUR_ID } from '../src/domain/tour';
 import { bundledPack } from '../src/packs/bundledPack';
 import {
   boundsForView,
@@ -75,6 +77,7 @@ describe('guide screen', () => {
   const press = async (testID: string) => {
     await act(() => node(testID).props.onPress());
   };
+  const sheet = () => renderer.root.findByType(Modal);
   const view = {
     frame: jest.fn(),
     orbit: jest.fn(),
@@ -164,7 +167,10 @@ describe('guide screen', () => {
         procedureId: 'check-coolant',
       }),
     );
-    expect(node('guide-title').props.children).toBe('Check the coolant level');
+    expect(node('guide-title').props.children).toBe('Engine');
+    expect(node('procedure-button').props.accessibilityLabel).toBe(
+      'Procedure: Check the coolant level',
+    );
     const { pack, getState } = debug();
     for (let index = 1; index < pack.procedures[1].steps.length; index += 1) {
       await press('guide-next');
@@ -176,6 +182,140 @@ describe('guide screen', () => {
       stepIndex: 0,
     });
   });
+
+  test('picker opens without changing the session or remounting the renderer', async () => {
+    await attach();
+    await press('guide-next');
+    const { getState, pack } = debug();
+    const state = getState();
+    const splat = native();
+    const frameCalls = view.frame.mock.calls.length;
+    expect(sheet().props.visible).toBe(false);
+    expect(node('procedure-button').props.accessibilityLabel).toBe(
+      'Procedure: Parts tour',
+    );
+    expect(node('procedure-button').props.accessibilityHint).toBe(
+      'Choose what to walk through',
+    );
+    await press('procedure-button');
+    expect(sheet().props).toMatchObject({
+      testID: 'procedure-sheet',
+      visible: true,
+      presentationStyle: 'pageSheet',
+      animationType: 'slide',
+      allowSwipeDismissal: true,
+    });
+    for (const procedure of pack.procedures) {
+      expect(node(`procedure-row-${procedure.id}`).props).toMatchObject({
+        accessibilityRole: 'button',
+        accessibilityState: { selected: procedure.id === TOUR_ID },
+      });
+    }
+    expect(getState()).toBe(state);
+    expect(native()).toBe(splat);
+    expect(view.frame).toHaveBeenCalledTimes(frameCalls);
+    expect(node('guide-counter').props.children).toBe('2 of 8');
+  });
+
+  test.each([
+    'check-coolant',
+    'check-brake-fluid',
+    'check-power-steering-fluid',
+  ])(
+    'picker starts the authored procedure and closes: %s',
+    async procedureId => {
+      await act(() =>
+        debug().dispatch({ type: SessionEventType.select, partId: 'battery' }),
+      );
+      await press('procedure-button');
+      await press(`procedure-row-${procedureId}`);
+      const { pack, getState } = debug();
+      const procedure = pack.procedures.find(item => item.id === procedureId)!;
+      expect(getState()).toEqual({
+        procedureId,
+        stepIndex: 0,
+        selectedPart: null,
+      });
+      expect(sheet().props.visible).toBe(false);
+      expect(node('procedure-button').props.accessibilityLabel).toBe(
+        `Procedure: ${procedure.title}`,
+      );
+      expect(node('guide-title').props.children).toBe(
+        procedure.steps[0].parts
+          .map(id => pack.parts.find(part => part.id === id)!.name)
+          .join(', '),
+      );
+      expect(node('guide-counter').props.children).toBe('1 of 5');
+      await press('procedure-button');
+      expect(
+        node(`procedure-row-${procedureId}`).props.accessibilityState,
+      ).toEqual({
+        selected: true,
+      });
+      expect(node(`procedure-row-${TOUR_ID}`).props.accessibilityState).toEqual(
+        {
+          selected: false,
+        },
+      );
+    },
+  );
+
+  test.each([TOUR_ID, 'check-coolant'])(
+    'choosing the current procedure restarts it and clears selection: %s',
+    async procedureId => {
+      await press('procedure-button');
+      await press(`procedure-row-${procedureId}`);
+      await press('guide-next');
+      await act(() =>
+        debug().dispatch({ type: SessionEventType.select, partId: 'battery' }),
+      );
+      await press('procedure-button');
+      await press(`procedure-row-${procedureId}`);
+      expect(debug().getState()).toEqual({
+        procedureId,
+        stepIndex: 0,
+        selectedPart: null,
+      });
+      expect(sheet().props.visible).toBe(false);
+    },
+  );
+
+  test('picker can return from an authored procedure to the parts tour', async () => {
+    await press('procedure-button');
+    await press('procedure-row-check-coolant');
+    await press('guide-next');
+    await press('procedure-button');
+    await press(`procedure-row-${TOUR_ID}`);
+    expect(debug().getState()).toEqual({
+      procedureId: TOUR_ID,
+      stepIndex: 0,
+      selectedPart: null,
+    });
+    expect(node('guide-counter').props.children).toBe('1 of 8');
+    expect(sheet().props.visible).toBe(false);
+  });
+
+  test.each(['Done', 'swipe'])(
+    'closing with %s leaves the session unchanged and allows reopening',
+    async method => {
+      await press('guide-next');
+      await act(() =>
+        debug().dispatch({ type: SessionEventType.select, partId: 'battery' }),
+      );
+      const state = debug().getState();
+      await press('procedure-button');
+      if (method === 'Done') {
+        await press('procedure-done');
+      } else {
+        await act(() => sheet().props.onRequestClose());
+      }
+      expect(sheet().props.visible).toBe(false);
+      expect(debug().getState()).toBe(state);
+      await press('procedure-button');
+      expect(sheet().props.visible).toBe(true);
+      expect(debug().getState()).toBe(state);
+    },
+  );
 
   test('card swipes ignore canceled gestures and respect the first boundary', async () => {
     const cardPan = () => jest.mocked(usePanGesture).mock.calls.at(-1)![0]!;

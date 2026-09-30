@@ -1,4 +1,9 @@
-import { findPart, type Pack, type PartId } from '../domain/pack';
+import {
+  findPart,
+  type Pack,
+  type PartId,
+  type ProcedureId,
+} from '../domain/pack';
 import {
   currentProcedure,
   currentStep,
@@ -29,6 +34,27 @@ export interface CardContent {
   readonly nextLabel: string;
 }
 
+export interface ProcedureRow {
+  readonly id: ProcedureId;
+  readonly title: string;
+  readonly stepCountLabel: string;
+  readonly current: boolean;
+}
+
+export function procedureRowsFor(
+  state: SessionState,
+  pack: Pack,
+): readonly ProcedureRow[] {
+  return pack.procedures.map(procedure => ({
+    id: procedure.id,
+    title: procedure.title,
+    stepCountLabel: `${procedure.steps.length} ${
+      procedure.steps.length === 1 ? 'step' : 'steps'
+    }`,
+    current: procedure.id === state.procedureId,
+  }));
+}
+
 export function cardContentFor(state: SessionState, pack: Pack): CardContent {
   const procedure = currentProcedure(state, pack);
   const step = currentStep(state, pack);
@@ -41,13 +67,17 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
       ? findPart(pack, step.parts[0])
       : undefined;
   const part = selected ?? tourPart;
+  const stepTitle = step?.parts
+    .map(id => findPart(pack, id)?.name)
+    .filter(name => name !== undefined)
+    .join(', ');
   return {
     kind: part
       ? CardKind.part
       : procedure
       ? CardKind.procedure
       : CardKind.overview,
-    title: part?.name ?? procedure?.title ?? pack.title,
+    title: part?.name ?? (stepTitle || procedure?.title || pack.title),
     body: part?.summary ?? step?.text ?? 'Tap a part to learn about it.',
     caution: step?.caution ?? '',
     stepNumber: step ? state.stepIndex + 1 : 0,

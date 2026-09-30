@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CardKind, type CardContent } from './guideContent';
+import type { CardContent } from './guideContent';
 import { GuideButton } from './GuideButton';
 import { StepProgress } from './StepProgress';
 import { Color, FontSize, Space } from './theme';
@@ -12,12 +12,21 @@ const SWIPE_VERTICAL_TOLERANCE_POINTS = 16;
 
 interface Props {
   content: CardContent;
+  procedureTitle: string;
+  onChooseProcedure: () => void;
   onBack: () => void;
   onNext: () => void;
   onRepeat: () => void;
 }
 
-export function StepCard({ content, onBack, onNext, onRepeat }: Props) {
+export function StepCard({
+  content,
+  procedureTitle,
+  onChooseProcedure,
+  onBack,
+  onNext,
+  onRepeat,
+}: Props) {
   const insets = useSafeAreaInsets();
   const swipe = usePanGesture({
     runOnJS: true,
@@ -52,6 +61,8 @@ export function StepCard({ content, onBack, onNext, onRepeat }: Props) {
         style={[styles.card, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <StepProgress
+          procedureTitle={procedureTitle}
+          onChooseProcedure={onChooseProcedure}
           stepNumber={content.stepNumber}
           stepCount={content.stepCount}
         />
@@ -62,10 +73,7 @@ export function StepCard({ content, onBack, onNext, onRepeat }: Props) {
           <Text
             testID="guide-title"
             accessibilityRole="header"
-            style={[
-              styles.title,
-              content.kind === CardKind.procedure && styles.procedureTitle,
-            ]}
+            style={styles.title}
           >
             {content.title}
           </Text>
@@ -120,12 +128,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.title,
     lineHeight: 32,
     fontWeight: '700',
-  },
-  procedureTitle: {
-    color: Color.accent,
-    fontSize: FontSize.small,
-    lineHeight: 20,
-    fontWeight: '600',
   },
   body: { color: Color.text, fontSize: FontSize.body, lineHeight: 24 },
   caution: { color: Color.caution, fontSize: FontSize.small, lineHeight: 20 },

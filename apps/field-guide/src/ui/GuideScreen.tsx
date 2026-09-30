@@ -11,16 +11,23 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SplatError, SplatViewSpec } from 'react-native-splat';
 import { highlightFor } from '../domain/derive';
-import type { Pack } from '../domain/pack';
+import type { Pack, ProcedureId } from '../domain/pack';
 import {
   INITIAL_SESSION,
+  currentProcedure,
   reduce,
   SessionEventType,
   type SessionEvent,
   type SessionState,
 } from '../domain/session';
 import { TOUR_ID } from '../domain/tour';
-import { cardContentFor, nextEventFor, partIdForLabel } from './guideContent';
+import {
+  cardContentFor,
+  nextEventFor,
+  partIdForLabel,
+  procedureRowsFor,
+} from './guideContent';
+import { ProcedurePicker } from './ProcedurePicker';
 import { SplatViewport } from './SplatViewport';
 import { StepCard } from './StepCard';
 import { Color } from './theme';
@@ -47,6 +54,7 @@ export function GuideScreen({ pack }: { pack: Pack }) {
   );
   const [view, setView] = useState<SplatViewSpec | null>(null);
   const [error, setError] = useState('');
+  const [pickerVisible, setPickerVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const highlight = useMemo(
     () => [...highlightFor(state, pack)],
@@ -121,6 +129,12 @@ export function GuideScreen({ pack }: { pack: Pack }) {
     () => dispatch({ type: SessionEventType.repeat }),
     [],
   );
+  const onOpenPicker = useCallback(() => setPickerVisible(true), []);
+  const onClosePicker = useCallback(() => setPickerVisible(false), []);
+  const onChooseProcedure = useCallback((procedureId: ProcedureId) => {
+    dispatch({ type: SessionEventType.start, procedureId });
+    setPickerVisible(false);
+  }, []);
 
   return (
     <View
@@ -145,9 +159,19 @@ export function GuideScreen({ pack }: { pack: Pack }) {
       />
       <StepCard
         content={cardContentFor(state, pack)}
+        procedureTitle={
+          currentProcedure(state, pack)?.title ?? 'Choose procedure'
+        }
+        onChooseProcedure={onOpenPicker}
         onBack={onBack}
         onNext={onNext}
         onRepeat={onRepeat}
+      />
+      <ProcedurePicker
+        visible={pickerVisible}
+        rows={procedureRowsFor(state, pack)}
+        onChoose={onChooseProcedure}
+        onClose={onClosePicker}
       />
     </View>
   );
