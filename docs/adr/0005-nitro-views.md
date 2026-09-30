@@ -1,6 +1,6 @@
 # Expose the view to React Native with Nitro Views
 
-Status: proposed, gated by a half-day spike
+Status: accepted for iOS, see [the spike](../research/05-nitro-spike.md); Android and the physical iPhone are still to verify
 
 The guide needs typed structs across the boundary, synchronous calls from the UI thread for gestures, and a per-frame channel to pin part labels over the 3D view.
 Fabric codegen cannot pass structs or buffers to commands, and per-frame events would flood the JS thread.

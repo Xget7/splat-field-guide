@@ -18,7 +18,7 @@ Apple first; each task names the requirements it serves ([REQUIREMENTS.md](REQUI
 
 - [ ] Import SplatKit at a recorded commit, then prune it (R4).
 - [ ] Build the core and the Metal backend for iOS (R4).
-- [ ] Nitro spike on React Native 0.87: mount, worklet call, render-thread callback (R4, R5).
+- [x] Nitro spike on React Native 0.87: mount, worklet call, render-thread callback (R4, R5); iOS simulator only, the iPhone run is pending.
 - [ ] Labels carried through Morton order and checked against the cloud (R6).
 - [ ] Highlight table in the Metal shaders (R7, R8).
 - [ ] Pick by ray against splat ellipsoids (R6).
