@@ -1,0 +1,60 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { Color, FontSize, Space } from './theme';
+
+interface Props {
+  stepNumber: number;
+  stepCount: number;
+}
+
+export function StepProgress({ stepNumber, stepCount }: Props) {
+  const counter =
+    stepCount > 0 ? `${stepNumber} of ${stepCount}` : 'Explore the parts';
+  return (
+    <View style={styles.root}>
+      <Text
+        testID="guide-counter"
+        accessibilityLabel={stepCount > 0 ? `Step ${counter}` : counter}
+        accessibilityLiveRegion="polite"
+        style={styles.counter}
+      >
+        {counter}
+      </Text>
+      <View
+        style={styles.segments}
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        {Array.from({ length: stepCount }, (_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.segment,
+              index < stepNumber - 1 && styles.completed,
+              index === stepNumber - 1 && styles.current,
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { gap: Space.md },
+  counter: {
+    color: Color.muted,
+    fontSize: FontSize.small,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  segments: { flexDirection: 'row', gap: Space.xs },
+  segment: {
+    flex: 1,
+    height: Space.xs,
+    borderRadius: Space.xs,
+    backgroundColor: Color.border,
+  },
+  completed: { backgroundColor: Color.completed },
+  current: { backgroundColor: Color.accent },
+});

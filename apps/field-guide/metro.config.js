@@ -3,6 +3,10 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
 const appRoot = __dirname;
 const splatLibrary = path.resolve(appRoot, '../../packages/react-native-splat');
+const bundledPack = path.resolve(
+  appRoot,
+  '../../data/pack/gol-trend-engine-bay/1',
+);
 
 /**
  * Metro configuration
@@ -15,10 +19,14 @@ const splatLibrary = path.resolve(appRoot, '../../packages/react-native-splat');
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const config = {
-  watchFolders: [splatLibrary],
+  watchFolders: [splatLibrary, bundledPack],
   resolver: {
     nodeModulesPaths: [path.join(appRoot, 'node_modules')],
-    blockList: [new RegExp(`${splatLibrary}/(node_modules|engine)/.*`)],
+    // Only the pack's manifest is imported; its cloud and labels ship as app resources.
+    blockList: [
+      new RegExp(`${splatLibrary}/(node_modules|engine)/.*`),
+      new RegExp(`${bundledPack}/(?!manifest\\.json$).*`),
+    ],
   },
 };
 

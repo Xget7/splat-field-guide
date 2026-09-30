@@ -9,7 +9,7 @@ Result: a Nitro HybridView works on iOS, all three criteria pass on the simulato
 - `SplatView` (Swift HybridView): a `CAMetalLayer` view and one `SplatRenderThread` per view that clears the drawable.
   `orbit(dAzimuth, dElevation)` only enqueues (hue shifts by azimuth), `highlight` is read by the render thread (tints the clear colour), `onReady` fires from the render thread after the first frame.
 - `SplatDiagnostics` (second HybridObject): live views, layers, render threads, thread starts and stops, `orbit` calls by thread.
-- Spike screen in [`apps/field-guide`](../../apps/field-guide/src/SplatSpikeScreen.tsx): full-screen view, `usePanGesture` worklet calling `orbit`, "Mount x100" button ([`mountStress.ts`](../../apps/field-guide/src/mountStress.ts)), `onReady` counter.
+- Spike screen in `apps/field-guide` (commit d1e22e8, removed once the guide screen replaced it): full-screen view, `usePanGesture` worklet calling `orbit`, "Mount x100" button (`mountStress.ts`), `onReady` counter.
 
 ## Versions
 
