@@ -5,3 +5,4 @@ __pycache__/
 # The engine's iOS build and the XCFramework it makes: scripts/build-ios-engine.sh
 packages/react-native-splat/build/
 packages/react-native-splat/ios/Frameworks/
+.DS_Store
