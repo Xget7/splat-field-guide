@@ -62,7 +62,7 @@ export function ReadyCard({
         <Text style={styles.readyTitle}>{guide.title}</Text>
         <Text
           style={styles.subtitle}
-        >{`${guide.subtitle} · ${guide.area}`}</Text>
+        >{`${guide.subtitle} - ${guide.area}`}</Text>
         <Text style={styles.facts}>
           {`${facts.splats} SPLATS   ${facts.parts} PARTS   ${facts.size}`}
         </Text>

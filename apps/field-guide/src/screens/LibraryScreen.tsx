@@ -33,7 +33,6 @@ import { ContinueCard, ReadyCard, SoonCard } from './library/Cards';
 const Layout = {
   searchHeight: 40,
   chipHeight: 32,
-  statusSize: 6,
   columns: 2,
 } as const;
 
@@ -117,10 +116,7 @@ export function LibraryScreen({
     >
       <View style={styles.row}>
         <Label color={Color.muted}>Field guide</Label>
-        <View style={styles.status}>
-          <View style={styles.statusSquare} />
-          <Label color={Color.accent}>Offline</Label>
-        </View>
+        <Label color={Color.accent}>Offline</Label>
       </View>
       <Text style={styles.title}>Guides</Text>
       <View style={styles.search}>
@@ -226,12 +222,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  status: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  statusSquare: {
-    width: Layout.statusSize,
-    height: Layout.statusSize,
-    backgroundColor: Color.accent,
   },
   title: { ...Type.largeTitle, color: Color.text },
   search: {

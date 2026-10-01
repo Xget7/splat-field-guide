@@ -37,7 +37,7 @@ interface GuideBase {
 /** Captured and labelled: opens a pack. */
 export interface ReadyGuide extends GuideBase {
   readonly status: typeof GuideStatus.ready;
-  /** Model details, e.g. "2010 · 1.6 8V petrol". */
+  /** Model details, e.g. "2010 - 1.6 8V petrol". */
   readonly subtitle: string;
   /** The one rule to follow before touching the equipment. */
   readonly safety: string;
@@ -95,7 +95,7 @@ export function catalogFor(golTrend: Pack): readonly Guide[] {
       status: GuideStatus.ready,
       category: Category.vehicles,
       title: 'Volkswagen Gol Trend',
-      subtitle: '2010 · 1.6 8V petrol',
+      subtitle: '2010 - 1.6 8V petrol',
       area: 'Engine bay',
       safety: 'Engine off and cold before you touch anything.',
       // A frame of this pack as the app renders it, from the iOS simulator.

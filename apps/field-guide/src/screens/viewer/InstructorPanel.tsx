@@ -19,7 +19,6 @@ import {
 } from '../../ui/theme';
 import { CautionNote } from './CautionNote';
 
-const STATUS_DOT = 6;
 const CHIP_HEIGHT = 32;
 // A chip is shorter than a finger; its touch area is not.
 const CHIP_SLOP = (MIN_TOUCH - CHIP_HEIGHT) / 2;
@@ -70,10 +69,7 @@ export function InstructorPanel({
       style={[styles.panel, { paddingBottom: bottomInset + Space.md }]}
     >
       <View style={styles.header}>
-        <View style={styles.status}>
-          <View style={styles.dot} />
-          <Label color={Color.accent}>Instructor</Label>
-        </View>
+        <Label color={Color.accent}>Instructor</Label>
         {step !== null && <Label color={Color.faint}>{step}</Label>}
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.text}>
@@ -162,8 +158,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  status: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  dot: { width: STATUS_DOT, height: STATUS_DOT, backgroundColor: Color.accent },
   scroll: { flexGrow: 0, flexShrink: 1 },
   text: { gap: Space.sm },
   question: { ...Type.data, color: Color.muted },

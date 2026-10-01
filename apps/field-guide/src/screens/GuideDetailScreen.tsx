@@ -104,7 +104,7 @@ export function GuideDetailScreen({
         </View>
         <View style={styles.content}>
           <View style={styles.heading}>
-            <Label color={Color.accent}>{`${CATEGORY_TITLE[guide.category]} · ${
+            <Label color={Color.accent}>{`${CATEGORY_TITLE[guide.category]} - ${
               guide.area
             }`}</Label>
             <Text style={styles.title}>{guide.title}</Text>
