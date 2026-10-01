@@ -1,7 +1,8 @@
 import type { TextStyle } from 'react-native';
 
 // OLED black: a black pixel is off. Surfaces stay near black and neutral, and the one accent is
-// the tint the renderer paints selected parts with, so it only ever means "this one".
+// the tint the renderer paints selected parts with (Highlight::kTint in the engine), so it only
+// ever means "this one". The accent reads at 4.5:1 on black and under white text alike.
 export const Color = {
   black: '#000000',
   surface: '#0B0C0E',
@@ -13,11 +14,11 @@ export const Color = {
   secondaryText: '#B4BBC3',
   muted: '#8B939C',
   faint: '#5A616A',
-  accent: '#38BDF8',
-  accentPressed: '#7DD3FC',
-  accentText: '#00141D',
-  accentWash: 'rgba(56, 189, 248, 0.12)',
-  completed: 'rgba(56, 189, 248, 0.45)',
+  accent: '#2576D2',
+  accentPressed: '#1C5DA8',
+  accentText: '#FFFFFF',
+  accentWash: 'rgba(37, 118, 210, 0.16)',
+  completed: 'rgba(37, 118, 210, 0.6)',
   caution: '#F5B731',
   cautionWash: 'rgba(245, 183, 49, 0.10)',
   // Controls that float over the splat: dark enough to read on a bright capture.

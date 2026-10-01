@@ -25,8 +25,8 @@ class Highlight {
   const LabelStyles& styles() const { return current_; }
 
   static constexpr float kFadeSeconds = 0.25f;
-  // #38BDF8, the app's accent.
-  static constexpr float kTint[3] = {0x38 / 255.0f, 0xBD / 255.0f, 0xF8 / 255.0f};
+  // #2576D2, the app's accent.
+  static constexpr float kTint[3] = {0x25 / 255.0f, 0x76 / 255.0f, 0xD2 / 255.0f};
   static constexpr float kTintAmount = 0.45f;
   static constexpr float kDimBrightness = 0.3f;
 
