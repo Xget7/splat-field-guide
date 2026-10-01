@@ -14,22 +14,30 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { SplatError, SplatViewSpec } from 'react-native-splat';
 import { findReadyGuide, type ReadyGuide } from '../catalog/catalog';
 import { useCatalog } from '../catalog/CatalogContext';
 import { highlightFor } from '../domain/derive';
-import type { Pack, ProcedureId } from '../domain/pack';
+import { findPart, type Pack, type ProcedureId } from '../domain/pack';
 import {
   currentProcedure,
   SessionEventType,
   type SessionEvent,
   type SessionState,
 } from '../domain/session';
-import { suggestionsFor } from '../instructor/instructor';
+import {
+  cancelInstructor,
+  usesModel,
+  modelAnswer,
+  prewarmInstructor,
+} from '../instructor/onDevice';
 import { LearnMode, Route, type ScreenProps } from '../navigation/routes';
 import { clearProgress, saveProgress } from '../progress/progress';
 import { IconButton, IconName } from '../ui/kit';
 import { Color, Space, Type } from '../ui/theme';
+import { useInstructorVoice } from '../voice/useInstructorVoice';
 import {
   cardContentFor,
   markedPartsFor,
@@ -43,12 +51,14 @@ import { PartMarkers, type Size } from './viewer/PartMarkers';
 import { ProcedureSheet } from './viewer/ProcedureSheet';
 import { SplatViewport } from './viewer/SplatViewport';
 import { StepPanel } from './viewer/StepPanel';
-import { stepLabel } from '../ui/readout';
 import { useGuideFraming } from './viewer/useGuideFraming';
 import { ViewerTopBar } from './viewer/ViewerTopBar';
 import { useKeyboardVisible } from './viewer/useKeyboardVisible';
+import { PanelMode } from './viewer/panelMotion';
+import { panelLayout } from './viewer/InstructorMotion';
 import {
   initialViewerState,
+  ExchangePhase,
   reduceViewer,
   ViewerActionType,
   type ViewerAction,
@@ -114,9 +124,41 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     mode === LearnMode.instructor,
   );
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [instructorMode, setInstructorMode] = useState<PanelMode>(
+    PanelMode.expanded,
+  );
   const keyboardVisible = useKeyboardVisible();
+  const reducedMotion = useReducedMotion();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const [viewportSettlement, setViewportSettlement] = useState(0);
+  const settleViewport = useCallback(() => {
+    if (mounted.current) {
+      setViewportSettlement(value => value + 1);
+    }
+  }, []);
+  const viewportLayout = useMemo(
+    () =>
+      panelLayout().withCallback(finished => {
+        'worklet';
+        if (finished) {
+          scheduleOnRN(settleViewport);
+        }
+      }),
+    [settleViewport],
+  );
   const sessionRef = useRef(session);
   const pickGeneration = useRef(0);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const answerGeneration = useRef(0);
+  const modelRequest = useRef<number | null>(null);
+  const interruptVoice = useRef<(() => void) | null>(null);
 
   const highlight = useMemo(
     () => [...highlightFor(session, pack)],
@@ -124,30 +166,95 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
   );
   const marked = useMemo(() => markedPartsFor(session, pack), [session, pack]);
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
-  const suggestions = useMemo(
-    () => suggestionsFor(session, pack),
-    [session, pack],
-  );
   const message: InstructorMessage = exchange ?? {
+    id: null,
     question: null,
     reply: card.body,
     caution: card.caution,
   };
-  const step =
-    card.stepCount > 0 ? stepLabel(card.stepNumber, card.stepCount) : null;
   // Over the keyboard the home indicator is hidden, so the panel needs no room for it.
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
 
-  useGuideFraming(view, session, pack, frameRequest, viewport);
+  const animatedResize = instructorOpen && !reducedMotion;
+  useGuideFraming(
+    view,
+    session,
+    pack,
+    frameRequest,
+    viewport,
+    animatedResize,
+    viewportSettlement,
+  );
 
+  const invalidateAnswer = useCallback(() => {
+    answerGeneration.current += 1;
+    if (modelRequest.current !== null) {
+      modelRequest.current = null;
+      cancelInstructor();
+    }
+  }, []);
+  const cancelAnswer = useCallback(() => {
+    invalidateAnswer();
+    act({ type: ViewerActionType.cancel });
+  }, [invalidateAnswer]);
   const dispatch = useCallback(
-    (event: SessionEvent) => act({ type: ViewerActionType.session, event }),
-    [],
+    (event: SessionEvent) => {
+      invalidateAnswer();
+      interruptVoice.current?.();
+      act({ type: ViewerActionType.session, event });
+    },
+    [invalidateAnswer],
   );
   const ask = useCallback(
-    (question: string) => act({ type: ViewerActionType.ask, question }),
-    [],
+    (text: string) => {
+      const question = text.trim();
+      if (question === '') {
+        return;
+      }
+      invalidateAnswer();
+      interruptVoice.current?.();
+      const id = answerGeneration.current;
+      const current = stateRef.current;
+      if (!usesModel(question, pack)) {
+        act({ type: ViewerActionType.ask, question, id });
+        return;
+      }
+      modelRequest.current = id;
+      act({ type: ViewerActionType.begin, question, id });
+      const previous =
+        current.exchange?.phase === ExchangePhase.done
+          ? current.exchange
+          : null;
+      modelAnswer(question, current.session, pack, previous, partial => {
+        if (id === answerGeneration.current) {
+          act({ type: ViewerActionType.partial, id, partial });
+        }
+      }).then(answer => {
+        if (id === answerGeneration.current) {
+          modelRequest.current = null;
+          act({ type: ViewerActionType.answer, id, answer });
+        }
+      });
+    },
+    [pack, invalidateAnswer],
   );
+
+  const voice = useInstructorVoice({
+    pack,
+    enabled: instructorOpen,
+    exchange,
+    onAsk: ask,
+    onCancel: cancelAnswer,
+  });
+  interruptVoice.current = voice.interrupt;
+
+  useEffect(() => {
+    if (instructorOpen) {
+      prewarmInstructor(pack);
+    }
+  }, [instructorOpen, pack]);
+
+  useEffect(() => () => invalidateAnswer(), [invalidateAnswer, pack]);
 
   useEffect(() => {
     // The library offers to continue where this leaves off, once there is something to
@@ -240,17 +347,19 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     () => dispatch({ type: SessionEventType.repeat }),
     [dispatch],
   );
+  const stopVoice = voice.stop;
   const onNext = useCallback(() => {
     if (!card.last) {
       dispatch({ type: SessionEventType.next });
       return;
     }
     // Finished: nothing is left to continue.
+    stopVoice();
     clearProgress().catch(failure =>
       console.warn('Field guide: progress not cleared', failure),
     );
     onExit();
-  }, [card.last, dispatch, onExit]);
+  }, [card.last, dispatch, onExit, stopVoice]);
   const onChooseProcedure = useCallback(
     (id: ProcedureId) => {
       dispatch({ type: SessionEventType.start, procedureId: id });
@@ -273,12 +382,19 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
           currentProcedure(session, pack)?.title ?? NO_PROCEDURE_TITLE
         }
         instructorOpen={instructorOpen}
-        onBack={onExit}
+        onBack={() => {
+          voice.stop();
+          onExit();
+        }}
         onChooseProcedure={() => setPickerVisible(true)}
-        onToggleInstructor={() => setInstructorOpen(open => !open)}
+        onToggleInstructor={() => {
+          voice.stop();
+          setInstructorOpen(open => !open);
+        }}
       />
-      <View
+      <Animated.View
         testID="viewer-viewport"
+        layout={animatedResize ? viewportLayout : undefined}
         style={styles.viewport}
         onLayout={onViewportLayout}
       >
@@ -296,14 +412,22 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
           onPick={onPick}
         />
         {ready && <PartMarkers view={view} parts={marked} size={viewport} />}
-      </View>
+      </Animated.View>
       {instructorOpen ? (
         <InstructorPanel
           message={message}
-          step={step}
-          suggestions={suggestions}
+          content={card}
           bottomInset={bottomInset}
           onAsk={ask}
+          voice={voice}
+          part={exchange?.part ? findPart(pack, exchange.part) ?? null : null}
+          onFramePart={partId =>
+            act({ type: ViewerActionType.framePart, partId })
+          }
+          mode={instructorMode}
+          onModeChange={setInstructorMode}
+          onBack={onBack}
+          onNext={onNext}
         />
       ) : (
         <StepPanel

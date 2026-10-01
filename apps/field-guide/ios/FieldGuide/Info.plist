@@ -79,5 +79,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ask the instructor by voice, recognized on your device.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Your voice questions for the instructor are recognized on your device.</string>
 </dict>
 </plist>

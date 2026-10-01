@@ -42,6 +42,17 @@ export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;
 export const HAIRLINE = 1;
 
+export const Motion = {
+  fast: 120,
+  base: 220,
+  slow: 320,
+  scanPeriod: 1600,
+  levelSmoothing: 80,
+  wordAttack: 30,
+  wordDecay: 180,
+  spring: { mass: 1, damping: 30, stiffness: 280, overshootClamping: true },
+} as const;
+
 // Geist and Geist Mono, the open (OFL) faces closest to TT Interphases, Schemata's typeface.
 // Bundled in ios/FieldGuide (UIAppFonts), see assets/fonts. Each weight is named by its
 // PostScript name, so no style needs fontWeight to find it.

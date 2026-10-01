@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
 import { Icon, IconName } from '../../ui/kit';
 import { Color, Radius, Space, Type } from '../../ui/theme';
 
@@ -6,7 +7,13 @@ const ICON_SIZE = 16;
 const RULE = 2;
 
 /** A step's safety note: amber, the only place amber appears. */
-export function CautionNote({ text }: { text: string }) {
+export function CautionNote({
+  text,
+  children,
+}: {
+  text: string;
+  children?: ReactNode;
+}) {
   return (
     <View
       testID="caution"
@@ -15,7 +22,7 @@ export function CautionNote({ text }: { text: string }) {
       style={styles.note}
     >
       <Icon name={IconName.warn} size={ICON_SIZE} color={Color.caution} />
-      <Text style={styles.text}>{text}</Text>
+      <Text style={styles.text}>{children ?? text}</Text>
     </View>
   );
 }

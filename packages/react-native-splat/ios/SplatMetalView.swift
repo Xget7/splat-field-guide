@@ -29,7 +29,8 @@ final class SplatMetalView: UIView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    let scale = window?.screen.scale ?? UIScreen.main.scale
+    // Without a window there is no screen to size the drawable for; didMoveToWindow lays out again.
+    guard let scale = window?.screen.scale else { return }
     metalLayer.contentsScale = scale
     onResize?(
       UInt32((bounds.width * scale).rounded()), UInt32((bounds.height * scale).rounded()))

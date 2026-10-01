@@ -1,4 +1,10 @@
-import { findPart, type Pack, type Part, type Procedure } from '../domain/pack';
+import {
+  findPart,
+  type Pack,
+  type Part,
+  type PartId,
+  type Procedure,
+} from '../domain/pack';
 import {
   currentProcedure,
   currentStep,
@@ -15,6 +21,8 @@ export interface InstructorAnswer {
   readonly reply: string;
   /** The safety note that goes with the reply, or ''. */
   readonly caution: string;
+  /** The subject of the reply, whether or not it changes the selection. */
+  readonly part: PartId | null;
   /** Applied to the session; null leaves it as it is. */
   readonly event: SessionEvent | null;
 }
@@ -133,20 +141,26 @@ function stepAnswer(
   const next = reduce(state, event, pack);
   const step = currentStep(next, pack);
   if (step === undefined) {
-    return { reply: NO_PROCEDURE_REPLY, caution: '', event: null };
+    return { reply: NO_PROCEDURE_REPLY, caution: '', part: null, event: null };
   }
-  return { reply: step.text, caution: step.caution, event };
+  return {
+    reply: step.text,
+    caution: step.caution,
+    part: step.parts[0] ?? null,
+    event,
+  };
 }
 
 function partAnswer(part: Part, details: boolean): InstructorAnswer {
   return {
     reply: details && part.details !== '' ? part.details : part.summary,
     caution: '',
+    part: part.id,
     event: { type: SessionEventType.select, partId: part.id },
   };
 }
 
-function commandAnswer(
+export function commandAnswer(
   event: SessionEvent,
   state: SessionState,
   pack: Pack,
@@ -157,21 +171,21 @@ function commandAnswer(
         event.partId === null ? undefined : findPart(pack, event.partId);
       return part
         ? partAnswer(part, false)
-        : { reply: NO_PROCEDURE_REPLY, caution: '', event: null };
+        : { reply: NO_PROCEDURE_REPLY, caution: '', part: null, event: null };
     }
     case SessionEventType.next:
       return isLastStep(state, pack)
-        ? { reply: LAST_STEP_REPLY, caution: '', event: null }
+        ? { reply: LAST_STEP_REPLY, caution: '', part: null, event: null }
         : stepAnswer(state, event, pack);
     case SessionEventType.back:
       return currentProcedure(state, pack) && state.stepIndex === 0
-        ? { reply: FIRST_STEP_REPLY, caution: '', event: null }
+        ? { reply: FIRST_STEP_REPLY, caution: '', part: null, event: null }
         : stepAnswer(state, event, pack);
     case SessionEventType.start:
     case SessionEventType.repeat:
       return stepAnswer(state, event, pack);
     case SessionEventType.end:
-      return { reply: ENDED_REPLY, caution: '', event };
+      return { reply: ENDED_REPLY, caution: '', part: null, event };
   }
 }
 
@@ -180,6 +194,7 @@ function fallback(pack: Pack): InstructorAnswer {
   return {
     reply: `Ask for a part or a check, like “Where is the ${example}?”`,
     caution: '',
+    part: null,
     event: null,
   };
 }
@@ -223,31 +238,4 @@ export function answerFor(
     return { ...partAnswer(current, has(DETAILS_INTENT)), event: null };
   }
   return fallback(pack);
-}
-
-const MAX_SUGGESTIONS = 3;
-export const ASK_DETAILS = 'What does it do?';
-export const ASK_NEXT = 'Next step';
-
-/** A few questions worth asking from here, shortest first in reading order. */
-export function suggestionsFor(
-  state: SessionState,
-  pack: Pack,
-): readonly string[] {
-  const focus = focusPart(state, pack);
-  const suggestions: string[] = [];
-  if (focus !== undefined && focus.details !== '') {
-    suggestions.push(ASK_DETAILS);
-  }
-  if (currentProcedure(state, pack) !== undefined && !isLastStep(state, pack)) {
-    suggestions.push(ASK_NEXT);
-  }
-  // Somewhere else to look: the first top level part not on screen.
-  const elsewhere = pack.parts.find(
-    part => part.parent === null && part.id !== focus?.id,
-  );
-  if (elsewhere !== undefined) {
-    suggestions.push(`Where is the ${elsewhere.name.toLowerCase()}?`);
-  }
-  return suggestions.slice(0, MAX_SUGGESTIONS);
 }

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Icon, IconButton, IconButtonVariant, IconName } from '../../ui/kit';
+import { Icon, IconName } from '../../ui/kit';
 import {
   Color,
   HAIRLINE,
@@ -9,7 +9,7 @@ import {
   Type,
 } from '../../ui/theme';
 
-const CHEVRON = 16;
+const CHEVRON = 14;
 
 interface Props {
   topInset: number;
@@ -31,12 +31,15 @@ export function ViewerTopBar({
 }: Props) {
   return (
     <View style={[styles.bar, { paddingTop: topInset + Space.xs }]}>
-      <IconButton
+      <Pressable
         testID="viewer-back"
-        icon={IconName.back}
+        accessibilityRole="button"
         accessibilityLabel="Back"
         onPress={onBack}
-      />
+        style={({ pressed }) => [styles.control, pressed && styles.pressed]}
+      >
+        <Icon name={IconName.back} />
+      </Pressable>
       <Pressable
         testID="procedure-button"
         accessibilityRole="button"
@@ -50,16 +53,22 @@ export function ViewerTopBar({
         </Text>
         <Icon name={IconName.down} size={CHEVRON} color={Color.muted} />
       </Pressable>
-      <IconButton
+      <Pressable
         testID="instructor-toggle"
-        icon={IconName.mic}
+        accessibilityRole="button"
         accessibilityLabel="Instructor"
-        accessibilityState={{ selected: instructorOpen }}
-        variant={
-          instructorOpen ? IconButtonVariant.active : IconButtonVariant.raised
+        accessibilityHint={
+          instructorOpen ? 'Switch to self-guided mode' : 'Open the instructor'
         }
+        accessibilityState={{ selected: instructorOpen }}
         onPress={onToggleInstructor}
-      />
+        style={({ pressed }) => [styles.control, pressed && styles.pressed]}
+      >
+        <Icon
+          name={IconName.chat}
+          color={instructorOpen ? Color.accent : Color.muted}
+        />
+      </Pressable>
     </View>
   );
 }
@@ -68,25 +77,28 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.sm,
+    gap: Space.xs,
     paddingHorizontal: Space.lg,
     paddingBottom: Space.sm,
     backgroundColor: Color.black,
     borderBottomWidth: HAIRLINE,
     borderBottomColor: Color.line,
   },
+  control: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.md,
+  },
   procedure: {
     flex: 1,
     height: MIN_TOUCH,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Space.sm,
-    paddingHorizontal: Space.md,
+    justifyContent: 'center',
+    gap: Space.xs,
     borderRadius: Radius.md,
-    borderWidth: HAIRLINE,
-    borderColor: Color.lineStrong,
-    backgroundColor: Color.raised,
   },
   pressed: { backgroundColor: Color.pressed },
   procedureTitle: { ...Type.calloutStrong, flexShrink: 1, color: Color.text },

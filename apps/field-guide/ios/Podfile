@@ -5,7 +5,9 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
+# The on-device instructor uses Apple Foundation Models.
+IOS_DEPLOYMENT_TARGET = '26.0'
+platform :ios, IOS_DEPLOYMENT_TARGET
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -52,13 +54,13 @@ target 'FieldGuide' do
       end
     end
 
-    # Third party pods warn about their own code, which this app cannot fix; ReactNativeSplat is
-    # ours, so its warnings stay. Codegen and Nitro archive generated files that are empty in
-    # the new architecture, which libtool would report on every build.
+    # Third party pods warn about their own code; our native pods keep their warnings visible.
+    # Codegen and Nitro archive generated files that are empty in the new architecture,
+    # which libtool would report on every build.
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build|
         build.build_settings['OTHER_LIBTOOLFLAGS'] = '$(inherited) -no_warning_for_no_symbols'
-        next if target.name == 'ReactNativeSplat'
+        next if ['ReactNativeSplat', 'ReactNativeOnDevice'].include?(target.name)
         build.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       end
     end
@@ -68,8 +70,9 @@ target 'FieldGuide' do
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build|
         deployment = build.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
-        next if deployment.nil? || Gem::Version.new(deployment) >= Gem::Version.new(min_ios_version_supported)
-        build.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+        next if deployment.nil? ||
+          Gem::Version.new(deployment) >= Gem::Version.new(IOS_DEPLOYMENT_TARGET)
+        build.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = IOS_DEPLOYMENT_TARGET
       end
     end
   end

@@ -7,13 +7,7 @@ import {
 } from '../../domain/session';
 import { TOUR_ID } from '../../domain/tour';
 import { bundledPack } from '../../packs/bundledPack';
-import {
-  answerFor,
-  ASK_DETAILS,
-  ASK_NEXT,
-  focusPart,
-  suggestionsFor,
-} from '../instructor';
+import { answerFor, focusPart } from '../instructor';
 
 if (!bundledPack.ok) {
   throw new Error(bundledPack.error.message);
@@ -48,6 +42,7 @@ describe('answerFor', () => {
     expect(answerFor(question, INITIAL_SESSION, pack)).toEqual({
       reply: part(partId).summary,
       caution: '',
+      part: partId,
       event: select(partId),
     });
   });
@@ -58,6 +53,7 @@ describe('answerFor', () => {
     ).toEqual({
       reply: part('fuse-box').details,
       caution: '',
+      part: 'fuse-box',
       event: select('fuse-box'),
     });
   });
@@ -73,6 +69,7 @@ describe('answerFor', () => {
     expect(answer).toEqual({
       reply: first?.text,
       caution: first?.caution,
+      part: first?.parts[0] ?? null,
       event: start(id),
     });
   });
@@ -83,6 +80,7 @@ describe('answerFor', () => {
     expect(answer).toEqual({
       reply: step?.text,
       caution: step?.caution,
+      part: step?.parts[0] ?? null,
       event: { type: SessionEventType.next },
     });
     expect(answer.caution).not.toBe('');
@@ -92,11 +90,13 @@ describe('answerFor', () => {
     expect(answerFor('next', coolantStep(4), pack)).toEqual({
       reply: 'That was the last step.',
       caution: '',
+      part: null,
       event: null,
     });
     expect(answerFor('back', coolantStep(0), pack)).toEqual({
       reply: 'This is the first step.',
       caution: '',
+      part: null,
       event: null,
     });
   });
@@ -104,50 +104,49 @@ describe('answerFor', () => {
   it('answers about the part on screen when asked about "it"', () => {
     const state = startAt(TOUR_ID, 0, pack);
     const onScreen = focusPart(state, pack);
-    expect(answerFor(ASK_DETAILS, state, pack)).toEqual({
+    expect(answerFor('What does it do?', state, pack)).toEqual({
       reply: onScreen?.details,
       caution: '',
+      part: onScreen?.id ?? null,
       event: null,
     });
+  });
+
+  it('step commands identify the step subject instead of an overridden selection', () => {
+    const selected = { ...coolantStep(1), selectedPart: 'battery' };
+    expect(answerFor('repeat', selected, pack).part).toBe('coolant-reservoir');
+    expect(answerFor('back', coolantStep(2), pack).part).toBe(
+      'coolant-reservoir',
+    );
+    expect(answerFor('repeat', INITIAL_SESSION, pack).part).toBeNull();
+  });
+
+  it('a step with no focus part has no answer subject', () => {
+    const noFocus = {
+      ...pack,
+      procedures: pack.procedures.map(procedure => ({
+        ...procedure,
+        steps: procedure.steps.map(step => ({ ...step, parts: [] })),
+      })),
+    };
+    expect(answerFor('repeat', coolantStep(1), noFocus).part).toBeNull();
   });
 
   it('refuses to guess: an ambiguous word or an unknown question gets a hint', () => {
     for (const question of ['where is the fluid', 'tell me a joke', '']) {
       const answer = answerFor(question, INITIAL_SESSION, pack);
       expect(answer.event).toBeNull();
+      expect(answer.part).toBeNull();
       expect(answer.reply).toMatch(/^Ask for a part or a check/);
     }
   });
 
   it('stops the procedure on stop', () => {
-    expect(answerFor('stop', coolantStep(1), pack).event).toEqual({
-      type: SessionEventType.end,
+    expect(answerFor('stop', coolantStep(1), pack)).toEqual({
+      reply: 'Stopped. Ask for a part or a check.',
+      caution: '',
+      part: null,
+      event: { type: SessionEventType.end },
     });
-  });
-});
-
-describe('suggestionsFor', () => {
-  it('offers details, the next step and another part during a procedure', () => {
-    expect(suggestionsFor(coolantStep(1), pack)).toEqual([
-      ASK_DETAILS,
-      ASK_NEXT,
-      'Where is the power steering reservoir?',
-    ]);
-  });
-
-  it('drops "next" on the last step and with no procedure', () => {
-    expect(suggestionsFor(coolantStep(4), pack)).not.toContain(ASK_NEXT);
-    expect(suggestionsFor(INITIAL_SESSION, pack)).toEqual([
-      'Where is the coolant reservoir?',
-    ]);
-  });
-
-  it('every suggestion gets a real answer', () => {
-    const state = coolantStep(1);
-    for (const question of suggestionsFor(state, pack)) {
-      expect(answerFor(question, state, pack).reply).not.toMatch(
-        /^Ask for a part/,
-      );
-    }
   });
 });

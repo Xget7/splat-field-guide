@@ -7,6 +7,7 @@ export const IconName = {
   next: 'next',
   down: 'down',
   mic: 'mic',
+  chat: 'chat',
   repeat: 'repeat',
   warn: 'warn',
   check: 'check',
@@ -17,6 +18,7 @@ export const IconName = {
   send: 'send',
   play: 'play',
   list: 'list',
+  stop: 'stop',
 } as const;
 export type IconName = (typeof IconName)[keyof typeof IconName];
 
@@ -35,6 +37,7 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
       <Path d="M5 11a7 7 0 0 0 14 0M12 18v3.5" />
     </>
   ),
+  chat: () => <Path d="M20 11a8 8 0 0 1-8 8H4l-2 3V11a9 9 0 0 1 18 0z" />,
   repeat: () => <Path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5" />,
   warn: () => <Path d="M12 3.5L2.5 20h19zM12 10v4M12 17h.01" />,
   check: () => <Path d="M5 12.5l4.5 4.5L19 7.5" />,
@@ -61,6 +64,17 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
   play: color => <Path d="M8 5.5v13l10.5-6.5z" fill={color} />,
   list: () => (
     <Path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  ),
+  stop: color => (
+    <Rect
+      x={6}
+      y={6}
+      width={12}
+      height={12}
+      rx={2}
+      fill={color}
+      stroke="none"
+    />
   ),
 };
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": [
+    "ondevice"
+  ],
+  "ios": {
+    "iosModuleName": "ReactNativeOnDevice"
+  },
+  "android": {
+    "androidNamespace": [
+      "ondevice"
+    ],
+    "androidCxxLibName": "reactnativeondevice"
+  },
+  "autolinking": {
+    "SpeechInput": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSpeechInput"
+      }
+    },
+    "SpeechOutput": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSpeechOutput"
+      }
+    },
+    "LanguageModel": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridLanguageModel"
+      }
+    }
+  },
+  "ignorePaths": [
+    "node_modules"
+  ]
+}
