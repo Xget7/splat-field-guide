@@ -107,17 +107,13 @@ export function LibraryScreen({
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + Space.sm,
+          paddingTop: insets.top + Space.lg,
           paddingBottom: insets.bottom + Space.xxl,
         },
       ]}
       keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="never"
     >
-      <View style={styles.row}>
-        <Label color={Color.muted}>Field guide</Label>
-        <Label color={Color.accent}>Offline</Label>
-      </View>
       <Text style={styles.title}>Guides</Text>
       <View style={styles.search}>
         <Icon name={IconName.search} color={Color.muted} />
