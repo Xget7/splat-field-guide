@@ -43,5 +43,15 @@ target 'FieldGuide' do
         xcconfig.save_as(target.xcconfig_path(name))
       end
     end
+
+    # AsyncStorage's resource bundle target asks for iOS 13, below what Xcode 27 can build for;
+    # no pod needs less than the app itself.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build|
+        deployment = build.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        next if deployment.nil? || Gem::Version.new(deployment) >= Gem::Version.new(min_ios_version_supported)
+        build.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+      end
+    end
   end
 end
