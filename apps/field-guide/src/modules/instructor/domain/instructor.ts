@@ -28,9 +28,9 @@ export interface InstructorAnswer {
   readonly event: SessionEvent | null;
 }
 
-// Words that turn a question into a request to walk through a procedure.
+// Words that turn a question into a request to walk through a procedure. "How" is not one:
+// "how many liters of coolant" asks for a quantity, not the coolant check.
 const PROCEDURE_INTENT: ReadonlySet<string> = new Set([
-  'how',
   'check',
   'checking',
   'steps',
@@ -56,6 +56,22 @@ const CURRENT_PART: ReadonlySet<string> = new Set(['it', 'this', 'here']);
 // like "car battery" holds them.
 const VEHICLE_WORDS: ReadonlySet<string> = new Set(['car', 'vehicle', 'truck']);
 
+// Joining words name nothing: "and" in "fuse and relay box" must not make "And how many
+// liters of coolant?" half about the fuse box.
+const JOINING_WORDS: ReadonlySet<string> = new Set([
+  'a',
+  'an',
+  'and',
+  'or',
+  'the',
+  'of',
+  'to',
+  'in',
+  'on',
+  'for',
+  'with',
+]);
+
 // A key named in full outranks one that only shares a word with the question.
 const FULL_KEY_BONUS = 0.5;
 
@@ -65,13 +81,26 @@ export const NOT_COVERED_REPLY =
 
 // An oil grade like "5W30" asks about the oil even when the word is missing.
 const VISCOSITY_GRADE = /\b\d+w\d*\b/;
-const OIL = 'oil';
+
+// A capacity or grade belongs to the fluid, not to the part holding it: "how much oil does
+// the motor take" asks about the oil. Each fluid is named by the words its part is known by.
+const COOLANT = 'coolant';
+const FLUID_SUBJECTS: readonly (readonly [RegExp, string])[] = [
+  [/\b(coolant|antifreeze)\b/, COOLANT],
+  [/\bbrake fluid\b/, 'brake fluid'],
+  [/\bsteering fluid\b/, 'steering fluid'],
+  [new RegExp(`\\boil\\b|${VISCOSITY_GRADE.source}`), 'oil'],
+];
+// Water in an engine is its coolant; a part that takes water itself, like a battery, keeps it.
+const WATER = /\bwater\b/;
+const ENGINE_WORDS: ReadonlySet<string> = new Set(['engine', 'motor']);
 
 // Grades, capacities, intervals and ratings: answered only from a part's verified
 // specifications, never by a model.
 const SPECIFICATION_PATTERNS: readonly RegExp[] = [
   /\b(what|which) (type |kind |grade |brand )?(of )?(oil|coolant|antifreeze|brake fluid|steering fluid|fluid|fuse)s?\b/,
-  /\b(how much|how often|capacity|interval|intervals)\b/,
+  /\b(how much|how many|how often|capacity|quantity|interval|intervals)\b/,
+  /\b(liters?|litres?|quarts?|gallons?|ml|millilit(?:er|re)s?)\b/,
   /\bwhen\b.*\b(change|replace|renew|service)\b/,
   /\b(kilometers|kilometres|km|miles|pressure|torque|psi|viscosity|amps|amperage|specs|specification|specifications)\b/,
   VISCOSITY_GRADE,
@@ -130,7 +159,10 @@ function mentionedPart(
         const keyWords = wordsOf(key);
         const hits = keyWords.filter(word => words.has(word));
         const owned = hits.filter(
-          word => owners.get(word)?.size === 1 && !VEHICLE_WORDS.has(word),
+          word =>
+            owners.get(word)?.size === 1 &&
+            !VEHICLE_WORDS.has(word) &&
+            !JOINING_WORDS.has(word),
         );
         const full = keyWords.length > 0 && hits.length === keyWords.length;
         return owned.length + (full ? FULL_KEY_BONUS : 0);
@@ -207,6 +239,7 @@ export function commandAnswer(
         ? { reply: FIRST_STEP_REPLY, caution: '', part: null, event: null }
         : stepAnswer(state, event, pack);
     case SessionEventType.start:
+    case SessionEventType.goTo:
     case SessionEventType.repeat:
       return stepAnswer(state, event, pack);
     case SessionEventType.end:
@@ -236,10 +269,7 @@ const specificationsOf = (part: Part): string | undefined =>
  * part with specifications gets NOT_COVERED, so nothing is ever guessed.
  */
 function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
-  const named = namedPart(
-    VISCOSITY_GRADE.test(normalize(question)) ? `${question} ${OIL}` : question,
-    pack,
-  );
+  const named = specificationSubject(question, pack);
   let part = named === null ? undefined : findPart(pack, named);
   while (part && specificationsOf(part) === undefined) {
     part = part.parent === null ? undefined : findPart(pack, part.parent);
@@ -254,6 +284,26 @@ function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
     part: named,
     event: { type: SessionEventType.select, partId: named },
   };
+}
+
+/** The part whose specifications answer `question`: the fluid's, before its container's. */
+function specificationSubject(question: string, pack: Pack): PartId | null {
+  const phrase = normalize(question);
+  const fluids = FLUID_SUBJECTS.filter(([pattern]) => pattern.test(phrase));
+  if (fluids.length === 1) {
+    return namedPart(fluids[0][1], pack);
+  }
+  const named = namedPart(question, pack);
+  if (fluids.length > 0 || !WATER.test(phrase)) {
+    return named;
+  }
+  const holder = named === null ? undefined : findPart(pack, named);
+  const inEngine =
+    holder === undefined ||
+    partKeys(holder).some(key =>
+      wordsOf(key).some(word => ENGINE_WORDS.has(word)),
+    );
+  return inEngine ? namedPart(COOLANT, pack) : named;
 }
 
 /** The part `question` names, whatever is on screen. */
@@ -331,10 +381,13 @@ export function answerFor(
   const part = mentionedPart(words, pack);
   const procedure = mentionedProcedure(words, pack);
   const requested = requestedProcedure(words, pack);
+  // Asking for the procedure already running keeps its place rather than starting it over.
   const startProcedure = (found: Procedure) =>
     stepAnswer(
       state,
-      { type: SessionEventType.start, procedureId: found.id },
+      found.id === state.procedureId
+        ? { type: SessionEventType.repeat }
+        : { type: SessionEventType.start, procedureId: found.id },
       pack,
     );
 

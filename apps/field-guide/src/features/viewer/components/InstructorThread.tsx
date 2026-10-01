@@ -1,0 +1,393 @@
+import { useEffect, useRef } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { Icon, IconName } from '../../../shared/ui/kit/Icon';
+import { Label } from '../../../shared/ui/kit/Label';
+import { stepLabel } from '../../../shared/ui/readout';
+import {
+  Color,
+  HAIRLINE,
+  MIN_TOUCH,
+  Motion,
+  Radius,
+  Space,
+  Type,
+} from '../../../shared/ui/theme';
+import { SpokenSection } from '../../../modules/instructor/voice/model/speechPresentation';
+import {
+  VoiceState,
+  type InstructorVoice,
+} from '../../../modules/instructor/voice/hooks/useInstructorVoice';
+import type { CardContent } from '../model/guideContent';
+import {
+  EntryKind,
+  type Exchange,
+  type ThreadEntry,
+} from '../model/viewerState';
+import { CautionNote } from './CautionNote';
+import { FADE_IN, KaraokeText } from './InstructorMotion';
+
+// Within this of the end, the thread follows new words; further up, the reader is looking back.
+const FOLLOW_SLOP = Space.xl;
+const DOT_SIZE = 6;
+const DOT_COUNT = 3;
+const DOT_DIM = 0.25;
+const SUGGESTION_ICON = 16;
+
+/** How the thread names a step it showed: its place in the procedure, or the part picked. */
+function entryLabel(card: CardContent): string {
+  if (card.selected || card.stepCount === 0) {
+    return card.title;
+  }
+  return stepLabel(card.stepNumber, card.stepCount);
+}
+
+function entryKey(entry: ThreadEntry): string {
+  return entry.kind === EntryKind.step
+    ? `step-${entry.id}`
+    : `answer-${entry.exchange.id}`;
+}
+
+function Dot({ index, still }: { index: number; still: boolean }) {
+  const opacity = useSharedValue(still ? 1 : DOT_DIM);
+  useEffect(() => {
+    if (!still) {
+      opacity.value = withDelay(
+        index * Motion.fast,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: Motion.base }),
+            withTiming(DOT_DIM, { duration: Motion.base }),
+          ),
+          -1,
+        ),
+      );
+    }
+  }, [index, still, opacity]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[styles.dot, style]} />;
+}
+
+/** The answer has no words yet. */
+function Thinking({ still }: { still: boolean }) {
+  return (
+    <Animated.View
+      testID="instructor-thinking"
+      accessible
+      accessibilityLabel="Thinking"
+      entering={FADE_IN}
+      style={styles.dots}
+    >
+      {Array.from({ length: DOT_COUNT }, (_, index) => (
+        <Dot key={index} index={index} still={still} />
+      ))}
+    </Animated.View>
+  );
+}
+
+/** A question to ask with one tap, offered while the step on screen is the last thing said. */
+function Suggestion({
+  question,
+  onAsk,
+}: {
+  question: string;
+  onAsk: (question: string) => void;
+}) {
+  return (
+    <Pressable
+      testID="instructor-suggestion"
+      accessibilityRole="button"
+      accessibilityLabel={`Ask: ${question}`}
+      onPress={() => onAsk(question)}
+      style={({ pressed }) => [
+        styles.suggestion,
+        pressed && styles.suggestionPressed,
+      ]}
+    >
+      <Icon name={IconName.chat} size={SUGGESTION_ICON} color={Color.accent} />
+      <Text style={styles.suggestionText}>{question}</Text>
+    </Pressable>
+  );
+}
+
+interface SaidProps {
+  reply: string;
+  caution: string;
+  /** The last thing said: read aloud, and in full color. */
+  live: boolean;
+  index: number;
+  voice: InstructorVoice;
+}
+
+function Said({ reply, caution, live, index, voice }: SaidProps) {
+  const speaking = live && voice.state === VoiceState.speaking;
+  return (
+    <>
+      {reply !== '' &&
+        (live ? (
+          <KaraokeText
+            id="instructor-reply"
+            text={reply}
+            speaking={speaking && voice.section === SpokenSection.reply}
+            word={voice.word}
+          />
+        ) : (
+          <Text testID={`thread-reply-${index}`} style={styles.earlier}>
+            {reply}
+          </Text>
+        ))}
+      {caution !== '' &&
+        (live ? (
+          <CautionNote text={caution}>
+            <KaraokeText
+              id="instructor-caution-text"
+              text={caution}
+              speaking={speaking && voice.section === SpokenSection.caution}
+              word={voice.word}
+              style={Type.footnote}
+            />
+          </CautionNote>
+        ) : (
+          <CautionNote text={caution} />
+        ))}
+    </>
+  );
+}
+
+interface Props {
+  thread: readonly ThreadEntry[];
+  /** The question being answered, or answered last, while nothing else has happened since. */
+  exchange: Exchange | null;
+  /** Words heard so far for the next question. */
+  transcript: string;
+  voice: InstructorVoice;
+  reducedMotion: boolean;
+  /** Questions to offer while nothing has been asked about the step on screen. */
+  suggestions: readonly string[];
+  onAsk: (question: string) => void;
+  /**
+   * Beside a step list that shows the current step in full: steps here only mark where a
+   * question was asked.
+   */
+  compact?: boolean;
+}
+
+/** The conversation so far: each step as it was shown, each question and its answer. */
+export function InstructorThread({
+  thread,
+  exchange,
+  transcript,
+  voice,
+  reducedMotion,
+  suggestions,
+  onAsk,
+  compact = false,
+}: Props) {
+  const scroll = useRef<ScrollViewInstance>(null);
+  const following = useRef(true);
+  const entries: readonly ThreadEntry[] =
+    exchange === null
+      ? thread
+      : [...thread, { kind: EntryKind.exchange, exchange }];
+  const live = entries.length - 1;
+  const listed = (entry: ThreadEntry) =>
+    compact &&
+    entry.kind === EntryKind.step &&
+    entry.card.stepCount > 0 &&
+    !entry.card.selected;
+  // A listed step only marks the questions asked during it.
+  const shown = entries.filter(
+    (entry, index) =>
+      !listed(entry) || entries[index + 1]?.kind === EntryKind.exchange,
+  );
+  // Something new said always comes into view, even when the reader had scrolled back.
+  const said = `${entries.length}:${transcript === ''}`;
+  const seen = useRef(said);
+
+  return (
+    <ScrollView
+      ref={scroll}
+      testID="instructor-thread"
+      style={compact ? styles.fitted : styles.scroll}
+      contentContainerStyle={styles.content}
+      scrollEventThrottle={16}
+      onScroll={({
+        nativeEvent: { contentOffset, contentSize, layoutMeasurement },
+      }) => {
+        following.current =
+          contentOffset.y + layoutMeasurement.height >=
+          contentSize.height - FOLLOW_SLOP;
+      }}
+      onContentSizeChange={() => {
+        if (following.current || seen.current !== said) {
+          seen.current = said;
+          following.current = true;
+          scroll.current?.scrollToEnd({ animated: !reducedMotion });
+        }
+      }}
+    >
+      {entries.map((entry, index) =>
+        !shown.includes(entry) ? null : listed(entry) ? (
+          <View
+            key={entryKey(entry)}
+            testID={`thread-entry-${index}`}
+            style={styles.divider}
+          >
+            <Label color={Color.faint}>
+              {entry.kind === EntryKind.step && entryLabel(entry.card)}
+            </Label>
+            <View style={styles.rule} />
+          </View>
+        ) : (
+          <Animated.View
+            key={entryKey(entry)}
+            testID={`thread-entry-${index}`}
+            entering={FADE_IN}
+            style={styles.entry}
+          >
+            {entry.kind === EntryKind.step ? (
+              <>
+                <Label
+                  testID={index === live ? 'instructor-step' : undefined}
+                  color={index === live ? Color.accent : Color.faint}
+                >
+                  {entryLabel(entry.card)}
+                </Label>
+                <Said
+                  reply={entry.card.body}
+                  caution={entry.card.caution}
+                  live={index === live}
+                  index={index}
+                  voice={voice}
+                />
+              </>
+            ) : (
+              <>
+                <Text
+                  testID={
+                    index === live
+                      ? 'instructor-question'
+                      : `thread-question-${index}`
+                  }
+                  style={[
+                    styles.question,
+                    index === live && styles.liveQuestion,
+                  ]}
+                >
+                  {entry.exchange.question}
+                </Text>
+                {entry.exchange.reply === '' && index === live ? (
+                  <Thinking still={reducedMotion} />
+                ) : (
+                  <Said
+                    reply={entry.exchange.reply}
+                    caution={entry.exchange.caution}
+                    live={index === live}
+                    index={index}
+                    voice={voice}
+                  />
+                )}
+              </>
+            )}
+          </Animated.View>
+        ),
+      )}
+      {exchange === null && transcript === '' && suggestions.length > 0 && (
+        <Animated.View
+          key={suggestions.join()}
+          entering={FADE_IN}
+          style={styles.suggestions}
+        >
+          {suggestions.map(question => (
+            <Suggestion key={question} question={question} onAsk={onAsk} />
+          ))}
+        </Animated.View>
+      )}
+      {transcript !== '' && (
+        <Text
+          testID="instructor-transcript"
+          accessibilityLabel={`Provisional transcript: ${transcript}`}
+          style={[styles.question, styles.provisional]}
+        >
+          {transcript}
+        </Text>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  // Beside the steps, only as tall as what has been said.
+  fitted: { flexGrow: 0, flexShrink: 1 },
+  // Short threads sit at the foot, by the question field, as a conversation does.
+  content: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    gap: Space.lg,
+    paddingVertical: Space.xs,
+  },
+  entry: { gap: Space.sm },
+  suggestions: { gap: Space.sm },
+  suggestion: {
+    minHeight: MIN_TOUCH,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
+    borderRadius: Radius.md,
+    borderWidth: HAIRLINE,
+    borderColor: Color.lineStrong,
+    backgroundColor: Color.surface,
+  },
+  suggestionPressed: { backgroundColor: Color.pressed },
+  suggestionText: { ...Type.callout, flex: 1, color: Color.text },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
+  rule: { flex: 1, height: HAIRLINE, backgroundColor: Color.line },
+  earlier: { ...Type.body, color: Color.secondaryText },
+  question: {
+    ...Type.callout,
+    color: Color.secondaryText,
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+    backgroundColor: Color.raised,
+    borderRadius: Radius.md,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
+  },
+  liveQuestion: { color: Color.text },
+  provisional: {
+    color: Color.muted,
+    backgroundColor: 'transparent',
+    borderWidth: HAIRLINE,
+    borderColor: Color.lineStrong,
+    borderStyle: 'dashed',
+  },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.xs,
+    height: Type.body.lineHeight,
+  },
+  dot: {
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
+    backgroundColor: Color.muted,
+  },
+});

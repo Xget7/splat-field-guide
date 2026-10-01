@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// The audio engine speech plays through. Hands-free listening taps the same engine with
+/// The audio engine speech plays through. Listening taps the same engine with
 /// voice processing on, so echo cancellation hears what the app says and only the user's
 /// voice reaches recognition, which lets the user talk over an answer. Main queue only.
 final class OnDeviceAudioGraph {

@@ -17,6 +17,8 @@ export const TOTAL_MS = 25000;
 // After a failure the network is likely still down, so the next questions skip the cloud
 // for a while instead of each waiting for it to fail again.
 export const COOL_OFF_MS = 30000;
+// Enough of the conversation for a follow-up to lean on, while the prompt stays small.
+export const CLOUD_HISTORY_TURNS = 4;
 
 /**
  * Everything the pack knows, once per pack: the proxy caches it, and a large model can
@@ -76,7 +78,7 @@ export function createCloudModel({
     prewarm() {
       // The proxy caches the instructions on the first question; nothing to load here.
     },
-    respond({ question, state, pack, previous }, onText) {
+    respond({ question, state, pack, history }, onText) {
       stopCurrent?.();
       return new Promise<string>((resolve, reject) => {
         // Looked up per request: the global only exists where React Native installs it.
@@ -152,7 +154,7 @@ export function createCloudModel({
               question,
               state,
               pack,
-              previous,
+              history.slice(-CLOUD_HISTORY_TURNS),
               PromptNotes.none,
             ),
           }),

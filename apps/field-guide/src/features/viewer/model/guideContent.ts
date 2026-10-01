@@ -64,6 +64,61 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
   };
 }
 
+/** A step as the step list names it. */
+export interface StepRow {
+  readonly id: string;
+  readonly text: string;
+  /** The rest of the step, shown under the text when it is the current one. */
+  readonly detail: string;
+  readonly caution: string;
+}
+
+// The end of a step's first sentence: a stop, then a space before the next.
+const SENTENCE_END = /(?<=[.!?])\s+/;
+
+/**
+ * The current procedure's steps, as a list to scan: a tour step is named by its part and
+ * explained by its summary, the rest by the first sentence of what to do, then the others.
+ */
+export function stepRowsFor(
+  state: SessionState,
+  pack: Pack,
+): readonly StepRow[] {
+  const procedure = currentProcedure(state, pack);
+  return (procedure?.steps ?? []).map(step => {
+    const part =
+      procedure?.id === TOUR_ID ? findPart(pack, step.parts[0]) : undefined;
+    const [first, ...rest] = step.text.split(SENTENCE_END);
+    return {
+      id: step.id,
+      text: part?.name ?? first,
+      detail: part?.summary ?? rest.join(' '),
+      caution: step.caution,
+    };
+  });
+}
+
+/**
+ * Questions worth asking about what is on screen, offered before anything has been asked:
+ * about the part a step works on and why the step matters, or how a toured part works.
+ */
+export function suggestionsFor(
+  state: SessionState,
+  pack: Pack,
+): readonly string[] {
+  const procedure = currentProcedure(state, pack);
+  const step = currentStep(state, pack);
+  const partId = state.selectedPart ?? step?.parts[0];
+  const part = partId === undefined ? undefined : findPart(pack, partId);
+  if (part === undefined) {
+    return [];
+  }
+  const name = part.name.toLowerCase();
+  return procedure?.id === TOUR_ID || state.selectedPart !== null
+    ? [`How does the ${name} work?`, 'What can go wrong with it?']
+    : [`What does the ${name} do?`, 'Why does this step matter?'];
+}
+
 /** Unknown labels leave the current selection alone; zero clears it. */
 export function partIdForLabel(
   label: number,

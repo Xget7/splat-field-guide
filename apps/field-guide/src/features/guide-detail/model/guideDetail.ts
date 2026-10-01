@@ -5,12 +5,14 @@ export const MODE_OPTIONS = [
   {
     mode: LearnMode.instructor,
     title: 'Instructor',
-    icon: IconName.mic,
+    caption: 'Steps on screen, and answers about any part you ask.',
+    icon: IconName.chat,
     testID: 'mode-instructor',
   },
   {
     mode: LearnMode.selfGuided,
     title: 'Self-guided',
+    caption: 'Just the steps, read at your own pace.',
     icon: IconName.list,
     testID: 'mode-self-guided',
   },

@@ -31,16 +31,22 @@ import {
 import { clearProgress } from '../../../modules/progress/data/progressStorage';
 import { IconButton } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
-import { Color, Space, Type } from '../../../shared/ui/theme';
-import { partIdForLabel } from '../model/guideContent';
+import { Color, HAIRLINE, Space, Type } from '../../../shared/ui/theme';
+import {
+  partIdForLabel,
+  stepRowsFor,
+  suggestionsFor,
+} from '../model/guideContent';
 import { InstructorPanel } from '../components/InstructorPanel';
 import { PartMarkers, type Size } from '../components/PartMarkers';
 import { ProcedureSheet } from '../components/ProcedureSheet';
 import { SplatViewport } from '../components/SplatViewport';
+import { StepList } from '../components/StepList';
 import { StepPanel } from '../components/StepPanel';
 import { useGuideFraming } from '../hooks/useGuideFraming';
 import { ViewerTopBar } from '../components/ViewerTopBar';
 import { useKeyboardVisible } from '../../../shared/hooks/useKeyboardVisible';
+import { useWideLayout } from '../../../shared/hooks/useWideLayout';
 import { PanelMode } from '../model/panelMotion';
 import { panelLayout } from '../components/InstructorMotion';
 import { useViewerSession } from '../hooks/useViewerSession';
@@ -56,12 +62,14 @@ export interface FieldGuideDebug {
 
 const NO_SIZE: Size = { width: 0, height: 0 };
 const NO_PROCEDURE_TITLE = 'Choose procedure';
+// Wide enough for a step to read in two lines, narrow enough to leave the splat the screen.
+const SIDEBAR_WIDTH = 400;
 
 export function ViewerScreen({
   navigation,
   route,
 }: ScreenProps<typeof Route.viewer>) {
-  const { guideId, procedureId, stepIndex, mode } = route.params;
+  const { guideId, procedureId, stepIndex, mode, voice } = route.params;
   const guide = findReadyGuide(useCatalog(), guideId);
   const exit = useCallback(() => navigation.goBack(), [navigation]);
   if (guide === undefined) {
@@ -73,6 +81,7 @@ export function ViewerScreen({
       procedureId={procedureId}
       stepIndex={stepIndex}
       mode={mode}
+      startInVoice={voice === true && mode === LearnMode.instructor}
       onExit={exit}
     />
   );
@@ -83,10 +92,18 @@ interface ViewerProps {
   procedureId: ProcedureId;
   stepIndex: number;
   mode: LearnMode;
+  startInVoice: boolean;
   onExit: () => void;
 }
 
-function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
+function Viewer({
+  guide,
+  procedureId,
+  stepIndex,
+  mode,
+  startInVoice,
+  onExit,
+}: ViewerProps) {
   const { pack } = guide;
   const insets = useSafeAreaInsets();
   const [instructorOpen, setInstructorOpen] = useState(
@@ -98,7 +115,8 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     highlight,
     marked,
     card,
-    message,
+    thread,
+    exchange,
     voice,
     ask,
     dispatch,
@@ -108,6 +126,7 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     stepIndex,
     instructorOpen,
     instructor: defaultInstructor,
+    startInVoice,
   });
   const [view, setView] = useState<SplatViewSpec | null>(null);
   const [ready, setReady] = useState(false);
@@ -118,6 +137,12 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     PanelMode.expanded,
   );
   const keyboardVisible = useKeyboardVisible();
+  const wide = useWideLayout();
+  const steps = useMemo(() => stepRowsFor(session, pack), [session, pack]);
+  const suggestions = useMemo(
+    () => suggestionsFor(session, pack),
+    [session, pack],
+  );
   const reducedMotion = useReducedMotion();
   const mounted = useRef(true);
   useEffect(() => {
@@ -246,12 +271,66 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
     );
     onExit();
   }, [card.last, dispatch, onExit, stopVoice]);
+  const onGoTo = useCallback(
+    (index: number) =>
+      dispatch({ type: SessionEventType.goTo, stepIndex: index }),
+    [dispatch],
+  );
   const onChooseProcedure = useCallback(
     (id: ProcedureId) => {
       dispatch({ type: SessionEventType.start, procedureId: id });
       setPickerVisible(false);
     },
     [dispatch],
+  );
+
+  const viewportView = (
+    <Animated.View
+      testID="viewer-viewport"
+      layout={animatedResize ? viewportLayout : undefined}
+      style={styles.viewport}
+      onLayout={onViewportLayout}
+    >
+      <SplatViewport
+        pack={pack}
+        highlight={highlight}
+        view={view}
+        size={viewport}
+        accessibilityLabel={`${guide.title}, ${guide.area}`}
+        loading={!ready}
+        error={error}
+        onView={setView}
+        onReady={onReady}
+        onError={onError}
+        onPick={onPick}
+      />
+      {ready && <PartMarkers view={view} parts={marked} size={viewport} />}
+    </Animated.View>
+  );
+  const panel = instructorOpen ? (
+    <InstructorPanel
+      thread={thread}
+      exchange={exchange}
+      suggestions={suggestions}
+      content={card}
+      bottomInset={bottomInset}
+      onAsk={ask}
+      voice={voice}
+      mode={wide ? PanelMode.expanded : instructorMode}
+      onModeChange={setInstructorMode}
+      onBack={onBack}
+      onNext={onNext}
+      docked={wide}
+    />
+  ) : (
+    <StepPanel
+      content={card}
+      bottomInset={bottomInset}
+      onBack={onBack}
+      onNext={onNext}
+      onRepeat={onRepeat}
+      docked={wide}
+    />
   );
 
   return (
@@ -278,47 +357,28 @@ function Viewer({ guide, procedureId, stepIndex, mode, onExit }: ViewerProps) {
           setInstructorOpen(open => !open);
         }}
       />
-      <Animated.View
-        testID="viewer-viewport"
-        layout={animatedResize ? viewportLayout : undefined}
-        style={styles.viewport}
-        onLayout={onViewportLayout}
-      >
-        <SplatViewport
-          pack={pack}
-          highlight={highlight}
-          view={view}
-          size={viewport}
-          accessibilityLabel={`${guide.title}, ${guide.area}`}
-          loading={!ready}
-          error={error}
-          onView={setView}
-          onReady={onReady}
-          onError={onError}
-          onPick={onPick}
-        />
-        {ready && <PartMarkers view={view} parts={marked} size={viewport} />}
-      </Animated.View>
-      {instructorOpen ? (
-        <InstructorPanel
-          message={message}
-          content={card}
-          bottomInset={bottomInset}
-          onAsk={ask}
-          voice={voice}
-          mode={instructorMode}
-          onModeChange={setInstructorMode}
-          onBack={onBack}
-          onNext={onNext}
-        />
+      {wide ? (
+        <View style={styles.split}>
+          {viewportView}
+          <View testID="viewer-sidebar" style={styles.sidebar}>
+            {steps.length > 0 && (
+              <View style={styles.steps}>
+                <StepList
+                  rows={steps}
+                  current={session.stepIndex}
+                  onSelect={onGoTo}
+                  expanded={instructorOpen}
+                />
+              </View>
+            )}
+            {panel}
+          </View>
+        </View>
       ) : (
-        <StepPanel
-          content={card}
-          bottomInset={bottomInset}
-          onBack={onBack}
-          onNext={onNext}
-          onRepeat={onRepeat}
-        />
+        <>
+          {viewportView}
+          {panel}
+        </>
       )}
       <ProcedureSheet
         visible={pickerVisible}
@@ -349,6 +409,16 @@ function MissingGuide({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
   viewport: { flex: 1 },
+  split: { flex: 1, flexDirection: 'row' },
+  // The steps on top, then the panel, which sits at the foot as it does under the splat.
+  sidebar: {
+    width: SIDEBAR_WIDTH,
+    borderLeftWidth: HAIRLINE,
+    borderLeftColor: Color.line,
+    backgroundColor: Color.black,
+  },
+  // The steps take the height the panel under them leaves.
+  steps: { flex: 1 },
   missing: {
     flex: 1,
     gap: Space.lg,

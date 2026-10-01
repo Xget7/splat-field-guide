@@ -40,12 +40,21 @@ import {
   LibraryCategory,
 } from '../model/library';
 import { ContinueCard, ReadyCard, SoonCard } from '../components/GuideCards';
+import { useWideLayout } from '../../../shared/hooks/useWideLayout';
 
 const Layout = {
   searchHeight: 40,
   chipHeight: 32,
   columns: 2,
+  wideColumns: 4,
 } as const;
+
+/** `items` in rows of `columns`. */
+function rowsOf<T>(items: readonly T[], columns: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / columns) }, (_, row) =>
+    items.slice(row * columns, (row + 1) * columns),
+  );
+}
 
 function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
@@ -63,6 +72,8 @@ export function LibraryScreen({
 }: ScreenProps<typeof Route.library>) {
   const catalog = useCatalog();
   const insets = useSafeAreaInsets();
+  const wide = useWideLayout();
+  const columns = wide ? Layout.wideColumns : Layout.columns;
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<LibraryCategory>(
     LibraryCategory.all,
@@ -194,6 +205,7 @@ export function LibraryScreen({
             <ReadyCard
               key={guide.id}
               guide={guide}
+              wide={wide}
               onPress={() =>
                 navigation.navigate(Route.guide, { guideId: guide.id })
               }
@@ -204,18 +216,16 @@ export function LibraryScreen({
       {soon.length > 0 && (
         <View style={styles.section}>
           <SectionHeader title="Coming soon" count={soon.length} />
-          {soon
-            .filter((_, index) => index % Layout.columns === 0)
-            .map((guide, row) => (
-              <View key={guide.id} style={styles.gridRow}>
-                <SoonCard guide={guide} />
-                {soon[row * Layout.columns + 1] ? (
-                  <SoonCard guide={soon[row * Layout.columns + 1]} />
-                ) : (
-                  <View style={styles.gridSpacer} />
-                )}
-              </View>
-            ))}
+          {rowsOf(soon, columns).map(row => (
+            <View key={row[0].id} style={styles.gridRow}>
+              {row.map(guide => (
+                <SoonCard key={guide.id} guide={guide} />
+              ))}
+              {Array.from({ length: columns - row.length }, (_, index) => (
+                <View key={index} style={styles.gridSpacer} />
+              ))}
+            </View>
+          ))}
         </View>
       )}
     </ScrollView>

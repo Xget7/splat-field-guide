@@ -62,6 +62,19 @@ describe('specifications', () => {
       'coolant-reservoir',
       'coolant-reservoir',
     ],
+    [
+      'And how many liters I should put on the coolant?',
+      'coolant-reservoir',
+      'coolant-reservoir',
+    ],
+    // The fluid decides, not the part holding it: water in the motor is the coolant.
+    [
+      'how many liters can have the motor of water in? destiled',
+      'coolant-reservoir',
+      'coolant-reservoir',
+    ],
+    ['How much oil does the motor take?', 'valve-cover', 'engine'],
+    ['How much water does the battery need?', 'battery', 'battery'],
     ['Which fuse is for the radio?', 'fuse-box', 'fuse-box'],
   ])(
     'answers "%s" with the verified specifications only',
@@ -114,12 +127,13 @@ describe('scripted questions', () => {
     },
   );
 
-  it.each(['What does the fuse box do?', 'Why does my engine run badly?'])(
-    'leaves "%s" to the model',
-    question => {
-      expect(isScripted(question, pack)).toBe(false);
-    },
-  );
+  it.each([
+    'What does the fuse box do?',
+    'Why does my engine run badly?',
+    'How does the coolant tank work?',
+  ])('leaves "%s" to the model', question => {
+    expect(isScripted(question, pack)).toBe(false);
+  });
 
   it('names the part a question names', () => {
     expect(namedPart('Tell me about the engine', pack)).toBe('engine');
@@ -168,6 +182,16 @@ describe('answerFor', () => {
       caution: first?.caution,
       part: first?.parts[0] ?? null,
       event: start(id),
+    });
+  });
+
+  it('keeps the place when asked for the procedure already running', () => {
+    const step = pack.procedures.find(p => p.id === 'check-coolant')?.steps[2];
+    expect(answerFor('check the coolant level', coolantStep(2), pack)).toEqual({
+      reply: step?.text,
+      caution: step?.caution,
+      part: step?.parts[0] ?? null,
+      event: { type: SessionEventType.repeat },
     });
   });
 

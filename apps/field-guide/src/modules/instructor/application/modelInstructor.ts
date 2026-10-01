@@ -48,7 +48,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
     question: string,
     state: SessionState,
     pack: Pack,
-    previous: PreviousExchange | null,
+    history: readonly PreviousExchange[],
     onPartial: (answer: PartialAnswer) => void,
   ): Promise<InstructorAnswer> {
     const id = ++request;
@@ -59,7 +59,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
       }
       try {
         const text = await model.respond(
-          { question, state, pack, previous },
+          { question, state, pack, history },
           partial => {
             const reply = replyFrom(partial, pack);
             if (reply !== '' && id === request) {

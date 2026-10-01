@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSpring,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -18,6 +17,7 @@ import { IconButton, IconButtonVariant } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
 import { Label } from '../../../shared/ui/kit/Label';
 import {
+  BUTTON_HEIGHT,
   Color,
   HAIRLINE,
   Motion,
@@ -29,7 +29,6 @@ import {
   karaokeSpans,
   Meter,
   meterHeightsFor,
-  normalizedLevel,
   SpanKind,
   type WordRange,
 } from '../../../modules/instructor/voice/model/speechPresentation';
@@ -52,15 +51,18 @@ export const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(
 export const FADE_OUT = FadeOut.duration(Motion.fast).reduceMotion(
   ReduceMotion.Never,
 );
-const PRESS_SCALE = 0.94;
-const PRESS_OPACITY = 0.8;
-const RING_GROWTH = 0.25;
-const RING_MIN_OPACITY = 0.2;
-const RING_LEVEL_OPACITY = 0.6;
 const SCAN_SHARE = 1 / 3;
 const SCAN_WIDTH = '33.333333%';
 const SCAN_HEIGHT = 2;
 const LOOP_FOREVER = -1;
+
+// One frame holds the question field or, in voice mode, the voice's readout, with its buttons
+// set inside it. It stands as tall as Next below it, so the two rows share their edges.
+export const Composer = {
+  height: BUTTON_HEIGHT,
+  button: 36,
+  inset: (BUTTON_HEIGHT - 36) / 2,
+} as const;
 
 const STATUS: Readonly<Record<VoiceState, string>> = {
   idle: '',
@@ -68,15 +70,34 @@ const STATUS: Readonly<Record<VoiceState, string>> = {
   thinking: 'Thinking',
   speaking: 'Speaking',
 };
-// Hands free and quiet, the status says whether the microphone is open.
-const HandsFreeStatus = { open: 'Listening', muted: 'Muted' } as const;
-// An open microphone reads in the accent, a muted one as a caution; the rest stay quiet.
+// Quiet in voice mode, the status says whether the microphone is open yet.
+const MicStatus = {
+  open: 'Listening',
+  muted: 'Muted',
+  starting: 'Starting',
+} as const;
+// An open microphone reads in the accent, a muted one as a caution and the instructor's own
+// speech as plain text; the rest stay quiet.
 function statusColor(status: string | null) {
-  if (status === HandsFreeStatus.muted) {
+  if (status === MicStatus.muted) {
     return Color.caution;
   }
-  return status === STATUS.listening ? Color.accent : Color.faint;
+  if (status === STATUS.speaking) {
+    return Color.text;
+  }
+  return status === MicStatus.open ? Color.accent : Color.faint;
 }
+
+function voiceStatus(voice: InstructorVoice): string {
+  if (STATUS[voice.state] !== '') {
+    return STATUS[voice.state];
+  }
+  if (voice.muted) {
+    return MicStatus.muted;
+  }
+  return voice.open ? MicStatus.open : MicStatus.starting;
+}
+
 const SPAN_COLOR: Readonly<Record<SpanKind, string>> = {
   spoken: Color.text,
   current: Color.accent,
@@ -109,23 +130,21 @@ export function LevelMeter({ level }: MeterProps) {
   );
 }
 
+/**
+ * The header readout: what the voice is doing when `live`, otherwise the step, except while
+ * an answer is on its way.
+ */
 export function InstructorStatus({
   voice,
   step,
+  live,
 }: {
   voice: InstructorVoice;
   step: string | null;
+  live: boolean;
 }) {
-  const handsFreeStatus = voice.handsFree
-    ? voice.muted
-      ? HandsFreeStatus.muted
-      : HandsFreeStatus.open
-    : null;
-  const status = STATUS[voice.state] || handsFreeStatus || step;
-  const metered =
-    voice.state === VoiceState.listening ||
-    voice.state === VoiceState.speaking ||
-    voice.open;
+  const thinking = voice.state === VoiceState.thinking;
+  const status = live ? voiceStatus(voice) : thinking ? STATUS.thinking : step;
   return (
     <Animated.View
       key={status}
@@ -138,8 +157,86 @@ export function InstructorStatus({
           {status}
         </Label>
       )}
-      {metered && <LevelMeter level={voice.level} />}
+      {live && <LevelMeter level={voice.level} />}
     </Animated.View>
+  );
+}
+
+/** In the question field's frame: the voice's state and level, between ending voice and muting it. */
+export function VoiceBar({ voice }: { voice: InstructorVoice }) {
+  const status = voiceStatus(voice);
+  return (
+    <View
+      style={[
+        composerStyles.frame,
+        composerStyles.voiceFrame,
+        voice.open && composerStyles.open,
+        voice.muted && composerStyles.mutedFrame,
+      ]}
+    >
+      <IconButton
+        testID="instructor-voice-end"
+        icon={IconName.close}
+        accessibilityLabel="End voice"
+        accessibilityHint="Goes back to reading and typing"
+        size={Composer.button}
+        style={composerStyles.quietButton}
+        onPress={voice.toggle}
+      />
+      <View
+        testID="instructor-voice-bar"
+        accessibilityLabel={`Voice: ${status}`}
+        accessibilityLiveRegion="polite"
+        style={styles.voiceReadout}
+      >
+        <Animated.View
+          key={status}
+          entering={FADE_IN}
+          exiting={FADE_OUT}
+          style={styles.status}
+        >
+          <Label testID="instructor-voice-status" color={statusColor(status)}>
+            {status}
+          </Label>
+        </Animated.View>
+        <LevelMeter level={voice.level} />
+      </View>
+      <MuteButton voice={voice} inset />
+    </View>
+  );
+}
+
+export function MuteButton({
+  voice,
+  inset = false,
+}: {
+  voice: InstructorVoice;
+  /** Inside the composer's frame, which already draws the muted outline. */
+  inset?: boolean;
+}) {
+  return (
+    <IconButton
+      testID="instructor-mute"
+      icon={voice.muted ? IconName.micOff : IconName.mic}
+      variant={
+        voice.muted ? IconButtonVariant.raised : IconButtonVariant.active
+      }
+      accessibilityLabel={
+        voice.muted ? 'Unmute the microphone' : 'Mute the microphone'
+      }
+      accessibilityState={{ selected: !voice.muted }}
+      size={inset ? Composer.button : undefined}
+      onPress={voice.toggleMuted}
+      style={
+        inset
+          ? voice.muted
+            ? composerStyles.quietButton
+            : composerStyles.insetButton
+          : voice.muted
+          ? styles.muted
+          : undefined
+      }
+    />
   );
 }
 
@@ -197,101 +294,6 @@ export function InstructorScan({
           style={[styles.sweep, style]}
         />
       )}
-    </View>
-  );
-}
-
-export function InstructorTalk({
-  voice,
-  size,
-  reducedMotion,
-  onHoldChange,
-}: {
-  voice: InstructorVoice;
-  size: number;
-  reducedMotion: boolean;
-  /** Told when a finger lands on the button and when it lifts. */
-  onHoldChange?: (holding: boolean) => void;
-}) {
-  const pressed = useSharedValue(0);
-  // Hands free the ring follows the open microphone and a tap mutes it.
-  const listening = voice.state === VoiceState.listening || voice.open;
-  const { level } = voice;
-  const pressStyle = useAnimatedStyle(() =>
-    reducedMotion
-      ? { opacity: 1 - pressed.value * (1 - PRESS_OPACITY) }
-      : { transform: [{ scale: 1 - pressed.value * (1 - PRESS_SCALE) }] },
-  );
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: listening
-      ? RING_MIN_OPACITY + normalizedLevel(level.value) * RING_LEVEL_OPACITY
-      : 0,
-    transform: reducedMotion
-      ? []
-      : [{ scale: 1 + normalizedLevel(level.value) * RING_GROWTH }],
-  }));
-  const press = (value: number) => {
-    pressed.value = reducedMotion
-      ? withTiming(value, {
-          duration: Motion.fast,
-          reduceMotion: ReduceMotion.Never,
-        })
-      : withSpring(value, Motion.spring);
-  };
-  const shape = { borderRadius: size / 2 };
-  const button = voice.handsFree ? (
-    <IconButton
-      testID="instructor-talk"
-      icon={voice.muted ? IconName.micOff : IconName.mic}
-      size={size}
-      variant={
-        voice.muted ? IconButtonVariant.raised : IconButtonVariant.active
-      }
-      accessibilityLabel={
-        voice.muted ? 'Unmute the instructor' : 'Mute the instructor'
-      }
-      accessibilityState={{ selected: !voice.muted }}
-      onPressIn={() => press(1)}
-      onPressOut={() => press(0)}
-      onPress={voice.toggleMuted}
-      style={shape}
-    />
-  ) : (
-    <IconButton
-      testID="instructor-talk"
-      icon={IconName.mic}
-      size={size}
-      variant={IconButtonVariant.active}
-      accessibilityLabel="Hold to talk to the instructor"
-      accessibilityHint="Hold while speaking, then release to ask"
-      accessibilityState={{
-        selected: listening,
-        disabled: !voice.canListen,
-      }}
-      disabled={!voice.canListen}
-      onPressIn={() => {
-        press(1);
-        onHoldChange?.(true);
-        return voice.start();
-      }}
-      onPressOut={() => {
-        press(0);
-        onHoldChange?.(false);
-        voice.release();
-      }}
-      style={listening ? { ...styles.listening, ...shape } : shape}
-    />
-  );
-  return (
-    <View style={{ width: size, height: size }}>
-      <Animated.View
-        pointerEvents="none"
-        testID="instructor-talk-ring"
-        style={[styles.ring, shape, ringStyle]}
-      />
-      <Animated.View testID="instructor-talk-motion" style={pressStyle}>
-        {button}
-      </Animated.View>
     </View>
   );
 }
@@ -364,12 +366,40 @@ const styles = StyleSheet.create({
     backgroundColor: Color.accent,
   },
   staticScan: { height: SCAN_HEIGHT, backgroundColor: Color.accent },
-  ring: {
-    ...StyleSheet.absoluteFill,
-    borderWidth: HAIRLINE,
-    borderColor: Color.accent,
-    borderRadius: Radius.md,
+  voiceReadout: {
+    flex: 1,
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Space.sm,
   },
-  listening: { backgroundColor: Color.accentPressed },
+  muted: { borderWidth: HAIRLINE, borderColor: Color.caution },
   reply: { ...Type.body, color: Color.text },
+});
+
+export const composerStyles = StyleSheet.create({
+  frame: {
+    height: Composer.height,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.xs,
+    paddingLeft: Space.md,
+    paddingRight: Composer.inset,
+    borderRadius: Radius.md,
+    borderWidth: HAIRLINE,
+    borderColor: Color.lineStrong,
+    backgroundColor: Color.raised,
+  },
+  voiceFrame: { paddingLeft: Composer.inset },
+  // The outline says the microphone is open, so the readout never passes for a text field.
+  open: { borderColor: Color.accent },
+  mutedFrame: { borderColor: Color.caution },
+  // Inner corners follow the frame's, less the inset.
+  insetButton: { borderRadius: Radius.sm },
+  quietButton: {
+    borderRadius: Radius.sm,
+    borderWidth: 0,
+    backgroundColor: Color.pressed,
+  },
 });

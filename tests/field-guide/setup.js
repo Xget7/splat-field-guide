@@ -89,8 +89,6 @@ jest.mock('react-native-on-device', () => {
   const input = {
     requestPermission: jest.fn(async () => 'granted'),
     prepare: jest.fn(async () => 'available'),
-    start: jest.fn(async (_locale, _hints, _onPartial, _onLevel) => {}),
-    finish: jest.fn(async () => ''),
     listen: jest.fn(
       async (_locale, _hints, _onPartial, _onTurn, _onLevel, _onStopped) => {},
     ),
@@ -104,8 +102,16 @@ jest.mock('react-native-on-device', () => {
     languageModel: jest.fn(() => model),
     speechInput: jest.fn(() => input),
     speechOutput: jest.fn(() => output),
-    emitLevel: level => input.start.mock.calls.at(-1)?.[3]?.(level),
+    emitLevel: level => input.listen.mock.calls.at(-1)?.[4]?.(level),
     emitWord: (location, length) =>
       output.speak.mock.calls.at(-1)?.[2]?.(location, length),
   };
+});
+
+// React Native's test window is 750 points wide, an iPad's width class; screens are tested as
+// on an iPhone unless a test opens a wider window.
+const PHONE_WINDOW = { width: 393, height: 852, scale: 3, fontScale: 1 };
+require('react-native').Dimensions.set({
+  window: PHONE_WINDOW,
+  screen: PHONE_WINDOW,
 });

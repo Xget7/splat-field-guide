@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Keyboard, Modal, StyleSheet } from 'react-native';
+import { Dimensions, Keyboard, Modal, StyleSheet } from 'react-native';
 import {
   useReducedMotion,
   withRepeat,
@@ -57,13 +57,11 @@ import {
   Motion,
 } from '../../../../apps/field-guide/src/shared/ui/theme';
 import { InstructorPanel } from '../../../../apps/field-guide/src/features/viewer/components/InstructorPanel';
-import { InstructorTalk } from '../../../../apps/field-guide/src/features/viewer/components/InstructorMotion';
 import {
   PanelMode,
   PanelPan,
 } from '../../../../apps/field-guide/src/features/viewer/model/panelMotion';
 import {
-  MIN_HOLD_MS,
   VoiceHint,
   VOICE_LOCALE,
 } from '../../../../apps/field-guide/src/modules/instructor/voice/hooks/useInstructorVoice';
@@ -102,6 +100,7 @@ if (!bundledPack.ok) {
 const pack = bundledPack.pack;
 const catalog = catalogFor(pack);
 const VIEWPORT = { width: 300, height: 400 };
+const IPAD_WINDOW = { width: 1366, height: 1024, scale: 2, fontScale: 1 };
 
 const debug = () =>
   (globalThis as { fieldGuide?: FieldGuideDebug }).fieldGuide!;
@@ -201,8 +200,6 @@ describe('viewer screen', () => {
       .mockReset()
       .mockResolvedValue('granted');
     jest.mocked(input.prepare).mockReset().mockResolvedValue('available');
-    jest.mocked(input.start).mockReset().mockResolvedValue();
-    jest.mocked(input.finish).mockReset().mockResolvedValue('');
     jest.mocked(input.listen).mockReset().mockResolvedValue();
     jest.mocked(output.speak).mockReset().mockResolvedValue();
     await AsyncStorage.clear();
@@ -232,6 +229,42 @@ describe('viewer screen', () => {
     expect(native().props.cameraLimits).toEqual(
       cameraLimitsInRadians(pack.camera.limits),
     );
+  });
+
+  test('on an iPad the steps list beside the splat and open any step', async () => {
+    const phone = Dimensions.get('window');
+    Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
+    try {
+      await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
+      expect(has('viewer-sidebar')).toBe(true);
+      expect(has('instructor-grabber')).toBe(false);
+      expect(node('step-row-0').props.accessibilityState).toEqual({
+        selected: true,
+      });
+      await press('step-row-3');
+      expect(debug().getState().stepIndex).toBe(3);
+      expect(node('step-row-3').props.accessibilityState).toEqual({
+        selected: true,
+      });
+      // The current step is whole in the list, so the conversation does not repeat it.
+      const step = procedure('check-coolant').steps[3];
+      expect(
+        [text('step-current-text'), text('step-current-detail')].join(' '),
+      ).toBe(step.text);
+      expect(has('instructor-reply')).toBe(false);
+      expect(has('thread-entry-0')).toBe(false);
+      // Nothing asked yet: questions about the step are offered, and one tap asks one.
+      const [suggestion] = renderer.root.findAllByProps({
+        testID: 'instructor-suggestion',
+      });
+      const question = suggestion.props.accessibilityLabel.replace('Ask: ', '');
+      expect(question).toBe('What does the coolant reservoir do?');
+      await act(async () => suggestion.props.onPress());
+      expect(text('instructor-question')).toBe(question);
+      expect(has('instructor-suggestion')).toBe(false);
+    } finally {
+      await act(async () => Dimensions.set({ window: phone, screen: phone }));
+    }
   });
 
   test('frames once laid out without animation, then slides steps from home', async () => {
@@ -525,11 +558,18 @@ describe('viewer screen', () => {
   describe('instructor', () => {
     const ask = async (question: string) =>
       act(async () => debug().ask(question));
-    const startHold = async () =>
-      act(async () => node('instructor-talk').props.onPressIn());
-    const releaseHold = async () =>
-      act(async () => node('instructor-talk').props.onPressOut());
-    const clock = () => jest.spyOn(Date, 'now').mockReturnValue(1000);
+    const voiceOn = async () => press('instructor-voice');
+    // The callbacks of the latest listening: partial words, a finished turn and the level.
+    const heard = () => {
+      const [, , partial, turn, level, stopped] = jest
+        .mocked(input.listen)
+        .mock.calls.at(-1)!;
+      return { partial, turn, level, stopped };
+    };
+    const type = async (question: string) => {
+      await act(() => node('instructor-input').props.onChangeText(question));
+      await act(async () => node('instructor-input').props.onSubmitEditing());
+    };
     const panel = () => renderer.root.findByType(InstructorPanel);
     const settleViewport = async (finished = true) =>
       act(async () => node('viewer-viewport').props.layout.callbackV(finished));
@@ -538,6 +578,8 @@ describe('viewer screen', () => {
       const said = () =>
         jest.mocked(output.speak).mock.calls.map(([spoken]) => spoken);
       await mount({ mode: LearnMode.instructor });
+      expect(said()).toEqual([]);
+      await voiceOn();
       const tour = procedure('tour');
       expect(said()).toEqual([tour.steps[0].text]);
       await press('instructor-next');
@@ -552,6 +594,7 @@ describe('viewer screen', () => {
 
     test('an answer is said once and does not bring the step back', async () => {
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       await ask('Where is the battery?');
       await ask('Where is the battery?');
@@ -575,6 +618,8 @@ describe('viewer screen', () => {
       expect(node('instructor-back').props.accessibilityState.disabled).toBe(
         true,
       );
+      // Under the splat there is no room to offer questions beside the step.
+      expect(has('instructor-suggestion')).toBe(false);
       await ask('Where is the battery?');
       expect(debug().getState().selectedPart).toBe('battery');
       await press('instructor-next');
@@ -582,7 +627,7 @@ describe('viewer screen', () => {
         selectedPart: null,
         stepIndex: 1,
       });
-      expect(text('instructor-status')).toBe('Step 02 / 08');
+      expect(text('instructor-step')).toBe('Step 02 / 08');
       expect(text('instructor-reply')).toBe(procedure('tour').steps[1].text);
       expect(has('instructor-question')).toBe(false);
       expect(native().props.highlight).toEqual(
@@ -600,14 +645,13 @@ describe('viewer screen', () => {
       expect(await loadProgress()).toBeNull();
     });
 
-    test('Next remains available while compact or using the keyboard', async () => {
+    test('Next remains available while compact or typing', async () => {
       await mount({ mode: LearnMode.instructor });
       await press('instructor-header');
       await press('instructor-next');
       expect(panel().props.mode).toBe(PanelMode.minimized);
       expect(text('instructor-preview')).toBe(procedure('tour').steps[1].text);
       await press('instructor-header');
-      await press('instructor-keyboard');
       await press('instructor-next');
       expect(has('instructor-input')).toBe(true);
       expect(debug().getState().stepIndex).toBe(2);
@@ -626,10 +670,11 @@ describe('viewer screen', () => {
         'Finish procedure',
       );
       expect(await loadProgress()).toMatchObject({ stepIndex: steps - 1 });
+      await voiceOn();
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await ask('repeat');
-      expect(text('instructor-status')).toBe('Speaking');
+      expect(text('instructor-voice-status')).toBe('Speaking');
       const stopped = jest.mocked(output.stop).mock.calls.length;
       await press('instructor-next');
       expect(jest.mocked(output.stop).mock.calls.length).toBeGreaterThan(
@@ -640,32 +685,23 @@ describe('viewer screen', () => {
       await act(async () => speech.resolve());
     });
 
-    test('requests voice access on entering Instructor, before holding the mic', async () => {
-      await mount();
+    test('reading asks for no voice access; voice asks once it is turned on', async () => {
+      await mount({ mode: LearnMode.instructor });
       expect(input.requestPermission).not.toHaveBeenCalled();
-      await press('instructor-toggle');
-      expect(input.requestPermission).toHaveBeenCalledTimes(1);
-      expect(input.start).not.toHaveBeenCalled();
-      await startHold();
-      expect(input.requestPermission).toHaveBeenCalledTimes(1);
-      expect(input.start).toHaveBeenCalledTimes(1);
-    });
-
-    test('waits for voice access without showing a listening state', async () => {
+      expect(output.speak).not.toHaveBeenCalled();
       const permission = deferred<'granted'>();
       jest
         .mocked(input.requestPermission)
         .mockReturnValueOnce(permission.promise);
-      await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       expect(input.requestPermission).toHaveBeenCalledTimes(1);
-      expect(panel().props.voice.state).toBe('idle');
-      expect(node('instructor-talk').props.accessibilityState.disabled).toBe(
-        true,
-      );
+      // The step is said at once; the microphone waits for access.
+      expect(output.speak).toHaveBeenCalledTimes(1);
+      expect(text('instructor-voice-status')).toBe('Starting');
+      expect(input.listen).not.toHaveBeenCalled();
       await act(async () => permission.resolve('granted'));
-      expect(node('instructor-talk').props.accessibilityState.disabled).toBe(
-        false,
-      );
+      expect(input.prepare).toHaveBeenCalledWith(VOICE_LOCALE);
+      expect(input.listen).toHaveBeenCalledTimes(1);
     });
 
     test.each(['instructor-grabber', 'instructor-header'])(
@@ -693,46 +729,32 @@ describe('viewer screen', () => {
         expect(text('instructor-preview')).toBe(
           procedure('tour').steps[0].text,
         );
-        expect(renderer.root.findByType(InstructorTalk).props.size).toBe(44);
         await press(control);
         expect(panel().props.mode).toBe(PanelMode.expanded);
-        expect(renderer.root.findByType(InstructorTalk).props.size).toBe(56);
         expect(has('instructor-reply')).toBe(true);
       },
     );
 
-    test('minimizing dismisses the keyboard and restores the voice row on expansion', async () => {
+    test('minimizing dismisses the keyboard and hides the text field', async () => {
       await mount({ mode: LearnMode.instructor });
       const dismiss = jest.spyOn(Keyboard, 'dismiss');
-      await press('instructor-keyboard');
       expect(has('instructor-input')).toBe(true);
       await press('instructor-grabber');
       expect(dismiss).toHaveBeenCalled();
       expect(has('instructor-input')).toBe(false);
       await press('instructor-header');
-      expect(has('instructor-talk')).toBe(true);
-      expect(has('instructor-input')).toBe(false);
+      expect(has('instructor-input')).toBe(true);
     });
 
-    test('the compact mic listens, shows a meter and asks without expanding', async () => {
+    test('compact voice shows its status and meter with mute and Next', async () => {
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       await press('instructor-header');
-      const time = clock();
-      await startHold();
       expect(text('instructor-status')).toBe('Listening');
       expect(has('instructor-meter')).toBe(true);
-      await act(async () =>
-        jest.mocked(input.start).mock.calls[0][2]('Where is the battery?'),
-      );
-      expect(text('instructor-preview')).toBe('Where is the battery?');
-      jest.mocked(input.finish).mockResolvedValueOnce('Where is the battery?');
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      expect(debug().getState().selectedPart).toBe('battery');
-      expect(panel().props.mode).toBe(PanelMode.minimized);
-      expect(text('instructor-preview')).toBe(
-        pack.parts.find(part => part.id === 'battery')!.summary,
-      );
+      await press('instructor-mute');
+      expect(text('instructor-status')).toBe('Muted');
+      expect(has('instructor-next')).toBe(true);
     });
 
     test('streaming and finished answers highlight parts but never expand the compact bar', async () => {
@@ -810,35 +832,32 @@ describe('viewer screen', () => {
 
     test('microphone levels update the shared meter without a React render and ignore late levels', async () => {
       await mount({ mode: LearnMode.instructor });
-      await startHold();
+      jest.mocked(output.speak).mockReturnValueOnce(new Promise(() => {}));
+      await voiceOn();
       const voice = panel().props.voice;
       expect(has('instructor-meter-bar-4')).toBe(true);
       expect(
         StyleSheet.flatten(node('instructor-meter-bar-0').props.style),
       ).toMatchObject({ width: 2, height: 4, borderRadius: 0 });
+      // While the instructor talks, the meter follows its words, not the microphone.
       await act(async () => voiceEvents.emitLevel(0.8));
-      expect(panel().props.voice).toBe(voice);
-      expect(voice.level.value).toBe(0.8);
+      expect(voice.level.value).toBe(0);
+      await press('instructor-stop');
+      await act(async () => voiceEvents.emitLevel(0.8));
+      expect(panel().props.voice.level.value).toBe(0.8);
       expect(withTiming).toHaveBeenCalledWith(
         0.8,
         expect.objectContaining({ duration: Motion.levelSmoothing }),
       );
-      await press('instructor-keyboard');
+      await press('instructor-voice-end');
       await act(async () => voiceEvents.emitLevel(1));
       expect(panel().props.voice.level.value).toBe(0);
-    });
-
-    test('the talk button uses the shared spring for press and release', async () => {
-      await mount({ mode: LearnMode.instructor });
-      await startHold();
-      expect(withSpring).toHaveBeenCalledWith(1, Motion.spring);
-      await releaseHold();
-      expect(withSpring).toHaveBeenCalledWith(0, Motion.spring);
     });
 
     test('each spoken word colors the reply and kicks the meter envelope', async () => {
       const speech = deferred<void>();
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await ask('Where is the battery?');
@@ -882,6 +901,7 @@ describe('viewer screen', () => {
         procedureId: 'check-coolant',
         stepIndex: 0,
       });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       jest
         .mocked(output.speak)
@@ -917,17 +937,7 @@ describe('viewer screen', () => {
       await mount({ mode: LearnMode.instructor });
       expect(node('instructor-panel').props.layout).toBeUndefined();
       expect(node('viewer-viewport').props.layout).toBeUndefined();
-      await startHold();
-      expect(
-        StyleSheet.flatten(node('instructor-talk-motion').props.style)
-          .transform,
-      ).toBeUndefined();
-      expect(
-        StyleSheet.flatten(node('instructor-talk-ring').props.style).transform,
-      ).toEqual([]);
       expect(withSpring).not.toHaveBeenCalled();
-      await act(async () => voiceEvents.emitLevel(0.6));
-      expect(panel().props.voice.level.value).toBe(0.6);
       await ask('Explain the battery');
       expect(has('instructor-scan-static')).toBe(true);
       expect(
@@ -946,6 +956,7 @@ describe('viewer screen', () => {
       jest.mocked(useReducedMotion).mockReturnValue(true);
       const speech = deferred<void>();
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await attach();
@@ -962,46 +973,9 @@ describe('viewer screen', () => {
       });
     });
 
-    test('holds to listen with hints, displays live words and releases to ask', async () => {
+    test('voice asks each spoken turn and stops talking when the user talks over it', async () => {
       await mount({ mode: LearnMode.instructor });
-      expect(has('instructor-caption')).toBe(false);
-      const time = clock();
-      await startHold();
-      expect(output.stop).toHaveBeenCalled();
-      expect(input.start).toHaveBeenCalledWith(
-        VOICE_LOCALE,
-        recognitionHintsFor(pack),
-        expect.any(Function),
-        expect.any(Function),
-      );
-      expect(
-        jest.mocked(output.stop).mock.invocationCallOrder.at(-1)!,
-      ).toBeLessThan(jest.mocked(input.start).mock.invocationCallOrder[0]);
-      expect(text('instructor-status')).toBe('Listening');
-      expect(has('instructor-caption')).toBe(false);
-      expect(has('instructor-question')).toBe(false);
-      const partial = jest.mocked(input.start).mock.calls[0][2];
-      await act(async () => partial('Where is the battery?'));
-      expect(text('instructor-question')).toBe('Where is the battery?');
-      expect(node('instructor-question').props.accessibilityLabel).toContain(
-        'Provisional transcript',
-      );
-      jest.mocked(input.finish).mockResolvedValueOnce('Where is the battery?');
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      expect(has('instructor-caption')).toBe(false);
-      expect(debug().getState().selectedPart).toBe('battery');
-      expect(text('instructor-question')).toBe('Where is the battery?');
-      expect(output.speak).toHaveBeenCalledWith(
-        pack.parts.find(part => part.id === 'battery')!.summary,
-        VOICE_LOCALE,
-        expect.any(Function),
-      );
-    });
-
-    test('hands free asks each spoken turn and stops talking when the user talks over it', async () => {
-      await mount({ mode: LearnMode.instructor });
-      await press('instructor-hands-free');
+      await voiceOn();
       expect(input.listen).toHaveBeenCalledWith(
         VOICE_LOCALE,
         recognitionHintsFor(pack),
@@ -1010,7 +984,8 @@ describe('viewer screen', () => {
         expect.any(Function),
         expect.any(Function),
       );
-      expect(text('instructor-status')).toBe('Listening');
+      expect(text('instructor-voice-status')).toBe('Listening');
+      expect(has('instructor-input')).toBe(false);
       const cue = () => node('instructor-cue').props.accessibilityLabel;
       expect(cue()).toMatch(/"next"/);
       const [, , partial, turn] = jest.mocked(input.listen).mock.calls[0];
@@ -1030,196 +1005,129 @@ describe('viewer screen', () => {
       expect(output.stop).toHaveBeenCalledTimes(stops);
       await act(async () => partial('Stop'));
       expect(output.stop).toHaveBeenCalledTimes(stops + 1);
-      expect(text('instructor-question')).toBe('Stop');
-      await press('instructor-talk');
+      expect(text('instructor-transcript')).toBe('Stop');
+      await press('instructor-mute');
       expect(input.cancel).toHaveBeenCalled();
-      expect(text('instructor-status')).toBe('Muted');
+      expect(text('instructor-voice-status')).toBe('Muted');
       expect(cue()).toBe('Muted. Tap the mic to listen again.');
       await act(async () => speech.resolve());
     });
 
-    test('holding the mic keeps the panel height while the transcript grows', async () => {
+    test('a spoken question joins the conversation under the step', async () => {
       await mount({ mode: LearnMode.instructor });
-      const height = () =>
-        StyleSheet.flatten(node('instructor-panel').props.style).height;
-      await act(async () =>
-        node('instructor-panel').props.onLayout({
-          nativeEvent: { layout: { x: 0, y: 0, width: 402, height: 236 } },
-        }),
-      );
-      expect(height()).toBeUndefined();
-      const time = clock();
-      await startHold();
-      expect(height()).toBe(236);
-      // The step text stays in place, dimmed, while the transcript grows above it.
-      const stale = () =>
-        node('instructor-answer').props.accessibilityState.busy;
+      await voiceOn();
       const stepText = text('instructor-reply');
-      expect(stale()).toBe(true);
-      const partial = jest.mocked(input.start).mock.calls[0][2];
       await act(async () =>
-        partial('Where is the battery and how do I check its charge?'),
+        heard().partial('Where is the battery and how do I check its charge?'),
       );
-      expect(height()).toBe(236);
       expect(text('instructor-reply')).toBe(stepText);
-      expect(text('instructor-question')).toBe(
-        'Where is the battery and how do I check its charge?',
+      expect(node('instructor-transcript').props.accessibilityLabel).toBe(
+        'Provisional transcript: Where is the battery and how do I check its charge?',
       );
-      jest.mocked(input.finish).mockResolvedValueOnce('Where is the battery?');
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      expect(height()).toBeUndefined();
-      expect(stale()).toBe(false);
+      await act(async () => heard().turn('Where is the battery?'));
+      expect(has('instructor-transcript')).toBe(false);
+      expect(text('thread-reply-0')).toBe(stepText);
       expect(text('instructor-question')).toBe('Where is the battery?');
+      expect(text('instructor-reply')).toBe(
+        pack.parts.find(part => part.id === 'battery')!.summary,
+      );
     });
 
-    test('the last answer and the panel height stay until the new answer has words', async () => {
+    test('the conversation keeps earlier answers as the steps move on', async () => {
+      await mount({
+        mode: LearnMode.instructor,
+        procedureId: 'check-coolant',
+        stepIndex: 0,
+      });
+      const steps = procedure('check-coolant').steps;
+      await type('Where is the battery?');
+      await press('instructor-next');
+      expect(text('thread-reply-0')).toBe(steps[0].text);
+      expect(text('thread-question-1')).toBe('Where is the battery?');
+      expect(text('instructor-reply')).toBe(steps[1].text);
+      expect(
+        StyleSheet.flatten(node('instructor-panel').props.style).height,
+      ).toBe('50%');
+    });
+
+    test('a typed question waits under the step until its answer has words', async () => {
       jest.mocked(model.availability).mockReturnValue('available');
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
       await mount({ mode: LearnMode.instructor });
-      const height = () =>
-        StyleSheet.flatten(node('instructor-panel').props.style).height;
-      await act(async () =>
-        node('instructor-panel').props.onLayout({
-          nativeEvent: { layout: { x: 0, y: 0, width: 402, height: 236 } },
-        }),
-      );
       const stepText = text('instructor-reply');
-      const time = clock();
-      await startHold();
-      jest.mocked(input.finish).mockResolvedValueOnce('Explain the battery');
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
+      await type('Explain the battery');
       expect(text('instructor-status')).toBe('Thinking');
       expect(text('instructor-question')).toBe('Explain the battery');
-      expect(text('instructor-reply')).toBe(stepText);
-      expect(node('instructor-answer').props.accessibilityState.busy).toBe(
-        true,
-      );
-      expect(height()).toBe(236);
+      expect(text('thread-reply-0')).toBe(stepText);
+      expect(has('instructor-thinking')).toBe(true);
       const partial = jest.mocked(model.respond).mock.calls[0][2];
       await act(async () => partial(modelReply('It supplies')));
       expect(text('instructor-reply')).toBe('It supplies');
-      expect(node('instructor-answer').props.accessibilityState.busy).toBe(
-        false,
-      );
-      expect(height()).toBeUndefined();
-    });
-
-    test('a short hold gives a hint without finishing or asking', async () => {
-      await mount({ mode: LearnMode.instructor });
-      jest.mocked(output.speak).mockClear();
-      const time = clock();
-      await startHold();
-      time.mockReturnValue(1000 + MIN_HOLD_MS - 1);
-      await releaseHold();
-      expect(input.finish).not.toHaveBeenCalled();
-      expect(text('instructor-hint')).toBe(VoiceHint.shortHold);
-      expect(has('instructor-question')).toBe(false);
-      expect(output.speak).not.toHaveBeenCalled();
-    });
-
-    test('an empty finished transcript gives a hint', async () => {
-      await mount({ mode: LearnMode.instructor });
-      const time = clock();
-      await startHold();
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      jest.mocked(input.finish).mockResolvedValueOnce('   ');
-      await releaseHold();
-      expect(text('instructor-hint')).toBe(VoiceHint.empty);
-      expect(has('instructor-question')).toBe(false);
+      expect(has('instructor-thinking')).toBe(false);
     });
 
     test.each(['denied', 'restricted'] as const)(
-      '%s permission gives a reason and leaves typing available',
+      '%s permission ends voice with a reason and leaves typing available',
       async permission => {
         jest.mocked(input.requestPermission).mockResolvedValueOnce(permission);
         await mount({ mode: LearnMode.instructor });
-        await startHold();
-        expect(input.start).not.toHaveBeenCalled();
+        await voiceOn();
+        expect(input.listen).not.toHaveBeenCalled();
         expect(text('instructor-hint')).toBe(VoiceHint.permission);
-        await press('instructor-keyboard');
         expect(has('instructor-input')).toBe(true);
-        await act(async () =>
-          node('instructor-input').props.onChangeText('next'),
-        );
-        await press('instructor-send');
+        await type('next');
         expect(debug().getState().stepIndex).toBe(1);
       },
     );
 
-    test('unavailable recognition gives a reason and keeps typing', async () => {
+    test('unavailable recognition ends voice with a reason', async () => {
       jest.mocked(input.prepare).mockResolvedValue('unavailable');
       await mount({ mode: LearnMode.instructor });
-      await startHold();
-      expect(input.start).not.toHaveBeenCalled();
+      await voiceOn();
+      expect(input.listen).not.toHaveBeenCalled();
       expect(text('instructor-hint')).toBe(VoiceHint.unavailable);
-      await press('instructor-keyboard');
       expect(has('instructor-input')).toBe(true);
+      // Typing a question moves on, so the notice about voice goes.
+      await type('Where is the battery?');
+      expect(has('instructor-hint')).toBe(false);
     });
 
-    test('recognition errors give a hint and recover', async () => {
-      jest.mocked(input.start).mockRejectedValueOnce(new Error('audio busy'));
+    test('listening that fails or stops ends voice with a hint', async () => {
+      jest.mocked(input.listen).mockRejectedValueOnce(new Error('audio busy'));
       await mount({ mode: LearnMode.instructor });
-      await startHold();
-      expect(text('instructor-hint')).toBe(VoiceHint.failed);
-      const time = clock();
-      await startHold();
-      jest.mocked(input.finish).mockRejectedValueOnce(new Error('lost audio'));
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      expect(text('instructor-hint')).toBe(VoiceHint.failed);
-    });
-
-    test('release while recognition starts is remembered and submitted once', async () => {
-      const ready = deferred<void>();
-      jest.mocked(input.start).mockReturnValueOnce(ready.promise);
-      jest.mocked(input.finish).mockResolvedValueOnce('Where is the battery?');
-      await mount({ mode: LearnMode.instructor });
-      const time = clock();
-      await act(async () => {
-        node('instructor-talk').props.onPressIn();
-      });
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      expect(input.finish).not.toHaveBeenCalled();
-      await act(async () => {
-        ready.resolve();
-      });
-      await releaseHold();
-      expect(input.finish).toHaveBeenCalledTimes(1);
-      expect(debug().getState().selectedPart).toBe('battery');
-    });
-
-    test('a short hold during permission does not start listening later', async () => {
-      const permission = deferred<'granted'>();
-      jest
-        .mocked(input.requestPermission)
-        .mockReturnValueOnce(permission.promise);
-      await mount({ mode: LearnMode.instructor });
-      clock();
-      await act(async () => {
-        node('instructor-talk').props.onPressIn();
-      });
-      await releaseHold();
-      await act(async () => {
-        permission.resolve('granted');
-      });
-      expect(input.start).not.toHaveBeenCalled();
-      expect(text('instructor-hint')).toBe(VoiceHint.shortHold);
-    });
-
-    test('keyboard and mic buttons swap input rows', async () => {
-      await mount({ mode: LearnMode.instructor });
-      expect(has('instructor-talk')).toBe(true);
-      expect(has('instructor-input')).toBe(false);
-      await press('instructor-keyboard');
+      await voiceOn();
+      expect(text('instructor-hint')).toBe(VoiceHint.lost);
       expect(has('instructor-input')).toBe(true);
-      expect(has('instructor-talk')).toBe(false);
-      await press('instructor-mic');
-      expect(has('instructor-talk')).toBe(true);
+      await voiceOn();
+      expect(input.listen).toHaveBeenCalledTimes(2);
+      await act(async () => heard().stopped('Speech recognition ended'));
+      expect(text('instructor-hint')).toBe(VoiceHint.lost);
+      expect(has('instructor-voice-bar')).toBe(false);
+    });
+
+    test('the voice button swaps the text field for the voice bar and back', async () => {
+      await mount({ mode: LearnMode.instructor });
+      expect(has('instructor-voice-bar')).toBe(false);
+      await act(() => node('instructor-input').props.onChangeText('next'));
+      expect(has('instructor-voice')).toBe(false);
+      expect(has('instructor-send')).toBe(true);
+      await act(() => node('instructor-input').props.onChangeText(''));
+      await voiceOn();
       expect(has('instructor-input')).toBe(false);
+      expect(has('instructor-voice-bar')).toBe(true);
+      await press('instructor-voice-end');
+      expect(input.cancel).toHaveBeenCalled();
+      expect(has('instructor-input')).toBe(true);
+      expect(has('instructor-voice-bar')).toBe(false);
+    });
+
+    test('chosen on the guide screen, voice is on from the first step', async () => {
+      await mount({ mode: LearnMode.instructor, voice: true });
+      expect(has('instructor-voice-bar')).toBe(true);
+      expect(has('instructor-input')).toBe(false);
+      await act(async () => {});
+      expect(input.listen).toHaveBeenCalledTimes(1);
     });
 
     test('a spoken follow-up retains the previous question and reply', async () => {
@@ -1227,11 +1135,8 @@ describe('viewer screen', () => {
       jest.mocked(model.respond).mockResolvedValue(modelReply());
       await mount({ mode: LearnMode.instructor });
       await ask('Explain the battery');
-      const time = clock();
-      await startHold();
-      jest.mocked(input.finish).mockResolvedValueOnce('What does it do?');
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
+      await voiceOn();
+      await act(async () => heard().turn('What does it do?'));
       const prompt = jest.mocked(model.respond).mock.calls[1][1];
       expect(prompt).toMatch(/^Part: Battery\n/);
       expect(prompt).toContain(
@@ -1270,10 +1175,11 @@ describe('viewer screen', () => {
         procedureId: 'check-coolant',
         stepIndex: 0,
       });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       await ask('Explain the battery safety');
       expect(text('instructor-reply')).toBe(reply);
-      expect(has('caution')).toBe(false);
+      expect(has('instructor-caution-text')).toBe(false);
       expect(jest.mocked(output.speak).mock.calls).toEqual([
         [reply, VOICE_LOCALE, expect.any(Function)],
       ]);
@@ -1284,18 +1190,18 @@ describe('viewer screen', () => {
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
-      const stepText = text('instructor-reply');
       await ask('Explain the battery');
       expect(text('instructor-status')).toBe('Thinking');
-      expect(text('instructor-reply')).toBe(stepText);
+      expect(has('instructor-thinking')).toBe(true);
       expect(
         StyleSheet.flatten(node('instructor-scan-sweep').props.style).height,
       ).toBe(2);
       const partial = jest.mocked(model.respond).mock.calls[0][2];
       await act(async () => partial('  '));
       expect(debug().getState().selectedPart).toBeNull();
-      expect(text('instructor-reply')).toBe(stepText);
+      expect(has('instructor-thinking')).toBe(true);
       await act(async () => partial('It **supplies**'));
       expect(debug().getState().selectedPart).toBe('battery');
       expect(text('instructor-reply')).toBe('It supplies');
@@ -1367,6 +1273,7 @@ describe('viewer screen', () => {
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
       await mount({ mode: LearnMode.instructor });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       await ask('Explain the battery');
       const partial = jest.mocked(model.respond).mock.calls[0][2];
@@ -1405,6 +1312,7 @@ describe('viewer screen', () => {
         procedureId: 'check-coolant',
         stepIndex: 0,
       });
+      await voiceOn();
       jest.mocked(output.speak).mockClear();
       await ask('repeat');
       const first = procedure('check-coolant').steps[0];
@@ -1415,7 +1323,7 @@ describe('viewer screen', () => {
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await ask('repeat');
-      expect(text('instructor-status')).toBe('Speaking');
+      expect(text('instructor-voice-status')).toBe('Speaking');
       await press('instructor-stop');
       expect(text('instructor-reply')).toBe(first.text);
       const calls = jest.mocked(output.speak).mock.calls.length;
@@ -1426,18 +1334,19 @@ describe('viewer screen', () => {
       expect(has('instructor-stop')).toBe(false);
     });
 
-    test.each(['talk', 'close', 'step', 'unmount'])(
+    test.each(['end voice', 'close', 'step', 'unmount'])(
       '%s stops speech and guards delayed completion',
       async change => {
         const speech = deferred<void>();
         await mount({ mode: LearnMode.instructor });
+        await voiceOn();
         jest.mocked(output.speak).mockClear();
         jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
         await ask('next');
-        expect(text('instructor-status')).toBe('Speaking');
+        expect(text('instructor-voice-status')).toBe('Speaking');
         const stopped = jest.mocked(output.stop).mock.calls.length;
-        if (change === 'talk') {
-          await startHold();
+        if (change === 'end voice') {
+          await press('instructor-voice-end');
         } else if (change === 'close') {
           await press('instructor-toggle');
         } else if (change === 'step') {
@@ -1451,25 +1360,21 @@ describe('viewer screen', () => {
         await act(async () => {
           speech.resolve();
         });
-        if (change === 'talk') {
-          expect(text('instructor-status')).toBe('Listening');
+        if (change === 'end voice') {
+          expect(has('instructor-input')).toBe(true);
         }
       },
     );
 
-    test('late recognition callbacks and finished transcripts cannot replace a newer question', async () => {
-      const finished = deferred<string>();
-      jest.mocked(input.finish).mockReturnValueOnce(finished.promise);
+    test('late recognition callbacks cannot ask once voice has ended', async () => {
       await mount({ mode: LearnMode.instructor });
-      const time = clock();
-      await startHold();
-      const partial = jest.mocked(input.start).mock.calls[0][2];
-      time.mockReturnValue(1000 + MIN_HOLD_MS);
-      await releaseHold();
-      await ask('next');
+      await voiceOn();
+      const { partial, turn } = heard();
+      await press('instructor-voice-end');
+      await type('next');
       await act(async () => {
         partial('old words');
-        finished.resolve('Where is the battery?');
+        turn('Where is the battery?');
       });
       expect(text('instructor-question')).toBe('next');
       expect(debug().getState().selectedPart).toBeNull();
@@ -1477,16 +1382,18 @@ describe('viewer screen', () => {
     });
 
     test('speech output errors leave the written reply visible', async () => {
+      await mount({ mode: LearnMode.instructor });
+      await voiceOn();
+      // The step read on turning voice on is fine; the answer to "next" fails.
       jest
         .mocked(output.speak)
         .mockRejectedValueOnce(new Error('voice unavailable'));
-      await mount({ mode: LearnMode.instructor });
       await ask('next');
       expect(text('instructor-hint')).toBe(VoiceHint.output);
       expect(text('instructor-reply')).toBe(procedure('tour').steps[1].text);
     });
 
-    test('opens in Instructor mode with the step said and the toggle on', async () => {
+    test('opens in Instructor mode with the step to read and the toggle on', async () => {
       await mount({
         procedureId: 'check-coolant',
         stepIndex: 0,
@@ -1509,7 +1416,6 @@ describe('viewer screen', () => {
 
     test('a typed question shows the part and the answer', async () => {
       await mount({ mode: LearnMode.instructor });
-      await press('instructor-keyboard');
       await act(() =>
         node('instructor-input').props.onChangeText('Where is the battery?'),
       );
@@ -1531,7 +1437,6 @@ describe('viewer screen', () => {
         stepIndex: 1,
         mode: LearnMode.instructor,
       });
-      await press('instructor-keyboard');
       await act(() => node('instructor-input').props.onChangeText('Next step'));
       await act(async () => node('instructor-input').props.onSubmitEditing());
       expect(debug().getState().stepIndex).toBe(2);

@@ -32,7 +32,7 @@ const fails = async (): Promise<string> => {
   throw new Error('down');
 };
 const ask = (onPartial = jest.fn()) =>
-  instructor.modelAnswer(QUESTION, INITIAL_SESSION, pack, null, onPartial);
+  instructor.modelAnswer(QUESTION, INITIAL_SESSION, pack, [], onPartial);
 
 test('the cloud answers first when it can', async () => {
   const cloud = fakeModel(ModelName.cloud, replies('It starts the engine.'));
@@ -41,7 +41,7 @@ test('the cloud answers first when it can', async () => {
   expect(await ask()).toEqual(answerAbout('It starts the engine.', battery));
   expect(local.respond).not.toHaveBeenCalled();
   expect(cloud.respond).toHaveBeenCalledWith(
-    { question: QUESTION, state: INITIAL_SESSION, pack, previous: null },
+    { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
     expect.any(Function),
   );
 });
@@ -166,7 +166,7 @@ test('cancelling one instructor leaves another pending answer active', async () 
     QUESTION,
     INITIAL_SESSION,
     pack,
-    null,
+    [],
     onPartial,
   );
 

@@ -11,6 +11,10 @@ import {
   type InstructorAnswer,
 } from '../../../modules/instructor/domain/instructor';
 import type { PartialAnswer } from '../../../modules/instructor/application/modelInstructor';
+import { cardContentFor, type CardContent } from './guideContent';
+
+// A long session scrolls back this far; older entries drop off the top.
+export const MAX_THREAD_ENTRIES = 60;
 
 export const ExchangePhase = {
   pending: 'pending',
@@ -19,7 +23,7 @@ export const ExchangePhase = {
 } as const;
 export type ExchangePhase = (typeof ExchangePhase)[keyof typeof ExchangePhase];
 
-/** The last question and what the instructor said back. */
+/** A question and what the instructor said back. */
 export interface Exchange {
   readonly question: string;
   readonly reply: string;
@@ -28,10 +32,31 @@ export interface Exchange {
   readonly phase: ExchangePhase;
 }
 
+export const EntryKind = { step: 'step', exchange: 'exchange' } as const;
+export type EntryKind = (typeof EntryKind)[keyof typeof EntryKind];
+
+/** What the conversation shows, oldest first: steps as they were shown, and answered questions. */
+export type ThreadEntry =
+  | {
+      readonly kind: typeof EntryKind.step;
+      readonly id: number;
+      /** Which step, and which part on it, so the same one is not shown twice in a row. */
+      readonly key: string;
+      readonly card: CardContent;
+    }
+  | { readonly kind: typeof EntryKind.exchange; readonly exchange: Exchange };
+
 export interface ViewerState {
   readonly session: SessionState;
   /** Cleared by anything but a question, so it never describes a step that has moved on. */
   readonly exchange: Exchange | null;
+  /**
+   * Everything said before the live exchange. Without one, the last entry is the step on
+   * screen.
+   */
+  readonly thread: readonly ThreadEntry[];
+  /** How many steps the thread has shown, which numbers the next one. */
+  readonly stepsShown: number;
   /** Bumped to frame the step again even when the session itself did not change. */
   readonly frameRequest: number;
   /** Streaming selection is provisional until the final answer is accepted. */
@@ -81,12 +106,66 @@ export function initialViewerState(
   stepIndex: number,
   pack: Pack,
 ): ViewerState {
+  return showStep(
+    {
+      session: startAt(procedureId, stepIndex, pack),
+      exchange: null,
+      thread: [],
+      stepsShown: 0,
+      frameRequest: 0,
+      answerSession: null,
+    },
+    pack,
+  );
+}
+
+const append = (thread: readonly ThreadEntry[], entry: ThreadEntry) =>
+  [...thread, entry].slice(-MAX_THREAD_ENTRIES);
+
+const stepKey = (session: SessionState) =>
+  `${session.procedureId}:${session.stepIndex}:${session.selectedPart}`;
+
+/** An answered question moves up into the thread; one still on its way is dropped. */
+function settle(state: ViewerState): ViewerState {
+  return state.exchange?.phase === ExchangePhase.done
+    ? {
+        ...state,
+        exchange: null,
+        thread: append(state.thread, {
+          kind: EntryKind.exchange,
+          exchange: state.exchange,
+        }),
+      }
+    : { ...state, exchange: null };
+}
+
+/** The step on screen joins the thread, unless it is already the last thing said. */
+function showStep(state: ViewerState, pack: Pack): ViewerState {
+  const key = stepKey(state.session);
+  const last = state.thread[state.thread.length - 1];
+  if (last?.kind === EntryKind.step && last.key === key) {
+    return state;
+  }
   return {
-    session: startAt(procedureId, stepIndex, pack),
-    exchange: null,
-    frameRequest: 0,
-    answerSession: null,
+    ...state,
+    stepsShown: state.stepsShown + 1,
+    thread: append(state.thread, {
+      kind: EntryKind.step,
+      id: state.stepsShown,
+      key,
+      card: cardContentFor(state.session, pack),
+    }),
   };
+}
+
+/** Every answered question so far, oldest first, for a model to read a follow-up by. */
+export function answeredExchanges(state: ViewerState): Exchange[] {
+  const earlier = state.thread.flatMap(entry =>
+    entry.kind === EntryKind.exchange ? [entry.exchange] : [],
+  );
+  return state.exchange?.phase === ExchangePhase.done
+    ? [...earlier, state.exchange]
+    : earlier;
 }
 
 function apply(
@@ -96,6 +175,7 @@ function apply(
   exchange: Exchange | null,
 ): ViewerState {
   return {
+    ...state,
     session: reduce(state.session, event, pack),
     exchange,
     answerSession: null,
@@ -113,22 +193,30 @@ export function reduceViewer(
   pack: Pack,
 ): ViewerState {
   switch (action.type) {
-    case ViewerActionType.cancel:
-      return state.exchange === null ||
+    case ViewerActionType.cancel: {
+      if (
+        state.exchange === null ||
         state.exchange.phase === ExchangePhase.done
-        ? state
-        : {
-            ...state,
-            session: state.answerSession ?? state.session,
-            exchange: null,
-            answerSession: null,
-          };
+      ) {
+        return state;
+      }
+      // The answer that was live before this question becomes live again.
+      const last = state.thread[state.thread.length - 1];
+      const restored = last?.kind === EntryKind.exchange ? last.exchange : null;
+      return {
+        ...state,
+        session: state.answerSession ?? state.session,
+        exchange: restored,
+        thread: restored === null ? state.thread : state.thread.slice(0, -1),
+        answerSession: null,
+      };
+    }
     case ViewerActionType.begin: {
       const question = action.question.trim();
       return question === ''
         ? state
         : {
-            ...state,
+            ...settle(state),
             answerSession: state.session,
             exchange: {
               id: action.id,
@@ -196,13 +284,14 @@ export function reduceViewer(
         next.frameRequest === state.frameRequest &&
         state.exchange === null
         ? state
-        : next;
+        : showStep({ ...next, thread: settle(state).thread }, pack);
     }
     case ViewerActionType.ask: {
       const question = action.question.trim();
       if (question === '') {
         return state;
       }
+      const settled = settle(state);
       const answer = answerFor(question, state.session, pack);
       const exchange: Exchange = {
         question,
@@ -212,8 +301,8 @@ export function reduceViewer(
         phase: ExchangePhase.done,
       };
       return answer.event === null
-        ? { ...state, exchange, answerSession: null }
-        : apply(state, answer.event, pack, exchange);
+        ? { ...settled, exchange, answerSession: null }
+        : apply(settled, answer.event, pack, exchange);
     }
   }
 }

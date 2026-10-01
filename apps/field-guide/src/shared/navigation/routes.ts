@@ -24,6 +24,8 @@ export type RootStackParamList = {
     procedureId: string;
     stepIndex: number;
     mode: LearnMode;
+    /** The instructor starts in voice: it reads aloud and listens from the first step. */
+    voice?: boolean;
   };
 };
 

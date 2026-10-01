@@ -67,6 +67,23 @@ describe('reduce', () => {
     expect(run([start('check-coolant'), next, next, back]).stepIndex).toBe(1);
   });
 
+  it('jumps to any step of the procedure and drops the selection', () => {
+    const goTo = (stepIndex: number): SessionEvent => ({
+      type: SessionEventType.goTo,
+      stepIndex,
+    });
+    const selected = run([start('check-coolant'), select('battery')]);
+    expect(reduce(selected, goTo(2), pack)).toEqual({
+      procedureId: 'check-coolant',
+      stepIndex: 2,
+      selectedPart: null,
+    });
+    for (const outside of [-1, 3, 1.5]) {
+      expect(reduce(selected, goTo(outside), pack)).toBe(selected);
+    }
+    expect(reduce(INITIAL_SESSION, goTo(0), pack)).toBe(INITIAL_SESSION);
+  });
+
   it('stays on the last step when next goes past it', () => {
     const state = run([start('check-brake-fluid'), next, next, next]);
     expect(state.stepIndex).toBe(1);

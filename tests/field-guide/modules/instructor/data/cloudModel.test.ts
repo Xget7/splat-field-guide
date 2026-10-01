@@ -20,7 +20,7 @@ const request = {
   question: 'What does the battery do?',
   state: INITIAL_SESSION,
   pack,
-  previous: null,
+  history: [],
 };
 
 class FakeRequest {
@@ -110,7 +110,7 @@ test('posts the instructions and a prompt without notes to the proxy', () => {
       request.question,
       INITIAL_SESSION,
       pack,
-      null,
+      [],
       PromptNotes.none,
     ),
   });

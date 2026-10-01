@@ -74,7 +74,7 @@ final class OnDeviceTranscription: @unchecked Sendable {
 
   /// Starts at once and buffers audio while the model loads, so no word is lost. `prepare` must
   /// have succeeded for the locale. `onChange` gets the whole text each time it changes and
-  /// `onEnd` the error, if any, once results stop.
+  /// `onEnd` the error, if any, if results stop before `cancel`.
   init(locale identifier: String, hints: [String], onChange: @escaping (String) -> Void,
     onEnd: @escaping (Error?) -> Void) throws {
     guard let model = Self.modelsLock.withLock({ Self.models[identifier] }) else {
@@ -116,12 +116,6 @@ final class OnDeviceTranscription: @unchecked Sendable {
     volatile = ""
     text = ""
     Task { [analyzer, since] in try? await analyzer.finalize(through: since) }
-  }
-
-  /// No more audio; final results follow, then `onEnd`.
-  func finish() {
-    input.finish()
-    Task { [analyzer] in try? await analyzer.finalizeAndFinishThroughEndOfInput() }
   }
 
   /// Stops at once; no callback follows.

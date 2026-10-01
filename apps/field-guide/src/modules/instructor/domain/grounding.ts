@@ -67,7 +67,7 @@ export function promptFor(
   question: string,
   state: SessionState,
   pack: Pack,
-  previous: PreviousExchange | null,
+  history: readonly PreviousExchange[],
   notes: PromptNotes,
 ): string {
   const subject = subjectOf(question, state, pack);
@@ -98,11 +98,11 @@ export function promptFor(
   if (procedure && procedure.id !== TOUR_ID && step) {
     lines.push(`Current step of "${procedure.title}": ${step.text}`);
   }
-  if (previous) {
+  for (const earlier of history) {
     lines.push(
-      `Earlier question: ${previous.question.slice(0, MAX_HISTORY_CHARS)}`,
+      `Earlier question: ${earlier.question.slice(0, MAX_HISTORY_CHARS)}`,
     );
-    lines.push(`Earlier answer: ${previous.reply.slice(0, MAX_HISTORY_CHARS)}`);
+    lines.push(`Earlier answer: ${earlier.reply.slice(0, MAX_HISTORY_CHARS)}`);
   }
   lines.push(`Question: ${question.trim().slice(0, MAX_QUESTION_CHARS)}`);
   return lines.join('\n');

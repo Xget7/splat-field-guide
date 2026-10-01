@@ -9,6 +9,8 @@ import {
 import { ModelName, type InstructorModel } from '../domain/InstructorModel';
 
 const AVAILABLE = 'available';
+// One earlier exchange is all a follow-up needs, and all the 4096 tokens leave room for.
+const ON_DEVICE_HISTORY_TURNS = 1;
 
 /**
  * The same text for every question of a pack, so a prewarmed session and its cache stay
@@ -39,10 +41,16 @@ export const onDeviceModel: InstructorModel = {
       // Another model or the script answers without it.
     }
   },
-  respond({ question, state, pack, previous }, onText) {
+  respond({ question, state, pack, history }, onText) {
     return languageModel().respond(
       onDeviceInstructions(pack),
-      promptFor(question, state, pack, previous, PromptNotes.subject),
+      promptFor(
+        question,
+        state,
+        pack,
+        history.slice(-ON_DEVICE_HISTORY_TURNS),
+        PromptNotes.subject,
+      ),
       onText,
     );
   },

@@ -28,9 +28,12 @@ const Layout = {
 
 export function ReadyCard({
   guide,
+  wide = false,
   onPress,
 }: {
   guide: ReadyGuide;
+  /** Photo and details side by side, so the card is not a screen-wide photo. */
+  wide?: boolean;
   onPress: () => void;
 }) {
   const facts = packFacts(guide.pack);
@@ -40,9 +43,13 @@ export function ReadyCard({
       accessibilityRole="button"
       accessibilityLabel={`${guide.title}, ${guide.area}, offline`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        wide && styles.wideCard,
+        pressed && styles.pressed,
+      ]}
     >
-      <View style={styles.readyFrame}>
+      <View style={[styles.readyFrame, wide && styles.wideFrame]}>
         <Image source={guide.image} resizeMode="cover" style={styles.image} />
         <Brackets
           color={Color.accent}
@@ -58,8 +65,10 @@ export function ReadyCard({
           <Label color={Color.accent}>Offline</Label>
         </View>
       </View>
-      <View style={styles.readyBody}>
-        <Text style={styles.readyTitle}>{guide.title}</Text>
+      <View style={[styles.readyBody, wide && styles.wideBody]}>
+        <Text style={[styles.readyTitle, wide && styles.wideTitle]}>
+          {guide.title}
+        </Text>
         <Text
           style={styles.subtitle}
         >{`${guide.subtitle} - ${guide.area}`}</Text>
@@ -190,6 +199,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.sm,
   },
   readyBody: { padding: Space.lg, gap: Space.sm },
+  wideCard: { flexDirection: 'row' },
+  wideFrame: { flex: 3 },
+  wideBody: { flex: 2, justifyContent: 'flex-end', padding: Space.xl },
+  wideTitle: Type.title,
   readyTitle: {
     ...Type.headline,
     fontSize: Layout.titleSize,

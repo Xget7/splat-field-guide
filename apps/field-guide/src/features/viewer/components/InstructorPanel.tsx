@@ -1,8 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
-  useAnimatedRef,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -22,9 +21,10 @@ import {
   IconButton,
   IconButtonVariant,
 } from '../../../shared/ui/kit/Button';
-import { IconName } from '../../../shared/ui/kit/Icon';
+import { Icon, IconName } from '../../../shared/ui/kit/Icon';
 import { stepLabel } from '../../../shared/ui/readout';
 import {
+  BUTTON_HEIGHT,
   Color,
   HAIRLINE,
   MIN_TOUCH,
@@ -33,18 +33,26 @@ import {
   Space,
   Type,
 } from '../../../shared/ui/theme';
-import { CautionNote } from './CautionNote';
 import type { CardContent } from '../model/guideContent';
+import {
+  EntryKind,
+  type Exchange,
+  type ThreadEntry,
+} from '../model/viewerState';
+import { InstructorThread } from './InstructorThread';
 import { StepSegments } from './StepSegments';
 import { SpokenSection } from '../../../modules/instructor/voice/model/speechPresentation';
 import {
+  Composer,
+  composerStyles,
   FADE_IN,
   FADE_OUT,
   PANEL_LAYOUT,
   InstructorScan,
   InstructorStatus,
-  InstructorTalk,
   KaraokeText,
+  MuteButton,
+  VoiceBar,
 } from './InstructorMotion';
 import {
   PanelMode,
@@ -58,22 +66,20 @@ import {
   type InstructorVoice,
 } from '../../../modules/instructor/voice/hooks/useInstructorVoice';
 
-// The splat keeps most of the screen even for a long answer.
-const MAX_PANEL_SHARE = '55%';
-const TALK_SIZE = 56;
+// Open under the splat, the conversation keeps one height, so the splat above it does not
+// resize as the thread grows.
+const CHAT_SHARE = '50%';
+const DOCKED_SHARE = '60%';
 const SIDE_SIZE = MIN_TOUCH;
-// The answer being replaced stays readable but plainly not current.
-const STALE_OPACITY = 0.45;
-const InputMode = { voice: 'voice', keyboard: 'keyboard' } as const;
-type InputMode = (typeof InputMode)[keyof typeof InputMode];
 const GRABBER_WIDTH = 36;
 const GRABBER_HEIGHT = 4;
 const GRABBER_SLOP = (MIN_TOUCH - Space.lg) / 2;
 const STEP_EXCHANGE_KEY = 'step';
+const VOICE_ICON = 18;
 
-// Hands free there is no button to discover, so the panel says what can be said. Quoted
+// In voice mode there is no button to discover, so the panel says what can be said. Quoted
 // words are the commands the router knows; they read brighter than the rest.
-const HandsFreeCue = {
+const VoiceCue = {
   step: [
     'Say ',
     '"next"',
@@ -89,32 +95,26 @@ const HandsFreeCue = {
 } as const;
 const COMMAND_QUOTE = '"';
 
-function handsFreeCue(voice: InstructorVoice, hasStep: boolean) {
-  if (!voice.handsFree) {
+function voiceCue(voice: InstructorVoice, hasStep: boolean) {
+  if (!voice.on) {
     return null;
   }
   if (voice.muted) {
-    return HandsFreeCue.muted;
+    return VoiceCue.muted;
   }
   if (
     voice.state === VoiceState.speaking ||
     voice.state === VoiceState.thinking
   ) {
-    return HandsFreeCue.busy;
+    return VoiceCue.busy;
   }
-  return hasStep ? HandsFreeCue.step : HandsFreeCue.part;
-}
-
-/** What the panel shows: the last question, if any, and the answer to it. */
-export interface InstructorMessage {
-  readonly id: number | null;
-  readonly question: string | null;
-  readonly reply: string;
-  readonly caution: string;
+  return hasStep ? VoiceCue.step : VoiceCue.part;
 }
 
 interface Props {
-  message: InstructorMessage;
+  thread: readonly ThreadEntry[];
+  exchange: Exchange | null;
+  suggestions: readonly string[];
   content: CardContent;
   bottomInset: number;
   onAsk: (question: string) => void;
@@ -123,11 +123,15 @@ interface Props {
   onModeChange: (mode: PanelMode) => void;
   onBack: () => void;
   onNext: () => void;
+  /** In a sidebar beside the splat: always open, with the steps listed above it. */
+  docked?: boolean;
 }
 
 /** Answers grounded in the pack, with the current subject in view. */
 export function InstructorPanel({
-  message,
+  thread,
+  exchange,
+  suggestions,
   content,
   bottomInset,
   onAsk,
@@ -136,45 +140,23 @@ export function InstructorPanel({
   onModeChange,
   onBack,
   onNext,
+  docked = false,
 }: Props) {
   const [draft, setDraft] = useState('');
-  const [inputMode, setInputMode] = useState<InputMode>(InputMode.voice);
+  const [typing, setTyping] = useState(false);
   const listening = voice.state === VoiceState.listening;
-  // The last question stays until the transcript has words to replace it.
-  const question = listening
-    ? voice.transcript || message.question
-    : message.question;
-  const transcribing = listening && voice.transcript !== '';
-  // A question in flight has no words back yet; until it does, the last answer stays
-  // where it was, dimmed, so nothing below the question jumps or blanks out.
-  const awaiting = message.question !== null && message.reply === '';
-  const [lastAnswer, setLastAnswer] = useState(message);
-  if (!awaiting && lastAnswer !== message) {
-    setLastAnswer(message);
-  }
-  const answer = awaiting ? lastAnswer : message;
-  const stale = listening || awaiting;
-  // From the press until the new answer has words the panel keeps its height: a growing
-  // transcript or a hint that clears must not resize the splat above it mid-sentence.
-  const [holding, setHolding] = useState(false);
-  const [heldHeight, setHeldHeight] = useState(0);
-  const measuredHeight = useRef(0);
-  const heightLocked = (holding || listening || awaiting) && heldHeight > 0;
-  const holdHeight = useCallback(() => {
-    setHeldHeight(measuredHeight.current);
-  }, []);
-  const onHoldChange = useCallback(
-    (next: boolean) => {
-      if (next) {
-        holdHeight();
-      }
-      setHolding(next);
-    },
-    [holdHeight],
-  );
-  const scroll = useAnimatedRef<Animated.ScrollView>();
+  const transcript = listening ? voice.transcript : '';
+  // Without a live exchange, the last entry is the step on screen.
+  const last = thread[thread.length - 1];
+  const said =
+    exchange ??
+    (last === undefined
+      ? null
+      : last.kind === EntryKind.exchange
+      ? last.exchange
+      : { id: null, reply: last.card.body });
   const reducedMotion = useReducedMotion();
-  const minimized = mode === PanelMode.minimized;
+  const minimized = !docked && mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
     ? stepLabel(content.stepNumber, content.stepCount)
@@ -189,7 +171,6 @@ export function InstructorPanel({
     (next: PanelMode) => {
       if (next === PanelMode.minimized) {
         Keyboard.dismiss();
-        setInputMode(InputMode.voice);
       }
       onModeChange(next);
     },
@@ -198,6 +179,7 @@ export function InstructorPanel({
   const toggle = () => changeMode(togglePanel(mode));
   const toggleLabel = minimized ? 'Expand instructor' : 'Minimize instructor';
   const pan = usePanGesture({
+    enabled: !docked,
     maxPointers: 1,
     activeOffsetY: [-PanelPan.activation, PanelPan.activation],
     failOffsetX: [-PanelPan.horizontalTolerance, PanelPan.horizontalTolerance],
@@ -234,31 +216,28 @@ export function InstructorPanel({
   const speakingReply =
     voice.state === VoiceState.speaking &&
     voice.section === SpokenSection.reply;
-  const speakingCaution =
-    voice.state === VoiceState.speaking &&
-    voice.section === SpokenSection.caution;
-  const preview = voice.hint || (listening ? question ?? '' : message.reply);
+  const preview =
+    voice.hint ||
+    (listening ? transcript || exchange?.question || '' : said?.reply ?? '');
   const canStop =
     voice.state === VoiceState.speaking || voice.state === VoiceState.thinking;
-  const cue = voice.hint === '' ? handsFreeCue(voice, hasStep) : null;
+  const cue = voice.hint === '' ? voiceCue(voice, hasStep) : null;
   const send = useCallback(() => {
     if (draft.trim() === '') {
       return;
     }
-    holdHeight();
     onAsk(draft);
     setDraft('');
     // Down goes the keyboard so the part it shows is in view.
     Keyboard.dismiss();
-  }, [draft, onAsk, holdHeight]);
+  }, [draft, onAsk]);
   const previous = hasStep ? (
     <IconButton
       testID="instructor-back"
       icon={IconName.back}
       accessibilityLabel="Previous step"
-      size={SIDE_SIZE}
+      size={BUTTON_HEIGHT}
       disabled={content.backDisabled}
-      style={styles.sideControl}
       onPress={onBack}
     />
   ) : null;
@@ -266,7 +245,7 @@ export function InstructorPanel({
     <Button
       testID="instructor-next"
       label={content.last ? 'Finish' : 'Next'}
-      icon={content.last ? IconName.check : IconName.next}
+      icon={content.last ? IconName.check : undefined}
       accessibilityLabel={content.last ? 'Finish procedure' : 'Next step'}
       disabled={content.nextDisabled}
       onPress={onNext}
@@ -279,7 +258,6 @@ export function InstructorPanel({
       testID="instructor-panel"
       layout={layout}
       onLayout={event => {
-        measuredHeight.current = event.nativeEvent.layout.height;
         if (!minimized) {
           travel.value = Math.max(
             PanelPan.distance,
@@ -290,7 +268,7 @@ export function InstructorPanel({
       style={[
         styles.panel,
         minimized && styles.minimized,
-        heightLocked && { height: heldHeight, maxHeight: heldHeight },
+        docked && styles.docked,
         { paddingBottom: bottomInset + Space.md },
         panelStyle,
       ]}
@@ -301,33 +279,43 @@ export function InstructorPanel({
       />
       <GestureDetector gesture={pan}>
         <View collapsable={false} testID="instructor-handle">
-          <Pressable
-            testID="instructor-grabber"
-            accessibilityRole="button"
-            accessibilityLabel={toggleLabel}
-            accessibilityState={{ expanded: !minimized }}
-            onPress={toggle}
-            hitSlop={GRABBER_SLOP}
-            style={styles.grabberArea}
-          >
-            <View style={styles.grabber} />
-          </Pressable>
-          <View style={styles.headerRow}>
+          {!docked && (
             <Pressable
-              testID="instructor-header"
+              testID="instructor-grabber"
               accessibilityRole="button"
               accessibilityLabel={toggleLabel}
               accessibilityState={{ expanded: !minimized }}
+              onPress={toggle}
+              hitSlop={GRABBER_SLOP}
+              style={styles.grabberArea}
+            >
+              <View style={styles.grabber} />
+            </Pressable>
+          )}
+          <View style={styles.headerRow}>
+            <Pressable
+              testID="instructor-header"
+              // Docked, the header only reads out: there is nothing to minimize.
+              accessible={!docked}
+              accessibilityRole={docked ? undefined : 'button'}
+              accessibilityLabel={docked ? undefined : toggleLabel}
+              accessibilityState={docked ? undefined : { expanded: !minimized }}
+              disabled={docked}
               onPress={toggle}
               style={styles.headerButton}
             >
               <View style={styles.header}>
                 <Text style={styles.label}>Instructor</Text>
-                <InstructorStatus voice={voice} step={step} />
+                <InstructorStatus
+                  voice={voice}
+                  // Open, the thread names each step itself.
+                  step={minimized ? step : null}
+                  live={voice.on && minimized}
+                />
               </View>
               {minimized && preview !== '' && (
                 <Animated.View
-                  key={voice.hint || (message.id ?? STEP_EXCHANGE_KEY)}
+                  key={voice.hint || (said?.id ?? STEP_EXCHANGE_KEY)}
                   entering={FADE_IN}
                   exiting={FADE_OUT}
                 >
@@ -342,22 +330,6 @@ export function InstructorPanel({
                 </Animated.View>
               )}
             </Pressable>
-            {!minimized && voice.canListen && (
-              <IconButton
-                testID="instructor-hands-free"
-                icon={IconName.handsFree}
-                accessibilityLabel="Hands-free"
-                accessibilityHint="Listens all the time, so you can talk without holding the mic"
-                accessibilityState={{ selected: voice.handsFree }}
-                variant={
-                  voice.handsFree
-                    ? IconButtonVariant.active
-                    : IconButtonVariant.raised
-                }
-                style={voice.handsFree ? undefined : styles.sideControl}
-                onPress={voice.toggleHandsFree}
-              />
-            )}
             {!minimized && canStop && (
               <Animated.View entering={FADE_IN} exiting={FADE_OUT}>
                 <IconButton
@@ -369,14 +341,7 @@ export function InstructorPanel({
                 />
               </Animated.View>
             )}
-            {minimized && (
-              <InstructorTalk
-                voice={voice}
-                size={SIDE_SIZE}
-                reducedMotion={reducedMotion}
-                onHoldChange={onHoldChange}
-              />
-            )}
+            {minimized && voice.on && <MuteButton voice={voice} />}
             {minimized && hasStep && (
               <IconButton
                 testID="instructor-next"
@@ -394,70 +359,23 @@ export function InstructorPanel({
       </GestureDetector>
       {!minimized && (
         <>
-          {hasStep && (
+          {hasStep && !docked && (
             <StepSegments
               count={content.stepCount}
               current={content.stepNumber - 1}
             />
           )}
-          <Animated.ScrollView
-            ref={scroll}
-            style={styles.scroll}
-            layout={layout}
-            onContentSizeChange={() => {
-              // The transcript sits on top, so a long last answer must not push it away.
-              if (transcribing) {
-                scroll.current?.scrollTo({ y: 0, animated: false });
-              }
-            }}
-          >
-            <Animated.View
-              key={answer.id ?? STEP_EXCHANGE_KEY}
-              entering={FADE_IN}
-              exiting={FADE_OUT}
-              layout={layout}
-              style={styles.text}
-            >
-              {question !== null && (
-                <Text
-                  testID="instructor-question"
-                  accessibilityLabel={
-                    transcribing
-                      ? `Provisional transcript: ${question}`
-                      : undefined
-                  }
-                  style={[styles.question, transcribing && styles.provisional]}
-                >
-                  {question}
-                </Text>
-              )}
-              <View
-                testID="instructor-answer"
-                accessibilityState={{ busy: stale }}
-                style={[styles.text, stale && styles.stale]}
-              >
-                {answer.reply !== '' && (
-                  <KaraokeText
-                    id="instructor-reply"
-                    text={answer.reply}
-                    speaking={speakingReply && !stale}
-                    word={voice.word}
-                  />
-                )}
-                {answer.caution !== '' && (
-                  <CautionNote text={answer.caution}>
-                    <KaraokeText
-                      id="instructor-caution-text"
-                      text={answer.caution}
-                      speaking={speakingCaution && !stale}
-                      word={voice.word}
-                      style={Type.footnote}
-                    />
-                  </CautionNote>
-                )}
-              </View>
-            </Animated.View>
-          </Animated.ScrollView>
+          <InstructorThread
+            thread={thread}
+            exchange={exchange}
+            transcript={transcript}
+            voice={voice}
+            reducedMotion={reducedMotion}
+            // Under the splat on a phone, they would push the step itself out of view.
+            suggestions={docked ? suggestions : []}
+            onAsk={onAsk}
+            compact={docked}
+          />
           {voice.hint !== '' && (
             <Animated.Text
               key={voice.hint}
@@ -491,79 +409,70 @@ export function InstructorPanel({
               )}
             </Animated.Text>
           )}
-          {inputMode === InputMode.keyboard ? (
-            <>
-              <View style={styles.inputRow}>
-                <IconButton
-                  testID="instructor-mic"
-                  icon={IconName.mic}
-                  accessibilityLabel="Use voice input"
-                  style={styles.sideControl}
+          {voice.on ? (
+            <VoiceBar voice={voice} />
+          ) : (
+            <View style={[composerStyles.frame, typing && composerStyles.open]}>
+              <TextInput
+                testID="instructor-input"
+                value={draft}
+                onChangeText={setDraft}
+                onSubmitEditing={send}
+                placeholder="Ask about a part"
+                placeholderTextColor={Color.faint}
+                returnKeyType="send"
+                enablesReturnKeyAutomatically
+                autoCorrect={false}
+                keyboardAppearance="dark"
+                selectionColor={Color.accent}
+                accessibilityLabel="Ask the instructor"
+                onFocus={() => setTyping(true)}
+                onBlur={() => setTyping(false)}
+                style={styles.input}
+              />
+              {draft.trim() === '' ? (
+                // Named, not just drawn: a waveform alone was easy to miss.
+                <Pressable
+                  testID="instructor-voice"
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice"
+                  accessibilityHint="Reads everything aloud and listens, so you can talk instead of typing"
+                  hitSlop={(MIN_TOUCH - Composer.button) / 2}
                   onPress={() => {
                     Keyboard.dismiss();
-                    setInputMode(InputMode.voice);
+                    voice.toggle();
                   }}
-                />
-                <TextInput
-                  testID="instructor-input"
-                  autoFocus
-                  value={draft}
-                  onChangeText={setDraft}
-                  onSubmitEditing={send}
-                  placeholder="Ask about a part"
-                  placeholderTextColor={Color.faint}
-                  returnKeyType="send"
-                  enablesReturnKeyAutomatically
-                  autoCorrect={false}
-                  keyboardAppearance="dark"
-                  selectionColor={Color.accent}
-                  accessibilityLabel="Ask the instructor"
-                  style={styles.input}
-                />
+                  style={({ pressed }) => [
+                    composerStyles.quietButton,
+                    styles.voiceButton,
+                    pressed && styles.voicePressed,
+                  ]}
+                >
+                  <Icon
+                    name={IconName.handsFree}
+                    size={VOICE_ICON}
+                    color={Color.accent}
+                  />
+                  <Text style={styles.voiceLabel}>Voice</Text>
+                </Pressable>
+              ) : (
                 <IconButton
                   testID="instructor-send"
                   icon={IconName.send}
                   accessibilityLabel="Send"
-                  variant={
-                    draft.trim() === ''
-                      ? IconButtonVariant.raised
-                      : IconButtonVariant.active
-                  }
-                  disabled={draft.trim() === ''}
+                  variant={IconButtonVariant.active}
+                  size={Composer.button}
+                  style={composerStyles.insetButton}
                   onPress={send}
                 />
-              </View>
-              {hasStep && (
-                <View style={styles.talkRow}>
-                  {previous}
-                  {next}
-                </View>
               )}
-            </>
-          ) : (
-            <>
-              <View style={styles.talkRow}>
-                {previous}
-                <IconButton
-                  testID="instructor-keyboard"
-                  icon={IconName.keyboard}
-                  size={SIDE_SIZE}
-                  accessibilityLabel="Type a question"
-                  style={styles.sideControl}
-                  onPress={() => {
-                    voice.interrupt();
-                    setInputMode(InputMode.keyboard);
-                  }}
-                />
-                <InstructorTalk
-                  voice={voice}
-                  size={TALK_SIZE}
-                  reducedMotion={reducedMotion}
-                  onHoldChange={onHoldChange}
-                />
-                {next}
-              </View>
-            </>
+            </View>
+          )}
+          {hasStep && (
+            <View style={styles.talkRow}>
+              {previous}
+              {next}
+            </View>
           )}
         </>
       )}
@@ -573,8 +482,7 @@ export function InstructorPanel({
 
 const styles = StyleSheet.create({
   panel: {
-    maxHeight: MAX_PANEL_SHARE,
-    flexShrink: 1,
+    height: CHAT_SHARE,
     paddingTop: Space.sm,
     paddingHorizontal: Space.lg,
     gap: Space.sm,
@@ -582,7 +490,16 @@ const styles = StyleSheet.create({
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },
-  minimized: { maxHeight: undefined, gap: Space.xs },
+  minimized: { height: undefined, gap: Space.xs },
+  // No grabber above the header, so the top edge takes its own margin. Beside the splat
+  // the panel grows with the conversation, and the steps above it give way.
+  docked: {
+    height: undefined,
+    maxHeight: DOCKED_SHARE,
+    flexShrink: 1,
+    paddingTop: Space.md,
+    gap: Space.md,
+  },
   grabberArea: {
     height: Space.lg,
     alignItems: 'center',
@@ -607,44 +524,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  text: { gap: Space.sm },
-  question: {
-    ...Type.callout,
-    color: Color.secondaryText,
-    alignSelf: 'flex-end',
-    backgroundColor: Color.raised,
-    borderRadius: Radius.md,
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-  },
-  provisional: {
-    color: Color.muted,
-    borderWidth: HAIRLINE,
-    borderColor: Color.lineStrong,
-    borderStyle: 'dashed',
-  },
-  stale: { opacity: STALE_OPACITY },
   hint: { ...Type.footnote, color: Color.muted },
   command: { color: Color.text },
-  talkRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: Space.sm,
-  },
-  next: { flex: 1, height: MIN_TOUCH, paddingHorizontal: Space.md },
+  talkRow: { flexDirection: 'row', gap: Space.sm },
+  next: { flex: 1 },
   sideControl: { backgroundColor: 'transparent', borderWidth: 0 },
-  inputRow: { flexDirection: 'row', gap: Space.sm },
+  voiceButton: {
+    height: Composer.button,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.xs,
+    paddingHorizontal: Space.sm,
+  },
+  voicePressed: { backgroundColor: Color.lineStrong },
+  voiceLabel: { ...Type.label, color: Color.text },
   input: {
     ...Type.callout,
     flex: 1,
-    height: MIN_TOUCH,
-    paddingHorizontal: Space.md,
-    borderRadius: Radius.md,
-    borderWidth: HAIRLINE,
-    borderColor: Color.lineStrong,
-    backgroundColor: Color.raised,
+    alignSelf: 'stretch',
+    padding: 0,
     color: Color.text,
   },
 });

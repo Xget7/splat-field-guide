@@ -7,7 +7,6 @@ import type { ProcedureRow } from '../model/procedureRows';
 
 const INDEX_WIDTH = 24;
 const TRAILING_ICON = 20;
-const CAUTION_ICON = 14;
 // Sits the index on the title's first line rather than the middle of the row.
 const INDEX_OFFSET = (Type.callout.lineHeight - Type.label.lineHeight) / 2;
 
@@ -18,7 +17,10 @@ interface Props {
   onChoose: (procedureId: ProcedureId) => void;
 }
 
-/** Numbered procedures, each with its step count and whether it carries safety notes. */
+/**
+ * Numbered procedures, each with its step count. Safety notes are left to the steps that carry
+ * them and to screen readers: a badge on nearly every row would only say "careful" in amber.
+ */
 export function ProcedureList({ rows, current, onChoose }: Props) {
   const choosing = current !== undefined;
   return (
@@ -49,19 +51,7 @@ export function ProcedureList({ rows, current, onChoose }: Props) {
               <Text style={[styles.title, selected && styles.selectedTitle]}>
                 {row.title}
               </Text>
-              <View style={styles.meta}>
-                <Text style={styles.steps}>{row.stepsLabel}</Text>
-                {row.hasCaution && (
-                  <View style={styles.caution}>
-                    <Icon
-                      name={IconName.warn}
-                      size={CAUTION_ICON}
-                      color={Color.caution}
-                    />
-                    <Text style={styles.cautionText}>Caution</Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.steps}>{row.stepsLabel}</Text>
             </View>
             {!choosing ? (
               <Icon
@@ -109,9 +99,6 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: Space.xs },
   title: { ...Type.callout, color: Color.text },
   selectedTitle: { ...Type.calloutStrong, color: Color.accent },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
   steps: { ...Type.data, color: Color.muted },
-  caution: { flexDirection: 'row', alignItems: 'center', gap: Space.xs },
-  cautionText: { ...Type.data, color: Color.caution },
   trailingSpace: { width: TRAILING_ICON },
 });

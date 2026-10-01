@@ -2,6 +2,8 @@ import type { Pack } from '../../../../../apps/field-guide/src/domain/pack';
 import { SessionEventType } from '../../../../../apps/field-guide/src/domain/session';
 import { bundledPack } from '../../../../../apps/field-guide/src/modules/packs/bundledPack';
 import {
+  answeredExchanges,
+  EntryKind,
   initialViewerState,
   ExchangePhase,
   reduceViewer,
@@ -203,5 +205,35 @@ describe('reduceViewer', () => {
     expect(canceled.session).toBe(coolant.session);
     expect(canceled.exchange).toBeNull();
     expect(canceled.answerSession).toBeNull();
+  });
+
+  it('keeps the conversation in order: steps as shown, then each answer', () => {
+    const state = run(
+      coolant,
+      begin(1),
+      answer(1),
+      session('next'),
+      session('repeat'),
+      begin(2),
+    );
+    expect(
+      state.thread.map(entry =>
+        entry.kind === EntryKind.step
+          ? entry.card.stepNumber
+          : entry.exchange.question,
+      ),
+    ).toEqual([2, 'What does it do?', 3]);
+    expect(answeredExchanges(state).map(done => done.id)).toEqual([1]);
+    // Cancelled, the second question leaves the thread as it was before it was asked.
+    const canceled = run(state, { type: ViewerActionType.cancel });
+    expect(canceled.thread).toEqual(state.thread);
+    expect(canceled.exchange).toBeNull();
+  });
+
+  it('cancel brings back the answer that was live before the question', () => {
+    const done = run(coolant, begin(1), answer(1));
+    const canceled = run(done, begin(2), { type: ViewerActionType.cancel });
+    expect(canceled.exchange).toBe(done.exchange);
+    expect(canceled.thread).toEqual(done.thread);
   });
 });

@@ -10,6 +10,8 @@ import {
   cardContentFor,
   markedPartsFor,
   partIdForLabel,
+  stepRowsFor,
+  suggestionsFor,
 } from '../../../../../apps/field-guide/src/features/viewer/model/guideContent';
 
 const pack = fixturePack();
@@ -143,4 +145,44 @@ test('labels map to exact parts, with zero clearing and unknown labels ignored',
   expect(partIdForLabel(7, pack)).toBe('valve-cover');
   expect(partIdForLabel(0, pack)).toBeNull();
   expect(partIdForLabel(255, pack)).toBeUndefined();
+});
+
+test('the step list names tour steps by part and the rest by their first sentence, then the others', () => {
+  const procedure = pack.procedures.find(({ id }) => id === 'check-coolant')!;
+  const twoSentences = {
+    ...pack,
+    procedures: [
+      {
+        ...procedure,
+        steps: [
+          { ...procedure.steps[0], text: 'Open the hood. Prop it up.' },
+          ...procedure.steps.slice(1),
+        ],
+      },
+    ],
+  };
+  expect(stepRowsFor(start('check-coolant'), twoSentences)[0]).toEqual({
+    id: procedure.steps[0].id,
+    text: 'Open the hood.',
+    detail: 'Prop it up.',
+    caution: procedure.steps[0].caution,
+  });
+  expect(stepRowsFor(start(), pack)[0]).toMatchObject({
+    text: 'Coolant reservoir',
+    detail: 'Coolant reservoir summary',
+  });
+});
+
+test('suggests how a toured part works, and what a step part does and why the step matters', () => {
+  expect(suggestionsFor(start(), pack)).toEqual([
+    'How does the coolant reservoir work?',
+    'What can go wrong with it?',
+  ]);
+  const step = pack.procedures.find(({ id }) => id === 'check-coolant')!
+    .steps[0];
+  const part = pack.parts.find(({ id }) => id === step.parts[0])!;
+  expect(suggestionsFor(start('check-coolant'), pack)).toEqual([
+    `What does the ${part.name.toLowerCase()} do?`,
+    'Why does this step matter?',
+  ]);
 });

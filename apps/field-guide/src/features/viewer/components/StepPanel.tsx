@@ -31,6 +31,8 @@ interface Props {
   onBack: () => void;
   onNext: () => void;
   onRepeat: () => void;
+  /** In a sidebar under the step list, which already shows the progress. */
+  docked?: boolean;
 }
 
 /** The step on its own: where it is in the procedure, what to do, and the way on. */
@@ -40,6 +42,7 @@ export function StepPanel({
   onBack,
   onNext,
   onRepeat,
+  docked = false,
 }: Props) {
   const swipe = usePanGesture({
     runOnJS: true,
@@ -74,7 +77,11 @@ export function StepPanel({
     <GestureDetector gesture={swipe}>
       <View
         testID="step-panel"
-        style={[styles.panel, { paddingBottom: bottomInset + Space.md }]}
+        style={[
+          styles.panel,
+          docked && styles.docked,
+          { paddingBottom: bottomInset + Space.md },
+        ]}
       >
         <View style={styles.header}>
           <Label testID="step-counter" color={Color.accent}>
@@ -84,7 +91,7 @@ export function StepPanel({
           </Label>
           {content.selected && <Label color={Color.muted}>Selected</Label>}
         </View>
-        {hasStep && (
+        {hasStep && !docked && (
           <StepSegments
             count={content.stepCount}
             current={content.stepNumber - 1}
@@ -146,6 +153,8 @@ const styles = StyleSheet.create({
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },
+  // Under the steps in a sidebar, the space between goes above the panel.
+  docked: { marginTop: 'auto' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

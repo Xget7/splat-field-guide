@@ -68,20 +68,14 @@ test('asks with the subject notes and passes the streamed text through', async (
     question: 'What does the battery do?',
     state: INITIAL_SESSION,
     pack,
-    previous: null,
+    history: [],
   };
   await expect(onDeviceModel.respond(request, onText)).resolves.toBe(
     'It supplies the starter.',
   );
   expect(model.respond).toHaveBeenCalledWith(
     onDeviceInstructions(pack),
-    promptFor(
-      request.question,
-      INITIAL_SESSION,
-      pack,
-      null,
-      PromptNotes.subject,
-    ),
+    promptFor(request.question, INITIAL_SESSION, pack, [], PromptNotes.subject),
     onText,
   );
   expect(onText).toHaveBeenCalledWith('It');

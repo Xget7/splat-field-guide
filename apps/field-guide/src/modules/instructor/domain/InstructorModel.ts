@@ -9,7 +9,8 @@ export interface ModelRequest {
   readonly question: string;
   readonly state: SessionState;
   readonly pack: Pack;
-  readonly previous: PreviousExchange | null;
+  /** The conversation so far, oldest first; each model keeps as much as it can hold. */
+  readonly history: readonly PreviousExchange[];
 }
 
 /**

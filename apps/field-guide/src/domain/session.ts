@@ -7,6 +7,7 @@ export const SessionEventType = {
   back: 'back',
   repeat: 'repeat',
   select: 'select',
+  goTo: 'goTo',
   end: 'end',
 } as const;
 export type SessionEventType =
@@ -24,6 +25,7 @@ export type SessionEvent =
       readonly type: typeof SessionEventType.select;
       readonly partId: PartId | null;
     }
+  | { readonly type: typeof SessionEventType.goTo; readonly stepIndex: number }
   | { readonly type: typeof SessionEventType.end };
 
 export interface SessionState {
@@ -93,6 +95,14 @@ export function reduce(
       return state.selectedPart === event.partId
         ? state
         : { ...state, selectedPart: event.partId };
+    case SessionEventType.goTo:
+      return procedure &&
+        Number.isInteger(event.stepIndex) &&
+        event.stepIndex >= 0 &&
+        event.stepIndex < procedure.steps.length &&
+        event.stepIndex !== state.stepIndex
+        ? { ...state, stepIndex: event.stepIndex, selectedPart: null }
+        : state;
     case SessionEventType.end:
       return INITIAL_SESSION;
   }

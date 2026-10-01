@@ -48,7 +48,7 @@ describe('prompt', () => {
         'Is the battery safe to touch?',
         INITIAL_SESSION,
         pack,
-        null,
+        [],
         PromptNotes.subject,
       ),
     ).toBe(
@@ -66,7 +66,7 @@ describe('prompt', () => {
         'What does the battery do?',
         INITIAL_SESSION,
         pack,
-        null,
+        [],
         PromptNotes.none,
       ),
     ).toBe(['Part: Battery', 'Question: What does the battery do?'].join('\n'));
@@ -78,7 +78,7 @@ describe('prompt', () => {
         'Where is the fuse box?',
         INITIAL_SESSION,
         pack,
-        null,
+        [],
         PromptNotes.subject,
       ),
     ).toContain('Notes: Fuse box summary');
@@ -90,7 +90,7 @@ describe('prompt', () => {
         "What's the weather like?",
         INITIAL_SESSION,
         pack,
-        null,
+        [],
         PromptNotes.subject,
       ),
     ).toContain(
@@ -101,7 +101,7 @@ describe('prompt', () => {
         "What's the weather like?",
         INITIAL_SESSION,
         pack,
-        null,
+        [],
         PromptNotes.none,
       ),
     ).toBe("Question: What's the weather like?");
@@ -109,17 +109,11 @@ describe('prompt', () => {
 
   test('gives the current step of a procedure but not of the tour', () => {
     const state = startAt('check-coolant', 1, pack);
-    expect(promptFor('Why?', state, pack, null, PromptNotes.none)).toContain(
+    expect(promptFor('Why?', state, pack, [], PromptNotes.none)).toContain(
       'Current step of "Check the coolant level": Step locate',
     );
     expect(
-      promptFor(
-        'Why?',
-        startAt(TOUR_ID, 0, pack),
-        pack,
-        null,
-        PromptNotes.none,
-      ),
+      promptFor('Why?', startAt(TOUR_ID, 0, pack), pack, [], PromptNotes.none),
     ).not.toContain('Current step');
   });
 
@@ -129,7 +123,7 @@ describe('prompt', () => {
       long,
       INITIAL_SESSION,
       pack,
-      { question: long, reply: long },
+      [{ question: long, reply: long }],
       PromptNotes.none,
     );
     expect(prompt).toContain(

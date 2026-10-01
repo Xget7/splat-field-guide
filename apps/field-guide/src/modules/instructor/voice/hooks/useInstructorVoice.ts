@@ -19,7 +19,6 @@ import {
 } from '../model/speechPresentation';
 
 export const VOICE_LOCALE = 'en-US';
-export const MIN_HOLD_MS = 350;
 export const VoiceState = {
   idle: 'idle',
   listening: 'listening',
@@ -29,25 +28,15 @@ export const VoiceState = {
 export type VoiceState = (typeof VoiceState)[keyof typeof VoiceState];
 
 export const VoiceHint = {
-  shortHold: 'Hold the mic while you speak, then release to ask.',
-  empty: 'No words heard. Hold the mic and try again.',
   permission: 'Microphone or speech access is denied. You can still type.',
   unavailable:
     'On-device speech recognition is unavailable. You can still type.',
-  failed: 'Could not hear you. Try again or type your question.',
+  failed: 'Voice could not start. Try again or type your question.',
   output: 'Speech output is unavailable. You can read the reply here.',
-  handsFreeLost: 'Hands-free stopped listening. Turn it on to try again.',
+  lost: 'Voice stopped listening. Turn it on to try again.',
 } as const;
 const SpeechPermission = { granted: 'granted' } as const;
 const SpeechAvailability = { available: 'available' } as const;
-
-interface Hold {
-  readonly id: number;
-  readonly startedAt: number;
-  released: boolean;
-  ready: boolean;
-  finishing: boolean;
-}
 
 /** Something the instructor says once: an answer, or the step or part on screen. */
 export interface Utterance {
@@ -65,6 +54,17 @@ interface Options {
   thinking: boolean;
   onAsk: (question: string) => void;
   onCancel: () => void;
+  /** Starts in voice mode rather than reading. */
+  startInVoice?: boolean;
+}
+
+function warmOutput(): void {
+  try {
+    // Creating the lazy output starts warming its voice off the UI thread.
+    speechOutput();
+  } catch {
+    // The speak effect reports output that cannot start.
+  }
 }
 
 function stopOutput(): void {
@@ -84,9 +84,9 @@ function cancelInput(): void {
 }
 
 /**
- * Push to talk is half duplex: every new hold stops output before the microphone starts.
- * Hands free keeps the microphone open with echo cancellation, so the user can talk over
- * an answer to cut it short.
+ * The instructor is read by default, since reading is faster than listening. Voice is all or
+ * nothing: it reads every step and answer aloud and keeps the microphone open with echo
+ * cancellation, so the user can ask, give commands and talk over an answer to cut it short.
  */
 export function useInstructorVoice({
   pack,
@@ -95,22 +95,22 @@ export function useInstructorVoice({
   thinking,
   onAsk,
   onCancel,
+  startInVoice = false,
 }: Options) {
   const [status, setStatus] = useState<VoiceState>(VoiceState.idle);
   const [transcript, setTranscript] = useState('');
   const [hint, setHint] = useState('');
+  const [on, setOn] = useState(startInVoice);
+  const [muted, setMuted] = useState(false);
   const [canListen, setCanListen] = useState(false);
   const [word, setWord] = useState<SpokenWord | null>(null);
   const [section, setSection] = useState<SpokenSection | null>(null);
   const level = useSharedValue(0);
   const generation = useRef(0);
-  const hold = useRef<Hold | null>(null);
   const spoken = useRef<string | null>(null);
-  const voiceAccess = useRef<Promise<string> | null>(null);
   const hints = useMemo(() => recognitionHintsFor(pack), [pack]);
-  const [handsFree, setHandsFree] = useState(false);
-  const [muted, setMuted] = useState(false);
-  // The hands-free listening in progress, 0 when the microphone is closed.
+  const voiced = enabled && on;
+  // The listening in progress, 0 when the microphone is closed.
   const conversation = useRef(0);
   const conversations = useRef(0);
   // What the instructor is saying now, so its own echo is never taken for the user.
@@ -129,45 +129,51 @@ export function useInstructorVoice({
     level.value = 0;
   }, [level]);
 
+  // Speech output loads its voice model when first created, so reading never touches it.
+  const outputUsed = useRef(startInVoice);
+  useEffect(() => {
+    if (startInVoice) {
+      warmOutput();
+    }
+    // Only the first render decides; later the user turns voice on and off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const interrupt = useCallback(() => {
     generation.current += 1;
-    hold.current = null;
-    stopOutput();
-    if (conversation.current === 0) {
-      cancelInput();
+    if (outputUsed.current) {
+      stopOutput();
     }
     setTranscript('');
     quiet();
   }, [quiet]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!voiced) {
       interrupt();
-      setHandsFree(false);
       setMuted(false);
     }
     return () => {
       generation.current += 1;
-      hold.current = null;
-      stopOutput();
-      cancelInput();
+      if (outputUsed.current) {
+        stopOutput();
+        cancelInput();
+      }
       cancelAnimation(level);
       level.value = 0;
     };
-  }, [enabled, interrupt, level]);
+  }, [voiced, interrupt, level]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setOn(false);
+    }
+  }, [enabled]);
 
   useEffect(() => {
     setCanListen(false);
-    if (!enabled) {
-      voiceAccess.current = null;
+    if (!voiced) {
       return;
-    }
-    setHint('');
-    try {
-      // Creating the lazy output starts warming its voice off the UI thread.
-      speechOutput();
-    } catch {
-      // Replies can still be read without native speech.
     }
     let active = true;
     const prepare = async () => {
@@ -184,23 +190,25 @@ export function useInstructorVoice({
         return VoiceHint.failed;
       }
     };
-    const access = prepare();
-    voiceAccess.current = access;
-    access.then(reason => {
-      if (active) {
-        setCanListen(reason === '');
-        if (reason !== '') {
-          setHint(reason);
-        }
+    prepare().then(reason => {
+      if (!active) {
+        return;
+      }
+      if (reason === '') {
+        setCanListen(true);
+      } else {
+        // Voice without a microphone would be the half mode this replaces.
+        setOn(false);
+        setHint(reason);
       }
     });
     return () => {
       active = false;
     };
-  }, [enabled]);
+  }, [voiced]);
 
   useEffect(() => {
-    if (!enabled || utterance === null || spoken.current === utterance.id) {
+    if (!voiced || utterance === null || spoken.current === utterance.id) {
       return;
     }
     spoken.current = utterance.id;
@@ -268,9 +276,9 @@ export function useInstructorVoice({
       }
     };
     speak();
-  }, [enabled, utterance, level, quiet]);
+  }, [voiced, utterance, level, quiet]);
 
-  const listening = enabled && canListen && handsFree && !muted;
+  const listening = voiced && canListen && !muted;
   useEffect(() => {
     if (!listening) {
       return;
@@ -281,9 +289,9 @@ export function useInstructorVoice({
     const lost = () => {
       if (open()) {
         conversation.current = 0;
-        setHandsFree(false);
+        setOn(false);
         setTranscript('');
-        setHint(VoiceHint.handsFreeLost);
+        setHint(VoiceHint.lost);
       }
     };
     // The user talking over an answer cuts it short, and over a pending one cancels it.
@@ -342,149 +350,54 @@ export function useInstructorVoice({
     };
   }, [listening, hints, level, quiet]);
 
-  const toggleHandsFree = useCallback(() => {
+  const toggle = useCallback(() => {
     interrupt();
-    latest.current.onCancel();
-    setMuted(false);
     setHint('');
-    setHandsFree(!handsFree);
-  }, [interrupt, handsFree]);
-
-  const toggleMuted = useCallback(() => setMuted(on => !on), []);
-
-  const finish = useCallback(
-    async (current: Hold) => {
-      if (current.finishing || current.id !== generation.current) {
-        return;
-      }
-      current.finishing = true;
-      try {
-        const question = (await speechInput().finish()).trim();
-        if (current.id !== generation.current) {
-          return;
-        }
-        hold.current = null;
-        setStatus(VoiceState.idle);
-        setTranscript('');
-        level.value = 0;
-        if (question === '') {
-          setHint(VoiceHint.empty);
-        } else {
-          onAsk(question);
-        }
-      } catch {
-        if (current.id === generation.current) {
-          interrupt();
-          setHint(VoiceHint.failed);
-        }
-      }
-    },
-    [onAsk, interrupt, level],
-  );
-
-  const start = useCallback(async () => {
-    const access = voiceAccess.current;
-    if (!enabled || access === null || handsFree) {
-      return;
+    if (!on) {
+      // Turning voice on reads out what is on screen.
+      spoken.current = null;
+      outputUsed.current = true;
+      warmOutput();
     }
+    setOn(!on);
+  }, [interrupt, on]);
+
+  const toggleMuted = useCallback(() => setMuted(value => !value), []);
+
+  // The user moved on, by typing a question or changing step: a notice about voice is stale.
+  const moveOn = useCallback(() => {
     interrupt();
-    onCancel();
-    const current: Hold = {
-      id: ++generation.current,
-      startedAt: Date.now(),
-      released: false,
-      ready: false,
-      finishing: false,
-    };
-    hold.current = current;
     setHint('');
-    try {
-      const reason = await access;
-      if (current.id !== generation.current) {
-        return;
-      }
-      if (reason !== '') {
-        interrupt();
-        setHint(reason);
-        return;
-      }
-      setStatus(VoiceState.listening);
-      await speechInput().start(
-        VOICE_LOCALE,
-        hints,
-        partial => {
-          if (current.id === generation.current) {
-            setTranscript(partial);
-          }
-        },
-        amplitude => {
-          if (current.id === generation.current && !current.finishing) {
-            level.value = withTiming(normalizedLevel(amplitude), {
-              duration: Motion.levelSmoothing,
-              reduceMotion: ReduceMotion.Never,
-            });
-          }
-        },
-      );
-      if (current.id !== generation.current) {
-        return;
-      }
-      current.ready = true;
-      if (current.released) {
-        finish(current);
-      }
-    } catch {
-      if (current.id === generation.current) {
-        interrupt();
-        setHint(VoiceHint.failed);
-      }
-    }
-  }, [enabled, hints, handsFree, interrupt, onCancel, finish, level]);
-
-  const release = useCallback(() => {
-    const current = hold.current;
-    if (current === null || current.released) {
-      return;
-    }
-    current.released = true;
-    if (Date.now() - current.startedAt < MIN_HOLD_MS) {
-      interrupt();
-      setHint(VoiceHint.shortHold);
-    } else if (current.ready) {
-      finish(current);
-    }
-  }, [finish, interrupt]);
+  }, [interrupt]);
 
   const stop = useCallback(() => {
     interrupt();
     onCancel();
   }, [interrupt, onCancel]);
 
-  // Hands free, the user is heard once their words appear, even over an answer.
+  // The user is heard once their words appear, even over an answer.
   const state =
-    status === VoiceState.listening || (listening && transcript !== '')
+    listening && transcript !== ''
       ? VoiceState.listening
       : thinking
       ? VoiceState.thinking
       : status;
   return {
     state,
-    canListen,
-    handsFree,
+    /** Voice mode: everything is said aloud and the microphone is open unless muted. */
+    on,
     muted,
-    /** The microphone is open hands free, waiting for the user or hearing them. */
+    /** The microphone is open, waiting for the user or hearing them. */
     open: listening,
-    toggleHandsFree,
+    toggle,
     toggleMuted,
     transcript,
     hint,
     word,
     section,
     level,
-    start,
-    release,
     stop,
-    interrupt,
+    interrupt: moveOn,
   };
 }
 

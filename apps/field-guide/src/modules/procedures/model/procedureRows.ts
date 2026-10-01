@@ -1,4 +1,5 @@
 import type { Pack, ProcedureId } from '../../../domain/pack';
+import { TOUR_ID } from '../../../domain/tour';
 import { twoDigits } from '../../../shared/ui/readout';
 
 export interface ProcedureRow {
@@ -27,5 +28,13 @@ export function procedureRowsFor(pack: Pack): ProcedureRow[] {
         hasCaution ? ', has safety notes' : ''
       }`,
     };
+  });
+}
+
+/** The authored procedures alone: the parts tour has a button of its own. */
+export function checkRowsFor(pack: Pack): ProcedureRow[] {
+  return procedureRowsFor({
+    ...pack,
+    procedures: pack.procedures.filter(procedure => procedure.id !== TOUR_ID),
   });
 }

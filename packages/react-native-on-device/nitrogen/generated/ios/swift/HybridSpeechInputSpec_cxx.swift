@@ -163,54 +163,6 @@ open class HybridSpeechInputSpec_cxx {
   }
   
   @inline(__always)
-  public final func start(locale: std.string, hints: bridge.std__vector_std__string_, onPartial: bridge.Func_void_std__string, onLevel: bridge.Func_void_double) -> bridge.Result_std__shared_ptr_Promise_void___ {
-    do {
-      let __result = try self.__implementation.start(locale: String(locale), hints: hints.map({ __item in String(__item) }), onPartial: { () -> (String) -> Void in
-        let __wrappedFunction = bridge.wrap_Func_void_std__string(onPartial)
-        return { (__transcript: String) -> Void in
-          __wrappedFunction.call(std.string(__transcript))
-        }
-      }(), onLevel: { () -> (Double) -> Void in
-        let __wrappedFunction = bridge.wrap_Func_void_double(onLevel)
-        return { (__level: Double) -> Void in
-          __wrappedFunction.call(__level)
-        }
-      }())
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_void__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
-        __result
-          .then({ __result in __promiseHolder.resolve() })
-          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
-        return __promise
-      }()
-      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func finish() -> bridge.Result_std__shared_ptr_Promise_std__string___ {
-    do {
-      let __result = try self.__implementation.finish()
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
-        __result
-          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
-          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
-        return __promise
-      }()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
   public final func listen(locale: std.string, hints: bridge.std__vector_std__string_, onPartial: bridge.Func_void_std__string, onTurn: bridge.Func_void_std__string, onLevel: bridge.Func_void_double, onStopped: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
       let __result = try self.__implementation.listen(locale: String(locale), hints: hints.map({ __item in String(__item) }), onPartial: { () -> (String) -> Void in

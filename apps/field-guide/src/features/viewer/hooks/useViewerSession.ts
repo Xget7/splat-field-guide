@@ -14,6 +14,7 @@ import {
 } from '../../../modules/progress/data/progressStorage';
 import { cardContentFor, markedPartsFor } from '../model/guideContent';
 import {
+  answeredExchanges,
   initialViewerState,
   ExchangePhase,
   reduceViewer,
@@ -28,6 +29,7 @@ interface Options {
   stepIndex: number;
   instructorOpen: boolean;
   instructor: ModelInstructor;
+  startInVoice?: boolean;
 }
 
 /** Coordinates the session, instructor, speech and saved progress independently of layout. */
@@ -37,6 +39,7 @@ export function useViewerSession({
   stepIndex,
   instructorOpen,
   instructor,
+  startInVoice,
 }: Options) {
   const { pack } = guide;
   const [state, act] = useReducer(
@@ -45,7 +48,7 @@ export function useViewerSession({
     null,
     () => initialViewerState(procedureId, stepIndex, pack),
   );
-  const { session, exchange, frameRequest } = state;
+  const { session, exchange, thread, frameRequest } = state;
   const stateRef = useRef(state);
   stateRef.current = state;
   const answerGeneration = useRef(0);
@@ -58,12 +61,6 @@ export function useViewerSession({
   );
   const marked = useMemo(() => markedPartsFor(session, pack), [session, pack]);
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
-  const message = exchange ?? {
-    id: null,
-    question: null,
-    reply: card.body,
-    caution: card.caution,
-  };
   const invalidateAnswer = useCallback(() => {
     answerGeneration.current += 1;
     if (modelRequest.current !== null) {
@@ -99,16 +96,18 @@ export function useViewerSession({
       }
       modelRequest.current = id;
       act({ type: ViewerActionType.begin, question, id });
-      const previous =
-        current.exchange?.phase === ExchangePhase.done
-          ? current.exchange
-          : null;
       instructor
-        .modelAnswer(question, current.session, pack, previous, partial => {
-          if (id === answerGeneration.current) {
-            act({ type: ViewerActionType.partial, id, partial });
-          }
-        })
+        .modelAnswer(
+          question,
+          current.session,
+          pack,
+          answeredExchanges(current),
+          partial => {
+            if (id === answerGeneration.current) {
+              act({ type: ViewerActionType.partial, id, partial });
+            }
+          },
+        )
         .then(answer => {
           if (id === answerGeneration.current) {
             modelRequest.current = null;
@@ -151,6 +150,7 @@ export function useViewerSession({
     thinking,
     onAsk: ask,
     onCancel: cancelAnswer,
+    startInVoice,
   });
   interruptVoice.current = voice.interrupt;
 
@@ -184,7 +184,8 @@ export function useViewerSession({
     highlight,
     marked,
     card,
-    message,
+    thread,
+    exchange,
     voice,
     ask,
     dispatch,

@@ -102,6 +102,10 @@ describe('Guide detail screen', () => {
 
   test('a procedure and Start open step zero in Instructor by default', async () => {
     await mount();
+    // The tour has the Start button, so the list holds only the authored procedures.
+    expect(
+      renderer.root.findAllByProps({ testID: `procedure-row-${TOUR_ID}` }),
+    ).toHaveLength(0);
     expect(node('mode-instructor').props.accessibilityState).toEqual({
       selected: true,
     });
@@ -111,6 +115,7 @@ describe('Guide detail screen', () => {
       procedureId: 'check-coolant',
       stepIndex: 0,
       mode: LearnMode.instructor,
+      voice: false,
     });
     await press('start-tour');
     expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
@@ -118,6 +123,7 @@ describe('Guide detail screen', () => {
       procedureId: TOUR_ID,
       stepIndex: 0,
       mode: LearnMode.instructor,
+      voice: false,
     });
     await press('guide-back');
     expect(navigation.goBack).toHaveBeenCalledTimes(1);
@@ -138,6 +144,7 @@ describe('Guide detail screen', () => {
       procedureId: 'check-brake-fluid',
       stepIndex: 0,
       mode: LearnMode.selfGuided,
+      voice: false,
     });
     await press('start-tour');
     expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
@@ -145,7 +152,30 @@ describe('Guide detail screen', () => {
       procedureId: TOUR_ID,
       stepIndex: 0,
       mode: LearnMode.selfGuided,
+      voice: false,
     });
+  });
+
+  test('the voice assistant is an Instructor choice that opens the viewer in voice', async () => {
+    await mount();
+    await press('voice-assistant');
+    expect(node('voice-assistant').props.accessibilityState).toEqual({
+      checked: true,
+    });
+    await press('start-tour');
+    expect(navigation.navigate).toHaveBeenLastCalledWith(
+      Route.viewer,
+      expect.objectContaining({ mode: LearnMode.instructor, voice: true }),
+    );
+    await press('mode-self-guided');
+    expect(
+      renderer.root.findAllByProps({ testID: 'voice-assistant' }),
+    ).toHaveLength(0);
+    await press('start-tour');
+    expect(navigation.navigate).toHaveBeenLastCalledWith(
+      Route.viewer,
+      expect.objectContaining({ mode: LearnMode.selfGuided, voice: false }),
+    );
   });
 
   test('scroll clearance follows the measured safety bar height', async () => {

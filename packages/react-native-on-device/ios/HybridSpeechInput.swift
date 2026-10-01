@@ -3,43 +3,11 @@ import NitroModules
 import Speech
 
 final class HybridSpeechInput: HybridSpeechInputSpec {
-  private static let inputBus: AVAudioNodeBus = 0
-  private static let audioBufferSize: AVAudioFrameCount = 1024
-  private static let finalResultTimeout: TimeInterval = 5
-  // Hands free: a pause this long after the last new word ends the turn.
+  // A pause this long after the last new word ends the turn.
   private static let turnPause: TimeInterval = 1.0
   private static let recognitionEnded = "Speech recognition ended"
 
-  private final class Recording {
-    let engine = AVAudioEngine()
-    let levels = OnDeviceAudioLevel()
-    var transcription: OnDeviceTranscription?
-    var tapInstalled = false
-    var outcome: Result<String, Error>?
-    var completion: Promise<String>?
-    var timeout: DispatchWorkItem?
-
-    func stopAudio() {
-      engine.stop()
-      if tapInstalled {
-        engine.inputNode.removeTap(onBus: HybridSpeechInput.inputBus)
-        tapInstalled = false
-      }
-    }
-
-    deinit {
-      timeout?.cancel()
-      stopAudio()
-      transcription?.cancel()
-      if let completion {
-        let error = OnDeviceError(message: "Speech recognition cancelled")
-        OnDeviceLog.speechInput(error)
-        completion.reject(withError: error)
-      }
-    }
-  }
-
-  // Hands free: one transcription over one open microphone, split into turns at pauses.
+  // One transcription over one open microphone, split into turns at pauses.
   private final class Conversation {
     let onPartial: (String) -> Void
     let onTurn: (String) -> Void
@@ -63,7 +31,6 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     }
   }
 
-  private var recording: Recording?
   private var conversation: Conversation?
 
   func requestPermission() throws -> Promise<SpeechPermission> {
@@ -88,88 +55,6 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
         OnDeviceLog.speechInput(error)
         promise.reject(withError: error)
       }
-    }
-    return promise
-  }
-
-  func start(locale: String, hints: [String], onPartial: @escaping (String) -> Void,
-    onLevel: @escaping (Double) -> Void)
-    throws -> Promise<Void> {
-    let promise = Promise<Void>()
-    DispatchQueue.main.async { [self] in
-      var started: Recording?
-      do {
-        try self.ensureIdle()
-        try OnDeviceAudioSession.activate()
-        let recording = Recording()
-        started = recording
-        self.recording = recording
-        let transcription = try OnDeviceTranscription(locale: locale, hints: hints,
-          onChange: { [weak self, weak recording] transcript in
-            guard let self, let recording, self.recording === recording,
-              recording.outcome == nil else { return }
-            onPartial(transcript)
-          },
-          onEnd: { [weak self, weak recording] error in
-            guard let self, let recording, self.recording === recording,
-              recording.outcome == nil else { return }
-            if let error { OnDeviceLog.speechInput(error) }
-            recording.outcome = error.map { .failure($0) }
-              ?? .success(recording.transcription?.text ?? "")
-            recording.stopAudio()
-            self.complete(recording)
-          })
-        recording.transcription = transcription
-        let input = recording.engine.inputNode
-        let format = input.outputFormat(forBus: Self.inputBus)
-        guard format.sampleRate > 0, format.channelCount > 0 else {
-          throw OnDeviceError(message: "Microphone audio format unavailable")
-        }
-        input.installTap(onBus: Self.inputBus, bufferSize: Self.audioBufferSize, format: format) {
-          [levels = recording.levels] buffer, time in
-          transcription.append(buffer)
-          if let level = levels.update(buffer, at: time.hostTime) { onLevel(level) }
-        }
-        recording.tapInstalled = true
-        recording.engine.prepare()
-        try recording.engine.start()
-        promise.resolve()
-      } catch {
-        if let started, self.recording === started { self.recording = nil }
-        OnDeviceLog.speechInput(error)
-        promise.reject(withError: error)
-      }
-    }
-    return promise
-  }
-
-  func finish() throws -> Promise<String> {
-    let promise = Promise<String>()
-    DispatchQueue.main.async { [self] in
-      guard let recording = self.recording else {
-        promise.resolve(withResult: "")
-        return
-      }
-      guard recording.completion == nil else {
-        let error = OnDeviceError(message: "Speech recognition is already finishing")
-        OnDeviceLog.speechInput(error)
-        promise.reject(withError: error)
-        return
-      }
-      recording.completion = promise
-      recording.stopAudio()
-      recording.transcription?.finish()
-      if recording.outcome != nil {
-        self.complete(recording)
-        return
-      }
-      let timeout = DispatchWorkItem { [weak self, weak recording] in
-        guard let self, let recording, self.recording === recording else { return }
-        recording.outcome = .success(recording.transcription?.text ?? "")
-        self.complete(recording)
-      }
-      recording.timeout = timeout
-      DispatchQueue.main.asyncAfter(deadline: .now() + Self.finalResultTimeout, execute: timeout)
     }
     return promise
   }
@@ -215,14 +100,11 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
   }
 
   func cancel() throws {
-    DispatchQueue.main.async {
-      self.recording = nil
-      self.endConversation()
-    }
+    DispatchQueue.main.async { self.endConversation() }
   }
 
   private func ensureIdle() throws {
-    guard recording == nil, conversation == nil else {
+    guard conversation == nil else {
       throw OnDeviceError(message: "Speech recognition is already listening")
     }
     guard SFSpeechRecognizer.authorizationStatus() == .authorized,
@@ -255,21 +137,5 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     self.conversation = nil
     conversation.close()
     OnDeviceAudioGraph.shared.stopListening()
-  }
-
-  private func complete(_ recording: Recording) {
-    guard let promise = recording.completion, let outcome = recording.outcome else { return }
-    recording.completion = nil
-    self.recording = nil
-    let heard = recording.transcription?.text ?? ""
-    switch outcome {
-    case .success(let transcript): promise.resolve(withResult: transcript)
-    case .failure(let error):
-      if heard.isEmpty {
-        promise.reject(withError: error)
-      } else {
-        promise.resolve(withResult: heard)
-      }
-    }
   }
 }
