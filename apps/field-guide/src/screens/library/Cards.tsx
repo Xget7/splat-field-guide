@@ -63,9 +63,15 @@ export function ReadyCard({
         <Text
           style={styles.subtitle}
         >{`${guide.subtitle} - ${guide.area}`}</Text>
-        <Text style={styles.facts}>
-          {`${facts.splats} SPLATS   ${facts.parts} PARTS   ${facts.size}`}
-        </Text>
+        <View style={styles.facts}>
+          {[`${facts.splats} splats`, `${facts.parts} parts`, facts.size].map(
+            fact => (
+              <Text key={fact} style={styles.fact}>
+                {fact}
+              </Text>
+            ),
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -190,14 +196,11 @@ const styles = StyleSheet.create({
     color: Color.text,
   },
   subtitle: { ...Type.footnote, color: Color.muted },
-  facts: { ...Type.data, color: Color.faint },
+  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Space.lg },
+  fact: { ...Type.data, color: Color.faint },
   soonCard: { flex: 1 },
   soonBody: { padding: Space.md, gap: Space.xs },
-  soonTitle: {
-    ...Type.callout,
-    fontWeight: Type.headline.fontWeight,
-    color: Color.secondaryText,
-  },
+  soonTitle: { ...Type.calloutStrong, color: Color.secondaryText },
   area: { ...Type.footnote, color: Color.faint },
   continue: {
     flexDirection: 'row',

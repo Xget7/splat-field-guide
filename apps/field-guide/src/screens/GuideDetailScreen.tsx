@@ -246,11 +246,7 @@ const styles = StyleSheet.create({
     backgroundColor: Color.accentWash,
     borderColor: Color.accent,
   },
-  modeTitle: {
-    ...Type.callout,
-    fontWeight: Type.headline.fontWeight,
-    flexShrink: 1,
-  },
+  modeTitle: { ...Type.calloutStrong, flexShrink: 1 },
   modeDescription: { ...Type.footnote, color: Color.muted },
   pressed: { backgroundColor: Color.pressed },
   bottomBar: {

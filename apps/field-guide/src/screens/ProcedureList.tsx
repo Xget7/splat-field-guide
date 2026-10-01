@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   body: { flex: 1, gap: Space.xs },
   title: { ...Type.callout, color: Color.text },
-  selectedTitle: { color: Color.accent, fontWeight: '600' },
+  selectedTitle: { ...Type.calloutStrong, color: Color.accent },
   meta: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
   steps: { ...Type.data, color: Color.muted },
   caution: { flexDirection: 'row', alignItems: 'center', gap: Space.xs },

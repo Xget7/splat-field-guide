@@ -89,10 +89,5 @@ const styles = StyleSheet.create({
     backgroundColor: Color.raised,
   },
   pressed: { backgroundColor: Color.pressed },
-  procedureTitle: {
-    ...Type.callout,
-    flexShrink: 1,
-    fontWeight: '600',
-    color: Color.text,
-  },
+  procedureTitle: { ...Type.calloutStrong, flexShrink: 1, color: Color.text },
 });

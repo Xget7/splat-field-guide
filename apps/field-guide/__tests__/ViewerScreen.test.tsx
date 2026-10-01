@@ -158,7 +158,7 @@ describe('viewer screen', () => {
       stepIndex: 1,
       selectedPart: null,
     });
-    expect(text('step-counter')).toBe('STEP 02 / 05');
+    expect(text('step-counter')).toBe('Step 02 / 05');
     expect(text('step-title')).toBe('Coolant reservoir');
     expect(node('procedure-button').props.accessibilityLabel).toBe(
       'Procedure: Check the coolant level',
@@ -190,9 +190,9 @@ describe('viewer screen', () => {
       FRAME_SECONDS,
       home,
     );
-    expect(text('step-counter')).toBe('STEP 02 / 08');
+    expect(text('step-counter')).toBe('Step 02 / 08');
     await press('step-back');
-    expect(text('step-counter')).toBe('STEP 01 / 08');
+    expect(text('step-counter')).toBe('Step 01 / 08');
   });
 
   test('repeat and a new viewport size frame the step again', async () => {
@@ -312,7 +312,7 @@ describe('viewer screen', () => {
       selectedPart: null,
     });
     expect(sheet().props.visible).toBe(false);
-    expect(text('step-counter')).toBe('STEP 01 / 05');
+    expect(text('step-counter')).toBe('Step 01 / 05');
     expect(text('step-title')).toBe(
       procedure(procedureId)
         .steps[0].parts.map(id => pack.parts.find(part => part.id === id)!.name)
@@ -479,7 +479,7 @@ describe('viewer screen', () => {
       });
       await press('instructor-toggle');
       expect(has('instructor-panel')).toBe(false);
-      expect(text('step-counter')).toBe('STEP 01 / 05');
+      expect(text('step-counter')).toBe('Step 01 / 05');
     });
 
     test('a typed question shows the part and the answer', async () => {
@@ -511,7 +511,7 @@ describe('viewer screen', () => {
         procedure('check-coolant').steps[2].text,
       );
       await press('instructor-toggle');
-      expect(text('step-counter')).toBe('STEP 03 / 05');
+      expect(text('step-counter')).toBe('Step 03 / 05');
     });
 
     test('debug ask drives the same path for end-to-end checks', async () => {

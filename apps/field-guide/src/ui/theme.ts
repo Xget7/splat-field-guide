@@ -41,38 +41,37 @@ export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;
 export const HAIRLINE = 1;
 
-// Bundled in ios/FieldGuide (UIAppFonts); OFL, see assets/fonts.
+// Geist and Geist Mono, the open (OFL) faces closest to TT Interphases, Schemata's typeface.
+// Bundled in ios/FieldGuide (UIAppFonts), see assets/fonts. Each weight is named by its
+// PostScript name, so no style needs fontWeight to find it.
 export const Font = {
-  mono: 'JetBrainsMono-Medium',
-  monoStrong: 'JetBrainsMono-SemiBold',
-  monoBold: 'JetBrainsMono-Bold',
+  regular: 'Geist-Regular',
+  semiBold: 'Geist-SemiBold',
+  bold: 'Geist-Bold',
+  mono: 'GeistMono-Medium',
+  monoStrong: 'GeistMono-SemiBold',
 } as const;
 
-// iOS text styles (Body 17), plus monospaced labels and readouts for the instrument look.
+// iOS text style sizes (Body 17); readouts are monospaced so their digits line up.
 export const Type = {
   largeTitle: {
+    fontFamily: Font.bold,
     fontSize: 32,
     lineHeight: 38,
-    fontWeight: '700',
     letterSpacing: -0.6,
   },
   title: {
+    fontFamily: Font.bold,
     fontSize: 24,
     lineHeight: 30,
-    fontWeight: '700',
     letterSpacing: -0.4,
   },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  body: { fontSize: 17, lineHeight: 24 },
-  callout: { fontSize: 15, lineHeight: 20 },
-  footnote: { fontSize: 13, lineHeight: 18 },
-  label: {
-    fontFamily: Font.monoStrong,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
+  headline: { fontFamily: Font.semiBold, fontSize: 17, lineHeight: 22 },
+  body: { fontFamily: Font.regular, fontSize: 17, lineHeight: 24 },
+  callout: { fontFamily: Font.regular, fontSize: 15, lineHeight: 20 },
+  calloutStrong: { fontFamily: Font.semiBold, fontSize: 15, lineHeight: 20 },
+  footnote: { fontFamily: Font.regular, fontSize: 13, lineHeight: 18 },
+  label: { fontFamily: Font.semiBold, fontSize: 13, lineHeight: 16 },
   data: { fontFamily: Font.mono, fontSize: 13, lineHeight: 16 },
   dataLarge: {
     fontFamily: Font.monoStrong,

@@ -6,7 +6,7 @@ export function twoDigits(value: number): string {
   return String(value).padStart(READOUT_DIGITS, '0');
 }
 
-/** "STEP 02 / 05" for step 2 of 5. */
+/** "Step 02 / 05" for step 2 of 5. */
 export function stepLabel(stepNumber: number, stepCount: number): string {
-  return `STEP ${twoDigits(stepNumber)} / ${twoDigits(stepCount)}`;
+  return `Step ${twoDigits(stepNumber)} / ${twoDigits(stepCount)}`;
 }

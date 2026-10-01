@@ -80,7 +80,7 @@ test('continue shows one-based progress and a fraction of the procedure', () => 
     guide: catalog[0],
     procedure: pack.procedures[1],
     stepIndex: 1,
-    stepLabel: 'STEP 02 / 05',
+    stepLabel: 'Step 02 / 05',
     fraction: 2 / 5,
   });
 });

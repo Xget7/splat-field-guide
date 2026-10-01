@@ -37,9 +37,11 @@
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>JetBrainsMono-Medium.ttf</string>
-		<string>JetBrainsMono-SemiBold.ttf</string>
-		<string>JetBrainsMono-Bold.ttf</string>
+		<string>Geist-Regular.ttf</string>
+		<string>Geist-SemiBold.ttf</string>
+		<string>Geist-Bold.ttf</string>
+		<string>GeistMono-Medium.ttf</string>
+		<string>GeistMono-SemiBold.ttf</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
