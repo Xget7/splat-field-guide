@@ -7,6 +7,7 @@ import {
   SessionEvent,
   SessionEventType,
   SessionState,
+  startAt,
 } from '../session';
 import { fixturePack } from '../testing/fixturePack';
 
@@ -272,5 +273,25 @@ describe('framingFor', () => {
       min: [6, 0, 0],
       max: [9, 1, 1],
     });
+  });
+});
+
+describe('startAt', () => {
+  const steps = (id: string) =>
+    pack.procedures.find(procedure => procedure.id === id)?.steps.length ?? 0;
+
+  it('opens a procedure on the step asked for', () => {
+    expect(startAt('check-coolant', 2, pack)).toEqual(
+      run([start('check-coolant'), next, next]),
+    );
+  });
+
+  it('stops at the last step when asked for one past it', () => {
+    const last = steps('check-coolant') - 1;
+    expect(startAt('check-coolant', last + 3, pack).stepIndex).toBe(last);
+  });
+
+  it('opens nothing for a procedure the pack does not have', () => {
+    expect(startAt('missing', 1, pack)).toBe(INITIAL_SESSION);
   });
 });

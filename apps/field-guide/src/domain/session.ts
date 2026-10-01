@@ -97,3 +97,24 @@ export function reduce(
       return INITIAL_SESSION;
   }
 }
+
+/** A procedure moved on to `stepIndex`, or to its last step when it has fewer. */
+export function startAt(
+  procedureId: ProcedureId,
+  stepIndex: number,
+  pack: Pack,
+): SessionState {
+  let state = reduce(
+    INITIAL_SESSION,
+    { type: SessionEventType.start, procedureId },
+    pack,
+  );
+  for (let step = 0; step < stepIndex; step++) {
+    const next = reduce(state, { type: SessionEventType.next }, pack);
+    if (next === state) {
+      break;
+    }
+    state = next;
+  }
+  return state;
+}
