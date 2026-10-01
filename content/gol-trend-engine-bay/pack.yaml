@@ -50,11 +50,11 @@ parts:
     name: Fuse box
     parent: null
     aliases: [fuses, fuse block, relay box, fuse and relay box]
-    summary: The block of fuses and relays that sits on top of the battery.
+    summary: The block of fuses that sits on top of the battery.
     details: >-
-      It protects the car's electrical circuits and switches several of them through relays.
-      Open the cover and read the diagram to find the fuse for a dead circuit.
-      Replace a blown fuse only with the same amperage rating.
+      Its fuses protect the main circuits fed by the battery, melting to cut a circuit when too much current flows.
+      Volkswagen leaves the fuses on top of the battery to a workshop; the fuses an owner may change are in the fuse box inside the cabin.
+      A new fuse that blows again means a fault that needs diagnosis.
       Never put in a bigger fuse or a wire, and never work on it with wet hands.
 
   - id: engine
@@ -75,7 +75,7 @@ parts:
     summary: The cover on top of the engine that seals the valve train and holds the oil filler cap.
     details: >-
       It keeps the oil inside and the dirt out of the valves.
-      Look for oil seeping around its edge, which points to a worn gasket.
+      Look for oil seeping around its edge, which points to a failing seal.
       Never pour anything but engine oil through the filler cap.
 
   - id: intake-manifold

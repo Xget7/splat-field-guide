@@ -10,6 +10,10 @@ The steps are written to stay true without any unconfirmed specification.
 - Gol Trend power steering reservoir is a plastic tank with a cap, for Gol Trend 2008-2021, so the 2010 car has it: retailer catalogue, https://www.tienda.dphidraulica.com.ar/MLA-1107802093-deposito-aceite-liquido-hidraulico-vw-gol-trend-_JM (secondary).
 - Brake fluid absorbs water over time and loses braking capacity when exposed to air and water: Opinautos, "Que es el liquido de frenos y cual lleva tu Gol?", https://www.opinautos.com/ar/volkswagen/gol/guias/liquido-de-frenos (secondary).
 
+- Volkswagen leaves the fuses on top of the battery to a workshop, and the owner's fuses are in the cabin fuse box: the later-edition Gol / Gol Trend manual above.
+- The valve cover of this engine family is cast aluminium, forms the upper camshaft bearings and is sealed to the head with liquid sealant, not a gasket: Volkswagen training, Nuevo Gol, pp. 15-17, https://es.scribd.com/document/403761674/manual-tecnico-gol-trend-compressed-pdf.
+- knowledge.md holds the longer per-part knowledge, with its own sources, and leaves out everything below that is unconfirmed.
+
 ## General Volkswagen practice, not specific to the Gol Trend
 
 - Do not open the expansion tank cap on a hot engine, because the system is under pressure and can scald: https://polo.blue/filling-coolant-expansion-tank-of-cooling-system/ and https://www.youcanic.com/check-add-engine-coolant-a-volkswagen/ (secondary).
