@@ -52,11 +52,13 @@ splat-field-guide/
     android/                       Vulkan backend, Kotlin view and thin JNI (inherited backend, new view)
     src/                           TypeScript: <SplatView>, types, errors
   apps/field-guide/                the React Native app
+    src/app/                       app composition, root navigation and startup errors
     src/domain/                    Pack, Part, Procedure, Session; highlight and framing derivation
-    src/instructor/                command router, instructor adapters, tools
-    src/voice/                     listening and speaking
-    src/packs/                     pack store: install, verify, update
-    src/ui/                        screens and components
+    src/features/                  library, guide detail, viewer and AR screens, hooks and presentation
+    src/modules/instructor/        command router, model orchestration, adapters and voice
+    src/modules/packs/             pack resources; pack store: install, verify, update
+    src/modules/                   reusable catalog, procedures and progress
+    src/shared/                    UI primitives, theme, generic hooks and navigation contracts
   pipeline/                        Python on Modal: capture to pack, plus the pack server
   content/gol-trend-engine-bay/    authored parts and procedures (YAML), reviewed against the owner's manual
   docs/                            specs, ADRs, research, ARCHITECTURE.md, PROVENANCE.md
@@ -150,7 +152,7 @@ A pure reducer, not a state-machine library: the session has three fields and si
 Selecting a part during a procedure overrides the step highlight until the next step.
 Each splat carries only the label of the smallest part it belongs to, so `highlightFor` expands a part into its own label plus the labels of every part inside it.
 
-### 5.5 Commands and instructor (`src/instructor`)
+### 5.5 Commands and instructor (`src/modules/instructor`)
 
 The command router runs first on every utterance and every typed question.
 It maps fixed phrases to session events: next, back, repeat, stop, "start <procedure>", and "show me / where is <part or alias>".
@@ -170,14 +172,14 @@ Selection order: iOS apple, then scripted; Android remote when online, then scri
 The scripted instructor answers from part descriptions by name match and says when it cannot.
 The system prompt tells the instructor to answer from the pack only, to say so when it does not know, and to repeat safety cautions from the steps.
 
-### 5.6 Voice (`src/voice`)
+### 5.6 Voice (`src/modules/instructor/voice`)
 
 Speech recognition on device (Expo speech recognition: on-device on iOS, offline preferred on Android), with part names and aliases as contextual hints.
 Speech output through the platform synthesiser.
 Half duplex: listening pauses while the app speaks, so it never hears itself.
 Continuous listening only while a procedure runs; a push-to-talk button is always visible.
 
-### 5.7 Pack store (`src/packs`)
+### 5.7 Pack store (`src/modules/packs`)
 
 - First launch copies the bundled pack from the app into application support (iOS, excluded from backup) or internal files (Android), verifies it and activates it.
 - Updates: read `index.json` from the pack server, download a newer version into a temporary folder, verify every file's SHA-256 natively (never in JS), rename the folder into place, then switch the active pointer.

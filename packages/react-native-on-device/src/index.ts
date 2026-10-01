@@ -6,7 +6,6 @@ import type { SpeechOutput as SpeechOutputSpec } from './SpeechOutput.nitro';
 export type {
   LanguageModel as LanguageModelSpec,
   LanguageModelAvailability,
-  ResponseField,
 } from './LanguageModel.nitro';
 export type {
   SpeechInput as SpeechInputSpec,

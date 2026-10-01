@@ -16,8 +16,6 @@ namespace margelo::nitro::ondevice { class HybridSpeechInputSpec; }
 namespace margelo::nitro::ondevice { class HybridSpeechOutputSpec; }
 // Forward declaration of `LanguageModelAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class LanguageModelAvailability; }
-// Forward declaration of `ResponseField` to properly resolve imports.
-namespace margelo::nitro::ondevice { struct ResponseField; }
 // Forward declaration of `SpeechInputAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class SpeechInputAvailability; }
 // Forward declaration of `SpeechPermission` to properly resolve imports.
@@ -36,7 +34,6 @@ namespace ReactNativeOnDevice { class HybridSpeechOutputSpec_cxx; }
 #include "HybridSpeechInputSpec.hpp"
 #include "HybridSpeechOutputSpec.hpp"
 #include "LanguageModelAvailability.hpp"
-#include "ResponseField.hpp"
 #include "SpeechInputAvailability.hpp"
 #include "SpeechPermission.hpp"
 #include <NitroModules/Promise.hpp>
@@ -108,28 +105,6 @@ namespace margelo::nitro::ondevice::bridge::swift {
   Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::vector<std::string>
-  /**
-   * Specialized version of `std::vector<std::string>`.
-   */
-  using std__vector_std__string_ = std::vector<std::string>;
-  inline std::vector<std::string> create_std__vector_std__string_(size_t size) noexcept {
-    std::vector<std::string> vector;
-    vector.reserve(size);
-    return vector;
-  }
-  
-  // pragma MARK: std::vector<ResponseField>
-  /**
-   * Specialized version of `std::vector<ResponseField>`.
-   */
-  using std__vector_ResponseField_ = std::vector<ResponseField>;
-  inline std::vector<ResponseField> create_std__vector_ResponseField_(size_t size) noexcept {
-    std::vector<ResponseField> vector;
-    vector.reserve(size);
-    return vector;
   }
   
   // pragma MARK: std::shared_ptr<HybridLanguageModelSpec>
@@ -237,6 +212,17 @@ namespace margelo::nitro::ondevice::bridge::swift {
   Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
     return Func_void_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::vector<std::string>
+  /**
+   * Specialized version of `std::vector<std::string>`.
+   */
+  using std__vector_std__string_ = std::vector<std::string>;
+  inline std::vector<std::string> create_std__vector_std__string_(size_t size) noexcept {
+    std::vector<std::string> vector;
+    vector.reserve(size);
+    return vector;
   }
   
   // pragma MARK: std::function<void(double /* level */)>

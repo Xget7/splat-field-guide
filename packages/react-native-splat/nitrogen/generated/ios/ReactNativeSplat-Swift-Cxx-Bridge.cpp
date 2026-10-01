@@ -8,6 +8,7 @@
 #include "ReactNativeSplat-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
+#include "HybridARGuideViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
@@ -15,6 +16,30 @@
 
 namespace margelo::nitro::splat::bridge::swift {
 
+  // pragma MARK: std::function<void(const std::string& /* eventJson */)>
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeSplat::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& eventJson) mutable -> void {
+      swiftClosure.call(eventJson);
+    };
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridARGuideViewSpec>
+  std::shared_ptr<HybridARGuideViewSpec> create_std__shared_ptr_HybridARGuideViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeSplat::HybridARGuideViewSpec_cxx swiftPart = ReactNativeSplat::HybridARGuideViewSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::splat::HybridARGuideViewSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridARGuideViewSpec_(std__shared_ptr_HybridARGuideViewSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::splat::HybridARGuideViewSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridARGuideViewSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridARGuideViewSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeSplat::HybridARGuideViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
   // pragma MARK: std::shared_ptr<HybridSplatDiagnosticsSpec>
   std::shared_ptr<HybridSplatDiagnosticsSpec> create_std__shared_ptr_HybridSplatDiagnosticsSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     ReactNativeSplat::HybridSplatDiagnosticsSpec_cxx swiftPart = ReactNativeSplat::HybridSplatDiagnosticsSpec_cxx::fromUnsafe(swiftUnsafePointer);

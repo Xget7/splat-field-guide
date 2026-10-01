@@ -1,0 +1,12 @@
+{
+  "uiViewClassName": "ARGuideView",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "referencePath": true,
+    "landmarksPath": true,
+    "onTrackingStateChanged": true,
+    "hybridRef": true
+  }
+}

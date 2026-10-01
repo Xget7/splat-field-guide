@@ -24,7 +24,7 @@ final class HybridLanguageModel: HybridLanguageModelSpec {
     DispatchQueue.main.async { self.warm(instructions: instructions) }
   }
 
-  func respond(instructions: String, prompt: String, fields: [ResponseField],
+  func respond(instructions: String, prompt: String,
     onPartial: @escaping (String) -> Void) throws -> Promise<String> {
     let promise = Promise<String>()
     DispatchQueue.main.async {
@@ -42,12 +42,9 @@ final class HybridLanguageModel: HybridLanguageModelSpec {
         }
         do {
           try Task.checkCancellation()
-          let schema = try OnDeviceGeneration.schema(fields: fields.map {
-            (name: $0.name, description: $0.description, choices: $0.choices)
-          })
-          let json = try await OnDeviceGeneration.stream(
-            session: session, prompt: prompt, schema: schema, onPartial: onPartial)
-          promise.resolve(withResult: json)
+          let text = try await OnDeviceGeneration.stream(
+            session: session, prompt: prompt, onPartial: onPartial)
+          promise.resolve(withResult: text)
         } catch {
           let error = Task.isCancelled ? CancellationError() : error
           let failure = OnDeviceGeneration.readableError(error)

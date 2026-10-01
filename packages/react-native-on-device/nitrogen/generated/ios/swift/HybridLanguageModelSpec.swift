@@ -15,7 +15,7 @@ public protocol HybridLanguageModelSpec_protocol: HybridObject {
   // Methods
   func availability() throws -> LanguageModelAvailability
   func prewarm(instructions: String) throws -> Void
-  func respond(instructions: String, prompt: String, fields: [ResponseField], onPartial: @escaping (_ json: String) -> Void) throws -> Promise<String>
+  func respond(instructions: String, prompt: String, onPartial: @escaping (_ text: String) -> Void) throws -> Promise<String>
   func cancel() throws -> Void
 }
 

@@ -37,6 +37,8 @@
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ask the instructor by voice, recognized on your device.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Find the engine bay and place reference points over its parts.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Your voice questions for the instructor are recognized on your device.</string>
 	<key>RCTNewArchEnabled</key>

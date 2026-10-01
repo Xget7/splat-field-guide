@@ -29,12 +29,14 @@ import numpy as np
 import yaml
 from PIL import Image
 
+import knowledge
 import lift
 import spike_lib
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
 CONTENT = HERE.parent / "content" / "gol-trend-engine-bay" / "pack.yaml"
+KNOWLEDGE = CONTENT.with_name("knowledge.md")
 PACK_ID = "gol-trend-engine-bay"
 PACK_VERSION = 1
 PACK_TITLE = "VW Gol Trend 1.6 engine bay"
@@ -493,8 +495,9 @@ def file_entry(root: pathlib.Path, rel: str) -> dict:
 
 
 def build_manifest(content: dict, out: pathlib.Path, count: int, geometry: dict, camera: dict) -> dict:
+    notes = knowledge.read_notes(KNOWLEDGE, content["parts"])
     parts = [{"id": p["id"], "label": i + 1, "parent": p["parent"], "name": p["name"], "aliases": p["aliases"],
-              "summary": p["summary"], "details": p["details"], **geometry[p["id"]]}
+              "summary": p["summary"], "details": p["details"], "notes": notes[p["id"]], **geometry[p["id"]]}
              for i, p in enumerate(content["parts"])]
     return {"schemaVersion": SCHEMA_VERSION, "packId": PACK_ID, "packVersion": PACK_VERSION, "title": PACK_TITLE,
             "tiers": [{"id": TIER, "splatCount": count, "cloud": file_entry(out, CLOUD_PATH),

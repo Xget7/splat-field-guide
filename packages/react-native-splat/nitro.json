@@ -13,6 +13,12 @@
     "androidCxxLibName": "reactnativesplat"
   },
   "autolinking": {
+    "ARGuideView": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridARGuideView"
+      }
+    },
     "SplatView": {
       "ios": {
         "language": "swift",

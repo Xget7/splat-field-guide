@@ -16,8 +16,6 @@ namespace margelo::nitro::ondevice { class HybridSpeechInputSpec; }
 namespace margelo::nitro::ondevice { class HybridSpeechOutputSpec; }
 // Forward declaration of `LanguageModelAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class LanguageModelAvailability; }
-// Forward declaration of `ResponseField` to properly resolve imports.
-namespace margelo::nitro::ondevice { struct ResponseField; }
 // Forward declaration of `SpeechInputAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class SpeechInputAvailability; }
 // Forward declaration of `SpeechPermission` to properly resolve imports.
@@ -28,7 +26,6 @@ namespace margelo::nitro::ondevice { enum class SpeechPermission; }
 #include "HybridSpeechInputSpec.hpp"
 #include "HybridSpeechOutputSpec.hpp"
 #include "LanguageModelAvailability.hpp"
-#include "ResponseField.hpp"
 #include "SpeechInputAvailability.hpp"
 #include "SpeechPermission.hpp"
 #include <NitroModules/Promise.hpp>

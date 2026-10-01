@@ -6,7 +6,9 @@ import {
   PART_LABEL_MIN,
   Pack,
   PackFile,
+  NoteTopic,
   Part,
+  PartNote,
   PartId,
   Procedure,
   Step,
@@ -278,6 +280,34 @@ function readLabel(value: unknown, path: string): number {
   return label;
 }
 
+const NOTE_TOPICS: ReadonlySet<string> = new Set(Object.values(NoteTopic));
+
+function readNotes(value: unknown, path: string): PartNote[] {
+  if (value === undefined) {
+    return [];
+  }
+  const notes = readArray(value, path).map((item, index) => {
+    const notePath = at(path, index);
+    const note = readObject(item, notePath);
+    const topic = readName(note.topic, at(notePath, 'topic'));
+    if (!NOTE_TOPICS.has(topic)) {
+      return fail(
+        PackErrorCode.invalidField,
+        at(notePath, 'topic'),
+        `unknown note topic ${topic}`,
+      );
+    }
+    return {
+      topic: topic as NoteTopic,
+      text: readName(note.text, at(notePath, 'text')),
+    };
+  });
+  if (new Set(notes.map(note => note.topic)).size !== notes.length) {
+    return fail(PackErrorCode.invalidField, path, 'a note topic repeats');
+  }
+  return notes;
+}
+
 function readPart(value: unknown, path: string): Part {
   const object = readObject(value, path);
   const parent = object.parent;
@@ -297,6 +327,7 @@ function readPart(value: unknown, path: string): Part {
           ),
     summary: readOptionalText(object.summary, at(path, 'summary')),
     details: readOptionalText(object.details, at(path, 'details')),
+    notes: readNotes(object.notes, at(path, 'notes')),
     bounds: readBounds(object.bounds, at(path, 'bounds')),
     anchor: readVec3(object.anchor, at(path, 'anchor')),
   };

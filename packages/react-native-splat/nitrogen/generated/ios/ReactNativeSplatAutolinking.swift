@@ -12,6 +12,18 @@ import NitroModules
 public final class ReactNativeSplatAutolinking {
   public typealias bridge = margelo.nitro.splat.bridge.swift
 
+  public static func createARGuideView() -> bridge.std__shared_ptr_HybridARGuideViewSpec_ {
+    let hybridObject = HybridARGuideView()
+    return { () -> bridge.std__shared_ptr_HybridARGuideViewSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isARGuideViewRecyclable() -> Bool {
+    return HybridARGuideView.self is any RecyclableView.Type
+  }
+  
   public static func createSplatView() -> bridge.std__shared_ptr_HybridSplatViewSpec_ {
     let hybridObject = HybridSplatView()
     return { () -> bridge.std__shared_ptr_HybridSplatViewSpec_ in

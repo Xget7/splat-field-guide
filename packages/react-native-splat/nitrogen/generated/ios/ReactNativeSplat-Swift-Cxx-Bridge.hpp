@@ -10,6 +10,8 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `HybridARGuideViewSpec` to properly resolve imports.
+namespace margelo::nitro::splat { class HybridARGuideViewSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
@@ -24,6 +26,8 @@ namespace margelo::nitro::splat { struct SplatError; }
 namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Forward declarations of Swift defined types
+// Forward declaration of `HybridARGuideViewSpec_cxx` to properly resolve imports.
+namespace ReactNativeSplat { class HybridARGuideViewSpec_cxx; }
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.
@@ -31,6 +35,7 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
 #include "CameraLimits.hpp"
+#include "HybridARGuideViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
@@ -53,6 +58,40 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
  */
 namespace margelo::nitro::splat::bridge::swift {
 
+  // pragma MARK: std::function<void(const std::string& /* eventJson */)>
+  /**
+   * Specialized version of `std::function<void(const std::string&)>`.
+   */
+  using Func_void_std__string = std::function<void(const std::string& /* eventJson */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::string& / * eventJson * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__string_Wrapper final {
+  public:
+    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* eventJson */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* eventJson */)>>(std::move(func))) {}
+    inline void call(std::string eventJson) const noexcept {
+      _function->operator()(eventJson);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::string& /* eventJson */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
+    return Func_void_std__string_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridARGuideViewSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridARGuideViewSpec>`.
+   */
+  using std__shared_ptr_HybridARGuideViewSpec_ = std::shared_ptr<HybridARGuideViewSpec>;
+  std::shared_ptr<HybridARGuideViewSpec> create_std__shared_ptr_HybridARGuideViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridARGuideViewSpec_(std__shared_ptr_HybridARGuideViewSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<HybridARGuideViewSpec>
+  using std__weak_ptr_HybridARGuideViewSpec_ = std::weak_ptr<HybridARGuideViewSpec>;
+  inline std__weak_ptr_HybridARGuideViewSpec_ weakify_std__shared_ptr_HybridARGuideViewSpec_(const std::shared_ptr<HybridARGuideViewSpec>& strong) noexcept { return strong; }
+  
   // pragma MARK: std::shared_ptr<HybridSplatDiagnosticsSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridSplatDiagnosticsSpec>`.

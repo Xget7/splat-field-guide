@@ -5,7 +5,7 @@ parts:
   - id: coolant-reservoir
     name: Coolant reservoir
     parent: null
-    aliases: [coolant tank, expansion tank, coolant bottle, radiator reservoir]
+    aliases: [coolant tank, expansion tank, coolant bottle, radiator reservoir, coolant cap, antifreeze]
     summary: The translucent pink tank with the blue cap that holds spare engine coolant.
     details: >-
       It lets the coolant expand as the engine warms and draws it back as the engine cools.
@@ -16,7 +16,7 @@ parts:
   - id: power-steering-reservoir
     name: Power steering reservoir
     parent: null
-    aliases: [power steering tank, steering fluid tank, hydraulic steering reservoir, steering reservoir]
+    aliases: [power steering tank, steering fluid tank, hydraulic steering reservoir, steering reservoir, power steering cap, steering fluid cap]
     summary: The dark square tank with the yellow-green cap that holds the power steering fluid.
     details: >-
       It feeds the hydraulic pump that makes the steering light.
@@ -27,7 +27,7 @@ parts:
   - id: brake-fluid-reservoir
     name: Brake fluid reservoir
     parent: null
-    aliases: [brake reservoir, brake fluid tank, brake fluid bottle, master cylinder reservoir]
+    aliases: [brake reservoir, brake fluid tank, brake fluid bottle, master cylinder reservoir, brake fluid cap, brake cap]
     summary: The white reservoir with the yellow cap that holds the brake fluid.
     details: >-
       It supplies the master cylinder that pushes fluid to the brakes.
@@ -71,7 +71,7 @@ parts:
   - id: valve-cover
     name: Valve cover
     parent: engine
-    aliases: [cam cover, rocker cover, cylinder head cover, tappet cover]
+    aliases: [cam cover, rocker cover, cylinder head cover, tappet cover, oil filler cap, oil cap]
     summary: The cover on top of the engine that seals the valve train and holds the oil filler cap.
     details: >-
       It keeps the oil inside and the dirt out of the valves.

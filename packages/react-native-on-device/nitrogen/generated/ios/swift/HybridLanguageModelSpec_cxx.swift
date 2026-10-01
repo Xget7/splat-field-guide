@@ -148,12 +148,12 @@ open class HybridLanguageModelSpec_cxx {
   }
   
   @inline(__always)
-  public final func respond(instructions: std.string, prompt: std.string, fields: bridge.std__vector_ResponseField_, onPartial: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func respond(instructions: std.string, prompt: std.string, onPartial: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
     do {
-      let __result = try self.__implementation.respond(instructions: String(instructions), prompt: String(prompt), fields: fields.map({ __item in __item }), onPartial: { () -> (String) -> Void in
+      let __result = try self.__implementation.respond(instructions: String(instructions), prompt: String(prompt), onPartial: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onPartial)
-        return { (__json: String) -> Void in
-          __wrappedFunction.call(std.string(__json))
+        return { (__text: String) -> Void in
+          __wrappedFunction.call(std.string(__text))
         }
       }())
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in

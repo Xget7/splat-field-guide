@@ -26,6 +26,7 @@ import yaml
 from PIL import Image, ImageOps
 
 import export
+import knowledge
 import lift
 
 warnings.filterwarnings("ignore", message=".*encountered in matmul")  # spurious with Accelerate, as in lift.py
@@ -50,6 +51,7 @@ RENDER_COVERAGE_TOLERANCE = 0.01  # cells covered in only one of the two renders
 BOUNDS_TOLERANCE = 1e-3
 FULL_TURN_DEG, POLE_DEG = 360.0, 90.0      # parsePack's FULL_TURN_DEGREES and POLE_DEGREES
 SPZ_DIMS = {0: 0, 1: 3, 2: 8, 3: 15, 4: 24}
+NOTE_TOPICS = set(knowledge.TOPICS.values())   # parsePack's NOTE_TOPICS
 
 
 def check(name: str):
@@ -425,6 +427,17 @@ def parse_pack(root):
             name(alias, f"{p}.aliases[{k}]")
         for key in ("summary", "details"):
             text(part.get(key, ""), f"{p}.{key}")
+        topics = []
+        for k, note in enumerate(arr(part.get("notes", []), f"{p}.notes")):
+            note = obj(note, f"{p}.notes[{k}]")
+            if note.get("topic") not in NOTE_TOPICS:
+                raise PackError("invalidField", f"{p}.notes[{k}].topic")
+            text(note.get("text"), f"{p}.notes[{k}].text")
+            if not note["text"].strip():
+                raise PackError("invalidField", f"{p}.notes[{k}].text")
+            topics.append(note["topic"])
+        if len(set(topics)) != len(topics):
+            raise PackError("invalidField", f"{p}.notes")
         bounds = obj(part.get("bounds"), f"{p}.bounds")
         low, high = vec3(bounds.get("min"), f"{p}.bounds.min"), vec3(bounds.get("max"), f"{p}.bounds.max")
         if any(a > b for a, b in zip(low, high)):
@@ -526,6 +539,28 @@ def sample_manifest() -> dict:
             "procedures": content["procedures"]}
 
 
+def test_knowledge_notes():
+    """Headings become topics, source keys and numbering go, and unknown sections are refused."""
+    parts = [{"id": "battery", "name": "Battery"}]
+    with tempfile.TemporaryDirectory() as tmp:
+        path = pathlib.Path(tmp) / "knowledge.md"
+        path.write_text("# Title\n\nPreamble.\n\n## Battery\n\n### What it is\n\nIt stores power. [VW]\n"
+                        "### How to check it\n\n1. Look at it. [A b]\n2. Clean it.\n\n## Sources\n\n- [VW] x\n")
+        notes = knowledge.read_notes(path, parts)
+        assert notes == {"battery": [{"topic": "identity", "text": "It stores power."},
+                                     {"topic": "check", "text": "Look at it. Clean it."}]}, notes
+        for bad in ("## Bonnet\n### What it is\nx\n", "## Battery\n### Colour\nx\n",
+                    "## Battery\n### What it is\nx\n### What it is\ny\n", "## Battery\n### Safety\n\n"):
+            path.write_text(bad)
+            try:
+                knowledge.read_notes(path, parts)
+            except ValueError:
+                continue
+            raise AssertionError(f"accepted {bad!r}")
+    notes = knowledge.read_notes(export.KNOWLEDGE, yaml.safe_load(export.CONTENT.read_text())["parts"])
+    return f"{sum(len(n) for n in notes.values())} notes from knowledge.md"
+
+
 def test_framing_radius_fits_a_box():
     """Head on, a cube's near face sets the distance; turned, a long flat box ends whole in the view, touching its
     margin. The view basis here is built as a look-at, independently of export.framing_radius."""
@@ -587,6 +622,10 @@ def test_manifest_mirror():
     parse_pack(full_turn)
     broken(lambda m: m["procedures"][0]["steps"][0].update(parts=["nope"]), "unknownStepPart")
     broken(lambda m: m["parts"][5].update(parent="valve-cover"), "parentCycle")
+    broken(lambda m: m["parts"][0].update(notes=[{"topic": "colour", "text": "Pink."}]), "invalidField")
+    broken(lambda m: m["parts"][0].update(notes=[{"topic": "safety", "text": " "}]), "invalidField")
+    broken(lambda m: m["parts"][0].update(notes=[{"topic": "safety", "text": "a"}, {"topic": "safety", "text": "b"}]),
+           "invalidField")
 
 
 # --- The pack on disk ---
@@ -613,6 +652,9 @@ def test_manifest_against_files(pack: pathlib.Path):
         for key in ("name", "parent", "aliases", "summary", "details"):
             assert part[key] == authored[key], f"{part['id']}.{key} differs from pack.yaml"
     assert manifest["procedures"] == content["procedures"], "procedures differ from pack.yaml"
+    notes = knowledge.read_notes(export.KNOWLEDGE, content["parts"])
+    for part in manifest["parts"]:
+        assert part["notes"] == notes[part["id"]], f"{part['id']}.notes differ from knowledge.md"
     identity = (manifest["schemaVersion"], manifest["packId"], manifest["packVersion"])
     assert identity == (1, export.PACK_ID, export.PACK_VERSION)
     camera = manifest["camera"]
@@ -770,7 +812,8 @@ SYNTHETIC_CHECKS = [("SH basis is orthonormal", test_sh_basis_is_orthonormal),
                     ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
                     ("labels.bin layout", test_labels_bin_layout),
                     ("framing radius fits a box", test_framing_radius_fits_a_box),
-                    ("manifest mirror rejects what parsePack rejects", test_manifest_mirror)]
+                    ("manifest mirror rejects what parsePack rejects", test_manifest_mirror),
+                    ("knowledge.md reads into plain notes", test_knowledge_notes)]
 
 
 def main():

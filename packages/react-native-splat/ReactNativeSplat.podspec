@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
 
   s.source_files        = ["ios/*.swift"]
   s.vendored_frameworks = engine
-  s.frameworks          = ["Metal", "QuartzCore"]
+  s.frameworks          = ["Metal", "QuartzCore", "ARKit", "RealityKit", "AVFoundation"]
   s.libraries           = ["c++", "z"]
 
   load "nitrogen/generated/ios/ReactNativeSplat+autolinking.rb"

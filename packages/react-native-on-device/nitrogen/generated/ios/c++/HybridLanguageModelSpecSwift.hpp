@@ -14,14 +14,10 @@ namespace ReactNativeOnDevice { class HybridLanguageModelSpec_cxx; }
 
 // Forward declaration of `LanguageModelAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class LanguageModelAvailability; }
-// Forward declaration of `ResponseField` to properly resolve imports.
-namespace margelo::nitro::ondevice { struct ResponseField; }
 
 #include "LanguageModelAvailability.hpp"
 #include <string>
 #include <NitroModules/Promise.hpp>
-#include "ResponseField.hpp"
-#include <vector>
 #include <functional>
 
 #include "ReactNativeOnDevice-Swift-Cxx-Umbrella.hpp"
@@ -88,8 +84,8 @@ namespace margelo::nitro::ondevice {
         std::rethrow_exception(__result.error());
       }
     }
-    inline std::shared_ptr<Promise<std::string>> respond(const std::string& instructions, const std::string& prompt, const std::vector<ResponseField>& fields, const std::function<void(const std::string& /* json */)>& onPartial) override {
-      auto __result = _swiftPart.respond(instructions, prompt, fields, onPartial);
+    inline std::shared_ptr<Promise<std::string>> respond(const std::string& instructions, const std::string& prompt, const std::function<void(const std::string& /* text */)>& onPartial) override {
+      auto __result = _swiftPart.respond(instructions, prompt, onPartial);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

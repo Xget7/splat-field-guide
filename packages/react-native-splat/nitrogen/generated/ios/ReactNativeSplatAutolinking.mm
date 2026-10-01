@@ -10,6 +10,7 @@
 #import "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
 #import <type_traits>
 
+#include "HybridARGuideViewSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 
@@ -22,6 +23,13 @@
   using namespace margelo::nitro;
   using namespace margelo::nitro::splat;
 
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "ARGuideView",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridARGuideViewSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createARGuideView();
+      return hybridObject;
+    }
+  );
   HybridObjectRegistry::registerHybridObjectConstructor(
     "SplatView",
     []() -> std::shared_ptr<HybridObject> {

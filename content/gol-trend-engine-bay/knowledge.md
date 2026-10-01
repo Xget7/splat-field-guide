@@ -288,7 +288,8 @@ The oil pressure warning light means stop and switch off at once, even if the oi
 
 ### Specifications
 
-The oil grade, viscosity, capacity, oil and filter interval, spark plugs and timing belt interval are in the owner's manual and service booklet, or a Volkswagen dealer can confirm them from the VIN.
+The engine oil grade is 5W-40, as the owner's manual states. [Owner manual]
+The oil capacity, oil and filter interval, spark plugs and timing belt interval are in the owner's manual and service booklet, or a Volkswagen dealer can confirm them from the VIN.
 
 ### Safety
 
@@ -381,6 +382,7 @@ Keep tools and debris out of any intake opening, and refit everything before sta
 ## Sources
 
 [VW safety]: https://www.volkswagen.aw/idhub/content/dam/onehub_pkw/importers/aw/manuals/Manual-Amarok.pdf "Volkswagen owner's manual, general safety and fluid check guidance shared across models"
+[Owner manual]: # "Printed owner's manual of the Gol Trend in this guide, engine oil grade, checked by the owner on 2026-10-01"
 [VW Gol manual]: https://www.volkswagen.com.ar/idhub/content/dam/onehub_pkw/importers/ar/tengo-un-volkswagen/manuales/manuales/2020/Manual%20Gol%202020.pdf "Volkswagen Argentina, Gol / Gol Trend owner's manual, later edition"
 [VW Gol training]: https://es.scribd.com/document/403761674/manual-tecnico-gol-trend-compressed-pdf "Volkswagen training, Nuevo Gol, pp. 15-17"
 [Marelli]: https://www.marelli-cofap.com.ar/src/entries/attatched/MARELLI%20-%20Cuerpos%20Mariposa_2022_V1.pdf "Marelli Argentina throttle body catalogue, p. 10"

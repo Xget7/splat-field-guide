@@ -1,0 +1,12 @@
+name = "field-guide-instructor"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+MODEL = "claude-sonnet-5-5"
+EFFORT = "low"
+
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }

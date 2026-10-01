@@ -2,34 +2,21 @@ import Foundation
 import FoundationModels
 
 enum OnDeviceGeneration {
-  static func schema(fields: [(name: String, description: String, choices: [String])])
-    throws -> GenerationSchema {
-    let properties = fields.map { field in
-      DynamicGenerationSchema.Property(
-        name: field.name, description: field.description,
-        schema: field.choices.isEmpty ? DynamicGenerationSchema(type: String.self)
-          : DynamicGenerationSchema(name: field.name, anyOf: field.choices))
-    }
-    let root = DynamicGenerationSchema(name: "InstructorResponse", properties: properties)
-    return try GenerationSchema(root: root, dependencies: [])
-  }
-
-  static func stream(session: LanguageModelSession, prompt: String, schema: GenerationSchema,
+  static func stream(session: LanguageModelSession, prompt: String,
     onPartial: (String) -> Void) async throws -> String {
     let stream = session.streamResponse(
-      to: prompt, schema: schema, options: GenerationOptions(samplingMode: .greedy))
-    var finalJSON: String?
+      to: prompt, options: GenerationOptions(sampling: .greedy))
+    var finalText: String?
     for try await snapshot in stream {
       try Task.checkCancellation()
-      let json = snapshot.content.jsonString
-      onPartial(json)
-      finalJSON = json
+      onPartial(snapshot.content)
+      finalText = snapshot.content
     }
     try Task.checkCancellation()
-    guard let finalJSON else {
+    guard let finalText else {
       throw OnDeviceError(message: "Language model returned no response")
     }
-    return finalJSON
+    return finalText
   }
 
   static func readableError(_ error: Error) -> Error {

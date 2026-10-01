@@ -44,6 +44,24 @@ export interface CameraLimits {
   readonly maxRadius: number;
 }
 
+/** What a note in a part's knowledge is about; the instructor retrieves notes by topic. */
+export const NoteTopic = {
+  identity: 'identity',
+  purpose: 'purpose',
+  construction: 'construction',
+  check: 'check',
+  faults: 'faults',
+  maintenance: 'maintenance',
+  specifications: 'specifications',
+  safety: 'safety',
+} as const;
+export type NoteTopic = (typeof NoteTopic)[keyof typeof NoteTopic];
+
+export interface PartNote {
+  readonly topic: NoteTopic;
+  readonly text: string;
+}
+
 export interface Part {
   readonly id: PartId;
   readonly label: PartLabel;
@@ -52,6 +70,8 @@ export interface Part {
   readonly aliases: readonly string[];
   readonly summary: string;
   readonly details: string;
+  /** Plain sentences the instructor may draw on, at most one note per topic. */
+  readonly notes: readonly PartNote[];
   readonly bounds: Bounds;
   readonly anchor: Vec3;
 }

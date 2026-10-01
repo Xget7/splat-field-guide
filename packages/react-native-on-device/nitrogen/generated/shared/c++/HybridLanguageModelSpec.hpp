@@ -15,14 +15,10 @@
 
 // Forward declaration of `LanguageModelAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class LanguageModelAvailability; }
-// Forward declaration of `ResponseField` to properly resolve imports.
-namespace margelo::nitro::ondevice { struct ResponseField; }
 
 #include "LanguageModelAvailability.hpp"
 #include <string>
 #include <NitroModules/Promise.hpp>
-#include "ResponseField.hpp"
-#include <vector>
 #include <functional>
 
 namespace margelo::nitro::ondevice {
@@ -58,7 +54,7 @@ namespace margelo::nitro::ondevice {
       // Methods
       virtual LanguageModelAvailability availability() = 0;
       virtual void prewarm(const std::string& instructions) = 0;
-      virtual std::shared_ptr<Promise<std::string>> respond(const std::string& instructions, const std::string& prompt, const std::vector<ResponseField>& fields, const std::function<void(const std::string& /* json */)>& onPartial) = 0;
+      virtual std::shared_ptr<Promise<std::string>> respond(const std::string& instructions, const std::string& prompt, const std::function<void(const std::string& /* text */)>& onPartial) = 0;
       virtual void cancel() = 0;
 
     protected:

@@ -1,0 +1,17 @@
+{
+  "extends": "../../apps/field-guide/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["../../apps/field-guide/node_modules/@types"],
+    "paths": {
+      "react-native": [
+        "../../apps/field-guide/node_modules/react-native/types_generated/index.d.ts"
+      ],
+      "*": [
+        "../../apps/field-guide/node_modules/@types/*",
+        "../../apps/field-guide/node_modules/*"
+      ]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["**/node_modules"]
+}

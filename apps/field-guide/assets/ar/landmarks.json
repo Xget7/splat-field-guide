@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "packId": "gol-trend-engine-bay",
+  "packVersion": 1,
+  "referenceFromPack": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "status": "candidate_pending_trained_reference_frame_and_physical_check",
+  "landmarks": [
+    {
+      "id": "coolant-cap",
+      "label": "Coolant reservoir cap",
+      "position": [
+        -0.6005422994836191,
+        0.22073302771436104,
+        0.060527905214776384
+      ],
+      "color": [
+        0.15,
+        0.65,
+        1
+      ]
+    },
+    {
+      "id": "steering-cap",
+      "label": "Power steering reservoir cap",
+      "position": [
+        -0.45033098246255726,
+        0.22230830254921102,
+        0.15010999053665516
+      ],
+      "color": [
+        0.35,
+        0.9,
+        0.45
+      ]
+    },
+    {
+      "id": "brake-fluid-cap",
+      "label": "Brake fluid reservoir cap",
+      "position": [
+        0.24544653327599159,
+        0.07215511929248833,
+        -0.20081244037690144
+      ],
+      "color": [
+        1,
+        0.72,
+        0.2
+      ]
+    },
+    {
+      "id": "air-filter-corner",
+      "label": "Air filter housing front right corner",
+      "position": [
+        0.5483265698367922,
+        0.1555911467887488,
+        -0.10086832547255073
+      ],
+      "color": [
+        0.8,
+        0.45,
+        1
+      ]
+    }
+  ],
+  "authoring": {
+    "source": "SceneKit ray intersections with medium.usdz",
+    "modelSHA256": "ed552cef89b31f2027bf52a0eb1bc6b97008cc8267027ace26d4ae94c6f135b4",
+    "viewport": [
+      1200,
+      900
+    ],
+    "pixels": [
+      [
+        375,
+        438
+      ],
+      [
+        407,
+        460
+      ],
+      [
+        623,
+        451
+      ],
+      [
+        703,
+        463
+      ]
+    ]
+  }
+}
