@@ -44,6 +44,25 @@ target 'FieldGuide' do
       end
     end
 
+    # Hermes' replace script picks the engine for the configuration, so it has to run on every
+    # build; saying so keeps Xcode from warning that it declares no outputs.
+    installer.pods_project.targets.each do |target|
+      target.shell_script_build_phases.each do |phase|
+        phase.always_out_of_date = '1' if phase.name&.include?('Replace Hermes')
+      end
+    end
+
+    # Third party pods warn about their own code, which this app cannot fix; ReactNativeSplat is
+    # ours, so its warnings stay. Codegen and Nitro archive generated files that are empty in
+    # the new architecture, which libtool would report on every build.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build|
+        build.build_settings['OTHER_LIBTOOLFLAGS'] = '$(inherited) -no_warning_for_no_symbols'
+        next if target.name == 'ReactNativeSplat'
+        build.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      end
+    end
+
     # AsyncStorage's resource bundle target asks for iOS 13, below what Xcode 27 can build for;
     # no pod needs less than the app itself.
     installer.pods_project.targets.each do |target|
