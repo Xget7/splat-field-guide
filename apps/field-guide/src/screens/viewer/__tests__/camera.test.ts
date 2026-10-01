@@ -2,7 +2,9 @@ import {
   cameraLimitsInRadians,
   homeDirectionInRadians,
   boundsForView,
-} from '../src/ui/camera';
+  CONTEXT_SCALE,
+  inContext,
+} from '../camera';
 
 test('all camera limit angles become radians, while radii remain in metres', () => {
   const limits = {
@@ -48,4 +50,18 @@ test('domain bounds map each axis into Nitro vector objects', () => {
     min: { x: -1, y: -2, z: -3 },
     max: { x: 4, y: 5, z: 6 },
   });
+});
+
+test('a part is framed with room around it, centred where it was', () => {
+  const framed = inContext({ min: [0, 1, -1], max: [2, 2, 1] });
+  expect(framed.min).toEqual([
+    1 - CONTEXT_SCALE,
+    1.5 - CONTEXT_SCALE / 2,
+    -CONTEXT_SCALE,
+  ]);
+  expect(framed.max).toEqual([
+    1 + CONTEXT_SCALE,
+    1.5 + CONTEXT_SCALE / 2,
+    CONTEXT_SCALE,
+  ]);
 });

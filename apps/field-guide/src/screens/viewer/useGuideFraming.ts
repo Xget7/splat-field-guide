@@ -1,30 +1,39 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { SplatViewSpec } from 'react-native-splat';
-import { framingFor } from '../domain/derive';
-import type { Pack } from '../domain/pack';
-import type { SessionState } from '../domain/session';
+import { framingFor } from '../../domain/derive';
+import type { Pack } from '../../domain/pack';
+import type { SessionState } from '../../domain/session';
 import {
   boundsForView,
   FRAME_SECONDS,
   homeDirectionInRadians,
+  inContext,
   INITIAL_FRAME_SECONDS,
 } from './camera';
+import type { Size } from './PartMarkers';
 
+/**
+ * Frames what the step shows whenever it changes, when asked again (`frameRequest`), and when
+ * the viewport changes shape, since a framing only fits the aspect it was made for.
+ */
 export function useGuideFraming(
   view: SplatViewSpec | null,
   state: SessionState,
   pack: Pack,
+  frameRequest: number,
+  viewport: Size,
 ) {
   const bounds = useMemo(() => {
     const framing = framingFor(state, pack);
-    return framing === null ? null : boundsForView(framing);
+    return framing === null ? null : boundsForView(inContext(framing));
   }, [state, pack]);
   const home = useMemo(() => homeDirectionInRadians(pack.camera.home), [pack]);
   const from = state.selectedPart === null ? home : undefined;
   const framedView = useRef<SplatViewSpec | null>(null);
+  const { width, height } = viewport;
 
   useEffect(() => {
-    if (view === null || bounds === null) {
+    if (view === null || bounds === null || width === 0 || height === 0) {
       return;
     }
     const seconds =
@@ -36,5 +45,5 @@ export function useGuideFraming(
       view.frame(bounds, seconds, from);
     }
     framedView.current = view;
-  }, [bounds, from, view]);
+  }, [bounds, from, view, frameRequest, width, height]);
 }

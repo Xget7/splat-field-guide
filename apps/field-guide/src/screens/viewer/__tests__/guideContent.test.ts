@@ -1,17 +1,16 @@
-import { fixturePack } from '../src/domain/testing/fixturePack';
+import { fixturePack } from '../../../domain/testing/fixturePack';
 import {
   INITIAL_SESSION,
   reduce,
   SessionEventType,
-} from '../src/domain/session';
-import { TOUR_ID } from '../src/domain/tour';
+} from '../../../domain/session';
+import { TOUR_ID } from '../../../domain/tour';
 import {
   CardKind,
   cardContentFor,
-  nextEventFor,
+  markedPartsFor,
   partIdForLabel,
-  procedureRowsFor,
-} from '../src/ui/guideContent';
+} from '../guideContent';
 
 const pack = fixturePack();
 const start = (procedureId = TOUR_ID) =>
@@ -29,9 +28,9 @@ test('tour content follows its part with one-based progress and first Back disab
     selected: false,
     backDisabled: true,
     nextDisabled: false,
-    nextLabel: 'Next',
+    last: false,
   });
-  const next = reduce(state, nextEventFor(state, pack), pack);
+  const next = reduce(state, { type: SessionEventType.next }, pack);
   expect(cardContentFor(next, pack)).toMatchObject({
     title: 'Power steering reservoir',
     stepNumber: 2,
@@ -74,67 +73,7 @@ test.each([
   },
 );
 
-test('picker rows preserve pack order, counts and current procedure', () => {
-  expect(procedureRowsFor(start('check-coolant'), pack)).toEqual([
-    {
-      id: TOUR_ID,
-      title: 'Parts tour',
-      stepCountLabel: '8 steps',
-      current: false,
-    },
-    {
-      id: 'check-coolant',
-      title: 'Check the coolant level',
-      stepCountLabel: '3 steps',
-      current: true,
-    },
-    {
-      id: 'check-brake-fluid',
-      title: 'Check the brake fluid level',
-      stepCountLabel: '2 steps',
-      current: false,
-    },
-    {
-      id: 'check-power-steering-fluid',
-      title: 'Check the power steering fluid level',
-      stepCountLabel: '2 steps',
-      current: false,
-    },
-  ]);
-});
-
-test('picker current row follows the procedure despite navigation and selection', () => {
-  expect(
-    procedureRowsFor(
-      { ...start(), stepIndex: 3, selectedPart: 'battery' },
-      pack,
-    )
-      .filter(row => row.current)
-      .map(row => row.id),
-  ).toEqual([TOUR_ID]);
-  expect(procedureRowsFor(INITIAL_SESSION, pack).some(row => row.current)).toBe(
-    false,
-  );
-  expect(
-    procedureRowsFor({ ...INITIAL_SESSION, procedureId: 'unknown' }, pack).some(
-      row => row.current,
-    ),
-  ).toBe(false);
-});
-
-test('picker labels a single step in the singular', () => {
-  const singleStepPack = {
-    ...pack,
-    procedures: [
-      { ...pack.procedures[1], steps: [pack.procedures[1].steps[0]] },
-    ],
-  };
-  expect(
-    procedureRowsFor(start('check-coolant'), singleStepPack)[0].stepCountLabel,
-  ).toBe('1 step');
-});
-
-test('selection preserves progress and caution, and repeat restores step content', () => {
+test('selection keeps progress, drops the step caution, and repeat restores the step', () => {
   const state = start('check-coolant');
   const selected = reduce(
     state,
@@ -147,7 +86,7 @@ test('selection preserves progress and caution, and repeat restores step content
     body: 'Battery summary',
     selected: true,
     stepNumber: 1,
-    caution: 'Only with the engine cold.',
+    caution: '',
   });
   expect(
     cardContentFor(
@@ -158,20 +97,36 @@ test('selection preserves progress and caution, and repeat restores step content
 });
 
 test.each([TOUR_ID, 'check-coolant'])(
-  'last Next restarts the same procedure: %s',
+  'the last step finishes instead of moving on: %s',
   procedureId => {
     const procedure = pack.procedures.find(item => item.id === procedureId)!;
     const last = {
       ...start(procedureId),
       stepIndex: procedure.steps.length - 1,
-      selectedPart: 'battery',
     };
-    expect(cardContentFor(last, pack).nextLabel).toBe('Start over');
-    expect(reduce(last, nextEventFor(last, pack), pack)).toEqual(
-      start(procedureId),
-    );
+    expect(cardContentFor(last, pack).last).toBe(true);
+    expect(cardContentFor(start(procedureId), pack).last).toBe(false);
   },
 );
+
+test('marks the selection, else every part the step names, without the parts inside', () => {
+  const names = (state: Parameters<typeof markedPartsFor>[0]) =>
+    markedPartsFor(state, pack).map(part => part.name);
+  const tourEngine = {
+    ...start(),
+    stepIndex: pack.procedures[0].steps.findIndex(step =>
+      step.parts.includes('engine'),
+    ),
+  };
+  expect(names(tourEngine)).toEqual(['Engine']);
+  expect(names({ ...tourEngine, selectedPart: 'battery' })).toEqual([
+    'Battery',
+  ]);
+  expect(names(INITIAL_SESSION)).toEqual([]);
+  expect(markedPartsFor(tourEngine, pack)[0].bounds).toEqual(
+    pack.parts.find(part => part.id === 'engine')?.bounds,
+  );
+});
 
 test('an ended session has overview content and disabled navigation', () => {
   expect(cardContentFor(INITIAL_SESSION, pack)).toMatchObject({

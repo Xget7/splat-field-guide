@@ -1,18 +1,12 @@
-import {
-  findPart,
-  type Pack,
-  type PartId,
-  type ProcedureId,
-} from '../domain/pack';
+import { findPart, type Pack, type PartId } from '../../domain/pack';
 import {
   currentProcedure,
   currentStep,
   isLastStep,
-  SessionEventType,
-  type SessionEvent,
   type SessionState,
-} from '../domain/session';
-import { TOUR_ID } from '../domain/tour';
+} from '../../domain/session';
+import { TOUR_ID } from '../../domain/tour';
+import type { MarkedPart } from './PartMarkers';
 
 export const CardKind = {
   part: 'part',
@@ -31,28 +25,8 @@ export interface CardContent {
   readonly selected: boolean;
   readonly backDisabled: boolean;
   readonly nextDisabled: boolean;
-  readonly nextLabel: string;
-}
-
-export interface ProcedureRow {
-  readonly id: ProcedureId;
-  readonly title: string;
-  readonly stepCountLabel: string;
-  readonly current: boolean;
-}
-
-export function procedureRowsFor(
-  state: SessionState,
-  pack: Pack,
-): readonly ProcedureRow[] {
-  return pack.procedures.map(procedure => ({
-    id: procedure.id,
-    title: procedure.title,
-    stepCountLabel: `${procedure.steps.length} ${
-      procedure.steps.length === 1 ? 'step' : 'steps'
-    }`,
-    current: procedure.id === state.procedureId,
-  }));
+  /** The step that ends the procedure: Next becomes Finish. */
+  readonly last: boolean;
 }
 
 export function cardContentFor(state: SessionState, pack: Pack): CardContent {
@@ -79,20 +53,15 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
       : CardKind.overview,
     title: part?.name ?? (stepTitle || procedure?.title || pack.title),
     body: part?.summary ?? step?.text ?? 'Tap a part to learn about it.',
-    caution: step?.caution ?? '',
+    // A step's caution is about the step, not about a part picked on the side.
+    caution: selected ? '' : step?.caution ?? '',
     stepNumber: step ? state.stepIndex + 1 : 0,
     stepCount: procedure?.steps.length ?? 0,
     selected: selected !== undefined,
     backDisabled: !step || state.stepIndex === 0,
     nextDisabled: !step,
-    nextLabel: isLastStep(state, pack) ? 'Start over' : 'Next',
+    last: isLastStep(state, pack),
   };
-}
-
-export function nextEventFor(state: SessionState, pack: Pack): SessionEvent {
-  return isLastStep(state, pack) && state.procedureId !== null
-    ? { type: SessionEventType.start, procedureId: state.procedureId }
-    : { type: SessionEventType.next };
 }
 
 /** Unknown labels leave the current selection alone; zero clears it. */
@@ -101,4 +70,19 @@ export function partIdForLabel(
   pack: Pack,
 ): PartId | null | undefined {
   return label === 0 ? null : pack.parts.find(part => part.label === label)?.id;
+}
+
+/** The parts the screen points at: the selection, else the step's own (not those inside). */
+export function markedPartsFor(
+  state: SessionState,
+  pack: Pack,
+): readonly MarkedPart[] {
+  const ids =
+    state.selectedPart !== null
+      ? [state.selectedPart]
+      : currentStep(state, pack)?.parts ?? [];
+  return ids
+    .map(id => findPart(pack, id))
+    .filter(part => part !== undefined)
+    .map(({ id, name, bounds }) => ({ id, name, bounds }));
 }
