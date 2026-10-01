@@ -31,7 +31,6 @@ namespace margelo::nitro::ondevice {
   enum class SpeechInputAvailability {
     AVAILABLE      SWIFT_NAME(available) = 0,
     UNAVAILABLE      SWIFT_NAME(unavailable) = 1,
-    ONDEVICEUNSUPPORTED      SWIFT_NAME(ondeviceunsupported) = 2,
   } CLOSED_ENUM;
 
 } // namespace margelo::nitro::ondevice
@@ -46,7 +45,6 @@ namespace margelo::nitro {
       switch (hashString(unionValue.c_str(), unionValue.size())) {
         case hashString("available"): return margelo::nitro::ondevice::SpeechInputAvailability::AVAILABLE;
         case hashString("unavailable"): return margelo::nitro::ondevice::SpeechInputAvailability::UNAVAILABLE;
-        case hashString("onDeviceUnsupported"): return margelo::nitro::ondevice::SpeechInputAvailability::ONDEVICEUNSUPPORTED;
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert \"" + unionValue + "\" to enum SpeechInputAvailability - invalid value!");
       }
@@ -55,7 +53,6 @@ namespace margelo::nitro {
       switch (arg) {
         case margelo::nitro::ondevice::SpeechInputAvailability::AVAILABLE: return JSIConverter<std::string>::toJSI(runtime, "available");
         case margelo::nitro::ondevice::SpeechInputAvailability::UNAVAILABLE: return JSIConverter<std::string>::toJSI(runtime, "unavailable");
-        case margelo::nitro::ondevice::SpeechInputAvailability::ONDEVICEUNSUPPORTED: return JSIConverter<std::string>::toJSI(runtime, "onDeviceUnsupported");
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert SpeechInputAvailability to JS - invalid value: "
                                     + std::to_string(static_cast<int>(arg)) + "!");
@@ -69,7 +66,6 @@ namespace margelo::nitro {
       switch (hashString(unionValue.c_str(), unionValue.size())) {
         case hashString("available"):
         case hashString("unavailable"):
-        case hashString("onDeviceUnsupported"):
           return true;
         default:
           return false;

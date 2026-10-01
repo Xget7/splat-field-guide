@@ -1,6 +1,6 @@
 import type { HybridObject } from 'react-native-nitro-modules';
 
-/** Reads text aloud with the system's best installed voice for a locale. */
+/** Reads English with bundled Kokoro, with the best installed system voice as fallback. */
 export interface SpeechOutput extends HybridObject<{ ios: 'swift' }> {
   /**
    * Stops anything already being said, then says `text`; resolves when it ends or is stopped.

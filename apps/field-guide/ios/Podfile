@@ -10,6 +10,11 @@ IOS_DEPLOYMENT_TARGET = '26.0'
 platform :ios, IOS_DEPLOYMENT_TARGET
 prepare_react_native_project!
 
+# Build-time only: pinned and hash-checked resources must exist before CocoaPods enumerates them.
+unless system('python3', File.expand_path('../scripts/fetch-kokoro-models.py', __dir__))
+  raise 'Kokoro resources could not be verified; see scripts/fetch-kokoro-models.py'
+end
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green

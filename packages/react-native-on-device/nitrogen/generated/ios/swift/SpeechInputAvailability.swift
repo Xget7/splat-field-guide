@@ -21,8 +21,6 @@ public extension SpeechInputAvailability {
         self = .available
       case "unavailable":
         self = .unavailable
-      case "onDeviceUnsupported":
-        self = .ondeviceunsupported
       default:
         return nil
     }
@@ -37,8 +35,6 @@ public extension SpeechInputAvailability {
         return "available"
       case .unavailable:
         return "unavailable"
-      case .ondeviceunsupported:
-        return "onDeviceUnsupported"
     }
   }
 }

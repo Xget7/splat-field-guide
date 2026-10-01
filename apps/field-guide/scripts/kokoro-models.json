@@ -1,0 +1,77 @@
+[
+  {
+    "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_quantized.onnx",
+    "path": "model_quantized.onnx",
+    "sha256": "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478"
+  },
+  {
+    "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_heart.bin",
+    "path": "af_heart.bin",
+    "sha256": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b"
+  },
+  {
+    "url": "https://huggingface.co/hexgrad/Kokoro-82M/resolve/04393022a04dcb701fd2061b8d5dbe23ac7be751/config.json",
+    "path": "config.json",
+    "sha256": "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/us_lexicon_cache.json",
+    "path": "us_lexicon_cache.json",
+    "sha256": "6b36ba313202227d6914ad32cd684a0304bd2757e9ec4158ea7bc36ec40e224e"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/g2p_vocab.json",
+    "path": "g2p_vocab.json",
+    "sha256": "295ed64b86c2820cd665b0602ae50c6947c0e82ac643082873e0be87dca282ce"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PEncoder.mlmodelc/analytics/coremldata.bin",
+    "path": "G2PEncoder.mlmodelc/analytics/coremldata.bin",
+    "sha256": "cf7fbd7e7a65529b2d2bf3941e458a0ab6dff7a298bf48e205a1727c81c26a99"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PEncoder.mlmodelc/coremldata.bin",
+    "path": "G2PEncoder.mlmodelc/coremldata.bin",
+    "sha256": "0f14d46ca9fd06c68b4717294575b2b99449e67d40b7a2c56f926bf05cd90b11"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PEncoder.mlmodelc/metadata.json",
+    "path": "G2PEncoder.mlmodelc/metadata.json",
+    "sha256": "c8e0cfd7f494ac1b3662ff8f1914b2b45f79ffb2791724cdc0576981996732e1"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PEncoder.mlmodelc/model.mil",
+    "path": "G2PEncoder.mlmodelc/model.mil",
+    "sha256": "8c617e569f37286b056dad800d862dc145be9a95fa9ed43857bb646ba199d7da"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PEncoder.mlmodelc/weights/weight.bin",
+    "path": "G2PEncoder.mlmodelc/weights/weight.bin",
+    "sha256": "6926bcd2827d21fec82839487b987e06f85fd8a6a5bb896bc4f6062461d014ec"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PDecoder.mlmodelc/analytics/coremldata.bin",
+    "path": "G2PDecoder.mlmodelc/analytics/coremldata.bin",
+    "sha256": "dbf1767747fdc188222d467a45b04608b396c76c71db3abb18a5fb3680ef9827"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PDecoder.mlmodelc/coremldata.bin",
+    "path": "G2PDecoder.mlmodelc/coremldata.bin",
+    "sha256": "607e960f19b4d9a30317a5a11869fcce84b300a909fcab2cc756c0d98e2dacd9"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PDecoder.mlmodelc/metadata.json",
+    "path": "G2PDecoder.mlmodelc/metadata.json",
+    "sha256": "e54e98484fd60d26f22fd3c4e7fe87b0d92a5d2de1f958cc3c4bb36d4ae06a44"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PDecoder.mlmodelc/model.mil",
+    "path": "G2PDecoder.mlmodelc/model.mil",
+    "sha256": "fe647c598e0d9454d360b8ee49a59ae57ca147fc5330863ba84ccb90dce482ad"
+  },
+  {
+    "url": "https://huggingface.co/FluidInference/kokoro-82m-coreml/resolve/006395f65025af251858b1ab0a7178a6a1e73f9f/G2PDecoder.mlmodelc/weights/weight.bin",
+    "path": "G2PDecoder.mlmodelc/weights/weight.bin",
+    "sha256": "cbaeb4e743359f607ab161af0c6d8a817462fdaec622ee788ef8ef952c5f8214"
+  }
+]

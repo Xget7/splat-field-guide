@@ -71,6 +71,40 @@ const GRABBER_HEIGHT = 4;
 const GRABBER_SLOP = (MIN_TOUCH - Space.lg) / 2;
 const STEP_EXCHANGE_KEY = 'step';
 
+// Hands free there is no button to discover, so the panel says what can be said. Quoted
+// words are the commands the router knows; they read brighter than the rest.
+const HandsFreeCue = {
+  step: [
+    'Say ',
+    '"next"',
+    ', ',
+    '"repeat"',
+    ' or ',
+    '"back"',
+    ', or ask a question.',
+  ],
+  part: ['Ask about a part, or say ', '"show me"', ' and its name.'],
+  busy: ['Talk over me to interrupt.'],
+  muted: ['Muted. Tap the mic to listen again.'],
+} as const;
+const COMMAND_QUOTE = '"';
+
+function handsFreeCue(voice: InstructorVoice, hasStep: boolean) {
+  if (!voice.handsFree) {
+    return null;
+  }
+  if (voice.muted) {
+    return HandsFreeCue.muted;
+  }
+  if (
+    voice.state === VoiceState.speaking ||
+    voice.state === VoiceState.thinking
+  ) {
+    return HandsFreeCue.busy;
+  }
+  return hasStep ? HandsFreeCue.step : HandsFreeCue.part;
+}
+
 /** What the panel shows: the last question, if any, and the answer to it. */
 export interface InstructorMessage {
   readonly id: number | null;
@@ -206,6 +240,7 @@ export function InstructorPanel({
   const preview = voice.hint || (listening ? question ?? '' : message.reply);
   const canStop =
     voice.state === VoiceState.speaking || voice.state === VoiceState.thinking;
+  const cue = voice.hint === '' ? handsFreeCue(voice, hasStep) : null;
   const send = useCallback(() => {
     if (draft.trim() === '') {
       return;
@@ -307,6 +342,22 @@ export function InstructorPanel({
                 </Animated.View>
               )}
             </Pressable>
+            {!minimized && voice.canListen && (
+              <IconButton
+                testID="instructor-hands-free"
+                icon={IconName.handsFree}
+                accessibilityLabel="Hands-free"
+                accessibilityHint="Listens all the time, so you can talk without holding the mic"
+                accessibilityState={{ selected: voice.handsFree }}
+                variant={
+                  voice.handsFree
+                    ? IconButtonVariant.active
+                    : IconButtonVariant.raised
+                }
+                style={voice.handsFree ? undefined : styles.sideControl}
+                onPress={voice.toggleHandsFree}
+              />
+            )}
             {!minimized && canStop && (
               <Animated.View entering={FADE_IN} exiting={FADE_OUT}>
                 <IconButton
@@ -417,6 +468,27 @@ export function InstructorPanel({
               style={styles.hint}
             >
               {voice.hint}
+            </Animated.Text>
+          )}
+          {cue !== null && (
+            <Animated.Text
+              key={cue.join('')}
+              entering={FADE_IN}
+              exiting={FADE_OUT}
+              testID="instructor-cue"
+              accessibilityLabel={cue.join('')}
+              accessibilityLiveRegion="polite"
+              style={styles.hint}
+            >
+              {cue.map((part, index) =>
+                part.startsWith(COMMAND_QUOTE) ? (
+                  <Text key={index} style={styles.command}>
+                    {part}
+                  </Text>
+                ) : (
+                  part
+                ),
+              )}
             </Animated.Text>
           )}
           {inputMode === InputMode.keyboard ? (
@@ -554,6 +626,7 @@ const styles = StyleSheet.create({
   },
   stale: { opacity: STALE_OPACITY },
   hint: { ...Type.footnote, color: Color.muted },
+  command: { color: Color.text },
   talkRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

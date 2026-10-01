@@ -59,6 +59,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - onnxruntime-c (1.30.0)
   - RCT-Folly (2024.11.18.00):
     - RCT-Folly/Default (= 2024.11.18.00)
     - ReactNativeDependencies
@@ -1721,6 +1722,7 @@ PODS:
   - ReactNativeOnDevice (0.0.1):
     - hermes-engine
     - NitroModules
+    - onnxruntime-c (= 1.30.0)
     - RCTRequired
     - RCTTypeSafety
     - React-bridging
@@ -2152,6 +2154,10 @@ DEPENDENCIES:
   - SocketRocket (from `build/rndeps-facades/SocketRocket`)
   - Yoga (from `build/rncore-facades/Yoga`)
 
+SPEC REPOS:
+  trunk:
+    - onnxruntime-c
+
 EXTERNAL SOURCES:
   AsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
@@ -2355,6 +2361,7 @@ SPEC CHECKSUMS:
   glog: b4427c3119645da795ff09985ba9da909c940c96
   hermes-engine: 63c5db7d529c36335fada6582fd293ae2a105d77
   NitroModules: 08aff3b1a45badb71cf10d8f2d9cfb4e87cb468e
+  onnxruntime-c: 36ca0f2cdbc89c6b330ec5287c3faf5ca6ed394d
   RCT-Folly: d173e541eeb78cad5c81011c1bbf62d5b86b9778
   RCTDeprecation: 1dce662386078170e119b89c1600db1b6e3d42f6
   RCTRequired: b5a9168b680baa2cda4f6b4764d10b6e58368b25
@@ -2432,7 +2439,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 35b96d81c5528b5774f73e938ce4be8eb879d7bd
   ReactCommon: 7d2d036b7250e66dce71d19f47160d4b31fbb92a
   ReactNativeDependencies: 94c922c39e0e6150ee9ad05e2ca1946e0ef55783
-  ReactNativeOnDevice: f9c04d8c12de9d383af8611974c276efcbf9d733
+  ReactNativeOnDevice: 59630bfd87c6c8512399623e1cff98e10fe3bfd6
   ReactNativeSplat: 5431dea71729d37efcb07b52a68002ced1704e1e
   RNGestureHandler: 573d95b59354b39455079b337747a307efcac73d
   RNReanimated: 390b305daa15518a41890d5441175c3a209ab60f
@@ -2442,6 +2449,6 @@ SPEC CHECKSUMS:
   SocketRocket: d57b1af80c029e12a75cd9b218287c67381e4593
   Yoga: 58b502c52b14ad3c4468805d461fc37d275c2a42
 
-PODFILE CHECKSUM: bb6cf681e2b5c4ebc07ab50aa6db87fded389b5d
+PODFILE CHECKSUM: ee19ee48a7d1c79d0263edff5b02d6d7cb429094
 
 COCOAPODS: 1.16.2

@@ -1,0 +1,15 @@
+Field Guide uses Kokoro-82M v1.0 and the af_heart voice, distributed by hexgrad
+and onnx-community under Apache-2.0.
+https://huggingface.co/hexgrad/Kokoro-82M
+https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX
+
+The English lexicon and CoreML grapheme-to-phoneme resources are distributed
+by FluidInference under Apache-2.0 and derived from hexgrad/Misaki and
+PeterReid/graphemes_to_phonemes_en_us, also under Apache-2.0.
+https://huggingface.co/FluidInference/kokoro-82m-coreml
+https://github.com/hexgrad/misaki
+https://huggingface.co/PeterReid/graphemes_to_phonemes_en_us
+
+The complete Apache-2.0 license is included as FluidAudio.txt in this bundle.
+ONNX Runtime is distributed under MIT; its license and third party notices
+ship with its CocoaPod and are retained separately in this bundle.

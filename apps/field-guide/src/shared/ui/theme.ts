@@ -13,7 +13,8 @@ export const Color = {
   text: '#E9EDF1',
   secondaryText: '#B4BBC3',
   muted: '#8B939C',
-  faint: '#5A616A',
+  // 4.5:1 on black, so even the quietest readout passes AA.
+  faint: '#767E88',
   accent: '#2576D2',
   accentPressed: '#1C5DA8',
   accentText: '#FFFFFF',

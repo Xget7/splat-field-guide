@@ -6,21 +6,18 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
   private static let inputBus: AVAudioNodeBus = 0
   private static let audioBufferSize: AVAudioFrameCount = 1024
   private static let finalResultTimeout: TimeInterval = 5
-  private static let noSpeechErrorCode = 1110
+  // Hands free: a pause this long after the last new word ends the turn.
+  private static let turnPause: TimeInterval = 1.0
+  private static let recognitionEnded = "Speech recognition ended"
 
   private final class Recording {
     let engine = AVAudioEngine()
-    let request = SFSpeechAudioBufferRecognitionRequest()
     let levels = OnDeviceAudioLevel()
-    var task: SFSpeechRecognitionTask?
+    var transcription: OnDeviceTranscription?
     var tapInstalled = false
-    var transcript = ""
     var outcome: Result<String, Error>?
     var completion: Promise<String>?
     var timeout: DispatchWorkItem?
-    let onPartial: (String) -> Void
-
-    init(onPartial: @escaping (String) -> Void) { self.onPartial = onPartial }
 
     func stopAudio() {
       engine.stop()
@@ -33,8 +30,7 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     deinit {
       timeout?.cancel()
       stopAudio()
-      request.endAudio()
-      task?.cancel()
+      transcription?.cancel()
       if let completion {
         let error = OnDeviceError(message: "Speech recognition cancelled")
         OnDeviceLog.speechInput(error)
@@ -43,7 +39,32 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     }
   }
 
+  // Hands free: one transcription over one open microphone, split into turns at pauses.
+  private final class Conversation {
+    let onPartial: (String) -> Void
+    let onTurn: (String) -> Void
+    let onStopped: (String) -> Void
+    let levels = OnDeviceAudioLevel()
+    var transcription: OnDeviceTranscription?
+    var pause: DispatchWorkItem?
+
+    init(onPartial: @escaping (String) -> Void, onTurn: @escaping (String) -> Void,
+      onStopped: @escaping (String) -> Void) {
+      self.onPartial = onPartial
+      self.onTurn = onTurn
+      self.onStopped = onStopped
+    }
+
+    func close() {
+      pause?.cancel()
+      pause = nil
+      transcription?.cancel()
+      transcription = nil
+    }
+  }
+
   private var recording: Recording?
+  private var conversation: Conversation?
 
   func requestPermission() throws -> Promise<SpeechPermission> {
     let promise = Promise<SpeechPermission>()
@@ -57,10 +78,18 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     return promise
   }
 
-  func availability(locale: String) throws -> SpeechInputAvailability {
-    guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)),
-      recognizer.isAvailable else { return .unavailable }
-    return recognizer.supportsOnDeviceRecognition ? .available : .ondeviceunsupported
+  func prepare(locale: String) throws -> Promise<SpeechInputAvailability> {
+    let promise = Promise<SpeechInputAvailability>()
+    Task {
+      do {
+        let ready = try await OnDeviceTranscription.prepare(locale: locale)
+        promise.resolve(withResult: ready ? .available : .unavailable)
+      } catch {
+        OnDeviceLog.speechInput(error)
+        promise.reject(withError: error)
+      }
+    }
+    return promise
   }
 
   func start(locale: String, hints: [String], onPartial: @escaping (String) -> Void,
@@ -70,59 +99,35 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     DispatchQueue.main.async { [self] in
       var started: Recording?
       do {
-        guard self.recording == nil else {
-          throw OnDeviceError(message: "Speech recognition is already listening")
-        }
-        guard SFSpeechRecognizer.authorizationStatus() == .authorized,
-          AVAudioApplication.shared.recordPermission == .granted else {
-          throw OnDeviceError(message: "Microphone and speech recognition permission required")
-        }
-        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)),
-          recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else {
-          throw OnDeviceError(message: "On-device speech recognition unavailable for \(locale)")
-        }
+        try self.ensureIdle()
         try OnDeviceAudioSession.activate()
-        let recording = Recording(onPartial: onPartial)
-        recording.request.requiresOnDeviceRecognition = true
-        recording.request.contextualStrings = hints
-        recording.request.shouldReportPartialResults = true
-        recording.request.addsPunctuation = true
+        let recording = Recording()
         started = recording
         self.recording = recording
-        recording.task = recognizer.recognitionTask(with: recording.request) {
-          [weak self, weak recording] result, error in
-          DispatchQueue.main.async {
+        let transcription = try OnDeviceTranscription(locale: locale, hints: hints,
+          onChange: { [weak self, weak recording] transcript in
             guard let self, let recording, self.recording === recording,
               recording.outcome == nil else { return }
-            if let result {
-              let transcript = result.bestTranscription.formattedString
-              if transcript != recording.transcript {
-                recording.transcript = transcript
-                recording.onPartial(transcript)
-              }
-              if result.isFinal { recording.outcome = .success(transcript) }
-            }
-            if recording.outcome == nil, let error {
-              let nativeError = error as NSError
-              recording.outcome = nativeError.domain == "kAFAssistantErrorDomain"
-                && nativeError.code == Self.noSpeechErrorCode
-                ? .success(recording.transcript) : .failure(error)
-              if case .failure = recording.outcome { OnDeviceLog.speechInput(error) }
-            }
-            if recording.outcome != nil {
-              recording.stopAudio()
-              self.complete(recording)
-            }
-          }
-        }
+            onPartial(transcript)
+          },
+          onEnd: { [weak self, weak recording] error in
+            guard let self, let recording, self.recording === recording,
+              recording.outcome == nil else { return }
+            if let error { OnDeviceLog.speechInput(error) }
+            recording.outcome = error.map { .failure($0) }
+              ?? .success(recording.transcription?.text ?? "")
+            recording.stopAudio()
+            self.complete(recording)
+          })
+        recording.transcription = transcription
         let input = recording.engine.inputNode
         let format = input.outputFormat(forBus: Self.inputBus)
         guard format.sampleRate > 0, format.channelCount > 0 else {
           throw OnDeviceError(message: "Microphone audio format unavailable")
         }
-        input.installTap(onBus: HybridSpeechInput.inputBus, bufferSize: Self.audioBufferSize, format: format) {
-          [request = recording.request, levels = recording.levels] buffer, time in
-          request.append(buffer)
+        input.installTap(onBus: Self.inputBus, bufferSize: Self.audioBufferSize, format: format) {
+          [levels = recording.levels] buffer, time in
+          transcription.append(buffer)
           if let level = levels.update(buffer, at: time.hostTime) { onLevel(level) }
         }
         recording.tapInstalled = true
@@ -153,14 +158,14 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
       }
       recording.completion = promise
       recording.stopAudio()
-      recording.request.endAudio()
+      recording.transcription?.finish()
       if recording.outcome != nil {
         self.complete(recording)
         return
       }
       let timeout = DispatchWorkItem { [weak self, weak recording] in
         guard let self, let recording, self.recording === recording else { return }
-        recording.outcome = .success(recording.transcript)
+        recording.outcome = .success(recording.transcription?.text ?? "")
         self.complete(recording)
       }
       recording.timeout = timeout
@@ -169,21 +174,101 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     return promise
   }
 
+  func listen(locale: String, hints: [String], onPartial: @escaping (String) -> Void,
+    onTurn: @escaping (String) -> Void, onLevel: @escaping (Double) -> Void,
+    onStopped: @escaping (String) -> Void) throws -> Promise<Void> {
+    let promise = Promise<Void>()
+    DispatchQueue.main.async { [self] in
+      var started: Conversation?
+      do {
+        try self.ensureIdle()
+        let conversation = Conversation(onPartial: onPartial, onTurn: onTurn,
+          onStopped: onStopped)
+        started = conversation
+        self.conversation = conversation
+        let transcription = try OnDeviceTranscription(locale: locale, hints: hints,
+          onChange: { [weak self, weak conversation] transcript in
+            guard let self, let conversation, self.conversation === conversation else { return }
+            conversation.onPartial(transcript)
+            self.awaitPause(conversation)
+          },
+          onEnd: { [weak self, weak conversation] error in
+            guard let self, let conversation, self.conversation === conversation else { return }
+            if let error { OnDeviceLog.speechInput(error) }
+            self.endConversation()
+            conversation.onStopped(error?.localizedDescription ?? Self.recognitionEnded)
+          })
+        conversation.transcription = transcription
+        _ = try OnDeviceAudioGraph.shared.startListening {
+          [levels = conversation.levels] buffer, time in
+          transcription.append(buffer)
+          if let level = levels.update(buffer, at: time.hostTime) { onLevel(level) }
+        }
+        promise.resolve()
+      } catch {
+        if let started, self.conversation === started { self.endConversation() }
+        OnDeviceLog.speechInput(error)
+        promise.reject(withError: error)
+      }
+    }
+    return promise
+  }
+
   func cancel() throws {
-    DispatchQueue.main.async { self.recording = nil }
+    DispatchQueue.main.async {
+      self.recording = nil
+      self.endConversation()
+    }
+  }
+
+  private func ensureIdle() throws {
+    guard recording == nil, conversation == nil else {
+      throw OnDeviceError(message: "Speech recognition is already listening")
+    }
+    guard SFSpeechRecognizer.authorizationStatus() == .authorized,
+      AVAudioApplication.shared.recordPermission == .granted else {
+      throw OnDeviceError(message: "Microphone and speech recognition permission required")
+    }
+  }
+
+  private func awaitPause(_ conversation: Conversation) {
+    conversation.pause?.cancel()
+    let pause = DispatchWorkItem { [weak self, weak conversation] in
+      guard let self, let conversation else { return }
+      self.endTurn(conversation)
+    }
+    conversation.pause = pause
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.turnPause, execute: pause)
+  }
+
+  private func endTurn(_ conversation: Conversation) {
+    guard self.conversation === conversation, let transcription = conversation.transcription
+    else { return }
+    conversation.pause = nil
+    let transcript = transcription.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    transcription.startTurn()
+    if !transcript.isEmpty { conversation.onTurn(transcript) }
+  }
+
+  private func endConversation() {
+    guard let conversation else { return }
+    self.conversation = nil
+    conversation.close()
+    OnDeviceAudioGraph.shared.stopListening()
   }
 
   private func complete(_ recording: Recording) {
     guard let promise = recording.completion, let outcome = recording.outcome else { return }
     recording.completion = nil
     self.recording = nil
+    let heard = recording.transcription?.text ?? ""
     switch outcome {
     case .success(let transcript): promise.resolve(withResult: transcript)
     case .failure(let error):
-      if recording.transcript.isEmpty {
+      if heard.isEmpty {
         promise.reject(withError: error)
       } else {
-        promise.resolve(withResult: recording.transcript)
+        promise.resolve(withResult: heard)
       }
     }
   }

@@ -132,13 +132,6 @@ describe('Guide detail screen', () => {
     expect(node('mode-instructor').props.accessibilityState).toEqual({
       selected: false,
     });
-    expect(
-      renderer.root
-        .findAllByType(Text)
-        .some(
-          item => item.props.children === 'Read each step at your own pace.',
-        ),
-    ).toBe(true);
     await press('procedure-row-check-brake-fluid');
     expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
       guideId: pack.packId,

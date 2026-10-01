@@ -7,6 +7,9 @@ export const IconName = {
   next: 'next',
   down: 'down',
   mic: 'mic',
+  micOff: 'micOff',
+  handsFree: 'handsFree',
+  camera: 'camera',
   chat: 'chat',
   repeat: 'repeat',
   warn: 'warn',
@@ -35,6 +38,20 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
     <>
       <Rect x={9} y={2.5} width={6} height={12} rx={3} />
       <Path d="M5 11a7 7 0 0 0 14 0M12 18v3.5" />
+    </>
+  ),
+  micOff: () => (
+    <>
+      <Path d="M15 9.5V5.5a3 3 0 0 0-5.6-1.5M9 9v2.5a3 3 0 0 0 4.8 2.4" />
+      <Path d="M5 11a7 7 0 0 0 11.4 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3.5M3 3l18 18" />
+    </>
+  ),
+  // Sound waves: the instructor hears without a hold.
+  handsFree: () => <Path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />,
+  camera: () => (
+    <>
+      <Path d="M3 8a2 2 0 0 1 2-2h2.5L9 4h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <Circle cx={12} cy={13} r={3.5} />
     </>
   ),
   chat: () => <Path d="M20 11a8 8 0 0 1-8 8H4l-2 3V11a9 9 0 0 1 18 0z" />,

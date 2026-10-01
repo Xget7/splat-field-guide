@@ -68,6 +68,15 @@ const STATUS: Readonly<Record<VoiceState, string>> = {
   thinking: 'Thinking',
   speaking: 'Speaking',
 };
+// Hands free and quiet, the status says whether the microphone is open.
+const HandsFreeStatus = { open: 'Listening', muted: 'Muted' } as const;
+// An open microphone reads in the accent, a muted one as a caution; the rest stay quiet.
+function statusColor(status: string | null) {
+  if (status === HandsFreeStatus.muted) {
+    return Color.caution;
+  }
+  return status === STATUS.listening ? Color.accent : Color.faint;
+}
 const SPAN_COLOR: Readonly<Record<SpanKind, string>> = {
   spoken: Color.text,
   current: Color.accent,
@@ -107,9 +116,16 @@ export function InstructorStatus({
   voice: InstructorVoice;
   step: string | null;
 }) {
-  const status = STATUS[voice.state] || step;
+  const handsFreeStatus = voice.handsFree
+    ? voice.muted
+      ? HandsFreeStatus.muted
+      : HandsFreeStatus.open
+    : null;
+  const status = STATUS[voice.state] || handsFreeStatus || step;
   const metered =
-    voice.state === VoiceState.listening || voice.state === VoiceState.speaking;
+    voice.state === VoiceState.listening ||
+    voice.state === VoiceState.speaking ||
+    voice.open;
   return (
     <Animated.View
       key={status}
@@ -118,7 +134,7 @@ export function InstructorStatus({
       style={styles.status}
     >
       {status !== null && (
-        <Label testID="instructor-status" color={Color.faint}>
+        <Label testID="instructor-status" color={statusColor(status)}>
           {status}
         </Label>
       )}
@@ -198,7 +214,8 @@ export function InstructorTalk({
   onHoldChange?: (holding: boolean) => void;
 }) {
   const pressed = useSharedValue(0);
-  const listening = voice.state === VoiceState.listening;
+  // Hands free the ring follows the open microphone and a tap mutes it.
+  const listening = voice.state === VoiceState.listening || voice.open;
   const { level } = voice;
   const pressStyle = useAnimatedStyle(() =>
     reducedMotion
@@ -221,42 +238,59 @@ export function InstructorTalk({
         })
       : withSpring(value, Motion.spring);
   };
+  const shape = { borderRadius: size / 2 };
+  const button = voice.handsFree ? (
+    <IconButton
+      testID="instructor-talk"
+      icon={voice.muted ? IconName.micOff : IconName.mic}
+      size={size}
+      variant={
+        voice.muted ? IconButtonVariant.raised : IconButtonVariant.active
+      }
+      accessibilityLabel={
+        voice.muted ? 'Unmute the instructor' : 'Mute the instructor'
+      }
+      accessibilityState={{ selected: !voice.muted }}
+      onPressIn={() => press(1)}
+      onPressOut={() => press(0)}
+      onPress={voice.toggleMuted}
+      style={shape}
+    />
+  ) : (
+    <IconButton
+      testID="instructor-talk"
+      icon={IconName.mic}
+      size={size}
+      variant={IconButtonVariant.active}
+      accessibilityLabel="Hold to talk to the instructor"
+      accessibilityHint="Hold while speaking, then release to ask"
+      accessibilityState={{
+        selected: listening,
+        disabled: !voice.canListen,
+      }}
+      disabled={!voice.canListen}
+      onPressIn={() => {
+        press(1);
+        onHoldChange?.(true);
+        return voice.start();
+      }}
+      onPressOut={() => {
+        press(0);
+        onHoldChange?.(false);
+        voice.release();
+      }}
+      style={listening ? { ...styles.listening, ...shape } : shape}
+    />
+  );
   return (
     <View style={{ width: size, height: size }}>
       <Animated.View
         pointerEvents="none"
         testID="instructor-talk-ring"
-        style={[styles.ring, { borderRadius: size / 2 }, ringStyle]}
+        style={[styles.ring, shape, ringStyle]}
       />
       <Animated.View testID="instructor-talk-motion" style={pressStyle}>
-        <IconButton
-          testID="instructor-talk"
-          icon={IconName.mic}
-          size={size}
-          variant={IconButtonVariant.active}
-          accessibilityLabel="Hold to talk to the instructor"
-          accessibilityHint="Hold while speaking, then release to ask"
-          accessibilityState={{
-            selected: listening,
-            disabled: !voice.canListen,
-          }}
-          disabled={!voice.canListen}
-          onPressIn={() => {
-            press(1);
-            onHoldChange?.(true);
-            return voice.start();
-          }}
-          onPressOut={() => {
-            press(0);
-            onHoldChange?.(false);
-            voice.release();
-          }}
-          style={
-            listening
-              ? { ...styles.listening, borderRadius: size / 2 }
-              : { borderRadius: size / 2 }
-          }
-        />
+        {button}
       </Animated.View>
     </View>
   );

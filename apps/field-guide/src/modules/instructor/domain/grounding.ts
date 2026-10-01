@@ -7,7 +7,11 @@ import {
 } from '../../../domain/session';
 import { TOUR_ID } from '../../../domain/tour';
 import { notesFor, subjectOf } from './context';
-import { NOT_COVERED_REPLY, type InstructorAnswer } from './instructor';
+import {
+  focusPart,
+  NOT_COVERED_REPLY,
+  type InstructorAnswer,
+} from './instructor';
 
 /**
  * What every model is told and checked against, so an answer online and one offline
@@ -69,7 +73,11 @@ export function promptFor(
   const subject = subjectOf(question, state, pack);
   const procedure = currentProcedure(state, pack);
   const step = currentStep(state, pack);
+  const onScreen = focusPart(state, pack);
   const lines: string[] = [];
+  if (onScreen && onScreen !== subject) {
+    lines.push(`On screen: ${onScreen.name}`);
+  }
   if (subject) {
     lines.push(`Part: ${subject.name}`);
     if (notes === PromptNotes.subject) {

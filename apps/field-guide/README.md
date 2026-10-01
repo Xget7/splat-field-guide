@@ -66,6 +66,35 @@ The external tests reuse the app's dependencies and Babel configuration.
 From this app directory, run `npm test -- --runInBand`, `npm run lint` and
 `npm run typecheck`. These commands validate the app and its external test suite.
 
+## Instructor voice
+
+English speech uses Kokoro-82M v1.0 with the `af_heart` voice through ONNX Runtime 1.30.0 on CPU.
+Apple speech remains the automatic fallback for other locales and for model or playback failures.
+The [research comparison](../../docs/research/09-kokoro-tts.md) covers the engine, voice and license choices.
+
+`pod install` runs `scripts/fetch-kokoro-models.py` before evaluating the native podspec.
+It fetches pinned Hugging Face revisions, verifies each file against `scripts/kokoro-models.json`, and prepares `packages/react-native-on-device/ios/KokoroResources/`.
+CocoaPods bundles the model, one voice, the English lexicon, the small G2P models and the license notices into the app, so the installed app never downloads a model.
+The verified binaries are gitignored, so a clean checkout needs network access once.
+
+The output warms on its own queue when the instructor opens, plays each sentence while it synthesizes the next, and aborts inference when speech stops.
+Word ranges stay UTF-16 indices in the original reply; their timing is estimated from word length and the audio sample clock, because this export has no word timestamps.
+Debug builds log `model_warm_ms`, `synth_ms`, `rtf` and `first_audio_ms` under the `dev.splatfieldguide.ondevice` subsystem, and `scripts/kokoro-smoke-test.js` exercises the native interface from the Metro debugger.
+
+### Speech recognition
+
+Questions are transcribed on the device with `SpeechAnalyzer` and `SpeechTranscriber` (iOS 26), the model behind Notes and Voice Memos, which handles accented English far better than `SFSpeechRecognizer`.
+Devices without `SpeechTranscriber` fall back to `DictationTranscriber`, and part names and aliases are passed as contextual strings.
+The model is not bundled: `prepare` installs it through `AssetInventory` when the instructor opens, so the first launch needs network once and every later one works offline.
+
+### Hands-free
+
+The waves button in the instructor header turns on hands-free: the microphone stays open and each spoken turn is asked after a one-second pause.
+The mic button then mutes and unmutes instead of being held, and a line under the answer says which commands can be spoken.
+One transcription runs for the whole conversation; a turn ends after the pause and results for audio before it are dropped.
+Kokoro plays through the same `AVAudioEngine` that listens, with voice processing on, so echo cancellation removes the instructor's own voice and the user can talk over an answer to cut it short.
+Words that are all ones the instructor is saying are treated as leaked echo and never interrupt it; Apple speech, the fallback, plays outside that engine and relies on this check alone.
+
 ## TestFlight
 
 The app record is `dev.splatfieldguide.app` on team `R2NGS9RVQ9`; Xcode must be signed in to an account on that team.

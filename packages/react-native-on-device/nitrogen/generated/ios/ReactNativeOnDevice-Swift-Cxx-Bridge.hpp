@@ -180,6 +180,40 @@ namespace margelo::nitro::ondevice::bridge::swift {
     return Func_void_SpeechPermission_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::shared_ptr<Promise<SpeechInputAvailability>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<SpeechInputAvailability>>`.
+   */
+  using std__shared_ptr_Promise_SpeechInputAvailability__ = std::shared_ptr<Promise<SpeechInputAvailability>>;
+  inline std::shared_ptr<Promise<SpeechInputAvailability>> create_std__shared_ptr_Promise_SpeechInputAvailability__() noexcept {
+    return Promise<SpeechInputAvailability>::create();
+  }
+  inline PromiseHolder<SpeechInputAvailability> wrap_std__shared_ptr_Promise_SpeechInputAvailability__(std::shared_ptr<Promise<SpeechInputAvailability>> promise) noexcept {
+    return PromiseHolder<SpeechInputAvailability>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(SpeechInputAvailability /* result */)>
+  /**
+   * Specialized version of `std::function<void(SpeechInputAvailability)>`.
+   */
+  using Func_void_SpeechInputAvailability = std::function<void(SpeechInputAvailability /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(SpeechInputAvailability / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_SpeechInputAvailability_Wrapper final {
+  public:
+    explicit Func_void_SpeechInputAvailability_Wrapper(std::function<void(SpeechInputAvailability /* result */)>&& func): _function(std::make_unique<std::function<void(SpeechInputAvailability /* result */)>>(std::move(func))) {}
+    inline void call(int result) const noexcept {
+      _function->operator()(static_cast<SpeechInputAvailability>(result));
+    }
+  private:
+    std::unique_ptr<std::function<void(SpeechInputAvailability /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_SpeechInputAvailability create_Func_void_SpeechInputAvailability(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_SpeechInputAvailability_Wrapper wrap_Func_void_SpeechInputAvailability(Func_void_SpeechInputAvailability value) noexcept {
+    return Func_void_SpeechInputAvailability_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<Promise<void>>
   /**
    * Specialized version of `std::shared_ptr<Promise<void>>`.
@@ -268,13 +302,13 @@ namespace margelo::nitro::ondevice::bridge::swift {
     return Result<std::shared_ptr<Promise<SpeechPermission>>>::withError(error);
   }
   
-  // pragma MARK: Result<SpeechInputAvailability>
-  using Result_SpeechInputAvailability_ = Result<SpeechInputAvailability>;
-  inline Result_SpeechInputAvailability_ create_Result_SpeechInputAvailability_(SpeechInputAvailability value) noexcept {
-    return Result<SpeechInputAvailability>::withValue(std::move(value));
+  // pragma MARK: Result<std::shared_ptr<Promise<SpeechInputAvailability>>>
+  using Result_std__shared_ptr_Promise_SpeechInputAvailability___ = Result<std::shared_ptr<Promise<SpeechInputAvailability>>>;
+  inline Result_std__shared_ptr_Promise_SpeechInputAvailability___ create_Result_std__shared_ptr_Promise_SpeechInputAvailability___(const std::shared_ptr<Promise<SpeechInputAvailability>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<SpeechInputAvailability>>>::withValue(value);
   }
-  inline Result_SpeechInputAvailability_ create_Result_SpeechInputAvailability_(const std::exception_ptr& error) noexcept {
-    return Result<SpeechInputAvailability>::withError(error);
+  inline Result_std__shared_ptr_Promise_SpeechInputAvailability___ create_Result_std__shared_ptr_Promise_SpeechInputAvailability___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<SpeechInputAvailability>>>::withError(error);
   }
   
   // pragma MARK: Result<std::shared_ptr<Promise<void>>>

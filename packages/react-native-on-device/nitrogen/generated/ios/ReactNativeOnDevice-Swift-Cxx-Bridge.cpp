@@ -56,6 +56,14 @@ namespace margelo::nitro::ondevice::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(SpeechInputAvailability /* result */)>
+  Func_void_SpeechInputAvailability create_Func_void_SpeechInputAvailability(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_SpeechInputAvailability::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](SpeechInputAvailability result) mutable -> void {
+      swiftClosure.call(static_cast<int>(result));
+    };
+  }
+  
   // pragma MARK: std::function<void()>
   Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeOnDevice::Func_void::fromUnsafe(swiftClosureWrapper);

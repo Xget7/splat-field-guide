@@ -183,13 +183,16 @@ export function pointsAtScreen(question: string): boolean {
   return wordsOf(question).some(word => POINTING_WORDS.has(word));
 }
 
-/** The kinds of note `question` asks for, most specific first. */
-export function topicsFor(question: string): NoteTopic[] {
+function askedTopics(question: string): NoteTopic[] {
   const words = new Set(wordsOf(question));
-  const wanted = TOPIC_WORDS.filter(([, cues]) =>
+  return TOPIC_WORDS.filter(([, cues]) =>
     [...cues].some(cue => words.has(cue)),
   ).map(([topic]) => topic);
-  return [...new Set([...wanted, ...DEFAULT_TOPICS])];
+}
+
+/** The kinds of note `question` asks for, most specific first. */
+export function topicsFor(question: string): NoteTopic[] {
+  return [...new Set([...askedTopics(question), ...DEFAULT_TOPICS])];
 }
 
 /** The part whose notes share the most words with `question`, if one clearly does. */
@@ -234,7 +237,12 @@ export function subjectOf(
   if (onScreen && pointsAtScreen(question)) {
     return onScreen;
   }
-  return partByNotes(question, pack) ?? null;
+  // "What's the purpose?" asks about something without naming it: the part on screen,
+  // unless another part's notes answer it. "What's the weather like?" asks about no part.
+  return (
+    partByNotes(question, pack) ??
+    (onScreen && askedTopics(question).length > 0 ? onScreen : null)
+  );
 }
 
 /** The subject's notes for `question`, in the order it asks for them, within the budget. */

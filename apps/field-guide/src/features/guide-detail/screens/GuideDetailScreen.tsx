@@ -23,7 +23,6 @@ import {
 } from '../../../shared/navigation/routes';
 import {
   Button,
-  ButtonVariant,
   IconButton,
   IconButtonVariant,
 } from '../../../shared/ui/kit/Button';
@@ -42,15 +41,16 @@ import { procedureRowsFor } from '../../../modules/procedures/model/procedureRow
 import { ProcedureList } from '../../../modules/procedures/components/ProcedureList';
 
 const Layout = {
-  heroHeight: 300,
-  titleOverlap: 56,
+  heroHeight: 220,
+  titleOverlap: 44,
   segmentHeight: 44,
   warningIcon: 16,
-  fadeFraction: 0.5,
+  rowIcon: 20,
+  fadeFraction: 0.6,
 } as const;
 const HERO_FADE = `linear-gradient(to bottom, ${Color.black}00, ${Color.black})`;
-const Fact = { splats: 'Splats', parts: 'Parts', size: 'On device' } as const;
-const FACT_KEYS = Object.keys(Fact) as (keyof typeof Fact)[];
+const SEPARATOR = ' · ';
+const AR_TITLE = 'AR check on the real engine';
 const INITIAL_BAR_HEIGHT =
   Space.md + Type.footnote.lineHeight + Space.md + BUTTON_HEIGHT + Space.sm;
 
@@ -93,6 +93,11 @@ export function GuideDetailScreen({
 
   const facts = packFacts(guide.pack);
   const rows = procedureRowsFor(guide.pack);
+  const summary = [
+    `${facts.parts} parts`,
+    `${rows.length} procedures`,
+    `${facts.size} offline`,
+  ].join(SEPARATOR);
   const openProcedure = (procedureId: ProcedureId) =>
     navigation.navigate(Route.viewer, {
       guideId: guide.id,
@@ -118,29 +123,22 @@ export function GuideDetailScreen({
         </View>
         <View style={styles.content}>
           <View style={styles.heading}>
-            <Label color={Color.accent}>{`${CATEGORY_TITLE[guide.category]} - ${
-              guide.area
-            }`}</Label>
             <Text style={styles.title}>{guide.title}</Text>
-            <Text style={styles.subtitle}>{guide.subtitle}</Text>
-          </View>
-          <View style={styles.facts}>
-            {FACT_KEYS.map((key, index) => (
-              <View
-                key={key}
-                style={[styles.fact, index > 0 && styles.factDivider]}
-              >
-                <Text style={styles.factValue}>{facts[key]}</Text>
-                <Label color={Color.faint}>{Fact[key]}</Label>
-              </View>
-            ))}
+            <Text style={styles.subtitle}>
+              {[guide.subtitle, guide.area].join(SEPARATOR)}
+            </Text>
+            <Text testID="guide-summary" style={styles.summary}>
+              {summary}
+            </Text>
           </View>
           <View style={styles.section}>
-            <Label>Mode</Label>
-            <View style={styles.segments}>
+            <View
+              accessibilityLabel={`${CATEGORY_TITLE[guide.category]} mode`}
+              style={styles.segments}
+            >
               {MODE_OPTIONS.map(option => {
                 const selected = mode === option.mode;
-                const color = selected ? Color.accent : Color.secondaryText;
+                const color = selected ? Color.accentText : Color.text;
                 return (
                   <Pressable
                     key={option.mode}
@@ -159,24 +157,27 @@ export function GuideDetailScreen({
                 );
               })}
             </View>
-            <Text style={styles.modeDescription}>
-              {MODE_OPTIONS.find(option => option.mode === mode)?.description}
-            </Text>
-          </View>
-          <View style={styles.section}>
-            <Label>On the real engine</Label>
-            <Text style={styles.modeDescription}>
-              Check four reference points through your camera.
-            </Text>
-            <Button
+            <Pressable
               testID="open-ar"
-              label="Open AR alignment check"
-              accessibilityLabel="Open AR alignment check"
-              variant={ButtonVariant.secondary}
+              accessibilityRole="button"
+              accessibilityLabel={AR_TITLE}
               onPress={() =>
                 navigation.navigate(Route.ar, { guideId: guide.id })
               }
-            />
+              style={({ pressed }) => [styles.arRow, pressed && styles.pressed]}
+            >
+              <Icon
+                name={IconName.camera}
+                size={Layout.rowIcon}
+                color={Color.secondaryText}
+              />
+              <Text style={styles.arTitle}>{AR_TITLE}</Text>
+              <Icon
+                name={IconName.next}
+                size={Layout.rowIcon}
+                color={Color.muted}
+              />
+            </Pressable>
           </View>
           <View style={styles.section}>
             <Label>Procedures</Label>
@@ -225,32 +226,14 @@ const styles = StyleSheet.create({
   },
   content: {
     marginTop: -Layout.titleOverlap,
-    paddingHorizontal: Space.xl,
+    paddingHorizontal: Space.lg,
     gap: Space.xl,
   },
-  heading: { gap: Space.sm },
+  heading: { gap: Space.xs },
   title: { ...Type.largeTitle, color: Color.text },
-  subtitle: { ...Type.callout, color: Color.muted },
-  facts: {
-    flexDirection: 'row',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.line,
-    paddingVertical: Space.lg,
-  },
-  fact: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Space.xs,
-    gap: Space.sm,
-  },
-  factDivider: {
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.line,
-  },
-  factValue: { ...Type.dataLarge, color: Color.text },
-  section: { gap: Space.md },
+  subtitle: { ...Type.callout, color: Color.secondaryText },
+  summary: { ...Type.data, color: Color.muted },
+  section: { gap: Space.sm },
   segments: {
     flexDirection: 'row',
     backgroundColor: Color.raised,
@@ -272,11 +255,22 @@ const styles = StyleSheet.create({
     borderColor: Color.raised,
   },
   selectedSegment: {
-    backgroundColor: Color.accentWash,
+    backgroundColor: Color.accent,
     borderColor: Color.accent,
   },
   modeTitle: { ...Type.calloutStrong, flexShrink: 1 },
-  modeDescription: { ...Type.footnote, color: Color.muted },
+  arRow: {
+    minHeight: Layout.segmentHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.md,
+    paddingHorizontal: Space.lg,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Color.lineStrong,
+    backgroundColor: Color.raised,
+  },
+  arTitle: { ...Type.callout, color: Color.text, flex: 1 },
   pressed: { backgroundColor: Color.pressed },
   bottomBar: {
     position: 'absolute',

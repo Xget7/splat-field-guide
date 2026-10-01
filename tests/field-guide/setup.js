@@ -88,9 +88,12 @@ jest.mock('react-native-on-device', () => {
   };
   const input = {
     requestPermission: jest.fn(async () => 'granted'),
-    availability: jest.fn(() => 'available'),
+    prepare: jest.fn(async () => 'available'),
     start: jest.fn(async (_locale, _hints, _onPartial, _onLevel) => {}),
     finish: jest.fn(async () => ''),
+    listen: jest.fn(
+      async (_locale, _hints, _onPartial, _onTurn, _onLevel, _onStopped) => {},
+    ),
     cancel: jest.fn(),
   };
   const output = {

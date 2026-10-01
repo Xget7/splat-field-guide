@@ -1,4 +1,7 @@
 /data/
+/.work/
+packages/react-native-on-device/ios/KokoroResources/
+packages/react-native-on-device/ios/.kokoro-fetch.lock
 /tools/
 __pycache__/
 .venv/

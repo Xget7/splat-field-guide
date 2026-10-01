@@ -28,8 +28,9 @@ const config = {
     nodeModulesPaths: [path.join(appRoot, 'node_modules')],
     // Only the pack's manifest is imported; its cloud and labels ship as app resources.
     blockList: [
+      new RegExp(`${appRoot}/(ios/(Pods|build)|vendor)/.*`),
       new RegExp(`${splatLibrary}/(node_modules|engine)/.*`),
-      new RegExp(`${onDeviceLibrary}/node_modules/.*`),
+      new RegExp(`${onDeviceLibrary}/(node_modules|ios/KokoroResources)/.*`),
       new RegExp(`${bundledPack}/(?!manifest\\.json$).*`),
     ],
   },

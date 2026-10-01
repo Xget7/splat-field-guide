@@ -12,8 +12,11 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "26.0" }
   s.source       = { :git => "https://github.com/xget7/splat-field-guide.git", :tag => "#{s.version}" }
 
-  s.source_files = ["ios/*.swift"]
-  s.frameworks = ["Speech", "AVFoundation", "FoundationModels", "Accelerate"]
+  s.source_files = ["ios/*.{swift,h,mm}", "ios/KokoroFrontend/*.swift"]
+  s.public_header_files = "ios/KokoroNative.h"
+  s.resource_bundles = { "ReactNativeOnDeviceKokoro" => ["ios/KokoroResources/*"] }
+  s.frameworks = ["Speech", "AVFoundation", "FoundationModels", "Accelerate", "CoreML"]
+  s.dependency "onnxruntime-c", "1.30.0"
 
   load "nitrogen/generated/ios/ReactNativeOnDevice+autolinking.rb"
   add_nitrogen_files(s)
