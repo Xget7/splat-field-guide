@@ -1,7 +1,7 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { Color, Type } from '../theme';
 
-/** A monospaced, upper case, tracked label: section names, statuses and readouts. */
+/** A short label: a status or a line of facts. */
 export function Label({
   color = Color.muted,
   style,

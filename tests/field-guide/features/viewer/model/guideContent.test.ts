@@ -11,7 +11,6 @@ import {
   markedPartsFor,
   partIdForLabel,
   stepRowsFor,
-  suggestionsFor,
 } from '../../../../../apps/field-guide/src/features/viewer/model/guideContent';
 
 const pack = fixturePack();
@@ -171,18 +170,4 @@ test('the step list names tour steps by part and the rest by their first sentenc
     text: 'Coolant reservoir',
     detail: 'Coolant reservoir summary',
   });
-});
-
-test('suggests how a toured part works, and what a step part does and why the step matters', () => {
-  expect(suggestionsFor(start(), pack)).toEqual([
-    'How does the coolant reservoir work?',
-    'What can go wrong with it?',
-  ]);
-  const step = pack.procedures.find(({ id }) => id === 'check-coolant')!
-    .steps[0];
-  const part = pack.parts.find(({ id }) => id === step.parts[0])!;
-  expect(suggestionsFor(start('check-coolant'), pack)).toEqual([
-    `What does the ${part.name.toLowerCase()} do?`,
-    'Why does this step matter?',
-  ]);
 });

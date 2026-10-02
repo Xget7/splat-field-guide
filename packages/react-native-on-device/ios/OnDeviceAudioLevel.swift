@@ -43,3 +43,55 @@ final class OnDeviceAudioLevel {
     return smoothedLevel
   }
 }
+
+/// Whether someone is talking, read from the microphone level against the room's own noise:
+/// speech has to stand clear of the quietest level of the last few seconds, so a fan, an engine
+/// or a crowd does not count as a voice however loud it is. Owned by one input tap and accessed
+/// only on its audio thread.
+final class OnDeviceVoiceActivity {
+  enum Change { case started, ended }
+
+  // Levels are 0 to 1 over 40 dB, so 0.2 is 8 dB.
+  private static let margin = 0.2
+  // About -40 dBFS: below this nothing is a voice, however still the room.
+  private static let minimumVoice = 0.25
+  // The quietest level over this long is the room's noise; speech always pauses within it.
+  private static let floorWindow: TimeInterval = 3
+  // Louder for this long is a voice rather than a click or a knock.
+  private static let onset: TimeInterval = 0.1
+  // Quiet for this long ends a turn: past the gaps between words, short of a felt wait.
+  static let endPause: TimeInterval = 0.7
+  // A voice that never pauses, such as a radio, still ends its turn after this long.
+  private static let longestTurn: TimeInterval = 20
+
+  private var recent: [(time: TimeInterval, level: Double)] = []
+  private var louderSince: TimeInterval?
+  private var speakingSince: TimeInterval?
+  private var lastVoice: TimeInterval = 0
+
+  /// Takes the level at `time`, in seconds, and returns the change it makes, if any.
+  func update(_ level: Double, at time: TimeInterval) -> Change? {
+    recent.removeAll { time - $0.time > Self.floorWindow }
+    let floor = recent.map(\.level).min() ?? level
+    recent.append((time, level))
+    let voice = level >= max(floor + Self.margin, Self.minimumVoice)
+
+    guard let since = speakingSince else {
+      guard voice else {
+        louderSince = nil
+        return nil
+      }
+      let start = louderSince ?? time
+      louderSince = start
+      guard time - start >= Self.onset else { return nil }
+      louderSince = nil
+      speakingSince = time
+      lastVoice = time
+      return .started
+    }
+    if voice { lastVoice = time }
+    guard time - lastVoice >= Self.endPause || time - since >= Self.longestTurn else { return nil }
+    speakingSince = nil
+    return .ended
+  }
+}

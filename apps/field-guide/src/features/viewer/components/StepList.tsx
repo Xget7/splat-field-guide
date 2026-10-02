@@ -7,9 +7,8 @@ import {
   View,
   type ScrollViewInstance,
 } from 'react-native';
-import { Label } from '../../../shared/ui/kit/Label';
+import { SectionHeader } from '../../../shared/ui/kit/SectionHeader';
 import { CautionNote } from './CautionNote';
-import { twoDigits } from '../../../shared/ui/readout';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../shared/ui/theme';
 import type { StepRow } from '../model/guideContent';
 
@@ -58,7 +57,7 @@ function Badge({ index, state }: { index: number; state: StepState }) {
           state !== StepState.upcoming && styles.numberFilled,
         ]}
       >
-        {twoDigits(index + 1)}
+        {index + 1}
       </Text>
     </View>
   );
@@ -104,10 +103,7 @@ export function StepList({
 
   return (
     <View testID="step-list" style={styles.list}>
-      <View style={styles.header}>
-        <Label>Steps</Label>
-        <Label color={Color.faint}>{twoDigits(rows.length)}</Label>
-      </View>
+      <SectionHeader title="Steps" style={styles.header} />
       <ScrollView
         ref={scroll}
         style={styles.scroll}
@@ -175,12 +171,7 @@ export function StepList({
 const styles = StyleSheet.create({
   // As tall as its steps, up to what the sidebar gives it; the conversation takes the rest.
   list: { flexShrink: 1, gap: Space.md, paddingTop: Space.lg },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Space.lg,
-  },
+  header: { paddingHorizontal: Space.lg },
   scroll: { flexGrow: 0, flexShrink: 1 },
   rows: { gap: Space.sm, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
   row: {
@@ -199,7 +190,7 @@ const styles = StyleSheet.create({
   badge: {
     width: BADGE_SIZE,
     height: BADGE_SIZE,
-    borderRadius: BADGE_SIZE / 2,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: HAIRLINE,

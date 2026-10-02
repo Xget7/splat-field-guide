@@ -1,12 +1,8 @@
 import React from 'react';
 import { NavigationContext } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import {
-  catalogFor,
-  Category,
-} from '../../../../apps/field-guide/src/modules/catalog/catalog';
+import { catalogFor } from '../../../../apps/field-guide/src/modules/catalog/catalog';
 import { CatalogProvider } from '../../../../apps/field-guide/src/modules/catalog/CatalogContext';
 import {
   LearnMode,
@@ -15,11 +11,7 @@ import {
 } from '../../../../apps/field-guide/src/shared/navigation/routes';
 import { bundledPack } from '../../../../apps/field-guide/src/modules/packs/bundledPack';
 import { saveProgress } from '../../../../apps/field-guide/src/modules/progress/data/progressStorage';
-import {
-  continueRowFor,
-  filterGuides,
-  LibraryCategory,
-} from '../../../../apps/field-guide/src/features/library/model/library';
+import { continueRowFor } from '../../../../apps/field-guide/src/features/library/model/library';
 import { LibraryScreen } from '../../../../apps/field-guide/src/features/library/screens/LibraryScreen';
 
 if (!bundledPack.ok) {
@@ -32,43 +24,6 @@ const progress = {
   procedureId: 'check-coolant',
   stepIndex: 1,
 } as const;
-
-test('filter combines query and category without changing catalog order', () => {
-  expect(filterGuides(catalog, '', LibraryCategory.all)).toEqual(catalog);
-  expect(
-    filterGuides(catalog, ' ENGINE BAY ', Category.vehicles).map(
-      guide => guide.id,
-    ),
-  ).toEqual([pack.packId, 'tactical-truck-engine-bay']);
-  expect(filterGuides(catalog, 'engine', Category.aviation)).toEqual([]);
-  expect(filterGuides(catalog, 'not present', LibraryCategory.all)).toEqual([]);
-  expect(
-    filterGuides(catalog, '', Category.energy).map(guide => guide.id),
-  ).toEqual(['generator-set-panel']);
-});
-
-test.each([
-  ['vÓLKSwÁGEN', pack.packId],
-  ['éNGINE BÁY', pack.packId],
-  ['PÉTROL', pack.packId],
-  ['ÁVIATION', 'rotorcraft-rotor-head'],
-])('query searches title, area, subtitle and category: %s', (query, id) => {
-  expect(
-    filterGuides(catalog, query, LibraryCategory.all).some(
-      guide => guide.id === id,
-    ),
-  ).toBe(true);
-});
-
-test('accents in guide content are also normalized', () => {
-  expect(
-    filterGuides(
-      [{ ...catalog[0], title: 'Mótór' }],
-      'MOTOR',
-      LibraryCategory.all,
-    ),
-  ).toHaveLength(1);
-});
 
 test.each([
   null,
@@ -87,7 +42,7 @@ test('continue shows one-based progress and a fraction of the procedure', () => 
     guide: catalog[0],
     procedure: pack.procedures[1],
     stepIndex: 1,
-    stepLabel: 'Step 02 / 05',
+    stepLabel: 'Step 2 of 5',
     fraction: 2 / 5,
   });
 });
@@ -187,30 +142,6 @@ describe('Library screen', () => {
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);
-  });
-
-  test('search, chip selection, empty state and clearing update the rendered catalog', async () => {
-    await mount();
-    await press(`library-chip-${Category.aviation}`);
-    expect(
-      node(`library-chip-${Category.aviation}`).props.accessibilityState,
-    ).toEqual({ selected: true });
-    expect(
-      renderer.root.findAllByProps({ testID: `guide-card-${pack.packId}` }),
-    ).toHaveLength(0);
-    await act(() => node('library-search').props.onChangeText('unknown'));
-    expect(
-      renderer.root
-        .findAllByType(Text)
-        .some(item => item.props.children === 'No guides match.'),
-    ).toBe(true);
-    await act(() =>
-      renderer.root
-        .findAllByProps({ accessibilityLabel: 'Clear search' })
-        .find(item => item.props.accessibilityRole === 'button')!
-        .props.onPress(),
-    );
-    expect(node(`soon-card-${catalog[2].id}`)).toBeDefined();
   });
 
   test('a storage read from the previous focus cannot replace newer progress', async () => {

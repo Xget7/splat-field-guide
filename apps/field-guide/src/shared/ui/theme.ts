@@ -15,11 +15,16 @@ export const Color = {
   muted: '#8B939C',
   // 4.5:1 on black, so even the quietest readout passes AA.
   faint: '#767E88',
-  accent: '#2576D2',
-  accentPressed: '#1C5DA8',
+  accent: '#0A6CFF',
+  accentPressed: '#0058D6',
   accentText: '#FFFFFF',
-  accentWash: 'rgba(37, 118, 210, 0.16)',
-  completed: 'rgba(37, 118, 210, 0.6)',
+  accentWash: 'rgba(10, 108, 255, 0.16)',
+  completed: 'rgba(10, 108, 255, 0.6)',
+  // The primary action is white on black, like an instrument's, so the accent only ever
+  // marks what is selected.
+  action: '#F4F6F8',
+  actionPressed: '#C3C9D0',
+  actionText: '#000000',
   caution: '#F5B731',
   cautionWash: 'rgba(245, 183, 49, 0.10)',
   // Controls that float over the splat: dark enough to read on a bright capture.
@@ -36,8 +41,8 @@ export const Space = {
   xxl: 32,
 } as const;
 
-// Squared corners read as an instrument, not a toy.
-export const Radius = { sm: 4, md: 8, lg: 12, sheet: 20 } as const;
+// Plain, nearly square corners: controls 2, cards 4, sheets 12.
+export const Radius = { sm: 2, md: 4, lg: 6, sheet: 12 } as const;
 
 export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;
@@ -56,42 +61,46 @@ export const Motion = {
   spring: { mass: 1, damping: 30, stiffness: 280, overshootClamping: true },
 } as const;
 
-// Geist and Geist Mono, the open (OFL) faces closest to TT Interphases, Schemata's typeface.
-// Bundled in ios/FieldGuide (UIAppFonts), see assets/fonts. Each weight is named by its
-// PostScript name, so no style needs fontWeight to find it.
+// Geist, the open (OFL) face closest to TT Interphases, Schemata's typeface. Bundled in
+// ios/FieldGuide (UIAppFonts), see assets/fonts. Each weight is named by its PostScript name, so
+// no style needs fontWeight to find it.
 export const Font = {
   regular: 'Geist-Regular',
   semiBold: 'Geist-SemiBold',
   bold: 'Geist-Bold',
-  mono: 'GeistMono-Medium',
-  monoStrong: 'GeistMono-SemiBold',
 } as const;
 
-// iOS text style sizes (Body 17); readouts are monospaced so their digits line up.
+// iOS text style sizes (Body 17), in sentence case throughout: plain type, bold headings, and
+// figures of equal width wherever numbers sit in a column.
 export const Type = {
   largeTitle: {
     fontFamily: Font.bold,
     fontSize: 32,
     lineHeight: 38,
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
   },
   title: {
-    fontFamily: Font.bold,
+    fontFamily: Font.semiBold,
     fontSize: 24,
     lineHeight: 30,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   headline: { fontFamily: Font.semiBold, fontSize: 17, lineHeight: 22 },
   body: { fontFamily: Font.regular, fontSize: 17, lineHeight: 24 },
   callout: { fontFamily: Font.regular, fontSize: 15, lineHeight: 20 },
   calloutStrong: { fontFamily: Font.semiBold, fontSize: 15, lineHeight: 20 },
   footnote: { fontFamily: Font.regular, fontSize: 13, lineHeight: 18 },
-  label: { fontFamily: Font.semiBold, fontSize: 13, lineHeight: 16 },
-  data: { fontFamily: Font.mono, fontSize: 13, lineHeight: 16 },
+  label: { fontFamily: Font.semiBold, fontSize: 13, lineHeight: 18 },
+  data: {
+    fontFamily: Font.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
   dataLarge: {
-    fontFamily: Font.monoStrong,
+    fontFamily: Font.semiBold,
     fontSize: 20,
     lineHeight: 24,
-    letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
   },
 } as const satisfies Record<string, TextStyle>;

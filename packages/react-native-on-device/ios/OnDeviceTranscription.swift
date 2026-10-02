@@ -32,10 +32,11 @@ final class OnDeviceTranscription: @unchecked Sendable {
       : await DictationTranscriber.supportedLocale(equivalentTo: requested)
     guard let locale = found else { return false }
     let module: any SpeechModule = full ? transcriber(locale) : dictation(locale)
-    if let request = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
+    let modules: [any SpeechModule] = [module, detector()]
+    if let request = try await AssetInventory.assetInstallationRequest(supporting: modules) {
       try await request.downloadAndInstall()
     }
-    guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module])
+    guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules)
     else { return false }
     modelsLock.withLock { models[identifier] = Model(locale: locale, format: format, full: full) }
     return true
@@ -44,6 +45,12 @@ final class OnDeviceTranscription: @unchecked Sendable {
   private static func transcriber(_ locale: Locale) -> SpeechTranscriber {
     SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults],
       attributeOptions: [])
+  }
+
+  /// Apple's voice activity detection: audio with no speech in it is not transcribed, so room
+  /// noise does not come back as a stray "." or word. Medium is Apple's recommended level.
+  private static func detector() -> SpeechDetector {
+    SpeechDetector(detectionOptions: .init(sensitivityLevel: .medium), reportResults: false)
   }
 
   private static func dictation(_ locale: Locale) -> DictationTranscriber {
@@ -59,11 +66,20 @@ final class OnDeviceTranscription: @unchecked Sendable {
   private let onEnd: (Error?) -> Void
   private var reading: Task<Void, Never>?
   private var closed = false
+  // How long to wait for results already sent once the model has finalised, and for the
+  // model itself should it not answer.
+  private static let settleGrace: TimeInterval = 0.15
+  private static let longestSettle: TimeInterval = 1.5
+
   // Results from audio before this time belong to an earlier turn.
   private var since = CMTime.zero
+  // The turn being finalised: where it ends, and who gets its text.
+  private var ending: (through: CMTime, done: (String) -> Void)?
+  // Settled words heard after the turn being finalised, which start the next one.
+  private var next: [String] = []
   private var finalized: [String] = []
   private var volatile = ""
-  /// Everything heard since the start or the last `startTurn`.
+  /// Everything heard since the start or the last turn ended.
   private(set) var text = ""
 
   // Tap thread only.
@@ -90,13 +106,13 @@ final class OnDeviceTranscription: @unchecked Sendable {
     let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
     if model.full {
       let module = Self.transcriber(model.locale)
-      analyzer = SpeechAnalyzer(inputSequence: stream, modules: [module], options: options,
-        analysisContext: context)
+      analyzer = SpeechAnalyzer(inputSequence: stream, modules: [module, Self.detector()],
+        options: options, analysisContext: context)
       reading = read(module.results)
     } else {
       let module = Self.dictation(model.locale)
-      analyzer = SpeechAnalyzer(inputSequence: stream, modules: [module], options: options,
-        analysisContext: context)
+      analyzer = SpeechAnalyzer(inputSequence: stream, modules: [module, Self.detector()],
+        options: options, analysisContext: context)
       reading = read(module.results)
     }
   }
@@ -108,14 +124,25 @@ final class OnDeviceTranscription: @unchecked Sendable {
     input.yield(AnalyzerInput(buffer: converted))
   }
 
-  /// Starts a new turn: the text empties, and results for audio already heard are dropped.
-  func startTurn() {
-    since = CMTime(value: fedLock.withLock { fedFrames },
+  /// Ends the turn at the audio heard so far and hands over its text once the model has
+  /// settled it. The model on its own holds its last words back for more context, seconds after
+  /// the speaker has stopped; asked to finalise, it gives them in a fraction of a second. Audio
+  /// after this point starts the next turn.
+  func endTurn(_ done: @escaping (String) -> Void) {
+    guard ending == nil else { return }
+    let through = CMTime(value: fedLock.withLock { fedFrames },
       timescale: CMTimeScale(format.sampleRate))
-    finalized = []
-    volatile = ""
-    text = ""
-    Task { [analyzer, since] in try? await analyzer.finalize(through: since) }
+    ending = (through, done)
+    Task { [weak self, analyzer] in
+      try? await analyzer.finalize(through: through)
+      // Results the model sent just before returning are still on their way to main.
+      DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleGrace) {
+        self?.settle(through)
+      }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.longestSettle) { [weak self] in
+      self?.settle(through)
+    }
   }
 
   /// Stops at once; no callback follows.
@@ -135,7 +162,10 @@ final class OnDeviceTranscription: @unchecked Sendable {
           let piece = String(result.text.characters)
           let range = result.range
           let isFinal = result.isFinal
-          DispatchQueue.main.async { self?.take(piece, range: range, isFinal: isFinal) }
+          let settled = result.resultsFinalizationTime
+          DispatchQueue.main.async {
+            self?.take(piece, range: range, isFinal: isFinal, settled: settled)
+          }
         }
       } catch {
         failure = error
@@ -148,14 +178,24 @@ final class OnDeviceTranscription: @unchecked Sendable {
     }
   }
 
-  private func take(_ piece: String, range: CMTimeRange, isFinal: Bool) {
+  private func take(_ piece: String, range: CMTimeRange, isFinal: Bool, settled: CMTime) {
     guard !closed, CMTimeCompare(range.start, since) >= 0 else { return }
+    if let ending, CMTimeCompare(range.start, ending.through) >= 0 {
+      // The next turn has begun; its passing guesses come again once this one is done.
+      if isFinal { next.append(piece) }
+      return
+    }
     if isFinal {
       finalized.append(piece)
       volatile = ""
     } else {
       volatile = piece
     }
+    publish()
+    if let ending, isFinal, CMTimeCompare(settled, ending.through) >= 0 { settle(ending.through) }
+  }
+
+  private func publish() {
     let joined = (finalized + [volatile])
       .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
       .filter { !$0.isEmpty }
@@ -163,6 +203,19 @@ final class OnDeviceTranscription: @unchecked Sendable {
     guard joined != text else { return }
     text = joined
     onChange(joined)
+  }
+
+  private func settle(_ through: CMTime) {
+    guard !closed, let ending, ending.through == through else { return }
+    let said = text
+    self.ending = nil
+    since = through
+    finalized = next
+    next = []
+    volatile = ""
+    text = ""
+    ending.done(said)
+    if !finalized.isEmpty { publish() }
   }
 
   private func convert(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {

@@ -82,6 +82,7 @@ namespace margelo::nitro::splat {
       virtual void frame(const Bounds& bounds, double seconds, const std::optional<ViewDirection>& from) = 0;
       virtual std::shared_ptr<Promise<double>> pick(double x, double y) = 0;
       virtual double project(const std::shared_ptr<ArrayBuffer>& points, const std::shared_ptr<ArrayBuffer>& out) = 0;
+      virtual std::optional<ViewDirection> drawnDirection() = 0;
 
     protected:
       // Hybrid Setup

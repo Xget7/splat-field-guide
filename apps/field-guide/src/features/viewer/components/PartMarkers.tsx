@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -9,8 +9,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SplatViewSpec } from 'react-native-splat';
 import type { Bounds, PartId } from '../../../domain/pack';
-import { Label } from '../../../shared/ui/kit/Label';
-import { Color, Motion, Radius, Space } from '../../../shared/ui/theme';
+import {
+  Color,
+  Font,
+  Motion,
+  Radius,
+  Space,
+  Type,
+} from '../../../shared/ui/theme';
 
 export interface MarkedPart {
   readonly id: PartId;
@@ -29,22 +35,13 @@ const FLOATS_PER_SCREEN_POINT = 2;
 // Per box in `boxes`: left, top, right, bottom in points, then 1 when it shows.
 const FLOATS_PER_BOX = 5;
 const BOX_PADDING = Space.sm;
-// Smaller than this and the four corners would run into each other.
+// A box at least this big, so a tiny part's tag sits clear of it.
 const MIN_BOX = 32;
-const ARM = 12;
+// The accent edge of a tag.
 const THICKNESS = 2;
 // Moves below half a point are invisible; skipping them keeps a still camera free.
 const SETTLE_POINTS = 0.5;
 const TAG_GAP = Space.xs;
-
-const Corner = {
-  topLeft: 'topLeft',
-  topRight: 'topRight',
-  bottomLeft: 'bottomLeft',
-  bottomRight: 'bottomRight',
-} as const;
-type Corner = (typeof Corner)[keyof typeof Corner];
-const CORNERS: readonly Corner[] = Object.values(Corner);
 
 /** The eight corners of each box, as float32 x, y, z triples. */
 function cornersOf(parts: readonly MarkedPart[]): number[] {
@@ -64,7 +61,7 @@ interface Props {
 }
 
 /**
- * Brackets and a name tag around each part, following the camera every frame. The corners
+ * A name tag beside each part, following the camera every frame. The part's box corners
  * are projected on the UI thread, where the renderer's last frame is read synchronously, so
  * the marks track an orbit without a React render per frame.
  */
@@ -204,82 +201,36 @@ function Marker({ index, name, boxes, viewport }: MarkerProps) {
     };
   });
   return (
-    <>
-      {CORNERS.map(corner => (
-        <MarkerCorner
-          key={corner}
-          corner={corner}
-          index={index}
-          boxes={boxes}
-        />
-      ))}
-      <Animated.View
-        onLayout={onTagLayout}
-        style={[styles.tag, tagStyle]}
-        accessible
-        accessibilityLabel={`${name}, highlighted`}
-        testID={`marker-${index}`}
-      >
-        <Label color={Color.accent} numberOfLines={1}>
-          {name}
-        </Label>
-      </Animated.View>
-    </>
+    <Animated.View
+      onLayout={onTagLayout}
+      style={[styles.tag, tagStyle]}
+      accessible
+      accessibilityLabel={`${name}, highlighted`}
+      testID={`marker-${index}`}
+    >
+      <Text numberOfLines={1} style={styles.tagName}>
+        {name}
+      </Text>
+    </Animated.View>
   );
 }
 
-const CORNER_STYLE: Readonly<Record<Corner, object>> = {
-  topLeft: { borderTopWidth: THICKNESS, borderLeftWidth: THICKNESS },
-  topRight: { borderTopWidth: THICKNESS, borderRightWidth: THICKNESS },
-  bottomLeft: { borderBottomWidth: THICKNESS, borderLeftWidth: THICKNESS },
-  bottomRight: { borderBottomWidth: THICKNESS, borderRightWidth: THICKNESS },
-};
-
-function MarkerCorner({
-  corner,
-  index,
-  boxes,
-}: {
-  corner: Corner;
-  index: number;
-  boxes: SharedValue<number[]>;
-}) {
-  const style = useAnimatedStyle(() => {
-    const at = index * FLOATS_PER_BOX;
-    const box = boxes.value;
-    if (box.length <= at || box[at + 4] === 0) {
-      return { opacity: 0 };
-    }
-    const right = corner === Corner.topRight || corner === Corner.bottomRight;
-    const bottom =
-      corner === Corner.bottomLeft || corner === Corner.bottomRight;
-    return {
-      opacity: 1,
-      transform: [
-        { translateX: right ? box[at + 2] - ARM : box[at] },
-        { translateY: bottom ? box[at + 3] - ARM : box[at + 1] },
-      ],
-    };
-  });
-  return <Animated.View style={[styles.corner, CORNER_STYLE[corner], style]} />;
-}
-
 const styles = StyleSheet.create({
-  corner: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    width: ARM,
-    height: ARM,
-    borderColor: Color.accent,
-  },
+  // The part's name on a strip edged in the accent.
   tag: {
     position: 'absolute',
     left: 0,
     top: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
     paddingHorizontal: Space.sm,
     paddingVertical: Space.xs,
-    borderRadius: Radius.sm,
+    borderLeftWidth: THICKNESS,
+    borderLeftColor: Color.accent,
+    borderTopRightRadius: Radius.sm,
+    borderBottomRightRadius: Radius.sm,
     backgroundColor: Color.overlay,
   },
+  tagName: { ...Type.footnote, fontFamily: Font.semiBold, color: Color.text },
 });

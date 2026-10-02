@@ -1,11 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Label } from '../../../shared/ui/kit/Label';
-import { twoDigits } from '../../../shared/ui/readout';
+import { SectionHeader } from '../../../shared/ui/kit/SectionHeader';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../shared/ui/theme';
 import type { Part, PartId } from '../../../domain/pack';
-
-// Wide enough for any two digit index, so every name starts on the same line.
-const INDEX_WIDTH = 24;
 
 /**
  * Every named part of the capture, to look at one directly while exploring.
@@ -23,12 +19,9 @@ export function PartList({
 }) {
   return (
     <View testID="part-list" style={styles.list}>
-      <View style={styles.header}>
-        <Label>Parts</Label>
-        <Label color={Color.faint}>{twoDigits(parts.length)}</Label>
-      </View>
+      <SectionHeader title="Parts" style={styles.header} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.rows}>
-        {parts.map((part, index) => {
+        {parts.map(part => {
           const current = part.id === selected;
           return (
             <Pressable
@@ -45,12 +38,6 @@ export function PartList({
                 pressed && styles.rowPressed,
               ]}
             >
-              <Label
-                color={current ? Color.accent : Color.faint}
-                style={styles.index}
-              >
-                {twoDigits(index + 1)}
-              </Label>
               <Text numberOfLines={1} style={styles.name}>
                 {part.name}
               </Text>
@@ -65,18 +52,12 @@ export function PartList({
 const styles = StyleSheet.create({
   // As tall as its parts, up to what the sidebar gives it, like the step list it stands in for.
   list: { flexShrink: 1, gap: Space.md, paddingTop: Space.lg },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Space.lg,
-  },
+  header: { paddingHorizontal: Space.lg },
   scroll: { flexGrow: 0, flexShrink: 1 },
   rows: { gap: Space.sm, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.md,
     paddingVertical: Space.md,
     paddingHorizontal: Space.md,
     borderRadius: Radius.md,
@@ -87,6 +68,5 @@ const styles = StyleSheet.create({
   inside: { marginLeft: Space.xl },
   rowCurrent: { borderColor: Color.accent, backgroundColor: Color.accentWash },
   rowPressed: { backgroundColor: Color.pressed },
-  index: { width: INDEX_WIDTH },
-  name: { ...Type.calloutStrong, flex: 1, color: Color.text },
+  name: { ...Type.callout, flex: 1, color: Color.text },
 });

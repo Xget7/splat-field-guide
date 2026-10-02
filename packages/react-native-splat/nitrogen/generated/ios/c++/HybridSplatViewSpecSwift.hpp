@@ -168,6 +168,14 @@ namespace margelo::nitro::splat {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline std::optional<ViewDirection> drawnDirection() override {
+      auto __result = _swiftPart.drawnDirection();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
 
   private:
     ReactNativeSplat::HybridSplatViewSpec_cxx _swiftPart;

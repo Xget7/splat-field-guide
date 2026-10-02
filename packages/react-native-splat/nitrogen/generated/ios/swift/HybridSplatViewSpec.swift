@@ -23,6 +23,7 @@ public protocol HybridSplatViewSpec_protocol: HybridObject, HybridView {
   func frame(bounds: Bounds, seconds: Double, from: ViewDirection?) throws -> Void
   func pick(x: Double, y: Double) throws -> Promise<Double>
   func project(points: ArrayBuffer, out: ArrayBuffer) throws -> Double
+  func drawnDirection() throws -> ViewDirection?
 }
 
 public extension HybridSplatViewSpec_protocol {

@@ -56,6 +56,16 @@ nativeSuite('native speech text ranges', () => {
     }
   });
 
+  test('cuts a long first sentence at a clause so the voice starts sooner', () => {
+    const lead = 'Locate the translucent coolant reservoir on the left,';
+    const text = `${lead} behind the headlight and next to the strut tower in the engine bay.`;
+    const sentences = plan(text);
+    expect(sentences[0].text).toBe(lead);
+    expect(words(text, sentences).join(' ')).toBe(
+      text.replace(/[,.]/g, '').split(' ').join(' '),
+    );
+  });
+
   test('preserves original number ranges rather than normalized spoken text', () => {
     const text = 'Check 3.14 liters, then the 2nd line.';
     const sentences = plan(text);

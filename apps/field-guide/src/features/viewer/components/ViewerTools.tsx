@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Icon, IconName } from '../../../shared/ui/kit/Icon';
+import { IconButton, IconButtonVariant } from '../../../shared/ui/kit/Button';
+import { IconName } from '../../../shared/ui/kit/Icon';
 import {
   Color,
   HAIRLINE,
@@ -9,25 +10,23 @@ import {
   Type,
 } from '../../../shared/ui/theme';
 
-const ICON_SIZE = 22;
-const BUTTON_ICON_SIZE = 20;
+// A segmented control's height, inside the 44 point touch target it is centred in.
+const SEGMENTS_HEIGHT = 36;
+const SEGMENT_INSET = 2;
 
-function ToolCard({
+function Segment({
   testID,
-  icon,
   label,
   hint,
-  selected = false,
-  inline,
+  selected,
+  fitted,
   onPress,
 }: {
   testID: string;
-  icon: IconName;
   label: string;
   hint: string;
-  selected?: boolean;
-  /** A button over the splat, icon beside its name, rather than a card in the sidebar. */
-  inline: boolean;
+  selected: boolean;
+  fitted: boolean;
   onPress: () => void;
 }) {
   return (
@@ -37,26 +36,15 @@ function ToolCard({
       accessibilityLabel={label}
       accessibilityHint={hint}
       accessibilityState={{ selected }}
+      hitSlop={(MIN_TOUCH - SEGMENTS_HEIGHT) / 2}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        inline ? styles.button : styles.wide,
-        selected && (inline ? styles.buttonSelected : styles.selected),
-        pressed && styles.pressed,
+      style={[
+        styles.segment,
+        !fitted && styles.shared,
+        selected && styles.selected,
       ]}
     >
-      <Icon
-        name={icon}
-        size={inline ? BUTTON_ICON_SIZE : ICON_SIZE}
-        color={selected ? Color.accent : Color.secondaryText}
-      />
-      <Text
-        numberOfLines={1}
-        style={[
-          inline ? styles.buttonLabel : styles.label,
-          selected && styles.labelSelected,
-        ]}
-      >
+      <Text style={[styles.label, selected && styles.selectedLabel]}>
         {label}
       </Text>
     </Pressable>
@@ -64,9 +52,9 @@ function ToolCard({
 }
 
 export const ToolsLayout = {
-  /** A row of cards atop the sidebar. */
+  /** Atop the sidebar, as wide as it. */
   sidebar: 'sidebar',
-  /** A row of buttons over the splat, placed by the screen. */
+  /** Over the splat, placed by the screen. */
   floating: 'floating',
 } as const;
 export type ToolsLayout = (typeof ToolsLayout)[keyof typeof ToolsLayout];
@@ -91,37 +79,44 @@ export function ViewerTools({
   fullView = false,
   onFullView,
 }: Props) {
-  const inline = layout === ToolsLayout.floating;
+  const floating = layout === ToolsLayout.floating;
   return (
     <View testID="viewer-tools" style={styles[layout]}>
-      <ToolCard
-        testID="tool-guide"
-        icon={IconName.list}
-        label="Guide"
-        hint="Follow the procedure step by step"
-        selected={!exploring}
-        inline={inline}
-        onPress={onGuide}
-      />
-      <ToolCard
-        testID="tool-explore"
-        icon={IconName.explore}
-        label="Explore"
-        hint="Move freely and select any part"
-        selected={exploring}
-        inline={inline}
-        onPress={onExplore}
-      />
+      <View style={[styles.segments, floating && styles.floatingSegments]}>
+        <Segment
+          testID="tool-guide"
+          label="Guide"
+          hint="Follow the procedure step by step"
+          selected={!exploring}
+          fitted={floating}
+          onPress={onGuide}
+        />
+        <Segment
+          testID="tool-explore"
+          label="Explore"
+          hint="Move freely and select any part"
+          selected={exploring}
+          fitted={floating}
+          onPress={onExplore}
+        />
+      </View>
       {onFullView !== undefined && (
-        <ToolCard
+        <IconButton
           testID="tool-full-view"
           icon={IconName.frame}
-          label="Full view"
-          hint={
+          accessibilityLabel="Full view"
+          accessibilityHint={
             fullView ? 'Show the sidebar' : 'Give the splat the whole screen'
           }
-          selected={fullView}
-          inline={inline}
+          accessibilityState={{ selected: fullView }}
+          variant={
+            fullView
+              ? IconButtonVariant.active
+              : floating
+              ? IconButtonVariant.overlay
+              : IconButtonVariant.raised
+          }
+          size={SEGMENTS_HEIGHT}
           onPress={onFullView}
         />
       )}
@@ -132,34 +127,33 @@ export function ViewerTools({
 const styles = StyleSheet.create({
   sidebar: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Space.sm,
     paddingHorizontal: Space.lg,
     paddingTop: Space.lg,
   },
-  floating: { flexDirection: 'row', gap: Space.sm },
-  card: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Space.xs,
+  floating: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
+  segments: {
+    flex: 1,
+    height: SEGMENTS_HEIGHT,
+    flexDirection: 'row',
+    padding: SEGMENT_INSET,
     borderRadius: Radius.md,
     borderWidth: HAIRLINE,
     borderColor: Color.line,
     backgroundColor: Color.surface,
   },
-  wide: { flex: 1, paddingVertical: Space.md },
-  // Solid, so the button reads the same over any part of the capture.
-  button: {
-    minHeight: MIN_TOUCH,
-    flexDirection: 'row',
-    gap: Space.sm,
+  // Over the splat it is as wide as its labels, and dark enough to read on the capture.
+  floatingSegments: { flex: 0, backgroundColor: Color.overlay },
+  segment: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Space.lg,
-    borderColor: Color.lineStrong,
-    backgroundColor: Color.raised,
+    borderRadius: Radius.sm,
   },
-  selected: { borderColor: Color.accent, backgroundColor: Color.accentWash },
-  buttonSelected: { borderColor: Color.accent },
-  pressed: { backgroundColor: Color.pressed },
-  label: { ...Type.label, color: Color.muted },
-  buttonLabel: { ...Type.calloutStrong, color: Color.secondaryText },
-  labelSelected: { color: Color.text },
+  // In the sidebar the two halves split its width; over the splat each is as wide as its label.
+  shared: { flex: 1 },
+  selected: { backgroundColor: Color.pressed },
+  label: { ...Type.calloutStrong, color: Color.muted },
+  selectedLabel: { color: Color.text },
 });

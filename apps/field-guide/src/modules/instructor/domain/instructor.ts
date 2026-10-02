@@ -16,6 +16,7 @@ import {
   type SessionState,
 } from '../../../domain/session';
 import { normalize, routeCommand, RouteKind } from './router';
+import { contentWordsOf, isAsked } from './utterance';
 
 /** What the instructor says, and what it does to the session. */
 export interface InstructorAnswer {
@@ -28,8 +29,8 @@ export interface InstructorAnswer {
   readonly event: SessionEvent | null;
 }
 
-// Words that turn a question into a request to walk through a procedure. "How" is not one:
-// "how many liters of coolant" asks for a quantity, not the coolant check.
+// Words that make a phrase about a procedure rather than a part. "How" is not one: "how
+// many liters of coolant" asks for a quantity, not the coolant check.
 const PROCEDURE_INTENT: ReadonlySet<string> = new Set([
   'check',
   'checking',
@@ -208,6 +209,18 @@ function stepAnswer(
   };
 }
 
+/** A procedure told rather than started, so the one on screen keeps its place. */
+function procedureAnswer(procedure: Procedure): InstructorAnswer {
+  return {
+    reply: procedure.steps.map(step => step.text).join(' '),
+    caution: [...new Set(procedure.steps.map(step => step.caution))]
+      .filter(caution => caution !== '')
+      .join(' '),
+    part: null,
+    event: null,
+  };
+}
+
 function partAnswer(part: Part, details: boolean): InstructorAnswer {
   return {
     reply: details && part.details !== '' ? part.details : part.summary,
@@ -263,9 +276,46 @@ const NOT_COVERED: InstructorAnswer = {
 const specificationsOf = (part: Part): string | undefined =>
   part.notes.find(note => note.topic === NoteTopic.specifications)?.text;
 
+// What a specification question asks for, and the word a sentence that answers it carries:
+// "what oil" wants the grade, not the capacity or the service intervals beside it.
+const SPECIFICATION_ASPECTS: readonly (readonly [RegExp, RegExp])[] = [
+  [
+    /\b(how much|how many|capacity|quantity|liters?|litres?|quarts?|gallons?|ml)\b/,
+    /\bcapacity\b/,
+  ],
+  [
+    /\b(how often|intervals?)\b|\bwhen\b.*\b(change|replace|renew|service)\b/,
+    /\binterval\b/,
+  ],
+  [
+    new RegExp(
+      `\\b(what|which) (type |kind |grade |brand )?(of )?(oil|fluid)\\b|\\b(grade|viscosity)\\b|${VISCOSITY_GRADE.source}`,
+    ),
+    /\bgrade\b/,
+  ],
+];
+
+const SENTENCE_END = /(?<=\.)\s+(?=[A-Z])/;
+
+/** The sentences of `specifications` that answer what `question` asks for, or all of them. */
+function relevantSpecifications(
+  question: string,
+  specifications: string,
+): string {
+  const phrase = normalize(question);
+  const aspect = SPECIFICATION_ASPECTS.find(([asks]) => asks.test(phrase));
+  const answering = aspect
+    ? specifications
+        .split(SENTENCE_END)
+        .filter(sentence => aspect[1].test(normalize(sentence)))
+    : [];
+  return answering.length > 0 ? answering.join(' ') : specifications;
+}
+
 /**
  * Answers a specification question with the verified specifications of the part it names,
- * or of that part's nearest ancestor that has them, word for word. A question that names no
+ * or of that part's nearest ancestor that has them, word for word, keeping only the sentences
+ * that answer what it asks for when some do. A question that names no
  * part with specifications gets NOT_COVERED, so nothing is ever guessed.
  */
 function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
@@ -279,7 +329,7 @@ function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
     return NOT_COVERED;
   }
   return {
-    reply: specifications,
+    reply: relevantSpecifications(question, specifications),
     caution: '',
     part: named,
     event: { type: SessionEventType.select, partId: named },
@@ -325,7 +375,7 @@ export function namedPart(question: string, pack: Pack): PartId | null {
   return part?.id ?? null;
 }
 
-/** The procedure `question` asks to walk through, if it names one. */
+/** The procedure `question` is about, if it names one. */
 function requestedProcedure(
   words: ReadonlySet<string>,
   pack: Pack,
@@ -344,8 +394,37 @@ export function isScripted(question: string, pack: Pack): boolean {
   return (
     routeCommand(question, pack).kind === RouteKind.command ||
     asksForSpecification(question) ||
-    requestedProcedure(new Set(wordsOf(normalize(question))), pack) !==
-      undefined
+    // Asked about, a procedure is the model's to explain; asked for, the script starts it.
+    (!isAsked(question) &&
+      requestedProcedure(new Set(wordsOf(normalize(question))), pack) !==
+        undefined)
+  );
+}
+
+// A question asked in one word still asks something: "Why?" after an answer.
+const ONE_WORD_QUESTIONS: ReadonlySet<string> = new Set([
+  'how',
+  'what',
+  'when',
+  'where',
+  'which',
+  'who',
+  'why',
+  'explain',
+]);
+// Fewer content words than this, and no part named, is a stray word, not a question.
+const MIN_QUESTION_WORDS = 2;
+
+/**
+ * Whether `question` asks something a model could answer, so a stray "yes", "thanks" or
+ * misheard noise gets the script's hint instead of a paid request.
+ */
+export function isQuestion(question: string, pack: Pack): boolean {
+  const words = contentWordsOf(question);
+  return (
+    words.length >= MIN_QUESTION_WORDS ||
+    words.some(word => ONE_WORD_QUESTIONS.has(word)) ||
+    mentionedPart(new Set(words), pack) !== undefined
   );
 }
 
@@ -382,14 +461,17 @@ export function answerFor(
   const procedure = mentionedProcedure(words, pack);
   const requested = requestedProcedure(words, pack);
   // Asking for the procedure already running keeps its place rather than starting it over.
+  // Asking how one goes only tells it.
   const startProcedure = (found: Procedure) =>
-    stepAnswer(
-      state,
-      found.id === state.procedureId
-        ? { type: SessionEventType.repeat }
-        : { type: SessionEventType.start, procedureId: found.id },
-      pack,
-    );
+    isAsked(question)
+      ? procedureAnswer(found)
+      : stepAnswer(
+          state,
+          found.id === state.procedureId
+            ? { type: SessionEventType.repeat }
+            : { type: SessionEventType.start, procedureId: found.id },
+          pack,
+        );
 
   if (requested) {
     return startProcedure(requested);

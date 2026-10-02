@@ -15,6 +15,7 @@ import {
   answerFor,
   asksForSpecification,
   focusPart,
+  isQuestion,
   isScripted,
   namedPart,
   NOT_COVERED_REPLY,
@@ -80,8 +81,10 @@ describe('specifications', () => {
     'answers "%s" with the verified specifications only',
     (question, shown, owner) => {
       expect(isScripted(question, pack)).toBe(true);
-      expect(answerFor(question, coolantStep(1), pack)).toEqual({
-        reply: specificationsOf(owner),
+      const answer = answerFor(question, coolantStep(1), pack);
+      expect(specificationsOf(owner)).toContain(answer.reply);
+      expect(answer).toEqual({
+        reply: answer.reply,
         caution: '',
         part: shown,
         event: select(shown),
@@ -89,10 +92,18 @@ describe('specifications', () => {
     },
   );
 
-  it('gives the oil grade from the owner manual', () => {
-    expect(
-      answerFor('What oil does it use?', INITIAL_SESSION, pack).reply,
-    ).toMatch(/^The engine oil grade is 5W-40\b/);
+  it.each([
+    [
+      'What oil does it use?',
+      /^The engine oil grade is 5W-40, as the owner's manual states\.$/,
+    ],
+    ['How much oil does the motor take?', /^The oil capacity\b/],
+    [
+      'When should I change the oil?',
+      /^The oil capacity, oil and filter interval\b/,
+    ],
+  ])('answers "%s" with only the sentence it asks for', (question, reply) => {
+    expect(answerFor(question, INITIAL_SESSION, pack).reply).toMatch(reply);
   });
 
   it.each([
@@ -120,7 +131,7 @@ describe('specifications', () => {
 });
 
 describe('scripted questions', () => {
-  it.each(['next', 'How do I check the coolant?', 'Where is the battery?'])(
+  it.each(['next', 'check the coolant', 'Where is the battery?'])(
     'answers "%s" without the model',
     question => {
       expect(isScripted(question, pack)).toBe(true);
@@ -131,6 +142,7 @@ describe('scripted questions', () => {
     'What does the fuse box do?',
     'Why does my engine run badly?',
     'How does the coolant tank work?',
+    'How do I check the coolant?',
   ])('leaves "%s" to the model', question => {
     expect(isScripted(question, pack)).toBe(false);
   });
@@ -140,6 +152,17 @@ describe('scripted questions', () => {
     expect(namedPart('Where do I put the oil?', pack)).toBe('valve-cover');
     expect(namedPart('Why does it rattle?', pack)).toBeNull();
   });
+});
+
+describe('questions worth a model', () => {
+  it.each(['What does the fuse box do?', 'Why?', 'battery'])(
+    'sends "%s"',
+    question => expect(isQuestion(question, pack)).toBe(true),
+  );
+
+  it.each(['.', 'Thanks', 'um yeah'])('keeps "%s" from the model', question =>
+    expect(isQuestion(question, pack)).toBe(false),
+  );
 });
 
 describe('answerFor', () => {
@@ -170,8 +193,8 @@ describe('answerFor', () => {
   });
 
   it.each([
-    ['How do I check the coolant?', 'check-coolant'],
     ['check the brake fluid', 'check-brake-fluid'],
+    ['walk me through the coolant check', 'check-coolant'],
     ['power steering fluid steps', 'check-power-steering-fluid'],
     ['start check the coolant level', 'check-coolant'],
   ])('starts the procedure "%s" asks for at step one', (question, id) => {
@@ -182,6 +205,16 @@ describe('answerFor', () => {
       caution: first?.caution,
       part: first?.parts[0] ?? null,
       event: start(id),
+    });
+  });
+
+  it('tells a procedure asked about without leaving the step on screen', () => {
+    const question = 'How do I check the coolant level?';
+    const steps = pack.procedures.find(p => p.id === 'check-coolant')?.steps;
+    expect(isScripted(question, pack)).toBe(false);
+    expect(answerFor(question, coolantStep(2), pack)).toMatchObject({
+      reply: steps?.map(step => step.text).join(' '),
+      event: null,
     });
   });
 

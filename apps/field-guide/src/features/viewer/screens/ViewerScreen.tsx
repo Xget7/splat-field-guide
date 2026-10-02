@@ -35,11 +35,7 @@ import { clearProgress } from '../../../modules/progress/data/progressStorage';
 import { IconButton } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
 import { Color, HAIRLINE, Motion, Space, Type } from '../../../shared/ui/theme';
-import {
-  partIdForLabel,
-  stepRowsFor,
-  suggestionsFor,
-} from '../model/guideContent';
+import { partIdForLabel, stepRowsFor } from '../model/guideContent';
 import { InstructorPanel } from '../components/InstructorPanel';
 import { PartMarkers, type Size } from '../components/PartMarkers';
 import { ProcedureSheet } from '../components/ProcedureSheet';
@@ -156,10 +152,6 @@ function Viewer({
   const keyboardVisible = useKeyboardVisible();
   const wide = useWideLayout();
   const steps = useMemo(() => stepRowsFor(session, pack), [session, pack]);
-  const suggestions = useMemo(
-    () => suggestionsFor(session, pack),
-    [session, pack],
-  );
   const reducedMotion = useReducedMotion();
   const mounted = useRef(true);
   useEffect(() => {
@@ -373,7 +365,7 @@ function Viewer({
           entering={DOCK_IN}
           exiting={DOCK_OUT}
           pointerEvents="box-none"
-          style={[styles.toolsBottom, { bottom: insets.bottom + Space.lg }]}
+          style={[styles.toolsBottom, { bottom: insets.bottom + Space.md }]}
         >
           {tools(ToolsLayout.floating)}
         </Animated.View>
@@ -384,7 +376,6 @@ function Viewer({
     <InstructorPanel
       thread={thread}
       exchange={exchange}
-      suggestions={suggestions}
       content={card}
       bottomInset={bottomInset}
       onAsk={ask}

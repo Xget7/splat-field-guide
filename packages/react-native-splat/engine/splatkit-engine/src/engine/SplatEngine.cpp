@@ -229,6 +229,8 @@ void SplatEngine::publishView(const SplatRenderer::Frame& frame) {
   view.cameraToWorld = frame.view.rigidInverse();
   view.projX = frame.proj.at(0, 0);
   view.projY = frame.proj.at(1, 1);
+  view.azimuth = camera_.pose().azimuth;
+  view.elevation = camera_.pose().elevation;
   view.pickIndex = pickIndex_;
   std::lock_guard<std::mutex> lock(viewMutex_);
   view_ = std::move(view);
@@ -267,6 +269,14 @@ std::size_t SplatEngine::project(const float* points, std::size_t count, float* 
     ++inFront;
   }
   return inFront;
+}
+
+bool SplatEngine::drawnDirection(float& azimuth, float& elevation) const {
+  const View view = publishedView();
+  if (view.projX == 0) return false;
+  azimuth = view.azimuth;
+  elevation = view.elevation;
+  return true;
 }
 
 // Stats.

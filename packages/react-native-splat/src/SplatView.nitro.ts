@@ -88,6 +88,8 @@ export interface SplatViewMethods extends HybridViewMethods {
    * [0, 1] from the top left, NaN behind the camera. Returns how many are in front.
    */
   project(points: ArrayBuffer, out: ArrayBuffer): number;
+  /** Where the frame last drawn looks from; undefined before the first. */
+  drawnDirection(): ViewDirection | undefined;
 }
 
 export type SplatView = HybridView<

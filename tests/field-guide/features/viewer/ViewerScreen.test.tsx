@@ -104,6 +104,8 @@ const catalog = catalogFor(pack);
 const VIEWPORT = { width: 300, height: 400 };
 // About the step on screen, so it names no other part to move to.
 const PUSH_IN_QUESTION = 'Why does this step matter?';
+// Longer than a mid-phrase turn is held for once the voice pauses.
+const PAST_HOLD_MS = 2000;
 const IPAD_WINDOW = { width: 1366, height: 1024, scale: 2, fontScale: 1 };
 
 const debug = () =>
@@ -222,7 +224,7 @@ describe('viewer screen', () => {
       stepIndex: 1,
       selectedPart: null,
     });
-    expect(text('step-counter')).toBe('Step 02 / 05');
+    expect(text('step-counter')).toBe('Step 2 of 5');
     expect(text('step-title')).toBe('Coolant reservoir');
     expect(node('procedure-button').props.accessibilityLabel).toBe(
       'Procedure: Check the coolant level',
@@ -258,15 +260,9 @@ describe('viewer screen', () => {
       ).toBe(step.text);
       expect(has('instructor-reply')).toBe(false);
       expect(has('thread-entry-0')).toBe(false);
-      // Nothing asked yet: questions about the step are offered, and one tap asks one.
-      const [suggestion] = renderer.root.findAllByProps({
-        testID: 'instructor-suggestion',
-      });
-      const question = suggestion.props.accessibilityLabel.replace('Ask: ', '');
-      expect(question).toBe('What does the coolant reservoir do?');
-      await act(async () => suggestion.props.onPress());
+      const question = 'What does the coolant reservoir do?';
+      await act(async () => debug().ask(question));
       expect(text('instructor-question')).toBe(question);
-      expect(has('instructor-suggestion')).toBe(false);
       jest.mocked(model.availability).mockReturnValue('available');
       jest
         .mocked(model.respond)
@@ -333,9 +329,9 @@ describe('viewer screen', () => {
       FRAME_SECONDS,
       home,
     );
-    expect(text('step-counter')).toBe('Step 02 / 08');
+    expect(text('step-counter')).toBe('Step 2 of 8');
     await press('step-back');
-    expect(text('step-counter')).toBe('Step 01 / 08');
+    expect(text('step-counter')).toBe('Step 1 of 8');
   });
 
   test('repeat and a new viewport size frame the step again', async () => {
@@ -458,7 +454,7 @@ describe('viewer screen', () => {
       selectedPart: null,
     });
     expect(sheet().props.visible).toBe(false);
-    expect(text('step-counter')).toBe('Step 01 / 05');
+    expect(text('step-counter')).toBe('Step 1 of 5');
     expect(text('step-title')).toBe(
       procedure(procedureId)
         .steps[0].parts.map(id => pack.parts.find(part => part.id === id)!.name)
@@ -610,12 +606,13 @@ describe('viewer screen', () => {
     const ask = async (question: string) =>
       act(async () => debug().ask(question));
     const voiceOn = async () => press('instructor-voice');
-    // The callbacks of the latest listening: partial words, a finished turn and the level.
+    // The callbacks of the latest listening: partial words, a finished turn, the level, the
+    // voice starting and pausing, and listening stopping.
     const heard = () => {
-      const [, , partial, turn, level, stopped] = jest
+      const [, , partial, turn, level, voice, stopped] = jest
         .mocked(input.listen)
         .mock.calls.at(-1)!;
-      return { partial, turn, level, stopped };
+      return { partial, turn, level, voice, stopped };
     };
     const type = async (question: string) => {
       await act(() => node('instructor-input').props.onChangeText(question));
@@ -669,8 +666,6 @@ describe('viewer screen', () => {
       expect(node('instructor-back').props.accessibilityState.disabled).toBe(
         true,
       );
-      // Under the splat there is no room to offer questions beside the step.
-      expect(has('instructor-suggestion')).toBe(false);
       await ask('Where is the battery?');
       expect(debug().getState().selectedPart).toBe('battery');
       await press('instructor-next');
@@ -678,7 +673,7 @@ describe('viewer screen', () => {
         selectedPart: null,
         stepIndex: 1,
       });
-      expect(text('instructor-step')).toBe('Step 02 / 08');
+      expect(text('instructor-step')).toBe('Step 2 of 8');
       expect(text('instructor-reply')).toBe(procedure('tour').steps[1].text);
       expect(has('instructor-question')).toBe(false);
       expect(native().props.highlight).toEqual(
@@ -1056,6 +1051,7 @@ describe('viewer screen', () => {
         expect.any(Function),
         expect.any(Function),
         expect.any(Function),
+        expect.any(Function),
       );
       expect(text('instructor-voice-status')).toBe('Listening');
       expect(has('instructor-input')).toBe(false);
@@ -1084,6 +1080,23 @@ describe('viewer screen', () => {
       expect(text('instructor-voice-status')).toBe('Muted');
       expect(cue()).toBe('Muted. Tap the mic to listen again.');
       await act(async () => speech.resolve());
+    });
+
+    test('voice drops noise and joins a question said across a pause', async () => {
+      jest.useFakeTimers();
+      await mount({ mode: LearnMode.instructor });
+      await voiceOn();
+      await act(async () => heard().turn('.'));
+      await act(async () => heard().turn('Uh'));
+      await act(async () => heard().turn('Where is the'));
+      // Still talking past the hold: the half question is not asked.
+      await act(async () => heard().voice(true));
+      await act(async () => jest.advanceTimersByTime(PAST_HOLD_MS));
+      expect(has('instructor-question')).toBe(false);
+      await act(async () => heard().voice(false));
+      await act(async () => heard().turn('battery?'));
+      expect(text('instructor-question')).toBe('Where is the battery?');
+      expect(debug().getState().selectedPart).toBe('battery');
     });
 
     test('a spoken question joins the conversation under the step', async () => {
@@ -1119,7 +1132,7 @@ describe('viewer screen', () => {
       expect(text('thread-question-1')).toBe('Where is the battery?');
       expect(text('instructor-reply')).toBe(steps[1].text);
       expect(
-        StyleSheet.flatten(node('instructor-panel').props.style).height,
+        StyleSheet.flatten(node('instructor-panel').props.style).maxHeight,
       ).toBe('50%');
     });
 
@@ -1526,7 +1539,7 @@ describe('viewer screen', () => {
       });
       await press('instructor-toggle');
       expect(has('instructor-panel')).toBe(false);
-      expect(text('step-counter')).toBe('Step 01 / 05');
+      expect(text('step-counter')).toBe('Step 1 of 5');
     });
 
     test('a typed question shows the part and the answer', async () => {
@@ -1559,12 +1572,12 @@ describe('viewer screen', () => {
         procedure('check-coolant').steps[2].text,
       );
       await press('instructor-toggle');
-      expect(text('step-counter')).toBe('Step 03 / 05');
+      expect(text('step-counter')).toBe('Step 3 of 5');
     });
 
     test('debug ask drives the same path for end-to-end checks', async () => {
       await mount({ mode: LearnMode.instructor });
-      await act(async () => debug().ask('how do I check the brake fluid'));
+      await act(async () => debug().ask('check the brake fluid'));
       expect(debug().getState()).toEqual({
         procedureId: 'check-brake-fluid',
         stepIndex: 0,

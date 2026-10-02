@@ -31,6 +31,7 @@ namespace margelo::nitro::splat {
       prototype.registerHybridMethod("frame", &HybridSplatViewSpec::frame);
       prototype.registerHybridMethod("pick", &HybridSplatViewSpec::pick);
       prototype.registerHybridMethod("project", &HybridSplatViewSpec::project);
+      prototype.registerHybridMethod("drawnDirection", &HybridSplatViewSpec::drawnDirection);
     });
   }
 

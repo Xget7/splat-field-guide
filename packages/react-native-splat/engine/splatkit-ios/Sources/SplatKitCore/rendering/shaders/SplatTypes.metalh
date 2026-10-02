@@ -90,7 +90,7 @@ constant float kLooseCullExtent = 1.2;
 
 // The materialising sweep's band: toward the accent (Highlight::kTint) and lifted, most at
 // the level itself, like the line of a scanner.
-constant float3 kRevealTint = float3(0x25, 0x76, 0xD2) / 255.0;
+constant float3 kRevealTint = float3(0x0A, 0x6C, 0xFF) / 255.0;
 constant float kRevealTintAmount = 0.85;
 constant float kRevealBoost = 0.9;
 

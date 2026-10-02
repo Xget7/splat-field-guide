@@ -5,7 +5,15 @@ import {
   type PressableProps,
   type ViewStyle,
 } from 'react-native';
-import { BUTTON_HEIGHT, Color, MIN_TOUCH, Radius, Space, Type } from '../theme';
+import {
+  BUTTON_HEIGHT,
+  Color,
+  HAIRLINE,
+  MIN_TOUCH,
+  Radius,
+  Space,
+  Type,
+} from '../theme';
 import { Icon, type IconName } from './Icon';
 
 export const ButtonVariant = {
@@ -30,7 +38,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const primary = variant === ButtonVariant.primary;
-  const ink = disabled ? Color.faint : primary ? Color.accentText : Color.text;
+  const ink = disabled ? Color.faint : primary ? Color.actionText : Color.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -58,6 +66,8 @@ export const IconButtonVariant = {
   raised: 'raised',
   /** On: the instructor is listening, a mode is active. */
   active: 'active',
+  /** The way forward, filled like the primary button. */
+  primary: 'primary',
 } as const;
 export type IconButtonVariant =
   (typeof IconButtonVariant)[keyof typeof IconButtonVariant];
@@ -82,6 +92,8 @@ export function IconButton({
     ? Color.faint
     : variant === IconButtonVariant.active
     ? Color.accentText
+    : variant === IconButtonVariant.primary
+    ? Color.actionText
     : Color.text;
   return (
     <Pressable
@@ -95,9 +107,11 @@ export function IconButton({
         { width: size, height: size },
         VARIANT_STYLE[variant],
         pressed && styles.secondaryPressed,
+        pressed && variant === IconButtonVariant.active && styles.activePressed,
         pressed &&
-          variant === IconButtonVariant.active &&
+          variant === IconButtonVariant.primary &&
           styles.primaryPressed,
+        disabled && styles.disabled,
         style,
       ]}
     >
@@ -107,23 +121,25 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
+  // Squarer than the cards around them: an action reads as a control, not a tile.
   button: {
     height: BUTTON_HEIGHT,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
     paddingHorizontal: Space.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Space.sm,
   },
-  primary: { backgroundColor: Color.accent },
-  primaryPressed: { backgroundColor: Color.accentPressed },
+  primary: { backgroundColor: Color.action },
+  primaryPressed: { backgroundColor: Color.actionPressed },
+  // Outlined only, so the one filled button on screen is the way forward.
   secondary: {
-    backgroundColor: Color.raised,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: HAIRLINE,
     borderColor: Color.lineStrong,
   },
   secondaryPressed: { backgroundColor: Color.pressed },
+  activePressed: { backgroundColor: Color.accentPressed },
   disabled: { backgroundColor: Color.surface, borderColor: Color.line },
   text: { ...Type.headline },
   iconButton: {
@@ -145,4 +161,5 @@ const VARIANT_STYLE = StyleSheet.create({
     borderColor: Color.lineStrong,
   },
   active: { backgroundColor: Color.accent },
+  primary: { backgroundColor: Color.action },
 });

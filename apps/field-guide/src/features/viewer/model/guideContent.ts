@@ -98,27 +98,6 @@ export function stepRowsFor(
   });
 }
 
-/**
- * Questions worth asking about what is on screen, offered before anything has been asked:
- * about the part a step works on and why the step matters, or how a toured part works.
- */
-export function suggestionsFor(
-  state: SessionState,
-  pack: Pack,
-): readonly string[] {
-  const procedure = currentProcedure(state, pack);
-  const step = currentStep(state, pack);
-  const partId = state.selectedPart ?? step?.parts[0];
-  const part = partId === undefined ? undefined : findPart(pack, partId);
-  if (part === undefined) {
-    return [];
-  }
-  const name = part.name.toLowerCase();
-  return procedure?.id === TOUR_ID || state.selectedPart !== null
-    ? [`How does the ${name} work?`, 'What can go wrong with it?']
-    : [`What does the ${name} do?`, 'Why does this step matter?'];
-}
-
 /** Unknown labels leave the current selection alone; zero clears it. */
 export function partIdForLabel(
   label: number,
@@ -136,8 +115,10 @@ export function markedPartsFor(
     state.selectedPart !== null
       ? [state.selectedPart]
       : currentStep(state, pack)?.parts ?? [];
-  return ids
-    .map(id => findPart(pack, id))
-    .filter(part => part !== undefined)
-    .map(({ id, name, bounds }) => ({ id, name, bounds }));
+  return ids.flatMap(id => {
+    const part = pack.parts.find(candidate => candidate.id === id);
+    return part === undefined
+      ? []
+      : [{ id: part.id, name: part.name, bounds: part.bounds }];
+  });
 }

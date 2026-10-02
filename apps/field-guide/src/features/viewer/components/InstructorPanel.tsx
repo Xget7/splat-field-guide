@@ -40,7 +40,6 @@ import {
   type ThreadEntry,
 } from '../model/viewerState';
 import { InstructorThread } from './InstructorThread';
-import { StepSegments } from './StepSegments';
 import {
   speechTextFor,
   SpokenSection,
@@ -69,8 +68,8 @@ import {
   type InstructorVoice,
 } from '../../../modules/instructor/voice/hooks/useInstructorVoice';
 
-// Open under the splat, the conversation keeps one height, so the splat above it does not
-// resize as the thread grows.
+// Open under the splat, the panel is as tall as what it says, up to half the screen; past
+// that the thread scrolls, so the splat above keeps the rest.
 const CHAT_SHARE = '50%';
 const DOCKED_SHARE = '60%';
 const SIDE_SIZE = MIN_TOUCH;
@@ -117,7 +116,6 @@ function voiceCue(voice: InstructorVoice, hasStep: boolean) {
 interface Props {
   thread: readonly ThreadEntry[];
   exchange: Exchange | null;
-  suggestions: readonly string[];
   content: CardContent;
   bottomInset: number;
   onAsk: (question: string) => void;
@@ -134,7 +132,6 @@ interface Props {
 export function InstructorPanel({
   thread,
   exchange,
-  suggestions,
   content,
   bottomInset,
   onAsk,
@@ -179,6 +176,8 @@ export function InstructorPanel({
     },
     [onModeChange],
   );
+  // Open under the splat, the header says where in the procedure the thread below is.
+  const heading = !minimized && !docked && step !== null ? step : 'Instructor';
   const toggle = () => changeMode(togglePanel(mode));
   const toggleLabel = minimized ? 'Expand instructor' : 'Minimize instructor';
   const pan = usePanGesture({
@@ -311,7 +310,12 @@ export function InstructorPanel({
               style={styles.headerButton}
             >
               <View style={styles.header}>
-                <Text style={styles.label}>Instructor</Text>
+                <Text
+                  testID={heading === step ? 'instructor-step' : undefined}
+                  style={styles.label}
+                >
+                  {heading}
+                </Text>
                 <InstructorStatus
                   voice={voice}
                   // Open, the thread names each step itself.
@@ -356,7 +360,7 @@ export function InstructorPanel({
                   content.last ? 'Finish procedure' : 'Next step'
                 }
                 disabled={content.nextDisabled}
-                variant={IconButtonVariant.active}
+                variant={IconButtonVariant.primary}
                 onPress={onNext}
               />
             )}
@@ -365,21 +369,12 @@ export function InstructorPanel({
       </GestureDetector>
       {!minimized && (
         <>
-          {hasStep && !docked && (
-            <StepSegments
-              count={content.stepCount}
-              current={content.stepNumber - 1}
-            />
-          )}
           <InstructorThread
             thread={thread}
             exchange={exchange}
             transcript={transcript}
             voice={voice}
             reducedMotion={reducedMotion}
-            // Under the splat on a phone, they would push the step itself out of view.
-            suggestions={docked ? suggestions : []}
-            onAsk={onAsk}
             compact={docked}
           />
           {voice.hint !== '' && (
@@ -488,7 +483,7 @@ export function InstructorPanel({
 
 const styles = StyleSheet.create({
   panel: {
-    height: CHAT_SHARE,
+    maxHeight: CHAT_SHARE,
     paddingTop: Space.sm,
     paddingHorizontal: Space.lg,
     gap: Space.sm,
@@ -496,11 +491,10 @@ const styles = StyleSheet.create({
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },
-  minimized: { height: undefined, gap: Space.xs },
+  minimized: { gap: Space.xs },
   // No grabber above the header, so the top edge takes its own margin. Beside the splat
   // the panel grows with the conversation, and the steps above it give way.
   docked: {
-    height: undefined,
     maxHeight: DOCKED_SHARE,
     flexShrink: 1,
     paddingTop: Space.md,

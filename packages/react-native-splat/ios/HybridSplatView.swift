@@ -157,6 +157,13 @@ final class HybridSplatView: HybridSplatViewSpec {
     return Double(sfg_project(engine.handle, from, count, to))
   }
 
+  func drawnDirection() throws -> ViewDirection? {
+    guard let engine = loop.currentEngine else { return nil }
+    var direction = sfg_view_direction()
+    guard sfg_drawn_direction(engine.handle, &direction) else { return nil }
+    return ViewDirection(azimuth: Double(direction.azimuth), elevation: Double(direction.elevation))
+  }
+
   func onDropView() {
     shutDown()
   }

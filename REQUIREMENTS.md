@@ -13,7 +13,7 @@ Apple first: every item is met on a physical iPhone 17 Pro before any Android wo
 - R4. The splat renders with Metal inside a React Native view.
 - R5. One finger orbits and a pinch zooms.
 - R6. Tapping a part highlights it; tapping empty space clears the highlight.
-- R7. A highlighted part is tinted marine blue (#2576D2) and everything else is slightly dimmed.
+- R7. A highlighted part is tinted marine blue (#0A6CFF) and everything else is slightly dimmed.
 - R8. Highlighting the engine also highlights the parts inside it.
 - R9. The camera animates to frame the highlighted part.
 - R10. Orbiting holds 60 fps with up to 1.5M splats.

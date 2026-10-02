@@ -1,28 +1,21 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  CATEGORY_TITLE,
-  packFacts,
   type ComingSoonGuide,
   type ReadyGuide,
 } from '../../../modules/catalog/catalog';
-import { Brackets } from '../../../shared/ui/kit/Brackets';
 import { IconButton, IconButtonVariant } from '../../../shared/ui/kit/Button';
-import { Icon, IconName } from '../../../shared/ui/kit/Icon';
-import { Label } from '../../../shared/ui/kit/Label';
+import { IconName } from '../../../shared/ui/kit/Icon';
 import { Color, Radius, Space, Type } from '../../../shared/ui/theme';
+import { READOUT_SEPARATOR } from '../../../shared/ui/readout';
 import type { ContinueRow } from '../model/library';
 
 const Layout = {
   readyAspect: 16 / 9,
   soonAspect: 3 / 2,
   soonOpacity: 0.7,
-  titleSize: 19,
   thumbnail: 56,
   playSize: 40,
   progressHeight: 2,
-  offlineIcon: 14,
-  soonIcon: 12,
-  bracketLength: 16,
   percent: 100,
 } as const;
 
@@ -36,12 +29,11 @@ export function ReadyCard({
   wide?: boolean;
   onPress: () => void;
 }) {
-  const facts = packFacts(guide.pack);
   return (
     <Pressable
       testID={`guide-card-${guide.id}`}
       accessibilityRole="button"
-      accessibilityLabel={`${guide.title}, ${guide.area}, offline`}
+      accessibilityLabel={`${guide.title}, ${guide.area}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -51,36 +43,12 @@ export function ReadyCard({
     >
       <View style={[styles.readyFrame, wide && styles.wideFrame]}>
         <Image source={guide.image} resizeMode="cover" style={styles.image} />
-        <Brackets
-          color={Color.accent}
-          length={Layout.bracketLength}
-          style={styles.brackets}
-        />
-        <View style={styles.tag}>
-          <Icon
-            name={IconName.check}
-            size={Layout.offlineIcon}
-            color={Color.accent}
-          />
-          <Label color={Color.accent}>Offline</Label>
-        </View>
       </View>
       <View style={[styles.readyBody, wide && styles.wideBody]}>
-        <Text style={[styles.readyTitle, wide && styles.wideTitle]}>
-          {guide.title}
+        <Text style={styles.readyTitle}>{guide.title}</Text>
+        <Text style={styles.subtitle}>
+          {[guide.subtitle, guide.area].join(READOUT_SEPARATOR)}
         </Text>
-        <Text
-          style={styles.subtitle}
-        >{`${guide.subtitle} - ${guide.area}`}</Text>
-        <View style={styles.facts}>
-          {[`${facts.splats} splats`, `${facts.parts} parts`, facts.size].map(
-            fact => (
-              <Text key={fact} style={styles.fact}>
-                {fact}
-              </Text>
-            ),
-          )}
-        </View>
       </View>
     </Pressable>
   );
@@ -100,17 +68,8 @@ export function SoonCard({ guide }: { guide: ComingSoonGuide }) {
           resizeMode="cover"
           style={[styles.image, styles.dimmed]}
         />
-        <View style={styles.tag}>
-          <Icon
-            name={IconName.lock}
-            size={Layout.soonIcon}
-            color={Color.secondaryText}
-          />
-          <Label color={Color.secondaryText}>Soon</Label>
-        </View>
       </View>
       <View style={styles.soonBody}>
-        <Label color={Color.faint}>{CATEGORY_TITLE[guide.category]}</Label>
         <Text style={styles.soonTitle}>{guide.title}</Text>
         <Text style={styles.area}>{guide.area}</Text>
       </View>
@@ -158,7 +117,7 @@ export function ContinueCard({
       <IconButton
         icon={IconName.play}
         size={Layout.playSize}
-        variant={IconButtonVariant.active}
+        variant={IconButtonVariant.primary}
         accessibilityLabel={label}
         onPress={onPress}
       />
@@ -180,37 +139,12 @@ const styles = StyleSheet.create({
   soonFrame: { aspectRatio: Layout.soonAspect },
   image: { width: '100%', height: '100%' },
   dimmed: { opacity: Layout.soonOpacity },
-  brackets: {
-    top: Space.md,
-    left: Space.md,
-    right: Space.md,
-    bottom: Space.md,
-  },
-  tag: {
-    position: 'absolute',
-    top: Space.md,
-    left: Space.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.xs,
-    backgroundColor: Color.overlay,
-    borderRadius: Radius.sm,
-    paddingVertical: Space.xs,
-    paddingHorizontal: Space.sm,
-  },
   readyBody: { padding: Space.lg, gap: Space.sm },
   wideCard: { flexDirection: 'row' },
   wideFrame: { flex: 3 },
   wideBody: { flex: 2, justifyContent: 'flex-end', padding: Space.xl },
-  wideTitle: Type.title,
-  readyTitle: {
-    ...Type.headline,
-    fontSize: Layout.titleSize,
-    color: Color.text,
-  },
+  readyTitle: { ...Type.title, color: Color.text },
   subtitle: { ...Type.footnote, color: Color.muted },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Space.lg },
-  fact: { ...Type.data, color: Color.faint },
   soonCard: { flex: 1 },
   soonBody: { padding: Space.md, gap: Space.xs },
   soonTitle: { ...Type.calloutStrong, color: Color.secondaryText },

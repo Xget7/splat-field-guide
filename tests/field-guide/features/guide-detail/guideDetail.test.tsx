@@ -20,11 +20,10 @@ if (!bundledPack.ok) {
 const pack = bundledPack.pack;
 const catalog = catalogFor(pack);
 
-test('bundled procedure rows preserve order, index, counts and safety notes', () => {
+test('bundled procedure rows preserve order, counts and safety notes', () => {
   expect(procedureRowsFor(pack)).toEqual([
     {
       id: TOUR_ID,
-      index: '01',
       title: 'Parts tour',
       stepsLabel: '8 steps',
       hasCaution: false,
@@ -32,7 +31,6 @@ test('bundled procedure rows preserve order, index, counts and safety notes', ()
     },
     {
       id: 'check-coolant',
-      index: '02',
       title: 'Check the coolant level',
       stepsLabel: '5 steps',
       hasCaution: true,
@@ -40,7 +38,6 @@ test('bundled procedure rows preserve order, index, counts and safety notes', ()
     },
     {
       id: 'check-brake-fluid',
-      index: '03',
       title: 'Check the brake fluid level',
       stepsLabel: '5 steps',
       hasCaution: true,
@@ -49,7 +46,6 @@ test('bundled procedure rows preserve order, index, counts and safety notes', ()
     },
     {
       id: 'check-power-steering-fluid',
-      index: '04',
       title: 'Check the power steering fluid level',
       stepsLabel: '5 steps',
       hasCaution: true,
@@ -68,7 +64,7 @@ test('one step is singular and an empty caution is not a safety note', () => {
         { ...procedure, steps: [{ ...procedure.steps[0], caution: '' }] },
       ],
     })[0],
-  ).toMatchObject({ index: '01', stepsLabel: '1 step', hasCaution: false });
+  ).toMatchObject({ stepsLabel: '1 step', hasCaution: false });
 });
 
 describe('Guide detail screen', () => {
@@ -181,9 +177,7 @@ describe('Guide detail screen', () => {
   test('scroll clearance follows the measured safety bar height', async () => {
     await mount();
     const height = 180;
-    const bar = renderer.root.findAll(
-      item => typeof item.props.onLayout === 'function',
-    )[0];
+    const bar = renderer.root.findByProps({ testID: 'guide-start-bar' });
     await act(() =>
       bar.props.onLayout({ nativeEvent: { layout: { height } } }),
     );

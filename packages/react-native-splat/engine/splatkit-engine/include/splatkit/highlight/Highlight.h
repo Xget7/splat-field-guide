@@ -25,8 +25,8 @@ class Highlight {
   const LabelStyles& styles() const { return current_; }
 
   static constexpr float kFadeSeconds = 0.25f;
-  // #2576D2, the app's accent.
-  static constexpr float kTint[3] = {0x25 / 255.0f, 0x76 / 255.0f, 0xD2 / 255.0f};
+  // #0A6CFF, the app's accent.
+  static constexpr float kTint[3] = {0x0A / 255.0f, 0x6C / 255.0f, 0xFF / 255.0f};
   // Faint, so a part keeps its true colours: the marker around it says which one it is.
   static constexpr float kTintAmount = 0.12f;
   // A capture in the shade of a bonnet reads dark; the part shown is lifted a little.

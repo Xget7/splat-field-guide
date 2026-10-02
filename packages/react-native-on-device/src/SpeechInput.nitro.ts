@@ -18,10 +18,12 @@ export interface SpeechInput extends HybridObject<{ ios: 'swift' }> {
   /**
    * Listens until `cancel`, with echo cancellation on, so the app's own speech is not heard and
    * the user can talk over it. `hints` are words to favour, such as part names. Each spoken turn
-   * ends after a pause: `onPartial` gets its transcript as it grows and `onTurn` the whole of it
-   * once. `onLevel` gets the microphone level, 0 for silence to 1 for a loud voice, smoothed and
-   * at most 30 times a second. `onStopped` gets the reason if listening ends by itself. Rejects
-   * if already listening or not permitted; resolves once listening.
+   * ends when the voice pauses: `onPartial` gets its transcript as it grows and `onTurn` the whole
+   * of it once. `onLevel` gets the microphone level, 0 for silence to 1 for a loud voice, smoothed
+   * and at most 30 times a second. `onVoice` gets true when someone starts talking, over the
+   * room's own noise, and false when they pause, just before that turn's `onTurn`. `onStopped`
+   * gets the reason if listening ends by itself. Rejects if already listening or not permitted;
+   * resolves once listening.
    */
   listen(
     locale: string,
@@ -29,6 +31,7 @@ export interface SpeechInput extends HybridObject<{ ios: 'swift' }> {
     onPartial: (transcript: string) => void,
     onTurn: (transcript: string) => void,
     onLevel: (level: number) => void,
+    onVoice: (speaking: boolean) => void,
     onStopped: (reason: string) => void,
   ): Promise<void>;
   /** Stops listening and drops what was heard. Safe when not listening. */

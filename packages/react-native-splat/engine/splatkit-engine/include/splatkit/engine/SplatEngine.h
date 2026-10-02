@@ -102,6 +102,8 @@ class SplatEngine {
   // written to `out` as (x, y) in [0, 1] from the top left, NaN for a point behind the
   // camera. Returns how many are in front.
   std::size_t project(const float* points, std::size_t count, float* out) const;
+  // Any thread: where the frame last drawn looks from, radians; false before the first.
+  bool drawnDirection(float& azimuth, float& elevation) const;
 
   // Fraction of the surface resolution the splats are drawn at, [0.1, 2]. Below one is
   // cheaper, which is what thermal pressure trades first. Render thread.
@@ -152,6 +154,8 @@ class SplatEngine {
     splat::Mat4 cameraToWorld = splat::Mat4::identity();
     float projX = 0;  // the projection's x and y scales
     float projY = 0;
+    float azimuth = 0;
+    float elevation = 0;
     std::shared_ptr<const PickIndex> pickIndex;
   };
   View publishedView() const;

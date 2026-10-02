@@ -1,4 +1,4 @@
-import { isUserSpeech } from '../model/echo';
+import { isUserSpeech, userWordsIn } from '../model/echo';
 import { recognitionHintsFor } from '../model/recognitionHints';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { speechInput, speechOutput } from 'react-native-on-device';
@@ -10,6 +10,9 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import type { Pack } from '../../../../domain/pack';
+import { isQuestion, isScripted } from '../../domain/instructor';
+import { routeCommand, RouteKind } from '../../domain/router';
+import { hasSpokenWord, isUnfinished } from '../../domain/utterance';
 import { Motion } from '../../../../shared/ui/theme';
 import {
   normalizedLevel,
@@ -37,6 +40,15 @@ export const VoiceHint = {
   lost: 'Voice stopped listening. Turn it on to try again.',
 } as const;
 const SpeechPermission = { granted: 'granted' } as const;
+// Words of the user's own it takes to cut the instructor short or drop a pending answer, so a
+// cough or one misheard word does neither. A command ("stop") is enough on its own.
+const BARGE_IN_WORDS = 2;
+// How long a turn that stops mid-phrase ("where is the") waits, once the voice pauses, for the
+// rest of it.
+const UNFINISHED_HOLD_MS = 1500;
+
+const joined = (...parts: string[]) =>
+  parts.filter(part => part !== '').join(' ');
 const SpeechAvailability = { available: 'available' } as const;
 
 /** Something the instructor says once: an answer, or the step or part on screen. */
@@ -296,34 +308,86 @@ export function useInstructorVoice({
         setHint(VoiceHint.lost);
       }
     };
-    // The user talking over an answer cuts it short, and over a pending one cancels it.
-    const heard = (partial: string) => {
-      if (!open()) {
-        return;
+    // A turn that stops mid-phrase is held until the rest of it is heard, or the speaker stays
+    // quiet a while. It is never asked while they are still talking.
+    let held = '';
+    let holding: ReturnType<typeof setTimeout> | null = null;
+    const stopHolding = () => {
+      if (holding !== null) {
+        clearTimeout(holding);
+        holding = null;
       }
-      const speaking = saying.current !== '';
-      if (speaking && !isUserSpeech(partial, saying.current)) {
+    };
+    const hold = () => {
+      stopHolding();
+      holding = setTimeout(() => ask(held), UNFINISHED_HOLD_MS);
+    };
+    const voice = (speaking: boolean) => {
+      if (!open() || held === '') {
         return;
       }
       if (speaking) {
+        stopHolding();
+      } else {
+        hold();
+      }
+    };
+    // Only a command or a real question goes on: noise, a stray word or a hesitation costs
+    // the user an answer to nothing and the app a request.
+    const ask = (question: string) => {
+      stopHolding();
+      held = '';
+      setTranscript('');
+      if (isScripted(question, pack) || isQuestion(question, pack)) {
+        latest.current.onAsk(question);
+      }
+    };
+    // The user talking over an answer cuts it short, and over a pending one cancels it.
+    const heard = (partial: string) => {
+      if (!open() || !hasSpokenWord(partial)) {
+        return;
+      }
+      stopHolding();
+      const own = userWordsIn(partial, saying.current);
+      const cuts =
+        own >= BARGE_IN_WORDS ||
+        (own > 0 && routeCommand(partial, pack).kind === RouteKind.command);
+      if (saying.current !== '') {
+        if (!cuts) {
+          return;
+        }
         generation.current += 1;
         stopOutput();
         quiet();
       }
-      if (latest.current.thinking) {
+      // The rest of a held turn is a new question too.
+      if (latest.current.thinking && (cuts || held !== '')) {
         latest.current.onCancel();
       }
       setHint('');
-      setTranscript(partial);
+      setTranscript(joined(held, partial));
     };
-    const turn = (question: string) => {
+    const turn = (said: string) => {
       if (!open()) {
         return;
       }
-      setTranscript('');
-      if (saying.current === '' || isUserSpeech(question, saying.current)) {
-        latest.current.onAsk(question);
+      stopHolding();
+      if (saying.current !== '' && !isUserSpeech(said, saying.current)) {
+        return;
       }
+      const question = joined(held, said);
+      if (!hasSpokenWord(question)) {
+        held = '';
+        setTranscript('');
+        return;
+      }
+      if (isUnfinished(question)) {
+        held = question;
+        setTranscript(question);
+        hold();
+        return;
+      }
+      ask(question);
     };
     speechInput()
       .listen(
@@ -340,17 +404,19 @@ export function useInstructorVoice({
             });
           }
         },
+        voice,
         lost,
       )
       .catch(lost);
     return () => {
+      stopHolding();
       if (open()) {
         conversation.current = 0;
         cancelInput();
         setTranscript('');
       }
     };
-  }, [listening, hints, level, quiet]);
+  }, [listening, pack, hints, level, quiet]);
 
   const toggle = useCallback(() => {
     interrupt();

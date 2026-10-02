@@ -126,6 +126,9 @@ uint8_t sfg_pick(const sfg_engine* engine, float x, float y);
 // Any thread: where each of `count` world points (x, y, z) shows in the frame last drawn,
 // written to `out_xy` as (x, y), NaN for one behind the camera. Returns how many are in front.
 size_t sfg_project(const sfg_engine* engine, const float* points, size_t count, float* out_xy);
+// Any thread: where the frame last drawn looks from. False, leaving `out` as it was, before
+// the first frame.
+bool sfg_drawn_direction(const sfg_engine* engine, sfg_view_direction* out);
 
 #if defined(__clang__)
 #pragma clang assume_nonnull end

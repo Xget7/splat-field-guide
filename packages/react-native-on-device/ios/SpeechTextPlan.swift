@@ -7,6 +7,13 @@ struct SpeechSentence {
 }
 
 enum SpeechTextPlan {
+  // Kokoro renders a chunk whole before any of it plays, so the first chunk is cut short at a
+  // clause: the voice starts sooner, and the rest is rendered while it speaks.
+  private static let chunkLimit = 180
+  private static let firstChunkLimit = 80
+  private static let firstChunkMinimum = 24
+  private static let clauseEnds: Set<Character> = [",", ";", ":"]
+
   // Short clauses bound first-audio latency and avoid Kokoro's 510-phoneme limit.
   // The original ranges survive splitting and numeric normalization in the frontend.
   static func sentences(in text: String) -> [SpeechSentence] {
@@ -19,11 +26,19 @@ enum SpeechTextPlan {
     for range in ranges {
       var start = range.lowerBound
       while start < range.upperBound {
-        let limit = text.index(start, offsetBy: 180, limitedBy: range.upperBound) ?? range.upperBound
+        let first = sentences.isEmpty
+        let limit = text.index(start, offsetBy: first ? firstChunkLimit : chunkLimit,
+          limitedBy: range.upperBound) ?? range.upperBound
         var end = limit
-        if limit < range.upperBound,
-          let boundary = text[start..<limit].lastIndex(where: { $0.isWhitespace }) {
-          end = text.index(after: boundary)
+        if limit < range.upperBound {
+          let window = text[start..<limit]
+          let minimum = text.index(start, offsetBy: firstChunkMinimum, limitedBy: limit) ?? limit
+          if first, let clause = window.lastIndex(where: { clauseEnds.contains($0) }),
+            clause >= minimum {
+            end = text.index(after: clause)
+          } else if let boundary = window.lastIndex(where: { $0.isWhitespace }) {
+            end = text.index(after: boundary)
+          }
         }
         let chunk = start..<end
         let value = String(text[chunk])

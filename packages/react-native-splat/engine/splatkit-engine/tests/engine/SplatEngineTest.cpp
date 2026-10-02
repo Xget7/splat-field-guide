@@ -536,6 +536,22 @@ TEST_F(SplatEngineTest, ProjectsTheTargetToTheCentreAndNothingBehindTheCamera) {
   EXPECT_TRUE(std::isnan(out[2]) && std::isnan(out[3]));
 }
 
+TEST_F(SplatEngineTest, ReportsTheDirectionOfTheFrameLastDrawn) {
+  load(pairBytes());
+  float azimuth = 0;
+  float elevation = 0;
+  EXPECT_FALSE(engine->drawnDirection(azimuth, elevation));  // nothing drawn yet
+  ASSERT_TRUE(tick());
+  ASSERT_TRUE(engine->orbit(0.3f, 0.2f));
+  const OrbitPose orbited = engine->cameraPose();
+  ASSERT_TRUE(engine->drawnDirection(azimuth, elevation));
+  EXPECT_NE(azimuth, orbited.azimuth);  // the orbit is not on screen until the next frame
+  ASSERT_TRUE(tick());
+  ASSERT_TRUE(engine->drawnDirection(azimuth, elevation));
+  EXPECT_EQ(azimuth, orbited.azimuth);
+  EXPECT_EQ(elevation, orbited.elevation);
+}
+
 TEST_F(SplatEngineTest, PickSeesANewWorldOnlyOnceItIsDrawn) {
   load(solidPairBytes(), labelBytes({1, 2}));
   ASSERT_TRUE(tick());

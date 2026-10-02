@@ -8,6 +8,7 @@ import {
 } from '../domain/grounding';
 import {
   answerFor,
+  isQuestion,
   isScripted,
   type InstructorAnswer,
 } from '../domain/instructor';
@@ -25,9 +26,16 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
 
   const readyModels = () => models.filter(model => model.isReady());
 
-  /** Scripted questions, and questions no model can take now, keep the synchronous path. */
+  /**
+   * Scripted questions, words that ask nothing, and questions no model can take now keep the
+   * synchronous path, which costs no request.
+   */
   function usesModel(question: string, pack: Pack): boolean {
-    return !isScripted(question, pack) && readyModels().length > 0;
+    return (
+      !isScripted(question, pack) &&
+      isQuestion(question, pack) &&
+      readyModels().length > 0
+    );
   }
 
   function prewarmInstructor(pack: Pack): void {

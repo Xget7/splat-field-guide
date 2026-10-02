@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CATEGORY_TITLE,
   findReadyGuide,
-  packFacts,
 } from '../../../modules/catalog/catalog';
 import { useCatalog } from '../../../modules/catalog/CatalogContext';
 import type { ProcedureId } from '../../../domain/pack';
@@ -29,7 +28,8 @@ import {
   IconButtonVariant,
 } from '../../../shared/ui/kit/Button';
 import { Icon, IconName } from '../../../shared/ui/kit/Icon';
-import { Label } from '../../../shared/ui/kit/Label';
+import { READOUT_SEPARATOR } from '../../../shared/ui/readout';
+import { SectionHeader } from '../../../shared/ui/kit/SectionHeader';
 import {
   BUTTON_HEIGHT,
   Color,
@@ -62,7 +62,6 @@ const Layout = {
   wideFadeHeight: '50%',
 } as const;
 const HERO_FADE = `linear-gradient(to bottom, ${Color.black}00, ${Color.black})`;
-const SEPARATOR = ' · ';
 const AR_TITLE = 'AR check on the real engine';
 const VOICE_TITLE = 'Voice assistant';
 const TOGGLE_MOTION = LinearTransition.duration(Motion.fast);
@@ -113,15 +112,7 @@ export function GuideDetailScreen({
     );
   }
 
-  const facts = packFacts(guide.pack);
   const checks = checkRowsFor(guide.pack);
-  const guidance =
-    MODE_OPTIONS.find(option => option.mode === mode) ?? MODE_OPTIONS[0];
-  const summary = [
-    `${facts.parts} parts`,
-    `${checks.length} procedures`,
-    `${facts.size} offline`,
-  ].join(SEPARATOR);
   const openProcedure = (procedureId: ProcedureId) =>
     navigation.navigate(Route.viewer, {
       guideId: guide.id,
@@ -135,10 +126,7 @@ export function GuideDetailScreen({
     <View style={styles.heading}>
       <Text style={styles.title}>{guide.title}</Text>
       <Text style={styles.subtitle}>
-        {[guide.subtitle, guide.area].join(SEPARATOR)}
-      </Text>
-      <Text testID="guide-summary" style={styles.summary}>
-        {summary}
+        {[guide.subtitle, guide.area].join(READOUT_SEPARATOR)}
       </Text>
     </View>
   );
@@ -147,14 +135,13 @@ export function GuideDetailScreen({
   const choices = (
     <>
       <View style={styles.section}>
-        <Label>Guidance</Label>
+        <SectionHeader title="Guidance" />
         <View
           accessibilityLabel={`${CATEGORY_TITLE[guide.category]} mode`}
           style={styles.segments}
         >
           {MODE_OPTIONS.map(option => {
             const selected = mode === option.mode;
-            const color = selected ? Color.accentText : Color.text;
             return (
               <Pressable
                 key={option.mode}
@@ -166,17 +153,15 @@ export function GuideDetailScreen({
                 onPress={() => setMode(option.mode)}
                 style={[styles.segment, selected && styles.selectedSegment]}
               >
-                <Icon name={option.icon} color={color} />
-                <Text style={[styles.modeTitle, { color }]}>
-                  {option.title}
-                </Text>
+                <Icon
+                  name={option.icon}
+                  color={selected ? Color.accent : Color.secondaryText}
+                />
+                <Text style={styles.modeTitle}>{option.title}</Text>
               </Pressable>
             );
           })}
         </View>
-        <Text testID="mode-caption" style={styles.caption}>
-          {guidance.caption}
-        </Text>
         {instructor && (
           <Pressable
             testID="voice-assistant"
@@ -196,10 +181,7 @@ export function GuideDetailScreen({
               size={Layout.rowIcon}
               color={voice ? Color.accent : Color.secondaryText}
             />
-            <View style={styles.voiceText}>
-              <Text style={styles.voiceTitle}>{VOICE_TITLE}</Text>
-              <Text style={styles.caption}>{VOICE_CAPTION}</Text>
-            </View>
+            <Text style={styles.voiceTitle}>{VOICE_TITLE}</Text>
             {/* Drawn rather than native: the row is the switch, and the iOS 26 switch
                 outgrows the frame React Native gives it. */}
             <View style={[styles.toggle, voice && styles.toggleOn]}>
@@ -209,11 +191,11 @@ export function GuideDetailScreen({
         )}
       </View>
       <View style={styles.section}>
-        <Label>Procedures</Label>
+        <SectionHeader title="Procedures" />
         <ProcedureList rows={checks} onChoose={openProcedure} />
       </View>
       <View style={styles.section}>
-        <Label>Augmented reality</Label>
+        <SectionHeader title="Augmented reality" />
         <Pressable
           testID="open-ar"
           accessibilityRole="button"
@@ -320,6 +302,7 @@ export function GuideDetailScreen({
       </ScrollView>
       {back}
       <View
+        testID="guide-start-bar"
         style={[styles.bottomBar, { paddingBottom: insets.bottom + Space.sm }]}
         // Measure the wrapped safety text so larger text never covers the final row.
         onLayout={event => setBarHeight(event.nativeEvent.layout.height)}
@@ -353,7 +336,6 @@ const styles = StyleSheet.create({
   heading: { gap: Space.xs },
   title: { ...Type.largeTitle, color: Color.text },
   subtitle: { ...Type.callout, color: Color.secondaryText },
-  summary: { ...Type.data, color: Color.muted },
   section: { gap: Space.sm },
   segments: {
     flexDirection: 'row',
@@ -376,11 +358,10 @@ const styles = StyleSheet.create({
     borderColor: Color.raised,
   },
   selectedSegment: {
-    backgroundColor: Color.accent,
+    backgroundColor: Color.accentWash,
     borderColor: Color.accent,
   },
-  modeTitle: { ...Type.calloutStrong, flexShrink: 1 },
-  caption: { ...Type.footnote, color: Color.muted },
+  modeTitle: { ...Type.calloutStrong, flexShrink: 1, color: Color.text },
   arRow: {
     minHeight: Layout.segmentHeight,
     flexDirection: 'row',
@@ -405,12 +386,11 @@ const styles = StyleSheet.create({
     backgroundColor: Color.raised,
   },
   voiceRowOn: { borderColor: Color.accent },
-  voiceText: { flex: 1, gap: Space.xxs },
-  voiceTitle: { ...Type.calloutStrong, color: Color.text },
+  voiceTitle: { ...Type.calloutStrong, flex: 1, color: Color.text },
   toggle: {
     width: Layout.toggleWidth,
     height: Layout.toggleHeight,
-    borderRadius: Layout.toggleHeight / 2,
+    borderRadius: Radius.sm,
     padding: (Layout.toggleHeight - HAIRLINE * 2 - Layout.knob) / 2,
     borderWidth: HAIRLINE,
     borderColor: Color.lineStrong,
@@ -425,7 +405,7 @@ const styles = StyleSheet.create({
   knob: {
     width: Layout.knob,
     height: Layout.knob,
-    borderRadius: Layout.knob / 2,
+    borderRadius: Radius.sm,
     backgroundColor: Color.accentText,
   },
   pressed: { backgroundColor: Color.pressed },
@@ -464,6 +444,7 @@ const styles = StyleSheet.create({
   },
   wideContent: { paddingHorizontal: Space.lg, gap: Space.xl },
   wideBar: {
+    backgroundColor: Color.black,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: Color.line,
     paddingHorizontal: Space.lg,

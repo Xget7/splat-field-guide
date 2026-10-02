@@ -1,14 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ProcedureId } from '../../../domain/pack';
 import { Icon, IconName } from '../../../shared/ui/kit/Icon';
-import { Label } from '../../../shared/ui/kit/Label';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../shared/ui/theme';
 import type { ProcedureRow } from '../model/procedureRows';
 
-const INDEX_WIDTH = 24;
 const TRAILING_ICON = 20;
-// Sits the index on the title's first line rather than the middle of the row.
-const INDEX_OFFSET = (Type.callout.lineHeight - Type.label.lineHeight) / 2;
 
 interface Props {
   rows: readonly ProcedureRow[];
@@ -18,7 +14,7 @@ interface Props {
 }
 
 /**
- * Numbered procedures, each with its step count. Safety notes are left to the steps that carry
+ * The procedures, each with its step count. Safety notes are left to the steps that carry
  * them and to screen readers: a badge on nearly every row would only say "careful" in amber.
  */
 export function ProcedureList({ rows, current, onChoose }: Props) {
@@ -41,12 +37,6 @@ export function ProcedureList({ rows, current, onChoose }: Props) {
               pressed && styles.pressed,
             ]}
           >
-            <Label
-              color={selected ? Color.accent : Color.faint}
-              style={styles.index}
-            >
-              {row.index}
-            </Label>
             <View style={styles.body}>
               <Text style={[styles.title, selected && styles.selectedTitle]}>
                 {row.title}
@@ -91,11 +81,6 @@ const styles = StyleSheet.create({
   },
   divided: { borderTopWidth: HAIRLINE, borderTopColor: Color.line },
   pressed: { backgroundColor: Color.pressed },
-  index: {
-    width: INDEX_WIDTH,
-    alignSelf: 'flex-start',
-    marginTop: INDEX_OFFSET,
-  },
   body: { flex: 1, gap: Space.xs },
   title: { ...Type.callout, color: Color.text },
   selectedTitle: { ...Type.calloutStrong, color: Color.accent },

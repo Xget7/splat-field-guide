@@ -1,10 +1,8 @@
 import type { Pack, ProcedureId } from '../../../domain/pack';
 import { TOUR_ID } from '../../../domain/tour';
-import { twoDigits } from '../../../shared/ui/readout';
 
 export interface ProcedureRow {
   readonly id: ProcedureId;
-  readonly index: string;
   readonly title: string;
   readonly stepsLabel: string;
   readonly hasCaution: boolean;
@@ -12,7 +10,7 @@ export interface ProcedureRow {
 }
 
 export function procedureRowsFor(pack: Pack): ProcedureRow[] {
-  return pack.procedures.map((procedure, index) => {
+  return pack.procedures.map(procedure => {
     const count = procedure.steps.length;
     const stepsLabel = `${count} ${count === 1 ? 'step' : 'steps'}`;
     const hasCaution = procedure.steps.some(
@@ -20,7 +18,6 @@ export function procedureRowsFor(pack: Pack): ProcedureRow[] {
     );
     return {
       id: procedure.id,
-      index: twoDigits(index + 1),
       title: procedure.title,
       stepsLabel,
       hasCaution,

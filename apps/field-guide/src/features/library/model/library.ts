@@ -1,49 +1,11 @@
 import {
-  CATEGORY_TITLE,
-  Category,
   findReadyGuide,
-  GuideStatus,
   type Guide,
   type ReadyGuide,
 } from '../../../modules/catalog/catalog';
 import { findProcedure, type Procedure } from '../../../domain/pack';
 import type { Progress } from '../../../modules/progress/model/progress';
 import { stepLabel } from '../../../shared/ui/readout';
-
-export const LibraryCategory = { all: 'all', ...Category } as const;
-export type LibraryCategory =
-  (typeof LibraryCategory)[keyof typeof LibraryCategory];
-
-export const LIBRARY_CATEGORIES = [
-  LibraryCategory.all,
-  ...Object.values(Category),
-] as const;
-
-const DIACRITICS = /\p{M}/gu;
-
-function searchable(value: string): string {
-  return value.normalize('NFD').replace(DIACRITICS, '').toLowerCase();
-}
-
-export function filterGuides(
-  catalog: readonly Guide[],
-  query: string,
-  category: LibraryCategory,
-): Guide[] {
-  const needle = searchable(query.trim());
-  return catalog.filter(guide => {
-    if (category !== LibraryCategory.all && guide.category !== category) {
-      return false;
-    }
-    const text = [
-      guide.title,
-      guide.area,
-      CATEGORY_TITLE[guide.category],
-      guide.status === GuideStatus.ready ? guide.subtitle : '',
-    ].join(' ');
-    return searchable(text).includes(needle);
-  });
-}
 
 export interface ContinueRow {
   readonly guide: ReadyGuide;

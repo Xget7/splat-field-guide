@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,13 +14,11 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { Icon, IconName } from '../../../shared/ui/kit/Icon';
 import { Label } from '../../../shared/ui/kit/Label';
 import { stepLabel } from '../../../shared/ui/readout';
 import {
   Color,
   HAIRLINE,
-  MIN_TOUCH,
   Motion,
   Radius,
   Space,
@@ -48,9 +45,8 @@ const FOLLOW_SLOP = Space.xl;
 const DOT_SIZE = 6;
 const DOT_COUNT = 3;
 const DOT_DIM = 0.25;
-const SUGGESTION_ICON = 16;
 
-/** How the thread names a step it showed: its place in the procedure, or the part picked. */
+/** How a listed step marks where a question was asked: its place in the procedure. */
 function entryLabel(card: CardContent): string {
   if (card.selected || card.stepCount === 0) {
     return card.title;
@@ -98,31 +94,6 @@ function Thinking({ still }: { still: boolean }) {
         <Dot key={index} index={index} still={still} />
       ))}
     </Animated.View>
-  );
-}
-
-/** A question to ask with one tap, offered while the step on screen is the last thing said. */
-function Suggestion({
-  question,
-  onAsk,
-}: {
-  question: string;
-  onAsk: (question: string) => void;
-}) {
-  return (
-    <Pressable
-      testID="instructor-suggestion"
-      accessibilityRole="button"
-      accessibilityLabel={`Ask: ${question}`}
-      onPress={() => onAsk(question)}
-      style={({ pressed }) => [
-        styles.suggestion,
-        pressed && styles.suggestionPressed,
-      ]}
-    >
-      <Icon name={IconName.chat} size={SUGGESTION_ICON} color={Color.accent} />
-      <Text style={styles.suggestionText}>{question}</Text>
-    </Pressable>
   );
 }
 
@@ -186,9 +157,6 @@ interface Props {
   transcript: string;
   voice: InstructorVoice;
   reducedMotion: boolean;
-  /** Questions to offer while nothing has been asked about the step on screen. */
-  suggestions: readonly string[];
-  onAsk: (question: string) => void;
   /**
    * Beside a step list that shows the current step in full: steps here only mark where a
    * question was asked.
@@ -203,8 +171,6 @@ export function InstructorThread({
   transcript,
   voice,
   reducedMotion,
-  suggestions,
-  onAsk,
   compact = false,
 }: Props) {
   const scroll = useRef<ScrollViewInstance>(null);
@@ -228,11 +194,16 @@ export function InstructorThread({
   const said = `${entries.length}:${transcript === ''}`;
   const seen = useRef(said);
 
+  // Nothing said yet takes no room between the header and the field.
+  if (shown.length === 0 && transcript === '') {
+    return null;
+  }
+
   return (
     <ScrollView
       ref={scroll}
       testID="instructor-thread"
-      style={compact ? styles.fitted : styles.scroll}
+      style={styles.fitted}
       contentContainerStyle={styles.content}
       scrollEventThrottle={16}
       onScroll={({
@@ -271,12 +242,13 @@ export function InstructorThread({
           >
             {entry.kind === EntryKind.step ? (
               <>
-                <Label
-                  testID={index === live ? 'instructor-step' : undefined}
-                  color={index === live ? Color.accent : Color.faint}
+                <Text
+                  testID={index === live ? 'instructor-title' : undefined}
+                  accessibilityRole="header"
+                  style={[styles.title, index !== live && styles.pastTitle]}
                 >
-                  {entryLabel(entry.card)}
-                </Label>
+                  {entry.card.title}
+                </Text>
                 <Said
                   reply={entry.card.body}
                   caution={entry.card.caution}
@@ -318,17 +290,6 @@ export function InstructorThread({
           </Animated.View>
         ),
       )}
-      {exchange === null && transcript === '' && suggestions.length > 0 && (
-        <Animated.View
-          key={suggestions.join()}
-          entering={FADE_IN}
-          style={styles.suggestions}
-        >
-          {suggestions.map(question => (
-            <Suggestion key={question} question={question} onAsk={onAsk} />
-          ))}
-        </Animated.View>
-      )}
       {transcript !== '' && (
         <Text
           testID="instructor-transcript"
@@ -343,32 +304,15 @@ export function InstructorThread({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  // Beside the steps, only as tall as what has been said.
+  // Only as tall as what has been said, up to what the panel gives it.
   fitted: { flexGrow: 0, flexShrink: 1 },
-  // Short threads sit at the foot, by the question field, as a conversation does.
   content: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
     gap: Space.lg,
     paddingVertical: Space.xs,
   },
-  entry: { gap: Space.sm },
-  suggestions: { gap: Space.sm },
-  suggestion: {
-    minHeight: MIN_TOUCH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.sm,
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-    borderRadius: Radius.md,
-    borderWidth: HAIRLINE,
-    borderColor: Color.lineStrong,
-    backgroundColor: Color.surface,
-  },
-  suggestionPressed: { backgroundColor: Color.pressed },
-  suggestionText: { ...Type.callout, flex: 1, color: Color.text },
+  entry: { gap: Space.xs },
+  title: { ...Type.headline, color: Color.text },
+  pastTitle: { color: Color.muted },
   divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   rule: { flex: 1, height: HAIRLINE, backgroundColor: Color.line },
   question: {

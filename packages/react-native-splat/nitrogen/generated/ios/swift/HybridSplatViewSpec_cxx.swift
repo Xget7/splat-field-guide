@@ -293,6 +293,24 @@ open class HybridSplatViewSpec_cxx {
     }
   }
   
+  @inline(__always)
+  public final func drawnDirection() -> bridge.Result_std__optional_ViewDirection__ {
+    do {
+      let __result = try self.__implementation.drawnDirection()
+      let __resultCpp = { () -> bridge.std__optional_ViewDirection_ in
+        if let __unwrappedValue = __result {
+          return bridge.create_std__optional_ViewDirection_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+      return bridge.create_Result_std__optional_ViewDirection__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__optional_ViewDirection__(__exceptionPtr)
+    }
+  }
+  
   public final func getView() -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(__implementation.view).toOpaque()
   }

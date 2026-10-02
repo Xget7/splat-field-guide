@@ -154,4 +154,8 @@ size_t sfg_project(const sfg_engine* engine, const float* points, size_t count, 
   return engineOf(engine).project(points, count, out_xy);
 }
 
+bool sfg_drawn_direction(const sfg_engine* engine, sfg_view_direction* out) {
+  return engineOf(engine).drawnDirection(out->azimuth, out->elevation);
+}
+
 }  // extern "C"

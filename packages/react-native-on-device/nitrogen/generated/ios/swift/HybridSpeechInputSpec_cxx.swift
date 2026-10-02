@@ -163,7 +163,7 @@ open class HybridSpeechInputSpec_cxx {
   }
   
   @inline(__always)
-  public final func listen(locale: std.string, hints: bridge.std__vector_std__string_, onPartial: bridge.Func_void_std__string, onTurn: bridge.Func_void_std__string, onLevel: bridge.Func_void_double, onStopped: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_void___ {
+  public final func listen(locale: std.string, hints: bridge.std__vector_std__string_, onPartial: bridge.Func_void_std__string, onTurn: bridge.Func_void_std__string, onLevel: bridge.Func_void_double, onVoice: bridge.Func_void_bool, onStopped: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
       let __result = try self.__implementation.listen(locale: String(locale), hints: hints.map({ __item in String(__item) }), onPartial: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onPartial)
@@ -179,6 +179,11 @@ open class HybridSpeechInputSpec_cxx {
         let __wrappedFunction = bridge.wrap_Func_void_double(onLevel)
         return { (__level: Double) -> Void in
           __wrappedFunction.call(__level)
+        }
+      }(), onVoice: { () -> (Bool) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_bool(onVoice)
+        return { (__speaking: Bool) -> Void in
+          __wrappedFunction.call(__speaking)
         }
       }(), onStopped: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onStopped)

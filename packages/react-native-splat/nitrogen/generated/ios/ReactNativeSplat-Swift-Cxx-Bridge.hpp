@@ -307,5 +307,14 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
     return Result<double>::withError(error);
   }
+  
+  // pragma MARK: Result<std::optional<ViewDirection>>
+  using Result_std__optional_ViewDirection__ = Result<std::optional<ViewDirection>>;
+  inline Result_std__optional_ViewDirection__ create_Result_std__optional_ViewDirection__(const std::optional<ViewDirection>& value) noexcept {
+    return Result<std::optional<ViewDirection>>::withValue(value);
+  }
+  inline Result_std__optional_ViewDirection__ create_Result_std__optional_ViewDirection__(const std::exception_ptr& error) noexcept {
+    return Result<std::optional<ViewDirection>>::withError(error);
+  }
 
 } // namespace margelo::nitro::splat::bridge::swift

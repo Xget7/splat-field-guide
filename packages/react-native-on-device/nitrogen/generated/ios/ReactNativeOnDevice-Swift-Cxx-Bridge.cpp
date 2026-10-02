@@ -80,6 +80,14 @@ namespace margelo::nitro::ondevice::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(bool /* speaking */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool speaking) mutable -> void {
+      swiftClosure.call(speaking);
+    };
+  }
+  
   // pragma MARK: std::shared_ptr<HybridSpeechInputSpec>
   std::shared_ptr<HybridSpeechInputSpec> create_std__shared_ptr_HybridSpeechInputSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     ReactNativeOnDevice::HybridSpeechInputSpec_cxx swiftPart = ReactNativeOnDevice::HybridSpeechInputSpec_cxx::fromUnsafe(swiftUnsafePointer);
