@@ -18,6 +18,7 @@
 #include "splatkit/highlight/Highlight.h"
 #include "splatkit/pick/PickIndex.h"
 #include "splatkit/rendering/SplatRenderer.h"
+#include "splatkit/reveal/Reveal.h"
 
 namespace splatkit {
 
@@ -89,6 +90,9 @@ class SplatEngine {
   // Emphasises the parts with these labels and dims the rest, fading from the previous
   // highlight; no labels shows every splat as captured. Render thread.
   void setHighlight(const std::uint8_t* labels, std::size_t count);
+  // Seconds each world uploaded from now on takes to sweep in from the bottom up (see
+  // Reveal); zero, as a new engine has, shows it at once. Render thread.
+  void setRevealSeconds(float seconds) { revealSeconds_ = seconds; }
 
   // Any thread: the label of the part at (x, y), in [0, 1] from the top left of the view,
   // in the frame last drawn; 0 for none. It casts against the whole cloud, milliseconds of
@@ -157,6 +161,8 @@ class SplatEngine {
   splat::SplatWorldLoader loader_;
   OrbitCamera camera_;
   Highlight highlight_;
+  Reveal reveal_;
+  float revealSeconds_ = 0;
   // The bounds the framing fits and the view shape it was fitted to, empty once a pinch or a
   // pose replaces it. Until the host places the camera, each world is framed whole.
   bool poseSet_ = false;

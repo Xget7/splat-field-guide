@@ -142,6 +142,10 @@ void sfg_set_highlight(sfg_engine* engine, const uint8_t* labels, size_t count) 
   engineOf(engine).setHighlight(labels, labels != nullptr ? count : 0);
 }
 
+void sfg_set_reveal(sfg_engine* engine, float seconds) {
+  engineOf(engine).setRevealSeconds(seconds);
+}
+
 uint8_t sfg_pick(const sfg_engine* engine, float x, float y) {
   return engineOf(engine).pick(x, y);
 }

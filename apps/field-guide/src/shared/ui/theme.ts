@@ -48,6 +48,8 @@ export const Motion = {
   base: 220,
   slow: 320,
   scanPeriod: 1600,
+  // A loaded capture sweeping in from the bottom up, as a scanner would read it.
+  reveal: 1400,
   levelSmoothing: 80,
   wordAttack: 30,
   wordDecay: 180,

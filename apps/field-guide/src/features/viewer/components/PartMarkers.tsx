@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useFrameCallback,
   useSharedValue,
@@ -9,7 +10,7 @@ import Animated, {
 import type { SplatViewSpec } from 'react-native-splat';
 import type { Bounds, PartId } from '../../../domain/pack';
 import { Label } from '../../../shared/ui/kit/Label';
-import { Color, Radius, Space } from '../../../shared/ui/theme';
+import { Color, Motion, Radius, Space } from '../../../shared/ui/theme';
 
 export interface MarkedPart {
   readonly id: PartId;
@@ -58,6 +59,8 @@ interface Props {
   view: SplatViewSpec | null;
   parts: readonly MarkedPart[];
   size: Size;
+  /** Milliseconds to hold the marks back, while the capture is still sweeping in. */
+  enterAfter: number;
 }
 
 /**
@@ -65,7 +68,7 @@ interface Props {
  * are projected on the UI thread, where the renderer's last frame is read synchronously, so
  * the marks track an orbit without a React render per frame.
  */
-export function PartMarkers({ view, parts, size }: Props) {
+export function PartMarkers({ view, parts, size, enterAfter }: Props) {
   const corners = useSharedValue<number[]>([]);
   const viewport = useSharedValue<Size>(size);
   const boxes = useSharedValue<number[]>([]);
@@ -144,7 +147,11 @@ export function PartMarkers({ view, parts, size }: Props) {
   useFrameCallback(track);
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <Animated.View
+      entering={FadeIn.duration(Motion.base).delay(enterAfter)}
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+    >
       {parts.map((part, index) => (
         <Marker
           key={part.id}
@@ -154,7 +161,7 @@ export function PartMarkers({ view, parts, size }: Props) {
           viewport={viewport}
         />
       ))}
-    </View>
+    </Animated.View>
   );
 }
 

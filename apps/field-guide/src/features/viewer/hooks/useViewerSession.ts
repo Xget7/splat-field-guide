@@ -80,6 +80,23 @@ export function useViewerSession({
     },
     [invalidateAnswer],
   );
+  /** Leaves the guide's flow to look around, and comes back to it. */
+  const changeMode = useCallback(
+    (type: typeof ViewerActionType.explore | typeof ViewerActionType.guide) => {
+      invalidateAnswer();
+      interruptVoice.current?.();
+      act({ type });
+    },
+    [invalidateAnswer],
+  );
+  const explore = useCallback(
+    () => changeMode(ViewerActionType.explore),
+    [changeMode],
+  );
+  const resumeGuide = useCallback(
+    () => changeMode(ViewerActionType.guide),
+    [changeMode],
+  );
   const ask = useCallback(
     (text: string) => {
       const question = text.trim();
@@ -165,8 +182,12 @@ export function useViewerSession({
   useEffect(() => {
     // The library offers to continue where this leaves off, once there is something to
     // continue: the first step is where a fresh start lands anyway.
+    if (session.procedureId === null) {
+      // Exploring sets the guide aside; where it left off is still the place to continue.
+      return;
+    }
     const saved =
-      session.procedureId === null || session.stepIndex === 0
+      session.stepIndex === 0
         ? clearProgress()
         : saveProgress({
             guideId: guide.id,
@@ -180,6 +201,10 @@ export function useViewerSession({
 
   return {
     session,
+    exploring: session.procedureId === null,
+    canResume: state.resume !== null,
+    explore,
+    resumeGuide,
     frameRequest,
     highlight,
     marked,

@@ -116,6 +116,12 @@ using namespace margelo::nitro::splat::views;
           : !newViewProps.cameraLimits.hasSameValue(oldViewProps->cameraLimits)) {
       swiftPart.setCameraLimits(newViewProps.cameraLimits.get());
     }
+    // revealSeconds: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.revealSeconds.isProvided()
+          : !newViewProps.revealSeconds.hasSameValue(oldViewProps->revealSeconds)) {
+      swiftPart.setRevealSeconds(newViewProps.revealSeconds.get());
+    }
     // onReady: function
     if (oldViewProps == nullptr
           ? newViewProps.onReady.isProvided()

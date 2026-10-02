@@ -13,8 +13,8 @@ namespace splatkit {
 // Not thread safe.
 class Highlight {
  public:
-  // Emphasises the parts with `labels` in sky blue and dims every other splat, the
-  // unlabelled ones included. No labels draws every splat as captured. The parts it already
+  // Emphasises the parts with `labels`, lifted and faintly blue, and dims every other splat,
+  // the unlabelled ones included. No labels draws every splat as captured. The parts it already
   // shows or heads for change nothing, so a caller may send them again.
   void set(const std::uint8_t* labels, std::size_t count);
 
@@ -27,8 +27,12 @@ class Highlight {
   static constexpr float kFadeSeconds = 0.25f;
   // #2576D2, the app's accent.
   static constexpr float kTint[3] = {0x25 / 255.0f, 0x76 / 255.0f, 0xD2 / 255.0f};
-  static constexpr float kTintAmount = 0.45f;
-  static constexpr float kDimBrightness = 0.3f;
+  // Faint, so a part keeps its true colours: the marker around it says which one it is.
+  static constexpr float kTintAmount = 0.12f;
+  // A capture in the shade of a bonnet reads dark; the part shown is lifted a little.
+  static constexpr float kEmphasisBrightness = 1.15f;
+  // Dim enough for the part to stand out, bright enough that the bay around it still reads.
+  static constexpr float kDimBrightness = 0.55f;
 
  private:
   std::bitset<kLabelCount> parts_;

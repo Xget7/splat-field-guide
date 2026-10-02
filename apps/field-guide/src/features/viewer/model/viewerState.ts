@@ -1,5 +1,6 @@
 import type { Pack, ProcedureId } from '../../../domain/pack';
 import {
+  INITIAL_SESSION,
   reduce,
   SessionEventType,
   startAt,
@@ -61,6 +62,8 @@ export interface ViewerState {
   readonly frameRequest: number;
   /** Streaming selection is provisional until the final answer is accepted. */
   readonly answerSession: SessionState | null;
+  /** Where the guide left off while exploring, to pick it up again. */
+  readonly resume: SessionState | null;
 }
 
 export const ViewerActionType = {
@@ -70,6 +73,8 @@ export const ViewerActionType = {
   partial: 'partial',
   answer: 'answer',
   cancel: 'cancel',
+  explore: 'explore',
+  guide: 'guide',
 } as const;
 export type ViewerActionType =
   (typeof ViewerActionType)[keyof typeof ViewerActionType];
@@ -99,7 +104,9 @@ export type ViewerAction =
       readonly answer: InstructorAnswer;
       readonly id: number;
     }
-  | { readonly type: typeof ViewerActionType.cancel };
+  | { readonly type: typeof ViewerActionType.cancel }
+  | { readonly type: typeof ViewerActionType.explore }
+  | { readonly type: typeof ViewerActionType.guide };
 
 export function initialViewerState(
   procedureId: ProcedureId,
@@ -114,6 +121,7 @@ export function initialViewerState(
       stepsShown: 0,
       frameRequest: 0,
       answerSession: null,
+      resume: null,
     },
     pack,
   );
@@ -174,11 +182,14 @@ function apply(
   pack: Pack,
   exchange: Exchange | null,
 ): ViewerState {
+  const session = reduce(state.session, event, pack);
   return {
     ...state,
-    session: reduce(state.session, event, pack),
+    session,
     exchange,
     answerSession: null,
+    // Starting a procedure while exploring is a new guide; the old one is not resumed.
+    resume: session.procedureId === null ? state.resume : null,
     // Repeat means "show me again", which the user wants after orbiting away.
     frameRequest:
       event.type === SessionEventType.repeat
@@ -285,6 +296,38 @@ export function reduceViewer(
         state.exchange === null
         ? state
         : showStep({ ...next, thread: settle(state).thread }, pack);
+    }
+    case ViewerActionType.explore: {
+      if (state.session.procedureId === null) {
+        return state;
+      }
+      // A part picked during the step stays picked: it is what the user went to look at.
+      return showStep(
+        {
+          ...settle(state),
+          answerSession: null,
+          session: {
+            ...INITIAL_SESSION,
+            selectedPart: state.session.selectedPart,
+          },
+          resume: { ...state.session, selectedPart: null },
+        },
+        pack,
+      );
+    }
+    case ViewerActionType.guide: {
+      if (state.resume === null) {
+        return state;
+      }
+      return showStep(
+        {
+          ...settle(state),
+          answerSession: null,
+          session: state.resume,
+          resume: null,
+        },
+        pack,
+      );
     }
     case ViewerActionType.ask: {
       const question = action.question.trim();

@@ -296,6 +296,8 @@ void MetalSplatRenderer::updateUniforms(const Frame& frame, uint32_t slot) {
   u.cameraPosition[0] = frame.cameraPosition.x;
   u.cameraPosition[1] = frame.cameraPosition.y;
   u.cameraPosition[2] = frame.cameraPosition.z;
+  u.reveal[0] = frame.revealLevel;
+  u.reveal[1] = frame.revealBand;
   std::memcpy(uniforms_[slot].contents, &u, sizeof(u));
   static const LabelStyles kAsCaptured{};
   const LabelStyles& styles = frame.labelStyles != nullptr ? *frame.labelStyles : kAsCaptured;

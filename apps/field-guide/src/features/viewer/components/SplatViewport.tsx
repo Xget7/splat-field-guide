@@ -20,7 +20,14 @@ import type { Pack } from '../../../domain/pack';
 import { sourceFor } from '../../../modules/packs/bundledPack';
 import { Icon, IconName } from '../../../shared/ui/kit/Icon';
 import { Label } from '../../../shared/ui/kit/Label';
-import { Color, HAIRLINE, Radius, Space, Type } from '../../../shared/ui/theme';
+import {
+  Color,
+  HAIRLINE,
+  Motion,
+  Radius,
+  Space,
+  Type,
+} from '../../../shared/ui/theme';
 import { cameraLimitsInRadians } from '../model/camera';
 import type { Size } from './PartMarkers';
 
@@ -28,6 +35,7 @@ export const RADIANS_PER_POINT = 0.01;
 const PAN_ACTIVATION_POINTS = 8;
 const TAP_MAX_DISTANCE_POINTS = 8;
 const ERROR_ICON = 16;
+const MS_PER_SECOND = 1000;
 
 interface Props {
   pack: Pack;
@@ -38,6 +46,8 @@ interface Props {
   /** Says what is on screen for VoiceOver. */
   accessibilityLabel: string;
   loading: boolean;
+  /** A loaded capture sweeps in rather than appearing at once. */
+  materialize: boolean;
   error: string;
   onView: (view: SplatViewSpec) => void;
   onReady: () => void;
@@ -52,6 +62,7 @@ export function SplatViewport({
   size,
   accessibilityLabel,
   loading,
+  materialize,
   error,
   onView,
   onReady,
@@ -117,6 +128,9 @@ export function SplatViewport({
             source={source}
             highlight={highlight}
             cameraLimits={limits}
+            revealSeconds={
+              materialize ? Motion.reveal / MS_PER_SECOND : undefined
+            }
             onReady={callback(onReady)}
             onError={callback(onError)}
             hybridRef={callback(onView)}

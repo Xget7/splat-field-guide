@@ -107,10 +107,10 @@ bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldRepor
     return false;
   }
   const auto& r = report.value();
-  LOGI("decoded %zu %s splats in %.0f ms, sh degree %d, bounds y [%.2f, %.2f], reordered in "
-       "%.0f ms",
-       r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.shDegree,
-       r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
+  LOGI("decoded %zu %s splats in %.0f ms (%zu removed as haze, %zu as floaters), sh degree "
+       "%d, bounds y [%.2f, %.2f], reordered in %.0f ms",
+       r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.hazeRemoved,
+       r.sparseRemoved, r.shDegree, r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
   return true;
 }
 
@@ -131,6 +131,7 @@ bool SplatEngine::applyPendingWorld() {
     framedExtent_ = {};
   }
   showing_ = Showing::awaitingDraw;
+  reveal_.start(cloud->bounds, revealSeconds_);
   const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
   LOGI("uploaded %u splats in %.0f ms, sh degree %d", gpu.count, millisSince(start), gpu.shDegree);
   return true;
@@ -296,7 +297,7 @@ bool SplatEngine::needsFrame() const {
   if (renderer_->failed()) return !gpuFailureReported_;
   if (!renderer_->ready()) return false;
   return redrawNeeded_ || showing_ != Showing::nothing || camera_.animating() ||
-         highlight_.fading() || loader_.hasWorld() ||
+         highlight_.fading() || reveal_.active() || loader_.hasWorld() ||
          renderer_->generation() != lastDrawnGeneration_;
 }
 
@@ -326,6 +327,7 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   // After the step: the frame that ends an animation is the first one free to refit.
   refit(extent);
   if (highlight_.update(dt)) redrawNeeded_ = true;
+  if (reveal_.update(dt)) redrawNeeded_ = true;
   const uint32_t generation = renderer_->generation();
   if (generation != lastDrawnGeneration_) redrawNeeded_ = true;
   if (renderer_->reportsPresentTimes()) {
@@ -345,6 +347,8 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   frame.proj = projection(extent);
   frame.cameraPosition = camera_.position();
   frame.labelStyles = &highlight_.styles();
+  frame.revealLevel = reveal_.level();
+  frame.revealBand = reveal_.band();
   if (!renderer_->draw(frame)) {
     stats_.onFrame(frameTimeNanos, false, sampler);
     return false;  // The redraw waits for the next frame; FPS must still age to zero.

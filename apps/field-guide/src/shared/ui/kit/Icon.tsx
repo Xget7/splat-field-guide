@@ -22,6 +22,8 @@ export const IconName = {
   play: 'play',
   list: 'list',
   stop: 'stop',
+  explore: 'explore',
+  frame: 'frame',
 } as const;
 export type IconName = (typeof IconName)[keyof typeof IconName];
 
@@ -81,6 +83,14 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
   play: color => <Path d="M8 5.5v13l10.5-6.5z" fill={color} />,
   list: () => (
     <Path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  ),
+  // A box in three dimensions: free to turn the capture and look at any part.
+  explore: () => (
+    <Path d="M12 2.5l8.5 4.75v9.5L12 21.5l-8.5-4.75v-9.5zM3.5 7.25L12 12l8.5-4.75M12 12v9.5" />
+  ),
+  // The corners the viewer draws around a part, here around everything.
+  frame: () => (
+    <Path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" />
   ),
   stop: color => (
     <Rect

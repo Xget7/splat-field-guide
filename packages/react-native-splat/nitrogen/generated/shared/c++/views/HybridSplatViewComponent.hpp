@@ -49,6 +49,7 @@ namespace margelo::nitro::splat::views {
     nitro::ReactProp<SplatSource> source;
     nitro::ReactProp<std::vector<double>> highlight;
     nitro::ReactProp<std::optional<CameraLimits>> cameraLimits;
+    nitro::ReactProp<std::optional<double>> revealSeconds;
     nitro::ReactProp<std::function<void()>> onReady;
     nitro::ReactProp<std::function<void(const SplatError& /* error */)>> onError;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridSplatViewSpec>& /* ref */)>>> hybridRef;
@@ -58,6 +59,7 @@ namespace margelo::nitro::splat::views {
       return source.hasSameValue(other.source) &&
              highlight.hasSameValue(other.highlight) &&
              cameraLimits.hasSameValue(other.cameraLimits) &&
+             revealSeconds.hasSameValue(other.revealSeconds) &&
              onReady.hasSameValue(other.onReady) &&
              onError.hasSameValue(other.onError) &&
              hybridRef.hasSameValue(other.hybridRef);
@@ -68,6 +70,7 @@ namespace margelo::nitro::splat::views {
       return source.isProvided() ||
              highlight.isProvided() ||
              cameraLimits.isProvided() ||
+             revealSeconds.isProvided() ||
              onReady.isProvided() ||
              onError.isProvided() ||
              hybridRef.isProvided();

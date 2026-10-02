@@ -4,8 +4,12 @@ import Animated, {
   cancelAnimation,
   Easing,
   FadeIn,
+  FadeInDown,
   FadeOut,
+  FadeOutDown,
   LinearTransition,
+  SlideInRight,
+  SlideOutRight,
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +23,7 @@ import { Label } from '../../../shared/ui/kit/Label';
 import {
   BUTTON_HEIGHT,
   Color,
+  Font,
   HAIRLINE,
   Motion,
   Radius,
@@ -51,6 +56,19 @@ export const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(
 export const FADE_OUT = FadeOut.duration(Motion.fast).reduceMotion(
   ReduceMotion.Never,
 );
+// Full view: the sidebar slides off to the right as the splat widens into its place, and the
+// tools rise from the foot of the splat. Reduced motion, by default, skips the slides.
+export const SIDEBAR_IN = SlideInRight.springify()
+  .mass(Motion.spring.mass)
+  .damping(Motion.spring.damping)
+  .stiffness(Motion.spring.stiffness);
+export const SIDEBAR_OUT = SlideOutRight.duration(Motion.base);
+export const DOCK_IN = FadeInDown.springify()
+  .mass(Motion.spring.mass)
+  .damping(Motion.spring.damping)
+  .stiffness(Motion.spring.stiffness)
+  .delay(Motion.fast);
+export const DOCK_OUT = FadeOutDown.duration(Motion.fast);
 const SCAN_SHARE = 1 / 3;
 const SCAN_WIDTH = '33.333333%';
 const SCAN_HEIGHT = 2;
@@ -303,6 +321,9 @@ interface KaraokeProps {
   text: string;
   word: WordRange | null;
   speaking: boolean;
+  location?: number;
+  speechLength?: number;
+  leadLength?: number;
   style?: TextStyle;
   numberOfLines?: number;
 }
@@ -312,10 +333,25 @@ export function KaraokeText({
   text,
   word,
   speaking,
+  location = 0,
+  speechLength,
+  leadLength = 0,
   style,
   numberOfLines,
 }: KaraokeProps) {
-  const spans = karaokeSpans(text, word, speaking);
+  const spans = karaokeSpans(text, word, speaking, location, speechLength);
+  const withLead = (words: string, start: number) => {
+    const end = Math.max(0, leadLength - start);
+    return end === 0 ? (
+      words
+    ) : (
+      <>
+        <Text style={styles.lead}>{words.slice(0, end)}</Text>
+        {words.slice(end)}
+      </>
+    );
+  };
+  let offset = 0;
   return (
     <Text
       testID={id}
@@ -325,16 +361,20 @@ export function KaraokeText({
       style={[styles.reply, style]}
     >
       {speaking
-        ? spans.map((span, index) => (
-            <Text
-              key={`${span.kind}-${index}`}
-              testID={`${id}-${span.kind}`}
-              style={{ color: SPAN_COLOR[span.kind] }}
-            >
-              {span.text}
-            </Text>
-          ))
-        : text}
+        ? spans.map((span, index) => {
+            const start = offset;
+            offset += span.text.length;
+            return (
+              <Text
+                key={`${span.kind}-${index}`}
+                testID={`${id}-${span.kind}`}
+                style={{ color: SPAN_COLOR[span.kind] }}
+              >
+                {withLead(span.text, start)}
+              </Text>
+            );
+          })
+        : withLead(text, 0)}
     </Text>
   );
 }
@@ -376,6 +416,7 @@ const styles = StyleSheet.create({
   },
   muted: { borderWidth: HAIRLINE, borderColor: Color.caution },
   reply: { ...Type.body, color: Color.text },
+  lead: { fontFamily: Font.semiBold },
 });
 
 export const composerStyles = StyleSheet.create({

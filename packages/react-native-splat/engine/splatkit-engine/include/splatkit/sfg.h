@@ -116,6 +116,9 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
 // Emphasises the parts with these labels and dims the rest, fading from the last highlight.
 // None shows every splat as captured.
 void sfg_set_highlight(sfg_engine* engine, const uint8_t* SFG_NULLABLE labels, size_t count);
+// Seconds each world loaded from now on takes to sweep in from the bottom up, a line in the
+// accent at its front. Zero, as a new engine has, shows it at once.
+void sfg_set_reveal(sfg_engine* engine, float seconds);
 
 // Any thread: the part label under (x, y) in the frame last drawn, 0 for none. Milliseconds of
 // work, so not for the render thread.

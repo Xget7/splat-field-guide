@@ -23,6 +23,7 @@ add_library(splatkit_engine STATIC
   src/diagnostics/StatsPublisher.cpp
   src/engine/SplatEngine.cpp
   src/highlight/Highlight.cpp
+  src/reveal/Reveal.cpp
   src/pick/PickIndex.cpp
   src/rendering/GpuLayout.cpp
   src/sfg/sfg.cpp

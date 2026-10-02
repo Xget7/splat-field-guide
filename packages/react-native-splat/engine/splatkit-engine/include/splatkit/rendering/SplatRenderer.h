@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -57,6 +58,10 @@ class SplatRenderer {
     splat::Vec3 cameraPosition;
     // How each part label is drawn; null draws every splat as captured.
     const LabelStyles* labelStyles = nullptr;
+    // The materialising sweep (see Reveal): nothing above `revealLevel` is drawn, and the
+    // `revealBand` under it glows. The defaults draw every splat as captured.
+    float revealLevel = std::numeric_limits<float>::infinity();
+    float revealBand = 0;
   };
   // Culls, sorts and draws the whole world, then presents. Returns false when nothing was
   // presented, e.g. the surface was rebuilt instead.

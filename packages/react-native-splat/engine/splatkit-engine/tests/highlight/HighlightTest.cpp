@@ -36,7 +36,7 @@ TEST(Highlight, EmphasisesItsPartsAndDimsEverythingElse) {
   for (const std::uint8_t label : labels) {
     EXPECT_EQ(styles[label].tintAmount, Highlight::kTintAmount);
     EXPECT_EQ(styles[label].tint[2], Highlight::kTint[2]);
-    EXPECT_EQ(styles[label].brightness, 1.0f);
+    EXPECT_EQ(styles[label].brightness, Highlight::kEmphasisBrightness);
   }
   EXPECT_EQ(styles[0].brightness, Highlight::kDimBrightness);  // unlabelled splats too
   EXPECT_EQ(styles[4].brightness, Highlight::kDimBrightness);

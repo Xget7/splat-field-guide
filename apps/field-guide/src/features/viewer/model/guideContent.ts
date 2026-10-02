@@ -52,7 +52,7 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
       ? CardKind.procedure
       : CardKind.overview,
     title: part?.name ?? (stepTitle || procedure?.title || pack.title),
-    body: part?.summary ?? step?.text ?? 'Tap a part to learn about it.',
+    body: part?.summary ?? step?.text ?? 'Select a part to inspect it.',
     // A step's caution is about the step, not about a part picked on the side.
     caution: selected ? '' : step?.caution ?? '',
     stepNumber: step ? state.stepIndex + 1 : 0,

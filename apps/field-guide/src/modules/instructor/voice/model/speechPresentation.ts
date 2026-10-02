@@ -1,3 +1,10 @@
+import { parseAnswer } from '../../domain/answerFormat';
+
+/** Speech uses the same words and item boundaries as the thread, without list markers. */
+export function speechTextFor(reply: string): string {
+  return parseAnswer(reply).speech;
+}
+
 export const SpokenSection = { reply: 'reply', caution: 'caution' } as const;
 export type SpokenSection = (typeof SpokenSection)[keyof typeof SpokenSection];
 
@@ -27,6 +34,8 @@ export function karaokeSpans(
   text: string,
   word: WordRange | null,
   speaking: boolean,
+  location = 0,
+  speechLength = location + text.length,
 ): KaraokeSpan[] {
   if (text === '') {
     return [];
@@ -39,15 +48,22 @@ export function karaokeSpans(
     !Number.isInteger(word.location) ||
     !Number.isInteger(word.length) ||
     word.location < 0 ||
-    word.location >= text.length ||
+    word.location >= speechLength ||
     word.length <= 0
   ) {
     return [{ text, kind: SpanKind.remaining }];
   }
-  const end = Math.min(text.length, word.location + word.length);
+  if (word.location >= location + text.length) {
+    return [{ text, kind: SpanKind.spoken }];
+  }
+  if (word.location + word.length <= location) {
+    return [{ text, kind: SpanKind.remaining }];
+  }
+  const start = Math.max(0, word.location - location);
+  const end = Math.min(text.length, word.location + word.length - location);
   return [
-    { text: text.slice(0, word.location), kind: SpanKind.spoken },
-    { text: text.slice(word.location, end), kind: SpanKind.current },
+    { text: text.slice(0, start), kind: SpanKind.spoken },
+    { text: text.slice(start, end), kind: SpanKind.current },
     { text: text.slice(end), kind: SpanKind.remaining },
   ].filter(span => span.text !== '');
 }

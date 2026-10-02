@@ -45,6 +45,8 @@ import {
 import {
   boundsForView,
   cameraLimitsInRadians,
+  CLOSE_UP_SCALE,
+  CLOSE_UP_SECONDS,
   FRAME_SECONDS,
   homeDirectionInRadians,
   inContext,
@@ -100,6 +102,8 @@ if (!bundledPack.ok) {
 const pack = bundledPack.pack;
 const catalog = catalogFor(pack);
 const VIEWPORT = { width: 300, height: 400 };
+// About the step on screen, so it names no other part to move to.
+const PUSH_IN_QUESTION = 'Why does this step matter?';
 const IPAD_WINDOW = { width: 1366, height: 1024, scale: 2, fontScale: 1 };
 
 const debug = () =>
@@ -186,8 +190,8 @@ describe('viewer screen', () => {
     await act(() => native().props.hybridRef(view as unknown as SplatViewSpec));
     await layout();
   };
-  const lastFraming = () =>
-    boundsForView(inContext(framingFor(debug().getState(), pack)!));
+  const lastFraming = (scale?: number) =>
+    boundsForView(inContext(framingFor(debug().getState(), pack)!, scale));
   const home = homeDirectionInRadians(pack.camera.home);
 
   beforeEach(async () => {
@@ -206,6 +210,7 @@ describe('viewer screen', () => {
   });
   afterEach(async () => {
     await act(() => renderer.unmount());
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -262,6 +267,49 @@ describe('viewer screen', () => {
       await act(async () => suggestion.props.onPress());
       expect(text('instructor-question')).toBe(question);
       expect(has('instructor-suggestion')).toBe(false);
+      jest.mocked(model.availability).mockReturnValue('available');
+      jest
+        .mocked(model.respond)
+        .mockResolvedValueOnce(
+          '1. Wait for the engine to cool.\n2. Read the reservoir level.',
+        );
+      await act(async () => debug().ask('Explain the coolant checks'));
+      expect(node('instructor-reply-item-1').props.accessibilityLabel).toBe(
+        'Wait for the engine to cool.',
+      );
+      expect(node('instructor-reply-item-2').props.accessibilityLabel).toBe(
+        'Read the reservoir level.',
+      );
+    } finally {
+      await act(async () => Dimensions.set({ window: phone, screen: phone }));
+    }
+  });
+
+  test('on an iPad, Explore lists the parts to pick, and Guide resumes the step', async () => {
+    const phone = Dimensions.get('window');
+    Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
+    try {
+      await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
+      await press('step-row-2');
+      await press('tool-explore');
+      expect(has('step-list')).toBe(false);
+      await press('part-row-battery');
+      expect(debug().getState()).toEqual({
+        procedureId: null,
+        stepIndex: 0,
+        selectedPart: 'battery',
+      });
+      // Full view folds the sidebar into buttons over the splat; Guide unfolds it.
+      await press('tool-full-view');
+      expect(has('viewer-sidebar')).toBe(false);
+      expect(has('viewer-dock')).toBe(true);
+      await press('tool-guide');
+      expect(has('viewer-dock')).toBe(false);
+      expect(has('part-list')).toBe(false);
+      expect(debug().getState().stepIndex).toBe(2);
+      expect(node('step-row-2').props.accessibilityState).toEqual({
+        selected: true,
+      });
     } finally {
       await act(async () => Dimensions.set({ window: phone, screen: phone }));
     }
@@ -315,7 +363,10 @@ describe('viewer screen', () => {
     );
     expect(text('step-title')).toBe('Battery');
     expect(node('step-repeat').props.accessibilityLabel).toBe('Back to step');
-    expect(view.frame).toHaveBeenLastCalledWith(lastFraming(), FRAME_SECONDS);
+    expect(view.frame).toHaveBeenLastCalledWith(
+      lastFraming(CLOSE_UP_SCALE),
+      FRAME_SECONDS,
+    );
     await press('step-repeat');
     expect(debug().getState().selectedPart).toBeNull();
     expect(view.frame.mock.calls.at(-1)).toHaveLength(3);
@@ -812,6 +863,23 @@ describe('viewer screen', () => {
       expect(withSpring).toHaveBeenCalledWith(0, Motion.spring);
     });
 
+    test('a question about the step pushes in on its part; Next pulls back', async () => {
+      await mount({ mode: LearnMode.instructor });
+      await attach();
+      await ask(PUSH_IN_QUESTION);
+      expect(debug().getState().selectedPart).toBeNull();
+      expect(view.frame).toHaveBeenLastCalledWith(
+        lastFraming(CLOSE_UP_SCALE),
+        CLOSE_UP_SECONDS,
+      );
+      await press('instructor-next');
+      expect(view.frame).toHaveBeenLastCalledWith(
+        lastFraming(),
+        FRAME_SECONDS,
+        home,
+      );
+    });
+
     test('viewport resizing reframes once at layout completion and keeps the current part', async () => {
       await mount({ mode: LearnMode.instructor });
       await attach();
@@ -825,7 +893,10 @@ describe('viewer screen', () => {
       expect(view.frame).toHaveBeenCalledTimes(calls);
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
-      expect(view.frame).toHaveBeenLastCalledWith(lastFraming(), FRAME_SECONDS);
+      expect(view.frame).toHaveBeenLastCalledWith(
+        lastFraming(CLOSE_UP_SCALE),
+        FRAME_SECONDS,
+      );
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
     });
@@ -939,13 +1010,15 @@ describe('viewer screen', () => {
       expect(node('viewer-viewport').props.layout).toBeUndefined();
       expect(withSpring).not.toHaveBeenCalled();
       await ask('Explain the battery');
-      expect(has('instructor-scan-static')).toBe(true);
+      // Open, the dots alone say it is thinking; minimized, the line does.
+      expect(has('instructor-thinking')).toBe(true);
+      expect(has('instructor-scan-static')).toBe(false);
+      await press('instructor-header');
       expect(
         StyleSheet.flatten(node('instructor-scan-static').props.style).height,
       ).toBe(2);
       expect(has('instructor-scan-sweep')).toBe(false);
       expect(withRepeat).not.toHaveBeenCalled();
-      await press('instructor-header');
       expect(panel().props.mode).toBe(PanelMode.minimized);
       expect(
         StyleSheet.flatten(node('instructor-panel').props.style).transform,
@@ -1051,6 +1124,7 @@ describe('viewer screen', () => {
     });
 
     test('a typed question waits under the step until its answer has words', async () => {
+      jest.mocked(useReducedMotion).mockReturnValue(true);
       jest.mocked(model.availability).mockReturnValue('available');
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
@@ -1186,6 +1260,7 @@ describe('viewer screen', () => {
     });
 
     test('streams the reply and highlights its part once the first words appear', async () => {
+      jest.useFakeTimers();
       jest.mocked(model.availability).mockReturnValue('available');
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
@@ -1195,27 +1270,67 @@ describe('viewer screen', () => {
       await ask('Explain the battery');
       expect(text('instructor-status')).toBe('Thinking');
       expect(has('instructor-thinking')).toBe(true);
-      expect(
-        StyleSheet.flatten(node('instructor-scan-sweep').props.style).height,
-      ).toBe(2);
+      expect(has('instructor-scan-sweep')).toBe(false);
       const partial = jest.mocked(model.respond).mock.calls[0][2];
       await act(async () => partial('  '));
       expect(debug().getState().selectedPart).toBeNull();
       expect(has('instructor-thinking')).toBe(true);
       await act(async () => partial('It **supplies**'));
       expect(debug().getState().selectedPart).toBe('battery');
+      expect(text('instructor-reply')).toBe('');
+      await act(async () => jest.advanceTimersByTime(500));
       expect(text('instructor-reply')).toBe('It supplies');
       expect(output.speak).not.toHaveBeenCalled();
+      const longer =
+        'It supplies the starter and supports the equipment electrical circuits.';
+      await act(async () => partial(longer));
+      await act(async () => jest.advanceTimersByTime(32));
+      const growing = text('instructor-reply') as string;
+      expect(growing.length).toBeGreaterThan('It supplies'.length);
+      expect(growing.length).toBeLessThan(longer.length);
       await act(async () => {
-        answer.resolve('It supplies the starter.');
+        answer.resolve(longer);
       });
-      expect(text('instructor-reply')).toBe('It supplies the starter.');
+      expect(text('instructor-reply')).toBe(longer);
       expect(debug().getState().selectedPart).toBe('battery');
       expect(output.speak).toHaveBeenCalledWith(
-        'It supplies the starter.',
+        longer,
         VOICE_LOCALE,
         expect.any(Function),
       );
+      jest.useRealTimers();
+    });
+
+    test('list answers render labelled cards and speak clean sentences with matching karaoke', async () => {
+      jest.mocked(model.availability).mockReturnValue('available');
+      const reply =
+        '- **Check:** Inspect the battery terminals.\n- **Why:** Keep sparks away.';
+      const spoken =
+        'Check: Inspect the battery terminals. Why: Keep sparks away.';
+      jest.mocked(model.respond).mockResolvedValueOnce(reply);
+      await mount({ mode: LearnMode.instructor });
+      await voiceOn();
+      jest.mocked(output.speak).mockClear();
+      const speech = deferred<void>();
+      jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
+      await ask('Explain the battery checks');
+      expect(node('instructor-reply-item-1').props.accessibilityLabel).toBe(
+        'Check: Inspect the battery terminals.',
+      );
+      expect(node('instructor-reply-item-2').props.accessibilityLabel).toBe(
+        'Why: Keep sparks away.',
+      );
+      expect(output.speak).toHaveBeenCalledWith(
+        spoken,
+        VOICE_LOCALE,
+        expect.any(Function),
+      );
+      await act(async () =>
+        voiceEvents.emitWord(spoken.indexOf('sparks'), 'sparks'.length),
+      );
+      expect(text('instructor-reply-item-2-current')).toBe('sparks');
+      expect(has('instructor-reply-item-1-current')).toBe(false);
+      await act(async () => speech.resolve());
     });
 
     test('follow-up includes the previous question, reply and selected part', async () => {

@@ -3,6 +3,7 @@ add_executable(splatkit_engine_tests
   diagnostics/StatsPublisherTest.cpp
   engine/SplatEngineTest.cpp
   highlight/HighlightTest.cpp
+  reveal/RevealTest.cpp
   pick/PickIndexTest.cpp
   rendering/GpuLayoutTest.cpp
   sfg/SfgTest.cpp

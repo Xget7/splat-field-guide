@@ -73,6 +73,38 @@ describe('reduceViewer', () => {
     expect(run(coolant, ask('   '))).toBe(coolant);
   });
 
+  it('explores freely, then picks the guide up where it left off', () => {
+    const picked = run(coolant, {
+      type: ViewerActionType.session,
+      event: { type: SessionEventType.select, partId: 'battery' },
+    });
+    const exploring = run(picked, { type: ViewerActionType.explore });
+    expect(exploring.session).toEqual({
+      procedureId: null,
+      stepIndex: 0,
+      selectedPart: 'battery',
+    });
+    expect(run(exploring, { type: ViewerActionType.guide }).session).toEqual(
+      coolant.session,
+    );
+  });
+
+  it('forgets the guide set aside once another procedure starts', () => {
+    const started = run(
+      coolant,
+      { type: ViewerActionType.explore },
+      {
+        type: ViewerActionType.session,
+        event: {
+          type: SessionEventType.start,
+          procedureId: 'check-brake-fluid',
+        },
+      },
+    );
+    expect(started.resume).toBeNull();
+    expect(run(started, { type: ViewerActionType.guide })).toBe(started);
+  });
+
   it('returns the same state for an event that changes nothing', () => {
     const last = initialViewerState('check-coolant', 4, pack);
     expect(run(last, session('next'))).toBe(last);

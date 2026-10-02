@@ -59,6 +59,11 @@ export interface SplatViewProps extends HybridViewProps {
   highlight: PartLabel[];
   /** Unset turns freely. */
   cameraLimits?: CameraLimits;
+  /**
+   * Seconds each cloud loaded takes to sweep in from the bottom up, a line in the accent at
+   * its front. Unset shows it at once.
+   */
+  revealSeconds?: number;
   /** A loaded cloud is on screen. */
   onReady: () => void;
   /** Any thread. After gpu-unavailable the view stays black. */

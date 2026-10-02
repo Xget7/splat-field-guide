@@ -4,6 +4,7 @@ import {
   Grounding,
   promptFor,
   PromptNotes,
+  ReplyFormat,
   rulesFor,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/grounding';
 import {
@@ -78,10 +79,12 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-test('instructions are the flagged rules followed by every note and guided check', () => {
+test('instructions are strict structured rules followed by every note and guided check', () => {
   const instructions = cloudInstructions(pack);
   expect(
-    instructions.startsWith(rulesFor(pack, Grounding.flagged).join('\n')),
+    instructions.startsWith(
+      rulesFor(pack, Grounding.strict, ReplyFormat.structured).join('\n'),
+    ),
   ).toBe(true);
   expect(instructions).toContain(
     'Part: Coolant reservoir (also called coolant tank, expansion tank)',

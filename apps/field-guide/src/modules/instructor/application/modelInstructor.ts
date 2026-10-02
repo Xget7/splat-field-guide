@@ -61,7 +61,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
         const text = await model.respond(
           { question, state, pack, history },
           partial => {
-            const reply = replyFrom(partial, pack);
+            const reply = replyFrom(partial, pack, true);
             if (reply !== '' && id === request) {
               onPartial({ reply, part: answerAbout(reply, subject).part });
             }

@@ -13,6 +13,7 @@ import {
   MAX_QUESTION_CHARS,
   promptFor,
   PromptNotes,
+  ReplyFormat,
   replyFrom,
   rulesFor,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/grounding';
@@ -29,6 +30,22 @@ describe('rules', () => {
       expect(rules).toContain('DO NOT state a number');
       expect(rules).toContain(NOT_COVERED_REPLY);
     }
+  });
+
+  test('structured rules keep replies brief and grounded; small models stay plain', () => {
+    const rules = rulesFor(pack, Grounding.strict, ReplyFormat.structured).join(
+      '\n',
+    );
+    expect(rules).toContain('at most three short sentences');
+    expect(rules).toContain(
+      'unless the content is a list of steps, symptoms or checks',
+    );
+    expect(rules).toContain(NOT_COVERED_REPLY);
+    expect(rules).toContain('safety warning only when');
+    expect(rules).not.toContain('general mechanical knowledge');
+    expect(rulesFor(pack, Grounding.strict).join('\n')).toContain(
+      'No lists, no markdown.',
+    );
   });
 
   test('only flagged grounding may add general knowledge, and must say so', () => {
@@ -161,6 +178,22 @@ describe('replies', () => {
         title: 'Pack 12.0',
       }),
     ).toBe('It is a 12.0 volt one. Two! Three?');
+  });
+
+  test('list markers survive streaming and limits, but cannot hide an invented specification', () => {
+    const list =
+      '1. **Check:** Read the label.\n2. Keep sparks away.\n3. Inspect the terminals.\n4. Report damage.';
+    expect(replyFrom(list, pack)).toBe(list.split('\n').slice(0, 3).join('\n'));
+    expect(replyFrom('1', pack, true)).toBe('');
+    expect(replyFrom('1. Keep sparks away.\n2.', pack, true)).toBe(
+      '1. Keep sparks away.',
+    );
+    expect(inventsNumbers(replyFrom(list, pack), pack)).toBe(false);
+    expect(replyFrom('9. Use the battery.', pack)).toBe(NOT_COVERED_REPLY);
+    expect(replyFrom(`- ${NOT_COVERED_REPLY}`, pack)).toBe(NOT_COVERED_REPLY);
+    expect(replyFrom('1. Use 9 volts.\n2. Inspect the terminals.', pack)).toBe(
+      NOT_COVERED_REPLY,
+    );
   });
 
   test('a reply about the subject highlights it, not covered highlights nothing', () => {

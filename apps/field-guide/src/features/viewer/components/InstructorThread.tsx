@@ -35,10 +35,12 @@ import {
 import type { CardContent } from '../model/guideContent';
 import {
   EntryKind,
+  ExchangePhase,
   type Exchange,
   type ThreadEntry,
 } from '../model/viewerState';
 import { CautionNote } from './CautionNote';
+import { InstructorAnswer } from './InstructorAnswer';
 import { FADE_IN, KaraokeText } from './InstructorMotion';
 
 // Within this of the end, the thread follows new words; further up, the reader is looking back.
@@ -131,25 +133,33 @@ interface SaidProps {
   live: boolean;
   index: number;
   voice: InstructorVoice;
+  streaming?: boolean;
+  reducedMotion?: boolean;
 }
 
-function Said({ reply, caution, live, index, voice }: SaidProps) {
+function Said({
+  reply,
+  caution,
+  live,
+  index,
+  voice,
+  streaming = false,
+  reducedMotion = true,
+}: SaidProps) {
   const speaking = live && voice.state === VoiceState.speaking;
   return (
     <>
-      {reply !== '' &&
-        (live ? (
-          <KaraokeText
-            id="instructor-reply"
-            text={reply}
-            speaking={speaking && voice.section === SpokenSection.reply}
-            word={voice.word}
-          />
-        ) : (
-          <Text testID={`thread-reply-${index}`} style={styles.earlier}>
-            {reply}
-          </Text>
-        ))}
+      {reply !== '' && (
+        <InstructorAnswer
+          id={live ? 'instructor-reply' : `thread-reply-${index}`}
+          reply={reply}
+          streaming={streaming && live}
+          reducedMotion={reducedMotion}
+          speaking={speaking && voice.section === SpokenSection.reply}
+          word={voice.word}
+          live={live}
+        />
+      )}
       {caution !== '' &&
         (live ? (
           <CautionNote text={caution}>
@@ -299,6 +309,8 @@ export function InstructorThread({
                     live={index === live}
                     index={index}
                     voice={voice}
+                    streaming={entry.exchange.phase === ExchangePhase.streaming}
+                    reducedMotion={reducedMotion}
                   />
                 )}
               </>
@@ -359,7 +371,6 @@ const styles = StyleSheet.create({
   suggestionText: { ...Type.callout, flex: 1, color: Color.text },
   divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   rule: { flex: 1, height: HAIRLINE, backgroundColor: Color.line },
-  earlier: { ...Type.body, color: Color.secondaryText },
   question: {
     ...Type.callout,
     color: Color.secondaryText,

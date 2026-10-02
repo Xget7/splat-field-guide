@@ -4,8 +4,32 @@ import {
   meterHeightsFor,
   normalizedLevel,
   SpanKind,
+  speechTextFor,
   wordLevelFor,
 } from '../../../../../../apps/field-guide/src/modules/instructor/voice/model/speechPresentation';
+
+test('list items speak as sentences and karaoke ranges span their visible words', () => {
+  const reply = '1. **Check:** Read the label\n2. Keep sparks away.';
+  const speech = speechTextFor(reply);
+  expect(speech).toBe('Check: Read the label. Keep sparks away.');
+  const word = { location: speech.indexOf('sparks'), length: 'sparks'.length };
+  expect(
+    karaokeSpans('Check: Read the label', word, true, 0, speech.length),
+  ).toEqual([{ text: 'Check: Read the label', kind: SpanKind.spoken }]);
+  expect(
+    karaokeSpans(
+      'Keep sparks away.',
+      word,
+      true,
+      speech.indexOf('Keep'),
+      speech.length,
+    ),
+  ).toEqual([
+    { text: 'Keep ', kind: SpanKind.spoken },
+    { text: 'sparks', kind: SpanKind.current },
+    { text: ' away.', kind: SpanKind.remaining },
+  ]);
+});
 
 describe('karaoke spans', () => {
   test('idle and stopped speech show the entire text as spoken', () => {

@@ -3,6 +3,7 @@ import {
   Grounding,
   promptFor,
   PromptNotes,
+  ReplyFormat,
   rulesFor,
 } from '../domain/grounding';
 import { ModelName, type InstructorModel } from '../domain/InstructorModel';
@@ -41,7 +42,7 @@ export function cloudInstructions(pack: Pack): string {
       `${procedure.title}: ${procedure.steps.map(step => step.text).join(' ')}`,
   );
   return [
-    ...rulesFor(pack, Grounding.flagged),
+    ...rulesFor(pack, Grounding.strict, ReplyFormat.structured),
     '',
     'Notes:',
     parts.join('\n\n'),

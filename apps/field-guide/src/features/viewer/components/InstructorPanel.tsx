@@ -41,7 +41,10 @@ import {
 } from '../model/viewerState';
 import { InstructorThread } from './InstructorThread';
 import { StepSegments } from './StepSegments';
-import { SpokenSection } from '../../../modules/instructor/voice/model/speechPresentation';
+import {
+  speechTextFor,
+  SpokenSection,
+} from '../../../modules/instructor/voice/model/speechPresentation';
 import {
   Composer,
   composerStyles,
@@ -218,7 +221,9 @@ export function InstructorPanel({
     voice.section === SpokenSection.reply;
   const preview =
     voice.hint ||
-    (listening ? transcript || exchange?.question || '' : said?.reply ?? '');
+    (listening
+      ? transcript || exchange?.question || ''
+      : speechTextFor(said?.reply ?? ''));
   const canStop =
     voice.state === VoiceState.speaking || voice.state === VoiceState.thinking;
   const cue = voice.hint === '' ? voiceCue(voice, hasStep) : null;
@@ -274,7 +279,8 @@ export function InstructorPanel({
       ]}
     >
       <InstructorScan
-        active={voice.state === VoiceState.thinking}
+        // Open, the thread's dots already say it is thinking.
+        active={minimized && voice.state === VoiceState.thinking}
         reducedMotion={reducedMotion}
       />
       <GestureDetector gesture={pan}>

@@ -110,6 +110,13 @@ namespace margelo::nitro::splat {
     inline void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) noexcept override {
       _swiftPart.setCameraLimits(cameraLimits);
     }
+    inline std::optional<double> getRevealSeconds() noexcept override {
+      auto __result = _swiftPart.getRevealSeconds();
+      return __result;
+    }
+    inline void setRevealSeconds(std::optional<double> revealSeconds) noexcept override {
+      _swiftPart.setRevealSeconds(revealSeconds);
+    }
     inline std::function<void()> getOnReady() noexcept override {
       auto __result = _swiftPart.getOnReady();
       return __result;

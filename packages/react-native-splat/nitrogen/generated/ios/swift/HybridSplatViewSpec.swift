@@ -13,6 +13,7 @@ public protocol HybridSplatViewSpec_protocol: HybridObject, HybridView {
   var source: SplatSource { get set }
   var highlight: [Double] { get set }
   var cameraLimits: CameraLimits? { get set }
+  var revealSeconds: Double? { get set }
   var onReady: () -> Void { get set }
   var onError: (_ error: SplatError) -> Void { get set }
 

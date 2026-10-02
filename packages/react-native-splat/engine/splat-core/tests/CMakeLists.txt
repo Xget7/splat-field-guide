@@ -1,4 +1,6 @@
 add_executable(splat_core_tests
+  filtering/HazeTest.cpp
+  filtering/SparseTest.cpp
   formats/PartLabelsTest.cpp
   formats/SpzDecoderTest.cpp
   io/MappedFileTest.cpp

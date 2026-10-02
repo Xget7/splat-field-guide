@@ -7,7 +7,10 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  LayoutAnimationConfig,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import type { SplatError, SplatViewSpec } from 'react-native-splat';
 import {
@@ -15,7 +18,7 @@ import {
   type ReadyGuide,
 } from '../../../modules/catalog/catalog';
 import { useCatalog } from '../../../modules/catalog/CatalogContext';
-import { type Pack, type ProcedureId } from '../../../domain/pack';
+import { type Pack, type PartId, type ProcedureId } from '../../../domain/pack';
 import {
   currentProcedure,
   SessionEventType,
@@ -31,7 +34,7 @@ import {
 import { clearProgress } from '../../../modules/progress/data/progressStorage';
 import { IconButton } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
-import { Color, HAIRLINE, Space, Type } from '../../../shared/ui/theme';
+import { Color, HAIRLINE, Motion, Space, Type } from '../../../shared/ui/theme';
 import {
   partIdForLabel,
   stepRowsFor,
@@ -41,14 +44,22 @@ import { InstructorPanel } from '../components/InstructorPanel';
 import { PartMarkers, type Size } from '../components/PartMarkers';
 import { ProcedureSheet } from '../components/ProcedureSheet';
 import { SplatViewport } from '../components/SplatViewport';
+import { PartList } from '../components/PartList';
 import { StepList } from '../components/StepList';
 import { StepPanel } from '../components/StepPanel';
 import { useGuideFraming } from '../hooks/useGuideFraming';
+import { ToolsLayout, ViewerTools } from '../components/ViewerTools';
 import { ViewerTopBar } from '../components/ViewerTopBar';
 import { useKeyboardVisible } from '../../../shared/hooks/useKeyboardVisible';
 import { useWideLayout } from '../../../shared/hooks/useWideLayout';
 import { PanelMode } from '../model/panelMotion';
-import { panelLayout } from '../components/InstructorMotion';
+import {
+  DOCK_IN,
+  DOCK_OUT,
+  panelLayout,
+  SIDEBAR_IN,
+  SIDEBAR_OUT,
+} from '../components/InstructorMotion';
 import { useViewerSession } from '../hooks/useViewerSession';
 
 /** Metro end-to-end checks drive the live viewer through this, in development only. */
@@ -62,6 +73,7 @@ export interface FieldGuideDebug {
 
 const NO_SIZE: Size = { width: 0, height: 0 };
 const NO_PROCEDURE_TITLE = 'Choose procedure';
+const EXPLORE_TITLE = 'Explore';
 // Wide enough for a step to read in two lines, narrow enough to leave the splat the screen.
 const SIDEBAR_WIDTH = 400;
 
@@ -111,6 +123,10 @@ function Viewer({
   );
   const {
     session,
+    exploring,
+    canResume,
+    explore,
+    resumeGuide,
     frameRequest,
     highlight,
     marked,
@@ -133,6 +149,7 @@ function Viewer({
   const [error, setError] = useState('');
   const [viewport, setViewport] = useState(NO_SIZE);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [fullView, setFullView] = useState(false);
   const [instructorMode, setInstructorMode] = useState<PanelMode>(
     PanelMode.expanded,
   );
@@ -172,7 +189,8 @@ function Viewer({
   // Over the keyboard the home indicator is hidden, so the panel needs no room for it.
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
 
-  const animatedResize = instructorOpen && !reducedMotion;
+  // Beside a sidebar the splat also resizes when full view folds it away.
+  const animatedResize = (instructorOpen || wide) && !reducedMotion;
   useGuideFraming(
     view,
     session,
@@ -181,6 +199,8 @@ function Viewer({
     viewport,
     animatedResize,
     viewportSettlement,
+    // One part on its own, or a question about what is on screen, is what is being talked about.
+    session.selectedPart !== null || exchange !== null,
   );
 
   useEffect(() => {
@@ -276,6 +296,37 @@ function Viewer({
       dispatch({ type: SessionEventType.goTo, stepIndex: index }),
     [dispatch],
   );
+  const onSelectPart = useCallback(
+    (partId: PartId) => dispatch({ type: SessionEventType.select, partId }),
+    [dispatch],
+  );
+  // With no guide set aside, the guide to follow has to be chosen first.
+  const onGuide = useCallback(() => {
+    setFullView(false);
+    if (!exploring) {
+      return;
+    }
+    if (canResume) {
+      resumeGuide();
+    } else {
+      setPickerVisible(true);
+    }
+  }, [exploring, canResume, resumeGuide]);
+  const onExplore = useCallback(() => {
+    setFullView(false);
+    explore();
+  }, [explore]);
+  const tools = (layout: ToolsLayout) => (
+    <ViewerTools
+      exploring={exploring}
+      onGuide={onGuide}
+      onExplore={onExplore}
+      layout={layout}
+      fullView={fullView}
+      // A phone has no sidebar to fold away.
+      onFullView={wide ? () => setFullView(full => !full) : undefined}
+    />
+  );
   const onChooseProcedure = useCallback(
     (id: ProcedureId) => {
       dispatch({ type: SessionEventType.start, procedureId: id });
@@ -298,13 +349,35 @@ function Viewer({
         size={viewport}
         accessibilityLabel={`${guide.title}, ${guide.area}`}
         loading={!ready}
+        materialize={!reducedMotion}
         error={error}
         onView={setView}
         onReady={onReady}
         onError={onError}
         onPick={onPick}
       />
-      {ready && <PartMarkers view={view} parts={marked} size={viewport} />}
+      {ready && (
+        <PartMarkers
+          view={view}
+          parts={marked}
+          size={viewport}
+          enterAfter={reducedMotion ? 0 : Motion.reveal}
+        />
+      )}
+      {!wide && (
+        <View style={styles.toolsTop}>{tools(ToolsLayout.floating)}</View>
+      )}
+      {wide && fullView && (
+        <Animated.View
+          testID="viewer-dock"
+          entering={DOCK_IN}
+          exiting={DOCK_OUT}
+          pointerEvents="box-none"
+          style={[styles.toolsBottom, { bottom: insets.bottom + Space.lg }]}
+        >
+          {tools(ToolsLayout.floating)}
+        </Animated.View>
+      )}
     </Animated.View>
   );
   const panel = instructorOpen ? (
@@ -344,7 +417,8 @@ function Viewer({
       <ViewerTopBar
         topInset={insets.top}
         procedureTitle={
-          currentProcedure(session, pack)?.title ?? NO_PROCEDURE_TITLE
+          currentProcedure(session, pack)?.title ??
+          (exploring && canResume ? EXPLORE_TITLE : NO_PROCEDURE_TITLE)
         }
         instructorOpen={instructorOpen}
         onBack={() => {
@@ -358,22 +432,43 @@ function Viewer({
         }}
       />
       {wide ? (
-        <View style={styles.split}>
-          {viewportView}
-          <View testID="viewer-sidebar" style={styles.sidebar}>
-            {steps.length > 0 && (
-              <View style={styles.steps}>
-                <StepList
-                  rows={steps}
-                  current={session.stepIndex}
-                  onSelect={onGoTo}
-                  expanded={instructorOpen}
-                />
-              </View>
+        // The sidebar is there from the start; it only slides when full view gives it back.
+        <LayoutAnimationConfig skipEntering>
+          <View style={styles.split}>
+            {viewportView}
+            {!fullView && (
+              <Animated.View
+                testID="viewer-sidebar"
+                entering={SIDEBAR_IN}
+                exiting={SIDEBAR_OUT}
+                style={styles.sidebar}
+              >
+                {tools(ToolsLayout.sidebar)}
+                {exploring ? (
+                  <View style={styles.steps}>
+                    <PartList
+                      parts={pack.parts}
+                      selected={session.selectedPart}
+                      onSelect={onSelectPart}
+                    />
+                  </View>
+                ) : (
+                  steps.length > 0 && (
+                    <View style={styles.steps}>
+                      <StepList
+                        rows={steps}
+                        current={session.stepIndex}
+                        onSelect={onGoTo}
+                        expanded={instructorOpen}
+                      />
+                    </View>
+                  )
+                )}
+                {panel}
+              </Animated.View>
             )}
-            {panel}
           </View>
-        </View>
+        </LayoutAnimationConfig>
       ) : (
         <>
           {viewportView}
@@ -416,6 +511,14 @@ const styles = StyleSheet.create({
     borderLeftWidth: HAIRLINE,
     borderLeftColor: Color.line,
     backgroundColor: Color.black,
+  },
+  toolsTop: { position: 'absolute', top: Space.md, left: Space.md },
+  // Folded out of the sidebar, the tools float at the foot of the splat.
+  toolsBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   // The steps take the height the panel under them leaves.
   steps: { flex: 1 },

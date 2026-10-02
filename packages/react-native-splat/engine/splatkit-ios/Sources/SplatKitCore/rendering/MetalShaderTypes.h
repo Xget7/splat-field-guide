@@ -15,7 +15,7 @@ struct alignas(16) CameraUniform {
   float focal[2];
   float tanHalfFov[2];
   float screenSize[2];
-  uint32_t pad[2];
+  float reveal[2];  // Frame::revealLevel, Frame::revealBand
   float cameraPosition[4];
 };
 static_assert(sizeof(CameraUniform) == 176);

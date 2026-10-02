@@ -16,6 +16,10 @@ export const INITIAL_FRAME_SECONDS = 0;
 // A part framed edge to edge hides where it sits; framed at this scale it fills about half the
 // view, with the engine bay around it.
 export const CONTEXT_SCALE = 2;
+// While the instructor talks about one part, the camera moves in until it fills most of the
+// view, slowly enough to read as a push-in rather than a cut.
+export const CLOSE_UP_SCALE = 1.4;
+export const CLOSE_UP_SECONDS = 0.9;
 
 export function cameraLimitsInRadians(limits: CameraLimits): SplatCameraLimits {
   return {
@@ -42,11 +46,11 @@ export function boundsForView(bounds: Bounds): SplatBounds {
   };
 }
 
-/** `bounds` grown about its centre by CONTEXT_SCALE. */
-export function inContext(bounds: Bounds): Bounds {
+/** `bounds` grown about its centre by `scale`. */
+export function inContext(bounds: Bounds, scale = CONTEXT_SCALE): Bounds {
   const scaled = (toward: Vec3, from: Vec3): Vec3 =>
     toward.map(
-      (value, axis) => from[axis] + (value - from[axis]) * CONTEXT_SCALE,
+      (value, axis) => from[axis] + (value - from[axis]) * scale,
     ) as unknown as Vec3;
   const centre = bounds.min.map(
     (value, axis) => (value + bounds.max[axis]) / 2,

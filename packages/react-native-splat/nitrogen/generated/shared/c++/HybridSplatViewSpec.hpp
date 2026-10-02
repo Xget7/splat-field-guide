@@ -68,6 +68,8 @@ namespace margelo::nitro::splat {
       virtual void setHighlight(const std::vector<double>& highlight) = 0;
       virtual std::optional<CameraLimits> getCameraLimits() = 0;
       virtual void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) = 0;
+      virtual std::optional<double> getRevealSeconds() = 0;
+      virtual void setRevealSeconds(std::optional<double> revealSeconds) = 0;
       virtual std::function<void()> getOnReady() = 0;
       virtual void setOnReady(const std::function<void()>& onReady) = 0;
       virtual std::function<void(const SplatError& /* error */)> getOnError() = 0;

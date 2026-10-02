@@ -17,6 +17,7 @@ LabelStyle emphasised() {
   LabelStyle style;
   std::copy(std::begin(Highlight::kTint), std::end(Highlight::kTint), style.tint);
   style.tintAmount = Highlight::kTintAmount;
+  style.brightness = Highlight::kEmphasisBrightness;
   return style;
 }
 

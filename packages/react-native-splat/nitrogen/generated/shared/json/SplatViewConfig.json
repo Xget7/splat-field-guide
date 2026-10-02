@@ -7,6 +7,7 @@
     "source": true,
     "highlight": true,
     "cameraLimits": true,
+    "revealSeconds": true,
     "onReady": true,
     "onError": true,
     "hybridRef": true

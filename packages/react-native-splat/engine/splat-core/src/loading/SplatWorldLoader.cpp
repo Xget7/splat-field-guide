@@ -6,6 +6,8 @@
 #include <string>
 #include <utility>
 
+#include "splat/filtering/Haze.h"
+#include "splat/filtering/Sparse.h"
 #include "splat/formats/PartLabels.h"
 #include "splat/formats/SpzDecoder.h"
 #include "splat/io/MappedFile.h"
@@ -49,6 +51,8 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView spz, 
                      std::to_string(cloud->count()) + " splats"};
   }
   cloud->labels = std::move(partLabels);
+  report.hazeRemoved = removeHaze(*cloud);
+  report.sparseRemoved = removeSparse(*cloud);
   report.decodeMillis = millisSince(start);
   report.splatCount = cloud->count();
   report.shDegree = cloud->shDegree;

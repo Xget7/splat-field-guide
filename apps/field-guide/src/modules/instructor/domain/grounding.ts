@@ -7,6 +7,7 @@ import {
 } from '../../../domain/session';
 import { TOUR_ID } from '../../../domain/tour';
 import { notesFor, subjectOf } from './context';
+import { AnswerKind, formatBlock, parseAnswer } from './answerFormat';
 import {
   focusPart,
   NOT_COVERED_REPLY,
@@ -41,11 +42,30 @@ export type PromptNotes = (typeof PromptNotes)[keyof typeof PromptNotes];
 export const Grounding = { strict: 'strict', flagged: 'flagged' } as const;
 export type Grounding = (typeof Grounding)[keyof typeof Grounding];
 
+export const ReplyFormat = {
+  plain: 'plain',
+  structured: 'structured',
+} as const;
+export type ReplyFormat = (typeof ReplyFormat)[keyof typeof ReplyFormat];
+
 /** The rules every model follows, written once so online and offline answers agree. */
-export function rulesFor(pack: Pack, grounding: Grounding): string[] {
+export function rulesFor(
+  pack: Pack,
+  grounding: Grounding,
+  format: ReplyFormat = ReplyFormat.plain,
+): string[] {
   return [
     `You are a military vehicle mechanic instructing a crew member on the ${pack.title}, by voice.`,
-    'Be direct, precise and objective. Answer in at most three short declarative sentences of plain English. No lists, no markdown.',
+    'Be direct, precise and objective. Use declarative statements and imperative actions. No filler, hedging, emojis, exclamation marks or em dashes.',
+    ...(format === ReplyFormat.structured
+      ? [
+          'Keep the entire reply to at most three short sentences, read aloud to the crew. Use one short paragraph unless the content is a list of steps, symptoms or checks.',
+          'For a list, use at most three items, one short sentence per line. Start each line with "- " for symptoms or checks, or "1. ", "2. ", "3. " for ordered actions. These markers indicate order only, never a specification.',
+          'Each item may start with one bold lead of at most three words, such as "**Check:**" or "**Why:**". Use a lead only when it clarifies the item. No other markdown, headings, tables or nested lists.',
+        ]
+      : [
+          'Answer in at most three short sentences of plain English. No lists, no markdown.',
+        ]),
     'When the notes give a reason, state it.',
     ...(grounding === Grounding.strict
       ? [
@@ -136,26 +156,39 @@ export function inventsNumbers(reply: string, pack: Pack): boolean {
     packNumbers.set(pack, known);
   }
   const stated = known;
-  return numbersIn(reply).some(number => !stated.has(number));
+  return numbersIn(parseAnswer(reply).speech).some(
+    number => !stated.has(number),
+  );
 }
 
 // A full stop inside a number ("1.6 litre") does not end a sentence.
 const SENTENCE = /.+?(?:[.!?]+(?=\s|$)|$)/g;
 
 /**
- * What a model's text, so far or in full, shows: plain words, at most
+ * What a model's text, so far or in full, shows: supported structure, at most
  * MAX_REPLY_SENTENCES sentences and never a guessed number.
  */
-export function replyFrom(text: string, pack: Pack): string {
-  // Speech reads markdown marks aloud, and the panel shows them raw.
-  const plain = text
-    .replace(/[*#`_]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const reply = (plain.match(SENTENCE) ?? [])
-    .slice(0, MAX_REPLY_SENTENCES)
-    .join('')
-    .trim();
+export function replyFrom(text: string, pack: Pack, streaming = false): string {
+  let remaining = MAX_REPLY_SENTENCES;
+  const lines: string[] = [];
+  const { blocks } = parseAnswer(text, streaming);
+  if (blocks.length === 1 && blocks[0].text === NOT_COVERED_REPLY) {
+    return NOT_COVERED_REPLY;
+  }
+  for (const block of blocks) {
+    const sentences = (block.text.match(SENTENCE) ?? []).slice(0, remaining);
+    remaining -= sentences.length;
+    const words = sentences.join('').trim();
+    if (words !== '') {
+      lines.push(formatBlock(block, words));
+    }
+    if (remaining === 0) {
+      break;
+    }
+  }
+  const reply = lines.join(
+    blocks.every(block => block.kind === AnswerKind.paragraph) ? ' ' : '\n',
+  );
   return inventsNumbers(reply, pack) ? NOT_COVERED_REPLY : reply;
 }
 

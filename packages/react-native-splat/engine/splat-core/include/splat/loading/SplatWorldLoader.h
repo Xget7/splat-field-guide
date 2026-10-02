@@ -22,7 +22,8 @@ struct ByteView {
 
 // Prepares worlds for a renderer. Decoding runs on whatever thread calls `load`, the
 // result waits until the render thread takes it, and a newer load replaces one still
-// waiting. A world is decoded from SPZ, given its part labels and reordered spatially.
+// waiting. A world is decoded from SPZ, given its part labels, cleared of haze and
+// floaters, and reordered spatially.
 // Loads may run concurrently; the last one to finish is the one taken.
 class SplatWorldLoader {
  public:
@@ -31,6 +32,10 @@ class SplatWorldLoader {
     int shDegree = 0;
     bool labelled = false;
     Bounds bounds;
+    // Splats removed as haze (see splat/filtering/Haze.h); splatCount is what remains.
+    std::size_t hazeRemoved = 0;
+    // Splats removed as faint floaters (see splat/filtering/Sparse.h), after the haze.
+    std::size_t sparseRemoved = 0;
     double decodeMillis = 0;
     double reorderMillis = 0;
   };

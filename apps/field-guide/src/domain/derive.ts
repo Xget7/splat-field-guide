@@ -24,7 +24,9 @@ export function highlightFor(
 }
 
 export function framingFor(state: SessionState, pack: Pack): Bounds | null {
-  const parts = partsToShow(state, pack);
+  // With no procedure and nothing picked, the whole capture is what is being looked at.
+  const overview = state.procedureId === null && state.selectedPart === null;
+  const parts = overview ? pack.parts : partsToShow(state, pack);
   if (parts.length === 0) {
     return null;
   }

@@ -13,6 +13,7 @@ import type { Pack } from '../../../../domain/pack';
 import { Motion } from '../../../../shared/ui/theme';
 import {
   normalizedLevel,
+  speechTextFor,
   SpokenSection,
   wordLevelFor,
   type SpokenWord,
@@ -213,7 +214,8 @@ export function useInstructorVoice({
     }
     spoken.current = utterance.id;
     const id = ++generation.current;
-    saying.current = `${utterance.reply} ${utterance.caution}`;
+    const reply = speechTextFor(utterance.reply);
+    saying.current = `${reply} ${utterance.caution}`;
     setStatus(VoiceState.speaking);
     setWord(null);
     setSection(SpokenSection.reply);
@@ -221,7 +223,7 @@ export function useInstructorVoice({
     const onWord =
       (subject: SpokenSection) => (location: number, length: number) => {
         const text =
-          subject === SpokenSection.reply ? utterance.reply : utterance.caution;
+          subject === SpokenSection.reply ? reply : utterance.caution;
         if (
           id !== generation.current ||
           activeSection !== subject ||
@@ -248,7 +250,7 @@ export function useInstructorVoice({
     const speak = async () => {
       try {
         await speechOutput().speak(
-          utterance.reply,
+          reply,
           VOICE_LOCALE,
           onWord(SpokenSection.reply),
         );

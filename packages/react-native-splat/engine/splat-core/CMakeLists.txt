@@ -23,6 +23,9 @@ include(cmake/dependencies.cmake)
 find_package(Threads REQUIRED)
 
 add_library(splat_core STATIC
+  src/filtering/Compaction.cpp
+  src/filtering/Haze.cpp
+  src/filtering/Sparse.cpp
   src/formats/PartLabels.cpp
   src/formats/SpzDecoder.cpp
   src/io/MappedFile.cpp

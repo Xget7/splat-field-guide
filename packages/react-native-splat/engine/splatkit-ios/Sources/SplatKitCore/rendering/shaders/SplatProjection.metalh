@@ -78,6 +78,9 @@ inline float3 shColor(const device uint* shData, uint index, float3 d) {
 // than a pixel or made transparent by its part label's style.
 inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device uint* shData,
                          constant LabelStyle* styles, thread Projected& out) {
+  // Above the sweep's level, not materialised yet.
+  float underLevel = cam.reveal.x - s.py;
+  if (!(underLevel >= 0.0)) return false;
   float4 rgba = unpackUnorm4x8(s.rgba8);
   LabelStyle style = styles[s.partLabel & kLabelMask];
   float alpha = rgba.a * style.opacity;
@@ -113,6 +116,11 @@ inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device
     rgb = max(rgb + shColor(shData, index, dir), float3(0.0));
   }
   rgb = mix(rgb, float3(style.tint), style.tintAmount) * style.brightness;
+  if (cam.reveal.y > 0.0) {
+    float glow = saturate(1.0 - underLevel / cam.reveal.y);
+    glow *= glow;
+    rgb = mix(rgb, kRevealTint, glow * kRevealTintAmount) * (1.0 + glow * kRevealBoost);
+  }
 
   out.center = clip.xy / clip.w;
   out.axis1 = as_type<uint>(half2(axis1));

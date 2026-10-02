@@ -6,7 +6,7 @@ import UIKit
 /// Props arrive on the main thread; methods on whichever thread calls them.
 final class HybridSplatView: HybridSplatViewSpec {
   private enum Prop {
-    case source, highlight, cameraLimits
+    case source, highlight, cameraLimits, revealSeconds
   }
 
   private static let partLabels = 1.0...255.0
@@ -37,6 +37,10 @@ final class HybridSplatView: HybridSplatViewSpec {
 
   var cameraLimits: CameraLimits? {
     didSet { changed.insert(.cameraLimits) }
+  }
+
+  var revealSeconds: Double? {
+    didSet { changed.insert(.revealSeconds) }
   }
 
   var onReady: () -> Void = {} {
@@ -89,6 +93,10 @@ final class HybridSplatView: HybridSplatViewSpec {
             "cameraLimits refused: not finite, inverted, over a full turn or past a pole")
         }
       }
+    }
+    if changed.contains(.revealSeconds) {
+      let seconds = Float(revealSeconds ?? 0)
+      loop.post { engine in sfg_set_reveal(engine.handle, seconds) }
     }
     if changed.contains(.highlight) {
       let labels = partLabels(highlight)

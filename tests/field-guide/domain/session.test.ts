@@ -248,8 +248,11 @@ describe('highlightFor', () => {
 });
 
 describe('framingFor', () => {
-  it('is null with nothing to frame', () => {
-    expect(framingFor(INITIAL_SESSION, pack)).toBeNull();
+  it('frames every part while exploring with nothing picked', () => {
+    expect(framingFor(INITIAL_SESSION, pack)).toEqual({
+      min: [0, 0, 0],
+      max: [14, 3, 3],
+    });
   });
 
   it('frames one part by its bounds (R9)', () => {
