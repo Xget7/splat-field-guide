@@ -149,7 +149,12 @@ function apply(
     session,
     exchange,
     // Starting a procedure while exploring is a new guide; the old one is not resumed.
-    resume: session.procedureId === null ? state.resume : null,
+    resume:
+      event.type === SessionEventType.end
+        ? null
+        : session.procedureId === null
+        ? state.resume
+        : null,
     // Repeat means "show me again", which the user wants after orbiting away.
     frameRequest:
       event.type === SessionEventType.repeat

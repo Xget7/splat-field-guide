@@ -31,7 +31,6 @@ import {
   Route,
   type ScreenProps,
 } from '../../../shared/navigation/routes';
-import { clearProgress } from '../../../modules/progress/data/progressStorage';
 import { IconButton } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
 import { Color, HAIRLINE, Motion, Space, Type } from '../../../shared/ui/theme';
@@ -123,6 +122,7 @@ function Viewer({
     canResume,
     explore,
     resumeGuide,
+    finish,
     frameRequest,
     highlight,
     marked,
@@ -270,19 +270,13 @@ function Viewer({
     () => dispatch({ type: SessionEventType.repeat }),
     [dispatch],
   );
-  const stopVoice = voice.stop;
   const onNext = useCallback(() => {
     if (!card.last) {
       dispatch({ type: SessionEventType.next });
       return;
     }
-    // Finished: nothing is left to continue.
-    stopVoice();
-    clearProgress().catch(failure =>
-      console.warn('Field guide: progress not cleared', failure),
-    );
-    onExit();
-  }, [card.last, dispatch, onExit, stopVoice]);
+    finish().then(onExit);
+  }, [card.last, dispatch, onExit, finish]);
   const onGoTo = useCallback(
     (index: number) =>
       dispatch({ type: SessionEventType.goTo, stepIndex: index }),

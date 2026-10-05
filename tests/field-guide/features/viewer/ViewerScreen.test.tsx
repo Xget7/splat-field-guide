@@ -37,6 +37,7 @@ import {
   type ScreenProps,
 } from '../../../../apps/field-guide/src/shared/navigation/routes';
 import { bundledPack } from '../../../../apps/field-guide/src/modules/packs/bundledPack';
+import { continueRowFor } from '../../../../apps/field-guide/src/features/library/model/library';
 import { loadProgress } from '../../../../apps/field-guide/src/modules/progress/data/progressStorage';
 import {
   ViewerScreen,
@@ -288,6 +289,9 @@ describe('viewer screen', () => {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
       await press('step-row-2');
       await press('tool-explore');
+      expect(continueRowFor(catalog, await loadProgress())).toMatchObject({
+        stepIndex: 2,
+      });
       expect(has('step-list')).toBe(false);
       await press('part-row-battery');
       expect(debug().getState()).toEqual({
@@ -730,6 +734,31 @@ describe('viewer screen', () => {
       expect(await loadProgress()).toBeNull();
       await act(async () => speech.resolve());
     });
+
+    test.each([false, true])(
+      'spoken stop clears saved progress and the guide set aside during Explore: %s',
+      async exploring => {
+        await mount({
+          mode: LearnMode.instructor,
+          procedureId: 'check-coolant',
+          stepIndex: 2,
+        });
+        await voiceOn();
+        if (exploring) {
+          await press('tool-explore');
+        }
+        expect(await loadProgress()).toMatchObject({
+          procedureId: 'check-coolant',
+          stepIndex: 2,
+        });
+        await act(async () => heard().turn('stop'));
+        expect(debug().getState().procedureId).toBeNull();
+        expect(await loadProgress()).toBeNull();
+        await press('tool-guide');
+        expect(debug().getState().procedureId).toBeNull();
+        expect(sheet().props.visible).toBe(true);
+      },
+    );
 
     test('reading asks for no voice access; voice asks once it is turned on', async () => {
       await mount({ mode: LearnMode.instructor });

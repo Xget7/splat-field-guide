@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { highlightFor } from '../../../domain/derive';
 import type { ProcedureId } from '../../../domain/pack';
-import type { SessionEvent } from '../../../domain/session';
+import { SessionEventType, type SessionEvent } from '../../../domain/session';
 import type { ReadyGuide } from '../../../modules/catalog/catalog';
 import { sessionForExchange } from '../../../modules/instructor/domain/turn';
 import type { ModelInstructor } from '../../../modules/instructor/application/modelInstructor';
@@ -155,25 +155,34 @@ export function useViewerSession({
 
   useEffect(() => () => cancelAnswer(), [cancelAnswer, pack]);
 
+  // Explore sets the procedure aside; Stop and Finish remove both continuation positions.
+  const progressSession =
+    state.session.procedureId === null ? state.resume : state.session;
+  const progressProcedure = progressSession?.procedureId ?? null;
+  const progressStep = progressSession?.stepIndex ?? 0;
   useEffect(() => {
-    // The library offers to continue where this leaves off, once there is something to
-    // continue: the first step is where a fresh start lands anyway.
-    if (session.procedureId === null) {
-      // Exploring sets the guide aside; where it left off is still the place to continue.
-      return;
-    }
+    // The first step is where a fresh start lands anyway, so there is nothing to continue.
     const saved =
-      session.stepIndex === 0
+      progressProcedure === null || progressStep === 0
         ? clearProgress()
         : saveProgress({
             guideId: guide.id,
-            procedureId: session.procedureId,
-            stepIndex: session.stepIndex,
+            procedureId: progressProcedure,
+            stepIndex: progressStep,
           });
     saved.catch(failure =>
       console.warn('Field guide: progress not saved', failure),
     );
-  }, [guide.id, session.procedureId, session.stepIndex]);
+  }, [guide.id, progressProcedure, progressStep]);
+
+  const stopVoice = voice.stop;
+  const finish = useCallback(() => {
+    stopVoice();
+    dispatch({ type: SessionEventType.end });
+    return clearProgress().catch(failure =>
+      console.warn('Field guide: progress not saved', failure),
+    );
+  }, [dispatch, stopVoice]);
 
   return {
     session,
@@ -181,6 +190,7 @@ export function useViewerSession({
     canResume: state.resume !== null,
     explore,
     resumeGuide,
+    finish,
     frameRequest,
     highlight,
     marked,
