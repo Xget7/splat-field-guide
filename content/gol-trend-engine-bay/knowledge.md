@@ -2,7 +2,8 @@
 
 What the instructor may say about each part of the 2010 Volkswagen Gol Trend 1.6 8V petrol engine bay, beyond the pack's summary and details.
 Every claim below is either general manufacturer guidance that holds for any car of this kind, or sourced to this generation of the Gol.
-Fluid grades, capacities, service intervals and the fuse map of this exact car could not be confirmed without its owner's manual, so they are left out on purpose.
+The owner confirmed the engine oil grade from the car's manual, and it is included below.
+Other fluid grades, capacities, service intervals and the fuse map of this exact car remain unconfirmed and are left out.
 When asked for one of them, the instructor says to check the owner's manual, or to ask a Volkswagen dealer, who can confirm it from the vehicle identification number (VIN).
 
 Before any check, park on level ground, apply the parking brake, switch off, support the bonnet and let the bay cool. [VW safety]

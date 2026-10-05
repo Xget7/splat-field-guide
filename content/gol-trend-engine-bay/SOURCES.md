@@ -1,8 +1,9 @@
 # Sources for the Gol Trend engine bay content
 
 Status: the Volkswagen Argentina owner's manuals are copy-protected PDFs, so their text could not be read.
+The owner separately confirmed the engine oil grade, 5W-40, from the car's manual.
 No car-specific specification was taken from memory or from a forum as fact.
-The steps are written to stay true without any unconfirmed specification.
+Unconfirmed specifications and observations that still need the owner's review are listed below.
 
 ## Confirmed
 
@@ -12,7 +13,8 @@ The steps are written to stay true without any unconfirmed specification.
 
 - Volkswagen leaves the fuses on top of the battery to a workshop, and the owner's fuses are in the cabin fuse box: the later-edition Gol / Gol Trend manual above.
 - The valve cover of this engine family is cast aluminium, forms the upper camshaft bearings and is sealed to the head with liquid sealant, not a gasket: Volkswagen training, Nuevo Gol, pp. 15-17, https://es.scribd.com/document/403761674/manual-tecnico-gol-trend-compressed-pdf.
-- knowledge.md holds the longer per-part knowledge, with its own sources, and leaves out everything below that is unconfirmed.
+- knowledge.md holds the longer per-part knowledge and its sources, including the owner-confirmed engine oil grade.
+- The remaining fluid specifications listed below are unconfirmed.
 
 ## General Volkswagen practice, not specific to the Gol Trend
 
@@ -26,7 +28,8 @@ The steps are written to stay true without any unconfirmed specification.
 - Coolant type for the 2010 Gol Trend 1.6 (which VW G12 variant). Steps say "the coolant your owner's manual names".
 - Brake fluid specification (DOT 4 was suggested by a secondary Opinautos page for other Gol generations, 2002 and 2015, not this car). Steps say "the brake fluid your owner's manual names".
 - Power steering fluid specification (a forum mentions VW part G 004 000 M2, not verified). Steps say "the fluid your owner's manual names".
-- Whether the power steering level is read from marks on the tank or a dipstick in the cap, and whether the car has MIN and MAX marks on the brake reservoir. Steps say "marks on the tank or the cap".
+- Whether the power steering level is read from marks on the tank or a dipstick in the cap, and whether the car has MIN and MAX marks on the brake reservoir. Power steering steps say "marks on the tank or the cap".
+  Brake fluid details and procedure steps currently assert MIN and MAX marks, so the owner must verify those markings before this content is considered reviewed.
 - Exact MIN and MAX wording on the coolant tank for this model year (2010 edition manual not found online).
 - Fuse box cover and layout for the 2010 car.
 - The 2010 manual edition itself: only 2015 and later editions were found online, covering the Nuevo Gol generation.
