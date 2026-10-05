@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -45,7 +45,7 @@ def check(name: str):
 
 
 def test_code_compiles():
-    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "spike_lib.py", "lift.py", "lift_all.py",
+    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "mask_tools.py", "lift.py", "lift_all.py",
                "export.py", "export_checks.py", "preflight.py"]
     for file in sources:
         py_compile.compile(str(HERE / file), doraise=True)
@@ -80,7 +80,7 @@ def test_orientation_matches_what_the_browser_shows():
         raw.save(buffer, "PNG", exif=exif)
         shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer)))  # what Chrome displays
         v, u = np.argwhere(shown == 255)[0]
-        x, y = spike_lib.raw_from_display((u + 0.5) / shown.shape[1], (v + 0.5) / shown.shape[0], orientation)
+        x, y = mask_tools.raw_from_display((u + 0.5) / shown.shape[1], (v + 0.5) / shown.shape[0], orientation)
         assert (int(x * w), int(y * h)) == (31, 7), f"orientation {orientation} maps to {(int(x * w), int(y * h))}"
 
 
@@ -98,7 +98,7 @@ def test_marks_checks_catch_bad_marks():
                 for part, by_photo in masks.items()}
 
     good = saved(body={0: box(2, 2, 18, 20), 1: box(2, 2, 18, 20)}, cap={1: box(4, 4, 8, 8)}, lid={1: box(2, 22, 18, 28)})
-    assert spike_lib.check_marks(good, lambda f: shape, parts) == []
+    assert mask_tools.check_marks(good, lambda f: shape, parts) == []
     wrong_part = saved(body=good["body"]["masks"], cap=good["cap"]["masks"], lid=good["lid"]["masks"])
     wrong_part["lid"]["marks"]["part"] = "body"
     unlisted = saved(body=good["body"]["masks"], cap=good["cap"]["masks"], lid=good["lid"]["masks"])
@@ -116,13 +116,13 @@ def test_marks_checks_catch_bad_marks():
         "siblings claim the same pixels": {**good, **saved(lid={1: box(4, 4, 16, 18)})},
     }
     for case, marks in bad.items():
-        assert spike_lib.check_marks(marks, lambda f: shape, parts), f"{case} passed"
+        assert mask_tools.check_marks(marks, lambda f: shape, parts), f"{case} passed"
 
 
 def test_prompt_checks_catch_bad_files():
     names = ["a.jpg", "b.jpg"]
     good = {"frames": names, "parts": [{"id": "cap", "clicks": [{"frame": 1, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]}
-    assert spike_lib.check_prompts(good, names)[0] == []
+    assert mask_tools.check_prompts(good, names)[0] == []
     bad = [
         {**good, "frames": ["b.jpg", "a.jpg"]},
         {**good, "parts": [{"id": "cap", "clicks": [{"frame": 1, "x": .5, "y": .5, "positive": False}]}]},
@@ -131,7 +131,7 @@ def test_prompt_checks_catch_bad_files():
         {**good, "parts": [{"id": "cap", "clicks": [{"frame": 0, "x": 1.2, "y": .5, "positive": True}]}]},
     ]
     for i, prompts in enumerate(bad):
-        assert spike_lib.check_prompts(prompts, names)[0], f"bad case {i} passed"
+        assert mask_tools.check_prompts(prompts, names)[0], f"bad case {i} passed"
 
 
 def test_contact_sheet_edge_cases():
@@ -145,7 +145,7 @@ def test_contact_sheet_edge_cases():
         ([0, 1], {"cap": {0: mask}}, {0: 6, 1: 1}),     # a frame without a mask, mixed orientations
     ]
     for frames, masks, orientations in cases:
-        jpg = spike_lib.contact_sheet(lambda f: photo, frames, masks, colours, prompts, orientations)
+        jpg = mask_tools.contact_sheet(lambda f: photo, frames, masks, colours, prompts, orientations)
         assert cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR) is not None
 
 
@@ -160,17 +160,17 @@ def test_mask_orientation_matches_the_photo():
         buffer = io.BytesIO()
         image.save(buffer, "PNG", exif=exif)
         shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer))) > 0
-        back = spike_lib.raw_from_display_mask(shown, orientation)
+        back = mask_tools.raw_from_display_mask(shown, orientation)
         assert back.shape == raw.shape and (back == raw).all(), f"orientation {orientation} does not round-trip"
 
 
 def test_working_photo_matches_tracker_frames():
     """The page's upright photo, turned back, is exactly the frame the tracker reads (same size, no resampling drift)."""
-    name = sorted(PHOTOS.glob("*.jpg"))[spike_lib.KEYFRAMES[0]]
-    upright = spike_lib.working_photo(Image.open(name))
+    name = sorted(PHOTOS.glob("*.jpg"))[mask_tools.KEYFRAMES[0]]
+    upright = mask_tools.working_photo(Image.open(name))
     stored = Image.open(name)
-    stored.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
-    back = spike_lib.raw_from_display_mask(np.zeros((upright.height, upright.width), bool), stored.getexif().get(274, 1))
+    stored.thumbnail((mask_tools.WORKING_SIDE, mask_tools.WORKING_SIDE))
+    back = mask_tools.raw_from_display_mask(np.zeros((upright.height, upright.width), bool), stored.getexif().get(274, 1))
     assert back.shape == (stored.height, stored.width), f"{back.shape} vs {(stored.height, stored.width)}"
     return f"{upright.size} upright, {stored.size} stored"
 
@@ -192,14 +192,14 @@ class FakeSam:
         self.out = out
         names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
         self.sizes, self.orientations = {}, {}
-        for frame in spike_lib.photos_to_mark():
+        for frame in mask_tools.photos_to_mark():
             photo = Image.open(PHOTOS / names[frame])
             self.orientations[frame] = photo.getexif().get(274, 1)
-            self.sizes[frame] = spike_lib.working_photo(photo).size
+            self.sizes[frame] = mask_tools.working_photo(photo).size
 
     def mask(self, frame, marks):
         w, h = self.sizes[frame]
-        prompt = spike_lib.sam_prompt(marks, w, h)
+        prompt = mask_tools.sam_prompt(marks, w, h)
         if prompt is None:
             return None, 0.0
         yy, xx = np.mgrid[0:h, 0:w]
@@ -219,7 +219,7 @@ class FakeSam:
 
     async def segment(self, frame, marks):
         mask, score = self.mask(frame, marks)
-        return {"png": None if mask is None else spike_lib.mask_png(mask), "score": score}
+        return {"png": None if mask is None else mask_tools.mask_png(mask), "score": score}
 
     async def save(self, request):
         masks = {f: m for f, marks in request["photos"].items() if (m := self.mask(f, marks)[0]) is not None}
@@ -227,7 +227,7 @@ class FakeSam:
         folder.mkdir(parents=True, exist_ok=True)
         for old in folder.glob("*"):
             old.unlink()
-        for name, data in spike_lib.marks_files(request, masks, self.orientations).items():
+        for name, data in mask_tools.marks_files(request, masks, self.orientations).items():
             (folder / name).write_bytes(data)
         return sorted(masks)
 
@@ -240,17 +240,17 @@ def page_app(out: pathlib.Path):
 
 def test_parts_are_well_formed():
     count = len(list(PHOTOS.glob("*.jpg")))
-    ids = list(spike_lib.PARTS)
+    ids = list(mask_tools.PARTS)
     assert len(ids) < 256 and all(re.fullmatch(r"[a-z]+(-[a-z]+)*", i) for i in ids), ids
-    for part, info in spike_lib.PARTS.items():
+    for part, info in mask_tools.PARTS.items():
         assert info["name"].strip(), f"{part} has no name"
         parent = info["parent"]
-        assert parent is None or spike_lib.PARTS.get(parent, {}).get("parent", 1) is None, f"{part}: bad parent {parent}"
+        assert parent is None or mask_tools.PARTS.get(parent, {}).get("parent", 1) is None, f"{part}: bad parent {parent}"
         photos = info["photos"]
         assert len(photos) >= 3 and len(set(photos)) == len(photos), f"{part}: photos {photos}"
         assert all(0 <= f < count for f in photos), f"{part}: photo outside 0..{count - 1}"
-    assert spike_lib.PARTS["engine"]["photos"] == spike_lib.KEYFRAMES, "the engine's saved marks use the keyframes"
-    return f"{len(ids)} parts on {len(spike_lib.photos_to_mark())} photos"
+    assert mask_tools.PARTS["engine"]["photos"] == mask_tools.KEYFRAMES, "the engine's saved marks use the keyframes"
+    return f"{len(ids)} parts on {len(mask_tools.photos_to_mark())} photos"
 
 
 def test_page_api_with_fake_sam():
@@ -260,11 +260,11 @@ def test_page_api_with_fake_sam():
         client = TestClient(page_app(pathlib.Path(tmp)))
         assert "<canvas" in client.get("/").text
         config = client.get("/api/config").json()
-        assert list(config["parts"]) == list(spike_lib.PARTS) and config["saved"] == {}, config["saved"]
-        key = spike_lib.KEYFRAMES[2]
-        outside = min(set(range(len(list(PHOTOS.glob("*.jpg"))))) - set(spike_lib.photos_to_mark()))
+        assert list(config["parts"]) == list(mask_tools.PARTS) and config["saved"] == {}, config["saved"]
+        key = mask_tools.KEYFRAMES[2]
+        outside = min(set(range(len(list(PHOTOS.glob("*.jpg"))))) - set(mask_tools.photos_to_mark()))
         photo = Image.open(io.BytesIO(client.get(f"/photo/{key}.jpg").content))
-        assert max(photo.size) == spike_lib.WORKING_SIDE and photo.height > photo.width, photo.size
+        assert max(photo.size) == mask_tools.WORKING_SIDE and photo.height > photo.width, photo.size
         assert client.get(f"/photo/{outside}.jpg").status_code == 404, "a photo no part uses was served"
         assert client.post("/api/warm").json() == {"device": "fake"}
 
@@ -282,18 +282,18 @@ def test_page_api_with_fake_sam():
         assert client.post("/api/segment", json={"frame": outside, "clicks": [click]}).status_code == 404
 
         request = {"part": "engine", "photos": {str(key): {"clicks": [click], "box": None},
-                                                str(spike_lib.KEYFRAMES[0]): {"clicks": [], "box": [0.1, 0.1, 0.9, 0.9]}}}
-        assert client.post("/api/save", json=request).json() == {"saved": sorted([key, spike_lib.KEYFRAMES[0]])}
+                                                str(mask_tools.KEYFRAMES[0]): {"clicks": [], "box": [0.1, 0.1, 0.9, 0.9]}}}
+        assert client.post("/api/save", json=request).json() == {"saved": sorted([key, mask_tools.KEYFRAMES[0]])}
         assert client.post("/api/save", json={**request, "part": "../x"}).status_code == 400
         assert client.post("/api/save", json={**request, "part": "battery"}).status_code == 404, "saved foreign photos"
-        assert client.get("/api/config").json()["saved"] == {"engine": sorted([key, spike_lib.KEYFRAMES[0]])}
+        assert client.get("/api/config").json()["saved"] == {"engine": sorted([key, mask_tools.KEYFRAMES[0]])}
         saved = pathlib.Path(tmp) / "engine"
         assert json.loads((saved / "marks.json").read_text())["part"] == "engine"
         stored = Image.open(saved / f"{key:05d}.png")
         raw = Image.open(sorted(PHOTOS.glob("*.jpg"))[key])
-        raw.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+        raw.thumbnail((mask_tools.WORKING_SIDE, mask_tools.WORKING_SIDE))
         assert stored.size == raw.size, f"saved mask {stored.size}, tracker frame {raw.size}"
-        x, y = spike_lib.raw_from_display(0.3, 0.2, raw.getexif().get(274, 1))
+        x, y = mask_tools.raw_from_display(0.3, 0.2, raw.getexif().get(274, 1))
         assert stored.getpixel((int(x * stored.width), int(y * stored.height))) == 255, "saved mask not under the click"
 
 
@@ -304,18 +304,18 @@ def test_view_order_follows_the_cameras():
     centres = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)
     directions = -centres + [0, 0, -0.2]
     shuffled = rng.permutation(len(angles))
-    order = spike_lib.view_order(centres[shuffled], directions[shuffled])
+    order = mask_tools.view_order(centres[shuffled], directions[shuffled])
     assert sorted(order) == list(range(len(angles))), "not a permutation"
     steps = np.diff(shuffled[order]) % len(angles)
     assert set(steps) <= {1, len(angles) - 1} or (steps == steps[0]).sum() >= len(angles) - 2, f"ring broken: {steps}"
-    assert spike_lib.iou(np.ones((2, 2), bool), np.ones((2, 2), bool)) == 1.0
-    assert spike_lib.iou(np.eye(2, dtype=bool), ~np.eye(2, dtype=bool)) == 0.0
+    assert mask_tools.iou(np.ones((2, 2), bool), np.ones((2, 2), bool)) == 1.0
+    assert mask_tools.iou(np.eye(2, dtype=bool), ~np.eye(2, dtype=bool)) == 0.0
 
 
 def test_small_tile_sheet():
     photo = np.full((30, 40, 3), 90, np.uint8)
     frames = list(range(10))
-    jpg = spike_lib.contact_sheet(lambda f: photo, frames, {}, {}, {"parts": []}, {f: 6 for f in frames},
+    jpg = mask_tools.contact_sheet(lambda f: photo, frames, {}, {}, {"parts": []}, {f: 6 for f in frames},
                                   tile=236, per_row=8, label=lambda f: f"{f} *")
     sheet = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
     assert sheet.shape[:2] == (2 * 236, 8 * 236), sheet.shape
@@ -333,9 +333,9 @@ def test_entrypoints_run_in_the_modal_cli_python():
     assert cli, "no modal CLI on PATH"
     shebang = pathlib.Path(cli).resolve().read_text(errors="ignore").splitlines()[0]
     python = shebang.removeprefix("#!").strip()
-    code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, sam_clicks, spike_lib, json; "
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, sam_clicks, mask_tools, json; "
             "plan = sam_track.plan('engine'); assert len(plan['centres']) == 124; sam_track.choose_variant([], 'view order, all keyframes'); "
-            "spike_lib.check_prompts({'frames': [], 'parts': []}, [])")
+            "mask_tools.check_prompts({'frames': [], 'parts': []}, [])")
     result = subprocess.run([python, "-c", code, str(HERE)], capture_output=True, text=True, cwd=HERE)
     assert result.returncode == 0, result.stderr.strip().splitlines()[-1]
     return python
@@ -548,9 +548,9 @@ def test_strays_are_dropped():
 def test_pack_and_parts_agree():
     import lift_all
 
-    parts = lift_all.pack_parts()  # asserts the ids and parents match spike_lib.PARTS
+    parts = lift_all.pack_parts()  # asserts the ids and parents match mask_tools.PARTS
     assert [p["label"] for p in parts.values()] == list(range(1, len(parts) + 1)), "labels are not 1-based in pack order"
-    assert set(parts) == set(spike_lib.PARTS), "a part is missing on one side"
+    assert set(parts) == set(mask_tools.PARTS), "a part is missing on one side"
     assert all(p["parent"] is None or p["parent"] in parts for p in parts.values()), "a parent is not a part"
     return f"{len(parts)} parts, labels 1..{len(parts)}"
 
@@ -573,10 +573,10 @@ def test_holdouts_and_variant_choice():
     centres = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)
     directions = -centres + [0, 0, -0.2]
     # Four cameras bunched together and one opposite: the opposite one and the bunch's far end are hardest to predict.
-    assert spike_lib.pick_holdouts([0, 1, 2, 3, 15], centres, directions) == [0, 15]
-    hidden = spike_lib.pick_holdouts([20, 4, 9, 1], centres, directions)
+    assert mask_tools.pick_holdouts([0, 1, 2, 3, 15], centres, directions) == [0, 15]
+    hidden = mask_tools.pick_holdouts([20, 4, 9, 1], centres, directions)
     assert len(hidden) == 2 and set(hidden) <= {1, 4, 9, 20}, hidden
-    assert spike_lib.pick_holdouts([0, 5, 9], centres, directions) == [], "scoring with fewer than 4 keyframes"
+    assert mask_tools.pick_holdouts([0, 5, 9], centres, directions) == [], "scoring with fewer than 4 keyframes"
     import sam_track
 
     default = sam_track.DEFAULT_VARIANT
@@ -672,7 +672,7 @@ def check_real_data(clicks_path: pathlib.Path):
 
     @check("clicks file matches the photos")
     def _():
-        errors, warnings = spike_lib.check_prompts(prompts, names)
+        errors, warnings = mask_tools.check_prompts(prompts, names)
         assert not errors, "; ".join(errors)
         parts = [p for p in prompts["parts"] if p["clicks"]]
         return f"{len(parts)} parts, {sum(len(p['clicks']) for p in parts)} clicks" + (
@@ -695,8 +695,8 @@ def check_real_data(clicks_path: pathlib.Path):
             photo = cv2.imread(str(PHOTOS / names[f]), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
             scale = 1416 / max(photo.shape[:2])
             stored[f] = cv2.resize(photo, None, fx=scale, fy=scale)
-        colours = {p["id"]: spike_lib.PALETTE_BGR[i % len(spike_lib.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
-        sheet = spike_lib.contact_sheet(lambda f: stored[f], clicked, {}, colours, prompts, orientations)
+        colours = {p["id"]: mask_tools.PALETTE_BGR[i % len(mask_tools.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
+        sheet = mask_tools.contact_sheet(lambda f: stored[f], clicked, {}, colours, prompts, orientations)
         legend = np.zeros((40 + 28 * len(colours), 520, 3), np.uint8)
         cv2.putText(legend, "white ring = es esto, red ring = esto no", (10, 26), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 1)
         for i, p in enumerate(prompts["parts"]):
@@ -707,7 +707,7 @@ def check_real_data(clicks_path: pathlib.Path):
         cv2.imwrite(str(OUT / "legend.png"), legend)
         return f"{len(clicked)} photos -> {OUT / 'clicks.jpg'}"
 
-    return spike_lib.check_prompts(prompts, names)[1]
+    return mask_tools.check_prompts(prompts, names)[1]
 
 
 def check_volume():
@@ -725,10 +725,10 @@ def check_volume():
 
         def stored_shape(photo: int) -> tuple[int, int]:
             stored = Image.open(names[photo])
-            stored.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+            stored.thumbnail((mask_tools.WORKING_SIDE, mask_tools.WORKING_SIDE))
             return stored.height, stored.width
 
-        errors = spike_lib.check_marks(saved, stored_shape)
+        errors = mask_tools.check_marks(saved, stored_shape)
         assert not errors, "; ".join(errors)
         return ", ".join(f"{part} {len(entry['masks'])}" for part, entry in saved.items())
 

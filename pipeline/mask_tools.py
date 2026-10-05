@@ -1,4 +1,4 @@
-"""Pure helpers shared by the Modal spike and its local preflight, so the preflight tests the code that runs."""
+"""Photo layout, mask validation and view ordering shared by marking, tracking and lifting."""
 
 MAX_POINTS_PER_PHOTO = 12  # SAM point prompts work best with a handful of points per object and photo
 PALETTE_BGR = [(0, 140, 255), (255, 90, 0), (60, 220, 60), (230, 60, 200), (0, 230, 255), (60, 60, 255),

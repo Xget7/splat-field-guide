@@ -11,7 +11,7 @@ import pathlib
 
 import modal
 
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -40,7 +40,7 @@ image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("spike_lib")
+    .add_local_python_source("mask_tools")
 )
 
 
@@ -93,7 +93,7 @@ def segment_clicks(prompts: dict, frames: list[int]) -> dict[str, bytes]:
             if click["frame"] in position:
                 by_frame[click["frame"]].append(click)
         for frame, clicks in sorted(by_frame.items()):
-            points = [spike_lib.raw_from_display(c["x"], c["y"], orientations[frame]) for c in clicks]
+            points = [mask_tools.raw_from_display(c["x"], c["y"], orientations[frame]) for c in clicks]
             predictor.handle_request(dict(
                 type="add_prompt", session_id=session, frame_index=position[frame], obj_id=obj_id,
                 points=[list(p) for p in points], point_labels=[1 if c["positive"] else 0 for c in clicks],
@@ -121,15 +121,15 @@ def segment_clicks(prompts: dict, frames: list[int]) -> dict[str, bytes]:
     def photo_for(frame):
         return cv2.imread(f"{video_dir}/{position[frame]:05d}.jpg")
 
-    colours = {p["id"]: spike_lib.PALETTE_BGR[i % len(spike_lib.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
+    colours = {p["id"]: mask_tools.PALETTE_BGR[i % len(mask_tools.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
     clicked = sorted({c["frame"] for p in parts for c in p["clicks"] if c["frame"] in position})
     spaced = [frames[i] for i in np.linspace(0, len(frames) - 1, min(12, len(frames))).astype(int)]
     sheet = (clicked + [f for f in spaced if f not in clicked])[:16]
-    files["preview_all.jpg"] = spike_lib.contact_sheet(photo_for, sheet, masks, colours, prompts, orientations)
+    files["preview_all.jpg"] = mask_tools.contact_sheet(photo_for, sheet, masks, colours, prompts, orientations)
     for part in parts:
         own = sorted(masks.get(part["id"], {}))
         picks = [own[i] for i in np.linspace(0, len(own) - 1, min(12, len(own))).astype(int)] if own else []
-        files[f"preview_{part['id']}.jpg"] = spike_lib.contact_sheet(
+        files[f"preview_{part['id']}.jpg"] = mask_tools.contact_sheet(
             photo_for, picks, {part["id"]: masks.get(part["id"], {})}, colours, prompts, orientations)
     return files
 
@@ -138,7 +138,7 @@ def segment_clicks(prompts: dict, frames: list[int]) -> dict[str, bytes]:
 def main(clicks: str, smoke: bool = False):
     prompts = json.loads(pathlib.Path(clicks).expanduser().read_text())
     names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
-    errors, warnings = spike_lib.check_prompts(prompts, names)
+    errors, warnings = mask_tools.check_prompts(prompts, names)
     for w in warnings:
         print(f"warning: {w}")
     if errors:

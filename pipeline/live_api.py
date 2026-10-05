@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field, model_validator
 
-import spike_lib
+import mask_tools
 
 Unit = Field(ge=0, le=1)
 
@@ -56,7 +56,7 @@ def make_app(sam: Sam, photo_dir: pathlib.Path, page: pathlib.Path, marks_dir: p
     api = FastAPI()
     names = sorted(p.name for p in photo_dir.glob("*.jpg"))
     photos: dict[int, bytes] = {}
-    markable = set(spike_lib.photos_to_mark())
+    markable = set(mask_tools.photos_to_mark())
 
     def keyframe(frame: int) -> int:
         if frame not in markable:
@@ -71,14 +71,14 @@ def make_app(sam: Sam, photo_dir: pathlib.Path, page: pathlib.Path, marks_dir: p
     def config():
         refresh()
         saved = {part: sorted(int(p.stem) for p in (marks_dir / part).glob("[0-9]*.png"))
-                 for part in spike_lib.PARTS if (marks_dir / part / "marks.json").exists()}
-        return {"parts": spike_lib.PARTS, "saved": saved}
+                 for part in mask_tools.PARTS if (marks_dir / part / "marks.json").exists()}
+        return {"parts": mask_tools.PARTS, "saved": saved}
 
     @api.get("/photo/{frame}.jpg")
     def photo(frame: int):
         if keyframe(frame) not in photos:
             jpg = io.BytesIO()
-            spike_lib.working_photo(Image.open(photo_dir / names[frame])).save(jpg, "JPEG", quality=90)
+            mask_tools.working_photo(Image.open(photo_dir / names[frame])).save(jpg, "JPEG", quality=90)
             photos[frame] = jpg.getvalue()
         return Response(photos[frame], media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
@@ -98,9 +98,9 @@ def make_app(sam: Sam, photo_dir: pathlib.Path, page: pathlib.Path, marks_dir: p
 
     @api.post("/api/save")
     async def save(request: SaveRequest):
-        if request.part not in spike_lib.PARTS:
+        if request.part not in mask_tools.PARTS:
             raise HTTPException(400, f"unknown part {request.part}")
-        stray = sorted(set(request.photos) - set(spike_lib.PARTS[request.part]["photos"]))
+        stray = sorted(set(request.photos) - set(mask_tools.PARTS[request.part]["photos"]))
         if stray:
             raise HTTPException(404, f"photos {[f + 1 for f in stray]} are not marked for {request.part}")
         return {"saved": await sam.save(request.model_dump())}

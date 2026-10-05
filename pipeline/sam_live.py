@@ -10,7 +10,7 @@ import pathlib
 
 import modal
 
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 SAM3_COMMIT = "2345a4a"
@@ -36,12 +36,12 @@ sam_image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("spike_lib")
+    .add_local_python_source("mask_tools")
 )
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install("fastapi[standard]", "pillow", "numpy<2")
-    .add_local_python_source("spike_lib", "live_api")
+    .add_local_python_source("mask_tools", "live_api")
     .add_local_file(HERE / "mark.html", "/root/mark.html")
 )
 
@@ -71,10 +71,10 @@ class Sam:
         # Image features are computed once per photo; every click after that only runs the mask decoder.
         self.states, self.orientations = {}, {}
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            for frame in spike_lib.photos_to_mark():
+            for frame in mask_tools.photos_to_mark():
                 photo = Image.open(f"/frames/jpg/{names[frame]}")
                 self.orientations[frame] = photo.getexif().get(274, 1)
-                self.states[frame] = processor.set_image(spike_lib.working_photo(photo))
+                self.states[frame] = processor.set_image(mask_tools.working_photo(photo))
         print(f"{len(self.states)} photos ready on {torch.cuda.get_device_name()}")
 
     def mask(self, frame: int, marks: dict):
@@ -82,7 +82,7 @@ class Sam:
         import torch
 
         state = self.states[frame]
-        prompt = spike_lib.sam_prompt(marks, state["original_width"], state["original_height"])
+        prompt = mask_tools.sam_prompt(marks, state["original_width"], state["original_height"])
         if prompt is None:
             return None, 0.0
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
@@ -99,7 +99,7 @@ class Sam:
     @modal.method()
     def segment(self, frame: int, marks: dict) -> dict:
         mask, score = self.mask(frame, marks)
-        return {"png": None if mask is None else spike_lib.mask_png(mask), "score": score}
+        return {"png": None if mask is None else mask_tools.mask_png(mask), "score": score}
 
     @modal.method()
     def save(self, request: dict) -> list[int]:
@@ -112,7 +112,7 @@ class Sam:
         folder.mkdir(parents=True, exist_ok=True)
         for old in folder.glob("*"):
             old.unlink()  # a photo whose marks were cleared must not keep its old mask
-        for name, data in spike_lib.marks_files(request, masks, self.orientations).items():
+        for name, data in mask_tools.marks_files(request, masks, self.orientations).items():
             (folder / name).write_bytes(data)
         frames_volume.commit()
         return sorted(masks)

@@ -31,7 +31,7 @@ from PIL import Image
 
 import knowledge
 import lift
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -168,7 +168,7 @@ def read_labels(path: pathlib.Path, count: int, part_ids: list[str], mask_part: 
 def display_axes(orientation: int) -> tuple[np.ndarray, np.ndarray]:
     """Up and right of the upright photo, as unit vectors in the camera frame of its stored pixels (x right, y down)."""
     def axis(dx: float, dy: float) -> np.ndarray:
-        x, y = spike_lib.raw_from_display(0.5 + dx, 0.5 + dy, orientation)
+        x, y = mask_tools.raw_from_display(0.5 + dx, 0.5 + dy, orientation)
         v = np.array([x - 0.5, y - 0.5, 0.0])
         return v / np.linalg.norm(v)
     return axis(0, -0.5), axis(0.5, 0)

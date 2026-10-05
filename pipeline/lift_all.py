@@ -30,7 +30,7 @@ import cv2
 import numpy as np
 
 import lift
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -56,8 +56,8 @@ def pack_parts() -> dict[str, dict]:
     assert len(parts) == len(authored), "two parts share an id in pack.yaml"
     assert len(parts) <= MAX_LABEL, f"{len(parts)} parts do not fit a uint8 label"
     assert len(parts) <= len(PART_RGB), f"{len(parts)} parts, {len(PART_RGB)} tints"
-    assert {k: v["parent"] for k, v in parts.items()} == {k: v["parent"] for k, v in spike_lib.PARTS.items()}, (
-        "pack.yaml and spike_lib.PARTS differ in part ids or parents")
+    assert {k: v["parent"] for k, v in parts.items()} == {k: v["parent"] for k, v in mask_tools.PARTS.items()}, (
+        "pack.yaml and mask_tools.PARTS differ in part ids or parents")
     return parts
 
 
