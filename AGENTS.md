@@ -58,10 +58,11 @@ Run commands from the stated directory, using fakes rather than paid requests.
 | `apps/field-guide/ios` | Pods after preparation/codegen | `nice -n 19 bundle exec pod install` |
 
 Omit `--pack` once the public release exists, or supply `FIELD_GUIDE_PACK_URL`; matching pack files and engine fingerprints are reused.
-Preparation includes the pinned Kokoro fetch, app Gemfile installation and `bundle exec pod install`.
+Preparation installs app and native package development dependencies, fetches pinned Kokoro resources, installs the app Gemfile and runs `bundle exec pod install`.
+Gemfile.lock selects Bundler 2.4.22, CocoaPods 1.16.2 and xcodeproj 1.27.0; use the locked Bundler command when changing pods.
 It accepts only `--pack <archive>`; force an engine rebuild with `build-ios-engine.sh --force`, then rerun preparation.
 App/package tools need Node 22.11+; the proxy uses Node 26+; pipeline scripts need Python 3.12+, uv and Node for the app parser.
-Install each package in its own directory before its checks; preparation installs app dependencies, not package development dependencies.
+After preparation, each native package is ready for its own checks.
 Pipeline export checks require the corresponding capture/training artifacts; a missing source is a blocker to report, not evidence of a passed real-pack check.
 Nitro outputs in `nitrogen/generated` are intentionally committed with their specifications.
 On-device tests compile Swift harnesses on macOS 26+ and skip those checks on other hosts.
@@ -113,6 +114,7 @@ Complete verification when the affected interface tests, lint/types and relevant
 - Put each full Markdown sentence on its own physical line.
 - Keep human READMEs short, operational instructions here, glossary definitions implementation-free, ADRs concise and research historical.
 - Distinguish source/simulator checks from physical acceptance; update affected docs with behaviour changes.
+- When shipped dependencies or resources change, reconcile [third-party notices](THIRD_PARTY_NOTICES.md) and the app's `ios/FieldGuide/ThirdPartyNotices.txt` from their local license texts.
 - Commit small logical steps with one plain imperative sentence, without co-author, generated or other trailers.
 - Publish, deploy, upload or make paid calls only when explicitly requested.
 

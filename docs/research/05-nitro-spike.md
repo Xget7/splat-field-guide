@@ -49,3 +49,8 @@ The three criteria are therefore not yet verified on the device.
 
 Accept Nitro Views for iOS.
 Re-run the three criteria on the iPhone before the Android spike; if the device disagrees, reopen the ADR.
+
+## Pack identity follow-up, 2026-10-05
+
+An iPad simulator on iOS 26.5, Debug, verified SHA-256 for the 63,040,843-byte cloud and 2,498,613-byte labels in 111.83 ms on the loader thread, then reported `cloud ready: 2438073 splats` from 2,498,597 source splats.
+The C-interface harness measured 119.67 ms with the same files; these are simulator/host measurements, not physical-device performance evidence.
