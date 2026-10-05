@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { highlightFor } from '../../../domain/derive';
 import type { ProcedureId } from '../../../domain/pack';
 import { SessionEventType, type SessionEvent } from '../../../domain/session';
 import type { ReadyGuide } from '../../../modules/catalog/catalog';
@@ -13,7 +12,7 @@ import {
   clearProgress,
   saveProgress,
 } from '../../../modules/progress/data/progressStorage';
-import { cardContentFor, markedPartsFor } from '../model/guideContent';
+import { cardContentFor } from '../model/guideContent';
 import {
   answeredExchanges,
   initialViewerState,
@@ -58,11 +57,6 @@ export function useViewerSession({
   stateRef.current = state;
   const interruptVoice = useRef<(() => void) | null>(null);
 
-  const highlight = useMemo(
-    () => [...highlightFor(session, pack)],
-    [session, pack],
-  );
-  const marked = useMemo(() => markedPartsFor(session, pack), [session, pack]);
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
   const cancelAnswer = useCallback(() => instructor.cancel(), [instructor]);
   const dispatch = useCallback(
@@ -192,8 +186,6 @@ export function useViewerSession({
     resumeGuide,
     finish,
     frameRequest,
-    highlight,
-    marked,
     card,
     thread,
     exchange,

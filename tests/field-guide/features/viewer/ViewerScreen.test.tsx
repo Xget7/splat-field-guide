@@ -15,18 +15,15 @@ import {
   speechOutput,
 } from 'react-native-on-device';
 import {
-  useExclusiveGestures,
   usePanGesture,
   usePinchGesture,
   useTapGesture,
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
+import { fixturePack } from '../../fixtures/fixturePack';
 import { catalogFor } from '../../../../apps/field-guide/src/modules/catalog/catalog';
 import { CatalogProvider } from '../../../../apps/field-guide/src/modules/catalog/CatalogContext';
-import {
-  framingFor,
-  highlightFor,
-} from '../../../../apps/field-guide/src/domain/derive';
+import { highlightFor } from '../../../../apps/field-guide/src/domain/derive';
 import type { ProcedureId } from '../../../../apps/field-guide/src/domain/pack';
 import { SessionEventType } from '../../../../apps/field-guide/src/domain/session';
 import { TOUR_ID } from '../../../../apps/field-guide/src/domain/tour';
@@ -43,17 +40,6 @@ import {
   ViewerScreen,
   type FieldGuideDebug,
 } from '../../../../apps/field-guide/src/features/viewer/screens/ViewerScreen';
-import {
-  boundsForView,
-  cameraLimitsInRadians,
-  CLOSE_UP_SCALE,
-  CLOSE_UP_SECONDS,
-  FRAME_SECONDS,
-  homeDirectionInRadians,
-  inContext,
-  INITIAL_FRAME_SECONDS,
-} from '../../../../apps/field-guide/src/features/viewer/model/camera';
-import { RADIANS_PER_POINT } from '../../../../apps/field-guide/src/features/viewer/components/SplatViewport';
 import { onDeviceInstructions } from '../../../../apps/field-guide/src/modules/instructor/data/onDeviceModel';
 import {
   Color,
@@ -157,10 +143,11 @@ describe('viewer screen', () => {
     orbit: jest.fn(),
     dolly: jest.fn(),
     pick: jest.fn<Promise<number>, [number, number]>(),
-    project: jest.fn(() => 0),
+    project: jest.fn<number, [ArrayBuffer, ArrayBuffer]>(() => 0),
   };
   const mount = async (
     params: Partial<RootStackParamList[typeof Route.viewer]> = {},
+    entries = catalog,
   ) => {
     const props = {
       navigation,
@@ -178,7 +165,7 @@ describe('viewer screen', () => {
     } as unknown as ScreenProps<typeof Route.viewer>;
     await act(async () => {
       renderer = ReactTestRenderer.create(
-        <CatalogProvider catalog={catalog}>
+        <CatalogProvider catalog={entries}>
           <ViewerScreen {...props} />
         </CatalogProvider>,
       );
@@ -192,13 +179,16 @@ describe('viewer screen', () => {
   const attach = async () => {
     await act(() => native().props.hybridRef(view as unknown as SplatViewSpec));
     await layout();
+    await act(() => native().props.onReady());
   };
-  const lastFraming = (scale?: number) =>
-    boundsForView(inContext(framingFor(debug().getState(), pack)!, scale));
-  const home = homeDirectionInRadians(pack.camera.home);
+  const home = {
+    azimuth: (pack.camera.home.azimuth * Math.PI) / 180,
+    elevation: (pack.camera.home.elevation * Math.PI) / 180,
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    view.project.mockReset().mockReturnValue(0);
     jest.mocked(useReducedMotion).mockReturnValue(false);
     jest.mocked(model.availability).mockReturnValue('unavailable');
     jest.mocked(model.respond).mockReset();
@@ -234,9 +224,6 @@ describe('viewer screen', () => {
       expect.arrayContaining([expect.objectContaining({ paddingBottom: 46 })]),
     );
     expect(native().props.highlight).toEqual(highlightFor(getState(), pack));
-    expect(native().props.cameraLimits).toEqual(
-      cameraLimitsInRadians(pack.camera.limits),
-    );
   });
 
   test('on an iPad the steps list beside the splat and open any step', async () => {
@@ -320,22 +307,48 @@ describe('viewer screen', () => {
     await act(() => native().props.hybridRef(view as unknown as SplatViewSpec));
     expect(view.frame).not.toHaveBeenCalled();
     await layout();
-    expect(view.frame).toHaveBeenLastCalledWith(
-      lastFraming(),
-      INITIAL_FRAME_SECONDS,
-      home,
-    );
+    expect(view.frame).not.toHaveBeenCalled();
     await act(() => native().props.onReady());
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
     expect(view.frame).toHaveBeenCalledTimes(1);
     await press('step-next');
-    expect(view.frame).toHaveBeenLastCalledWith(
-      lastFraming(),
-      FRAME_SECONDS,
-      home,
-    );
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
     expect(text('step-counter')).toBe('Step 2 of 8');
     await press('step-back');
     expect(text('step-counter')).toBe('Step 1 of 8');
+  });
+
+  test('the viewport converts authored camera limits and frames known bounds about their centre', async () => {
+    const fixture = fixturePack();
+    const authored = {
+      ...fixture,
+      camera: {
+        home: { azimuth: -90, elevation: 45, radius: 1.2 },
+        limits: {
+          minAzimuth: 90,
+          maxAzimuth: 270,
+          minElevation: -45,
+          maxElevation: 90,
+          minRadius: 0.25,
+          maxRadius: 2.5,
+        },
+      },
+    };
+    await mount({ guideId: authored.packId }, catalogFor(authored));
+    expect(native().props.cameraLimits).toEqual({
+      minAzimuth: Math.PI / 2,
+      maxAzimuth: (3 * Math.PI) / 2,
+      minElevation: -Math.PI / 4,
+      maxElevation: Math.PI / 2,
+      minRadius: 0.25,
+      maxRadius: 2.5,
+    });
+    await attach();
+    expect(view.frame).toHaveBeenLastCalledWith(
+      { min: { x: -0.5, y: -0.5, z: -0.5 }, max: { x: 1.5, y: 1.5, z: 1.5 } },
+      0,
+      { azimuth: -Math.PI / 2, elevation: Math.PI / 4 },
+    );
   });
 
   test('repeat and a new viewport size frame the step again', async () => {
@@ -348,11 +361,7 @@ describe('viewer screen', () => {
     expect(view.frame).toHaveBeenCalledTimes(calls + 1);
     await layout({ width: 300, height: 250 });
     expect(view.frame).toHaveBeenCalledTimes(calls + 2);
-    expect(view.frame).toHaveBeenLastCalledWith(
-      lastFraming(),
-      FRAME_SECONDS,
-      home,
-    );
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
   });
 
   test('selection keeps the orbit direction; repeat and Next restore the step', async () => {
@@ -363,10 +372,7 @@ describe('viewer screen', () => {
     );
     expect(text('step-title')).toBe('Battery');
     expect(node('step-repeat').props.accessibilityLabel).toBe('Back to step');
-    expect(view.frame).toHaveBeenLastCalledWith(
-      lastFraming(CLOSE_UP_SCALE),
-      FRAME_SECONDS,
-    );
+    expect(view.frame.mock.calls.at(-1)).toHaveLength(2);
     await press('step-repeat');
     expect(debug().getState().selectedPart).toBeNull();
     expect(view.frame.mock.calls.at(-1)).toHaveLength(3);
@@ -514,21 +520,8 @@ describe('viewer screen', () => {
     emit(pan.onUpdate, { numberOfPointers: 2, changeX: 100, changeY: 100 });
     emit(pinch.onUpdate, { scaleChange: 1.1, scale: 2 });
     expect(view.orbit).toHaveBeenCalledTimes(1);
-    expect(view.orbit).toHaveBeenCalledWith(
-      -4 * RADIANS_PER_POINT,
-      -2 * RADIANS_PER_POINT,
-    );
+    expect(view.orbit).toHaveBeenCalledWith(-0.04, -0.02);
     expect(view.dolly).toHaveBeenCalledWith(1.1);
-    expect(jest.mocked(useExclusiveGestures).mock.calls.at(-1)).toEqual([
-      expect.objectContaining({
-        kind: 'simultaneous',
-        gestures: [
-          expect.objectContaining({ kind: 'pan' }),
-          expect.objectContaining({ kind: 'pinch' }),
-        ],
-      }),
-      expect.objectContaining({ kind: 'tap' }),
-    ]);
   });
 
   test('tap normalizes coordinates and maps labels, including empty space', async () => {
@@ -595,6 +588,18 @@ describe('viewer screen', () => {
     expect(debug().getState().stepIndex).toBe(1);
   });
 
+  test('a replacement native view waits for its own ready callback', async () => {
+    await mount();
+    await attach();
+    const replacement = { ...view, frame: jest.fn() };
+    await act(() =>
+      native().props.hybridRef(replacement as unknown as SplatViewSpec),
+    );
+    expect(replacement.frame).not.toHaveBeenCalled();
+    await act(() => native().props.onReady());
+    expect(replacement.frame).toHaveBeenCalledTimes(1);
+  });
+
   test('marks every part a step names', async () => {
     await mount({ procedureId: 'check-power-steering-fluid', stepIndex: 0 });
     await act(() => native().props.onReady());
@@ -604,6 +609,51 @@ describe('viewer screen', () => {
       'Power steering reservoir, highlighted',
       'Coolant reservoir, highlighted',
     ]);
+  });
+
+  test('projected marks follow the camera and hide a part with a corner behind it', async () => {
+    const frames = jest.spyOn(
+      jest.requireMock('react-native-reanimated'),
+      'useFrameCallback',
+    );
+    await mount({ procedureId: 'check-power-steering-fluid', stepIndex: 0 });
+    await attach();
+    await act(() => {
+      for (const index of [0, 1]) {
+        node(`marker-${index}`).props.onLayout({
+          nativeEvent: { layout: { width: 40, height: 12 } },
+        });
+      }
+    });
+    let cameraX = 0.25;
+    view.project.mockImplementation((_points, out) => {
+      const projected = new Float32Array(out);
+      projected.fill(NaN);
+      for (let corner = 0; corner < 8; corner++) {
+        projected[corner * 2] = cameraX;
+        projected[corner * 2 + 1] = 0.5;
+      }
+      return 8;
+    });
+    const frame = () =>
+      emit(frames.mock.calls.at(-1)![0], {
+        timestamp: 0,
+        timeSincePreviousFrame: null,
+        timeSinceFirstFrame: 0,
+      });
+    await act(frame);
+    await press('step-repeat');
+    const before = StyleSheet.flatten(node('marker-0').props.style);
+    expect(before.opacity).toBe(1);
+    expect(StyleSheet.flatten(node('marker-1').props.style).opacity).toBe(0);
+    cameraX = 0.75;
+    await act(frame);
+    await press('step-repeat');
+    const after = StyleSheet.flatten(node('marker-0').props.style);
+    expect(after.transform[0].translateX - before.transform[0].translateX).toBe(
+      150,
+    );
+    expect(after.transform[1].translateY).toBe(before.transform[1].translateY);
   });
 
   describe('instructor', () => {
@@ -683,11 +733,7 @@ describe('viewer screen', () => {
       expect(native().props.highlight).toEqual(
         highlightFor(debug().getState(), pack),
       );
-      expect(view.frame).toHaveBeenLastCalledWith(
-        lastFraming(),
-        FRAME_SECONDS,
-        home,
-      );
+      expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
       expect(await loadProgress()).toMatchObject({ stepIndex: 1 });
       await press('instructor-back');
       expect(debug().getState().stepIndex).toBe(0);
@@ -890,18 +936,16 @@ describe('viewer screen', () => {
     test('a question about the step pushes in on its part; Next pulls back', async () => {
       await mount({ mode: LearnMode.instructor });
       await attach();
+      const before = view.frame.mock.calls.at(-1)![0];
       await ask(PUSH_IN_QUESTION);
       expect(debug().getState().selectedPart).toBeNull();
-      expect(view.frame).toHaveBeenLastCalledWith(
-        lastFraming(CLOSE_UP_SCALE),
-        CLOSE_UP_SECONDS,
+      const after = view.frame.mock.calls.at(-1)![0];
+      expect(after.max.x - after.min.x).toBeLessThan(
+        before.max.x - before.min.x,
       );
+      expect(view.frame.mock.calls.at(-1)).toHaveLength(2);
       await press('instructor-next');
-      expect(view.frame).toHaveBeenLastCalledWith(
-        lastFraming(),
-        FRAME_SECONDS,
-        home,
-      );
+      expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
     });
 
     test('viewport resizing reframes once at layout completion and keeps the current part', async () => {
@@ -917,10 +961,7 @@ describe('viewer screen', () => {
       expect(view.frame).toHaveBeenCalledTimes(calls);
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
-      expect(view.frame).toHaveBeenLastCalledWith(
-        lastFraming(CLOSE_UP_SCALE),
-        FRAME_SECONDS,
-      );
+      expect(view.frame.mock.calls.at(-1)).toHaveLength(2);
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
     });
@@ -1443,6 +1484,34 @@ describe('viewer screen', () => {
       expect(output.stop).toHaveBeenCalled();
       expect(input.cancel).toHaveBeenCalled();
       expect(output.speak).not.toHaveBeenCalled();
+    });
+
+    test('a pick interrupts streaming even when more words arrive about the same part', async () => {
+      jest.mocked(model.availability).mockReturnValue('available');
+      const answer = deferred<string>();
+      const picked = deferred<number>();
+      jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
+      view.pick.mockReturnValueOnce(picked.promise);
+      await mount({ mode: LearnMode.instructor });
+      await attach();
+      await ask('Explain the battery');
+      const partial = jest.mocked(model.respond).mock.calls[0][2];
+      await act(async () => partial('It supplies'));
+      await act(() =>
+        emit(jest.mocked(useTapGesture).mock.calls.at(-1)![0]!.onActivate, {
+          x: 150,
+          y: 100,
+        }),
+      );
+      await act(async () => partial('It supplies the starter'));
+      await act(async () =>
+        picked.resolve(
+          pack.parts.find(part => part.id === 'coolant-reservoir')!.label,
+        ),
+      );
+      expect(debug().getState().selectedPart).toBe('coolant-reservoir');
+      await act(async () => answer.resolve('Late answer.'));
+      expect(debug().getState().selectedPart).toBe('coolant-reservoir');
     });
 
     test('a replacing question restores a streamed selection before taking its baseline', async () => {

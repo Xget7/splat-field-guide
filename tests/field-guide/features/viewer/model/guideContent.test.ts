@@ -8,8 +8,6 @@ import { TOUR_ID } from '../../../../../apps/field-guide/src/domain/tour';
 import {
   CardKind,
   cardContentFor,
-  markedPartsFor,
-  partIdForLabel,
   stepRowsFor,
 } from '../../../../../apps/field-guide/src/features/viewer/model/guideContent';
 
@@ -110,25 +108,6 @@ test.each([TOUR_ID, 'check-coolant'])(
   },
 );
 
-test('marks the selection, else every part the step names, without the parts inside', () => {
-  const names = (state: Parameters<typeof markedPartsFor>[0]) =>
-    markedPartsFor(state, pack).map(part => part.name);
-  const tourEngine = {
-    ...start(),
-    stepIndex: pack.procedures[0].steps.findIndex(step =>
-      step.parts.includes('engine'),
-    ),
-  };
-  expect(names(tourEngine)).toEqual(['Engine']);
-  expect(names({ ...tourEngine, selectedPart: 'battery' })).toEqual([
-    'Battery',
-  ]);
-  expect(names(INITIAL_SESSION)).toEqual([]);
-  expect(markedPartsFor(tourEngine, pack)[0].bounds).toEqual(
-    pack.parts.find(part => part.id === 'engine')?.bounds,
-  );
-});
-
 test('an ended session has overview content and disabled navigation', () => {
   expect(cardContentFor(INITIAL_SESSION, pack)).toMatchObject({
     kind: CardKind.overview,
@@ -137,13 +116,6 @@ test('an ended session has overview content and disabled navigation', () => {
     backDisabled: true,
     nextDisabled: true,
   });
-});
-
-test('labels map to exact parts, with zero clearing and unknown labels ignored', () => {
-  expect(partIdForLabel(6, pack)).toBe('engine');
-  expect(partIdForLabel(7, pack)).toBe('valve-cover');
-  expect(partIdForLabel(0, pack)).toBeNull();
-  expect(partIdForLabel(255, pack)).toBeUndefined();
 });
 
 test('the step list names tour steps by part and the rest by their first sentence, then the others', () => {

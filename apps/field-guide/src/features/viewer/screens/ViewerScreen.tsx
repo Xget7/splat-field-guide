@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { KeyboardAvoidingView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   LayoutAnimationConfig,
   useReducedMotion,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
-import type { SplatError, SplatViewSpec } from 'react-native-splat';
 import {
   findReadyGuide,
   type ReadyGuide,
@@ -33,16 +25,14 @@ import {
 } from '../../../shared/navigation/routes';
 import { IconButton } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
-import { Color, HAIRLINE, Motion, Space, Type } from '../../../shared/ui/theme';
-import { partIdForLabel, stepRowsFor } from '../model/guideContent';
+import { Color, HAIRLINE, Space, Type } from '../../../shared/ui/theme';
+import { stepRowsFor } from '../model/guideContent';
 import { InstructorPanel } from '../components/InstructorPanel';
-import { PartMarkers, type Size } from '../components/PartMarkers';
 import { ProcedureSheet } from '../components/ProcedureSheet';
-import { SplatViewport } from '../components/SplatViewport';
+import { SplatViewport } from '../../../modules/viewport/components/SplatViewport';
 import { PartList } from '../components/PartList';
 import { StepList } from '../components/StepList';
 import { StepPanel } from '../components/StepPanel';
-import { useGuideFraming } from '../hooks/useGuideFraming';
 import { ToolsLayout, ViewerTools } from '../components/ViewerTools';
 import { ViewerTopBar } from '../components/ViewerTopBar';
 import { useKeyboardVisible } from '../../../shared/hooks/useKeyboardVisible';
@@ -59,14 +49,12 @@ import { useViewerSession } from '../hooks/useViewerSession';
 
 /** Metro end-to-end checks drive the live viewer through this, in development only. */
 export interface FieldGuideDebug {
-  view: SplatViewSpec | null;
   dispatch: (event: SessionEvent) => void;
   ask: (question: string) => void;
   getState: () => SessionState;
   pack: Pack;
 }
 
-const NO_SIZE: Size = { width: 0, height: 0 };
 const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
 // Wide enough for a step to read in two lines, narrow enough to leave the splat the screen.
@@ -124,8 +112,6 @@ function Viewer({
     resumeGuide,
     finish,
     frameRequest,
-    highlight,
-    marked,
     card,
     thread,
     exchange,
@@ -140,10 +126,6 @@ function Viewer({
     instructor: defaultInstructor,
     startInVoice,
   });
-  const [view, setView] = useState<SplatViewSpec | null>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState('');
-  const [viewport, setViewport] = useState(NO_SIZE);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [fullView, setFullView] = useState(false);
   const [instructorMode, setInstructorMode] = useState<PanelMode>(
@@ -153,54 +135,18 @@ function Viewer({
   const wide = useWideLayout();
   const steps = useMemo(() => stepRowsFor(session, pack), [session, pack]);
   const reducedMotion = useReducedMotion();
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  const [viewportSettlement, setViewportSettlement] = useState(0);
-  const settleViewport = useCallback(() => {
-    if (mounted.current) {
-      setViewportSettlement(value => value + 1);
-    }
-  }, []);
-  const viewportLayout = useMemo(
-    () =>
-      panelLayout().withCallback(finished => {
-        'worklet';
-        if (finished) {
-          scheduleOnRN(settleViewport);
-        }
-      }),
-    [settleViewport],
-  );
+  const viewportTransition = useMemo(() => panelLayout(), []);
   const sessionRef = useRef(session);
-  const pickGeneration = useRef(0);
   // Over the keyboard the home indicator is hidden, so the panel needs no room for it.
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
 
   // Beside a sidebar the splat also resizes when full view folds it away.
   const animatedResize = (instructorOpen || wide) && !reducedMotion;
-  useGuideFraming(
-    view,
-    session,
-    pack,
-    frameRequest,
-    viewport,
-    animatedResize,
-    viewportSettlement,
-    // One part on its own, or a question about what is on screen, is what is being talked about.
-    session.selectedPart !== null || exchange !== null,
-  );
-
   useEffect(() => {
     sessionRef.current = session;
     if (__DEV__) {
       const target = globalThis as { fieldGuide?: FieldGuideDebug };
       const debug: FieldGuideDebug = {
-        view,
         dispatch,
         ask,
         getState: () => sessionRef.current,
@@ -213,55 +159,8 @@ function Viewer({
         }
       };
     }
-  }, [session, view, pack, dispatch, ask]);
+  }, [session, pack, dispatch, ask]);
 
-  useEffect(() => {
-    // A delayed pick must not overwrite a newer step or an unmounted screen.
-    pickGeneration.current += 1;
-    return () => {
-      pickGeneration.current += 1;
-    };
-  }, [session, view, pack]);
-
-  const onPick = useCallback(
-    async (x: number, y: number) => {
-      if (view === null) {
-        return;
-      }
-      const generation = ++pickGeneration.current;
-      try {
-        const label = await view.pick(x, y);
-        if (generation !== pickGeneration.current) {
-          return;
-        }
-        const partId = partIdForLabel(label, pack);
-        if (partId !== undefined) {
-          dispatch({ type: SessionEventType.select, partId });
-        }
-      } catch (thrown) {
-        if (generation === pickGeneration.current) {
-          setError(thrown instanceof Error ? thrown.message : String(thrown));
-        }
-      }
-    },
-    [view, pack, dispatch],
-  );
-  const onReady = useCallback(() => {
-    setReady(true);
-    setError('');
-  }, []);
-  const onError = useCallback(
-    (failure: SplatError) => setError(failure.message),
-    [],
-  );
-  const onViewportLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setViewport(current =>
-      current.width === width && current.height === height
-        ? current
-        : { width, height },
-    );
-  }, []);
   const onBack = useCallback(
     () => dispatch({ type: SessionEventType.back }),
     [dispatch],
@@ -283,7 +182,8 @@ function Viewer({
     [dispatch],
   );
   const onSelectPart = useCallback(
-    (partId: PartId) => dispatch({ type: SessionEventType.select, partId }),
+    (partId: PartId | null) =>
+      dispatch({ type: SessionEventType.select, partId }),
     [dispatch],
   );
   // With no guide set aside, the guide to follow has to be chosen first.
@@ -322,34 +222,15 @@ function Viewer({
   );
 
   const viewportView = (
-    <Animated.View
-      testID="viewer-viewport"
-      layout={animatedResize ? viewportLayout : undefined}
-      style={styles.viewport}
-      onLayout={onViewportLayout}
+    <SplatViewport
+      pack={pack}
+      session={session}
+      frameRequest={frameRequest}
+      closeUp={session.selectedPart !== null || exchange !== null}
+      accessibilityLabel={`${guide.title}, ${guide.area}`}
+      resizeTransition={animatedResize ? viewportTransition : undefined}
+      onSelect={onSelectPart}
     >
-      <SplatViewport
-        pack={pack}
-        highlight={highlight}
-        view={view}
-        size={viewport}
-        accessibilityLabel={`${guide.title}, ${guide.area}`}
-        loading={!ready}
-        materialize={!reducedMotion}
-        error={error}
-        onView={setView}
-        onReady={onReady}
-        onError={onError}
-        onPick={onPick}
-      />
-      {ready && (
-        <PartMarkers
-          view={view}
-          parts={marked}
-          size={viewport}
-          enterAfter={reducedMotion ? 0 : Motion.reveal}
-        />
-      )}
       {!wide && (
         <View style={styles.toolsTop}>{tools(ToolsLayout.floating)}</View>
       )}
@@ -364,7 +245,7 @@ function Viewer({
           {tools(ToolsLayout.floating)}
         </Animated.View>
       )}
-    </Animated.View>
+    </SplatViewport>
   );
   const panel = instructorOpen ? (
     <InstructorPanel
@@ -488,7 +369,6 @@ function MissingGuide({ onBack }: { onBack: () => void }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
-  viewport: { flex: 1 },
   split: { flex: 1, flexDirection: 'row' },
   // The steps on top, then the panel, which sits at the foot as it does under the splat.
   sidebar: {
