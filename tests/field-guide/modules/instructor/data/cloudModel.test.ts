@@ -1,4 +1,5 @@
 import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/session';
+import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
   Grounding,
@@ -19,6 +20,7 @@ const pack = fixturePack();
 const URL = 'https://proxy.example';
 const request = {
   question: 'What does the battery do?',
+  evidence: evidenceFor('What does the battery do?', INITIAL_SESSION, pack),
   state: INITIAL_SESSION,
   pack,
   history: [],
@@ -93,7 +95,7 @@ test('instructions are strict structured rules followed by every note and guided
     'faults: A battery that keeps going flat needs a charging check.',
   );
   expect(instructions).toContain(
-    'Check the coolant level: Step engine-cold Step locate Step read-level',
+    'Check the coolant level: Step engine-cold Caution: Only with the engine cold. Step locate Step read-level',
   );
 });
 

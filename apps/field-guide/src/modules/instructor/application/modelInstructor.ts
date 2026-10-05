@@ -1,5 +1,5 @@
 import type { Pack } from '../../../domain/pack';
-import { subjectOf } from '../domain/context';
+import { evidenceFor } from '../domain/context';
 import { answerAbout, replyFrom } from '../domain/grounding';
 import {
   answerFor,
@@ -33,7 +33,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
   }
 
   async function ask(
-    input: ModelRequest,
+    input: Omit<ModelRequest, 'evidence'>,
     changed: (event: TurnEvent) => void,
   ): Promise<void> {
     const question = input.question.trim();
@@ -77,16 +77,17 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
       finish(answerFor(question, state, pack));
       return;
     }
-    const subject = subjectOf(question, state, pack);
+    const evidence = evidenceFor(question, state, pack);
+    const subject = evidence.subject;
     for (const model of readyModels()) {
       if (!current()) {
         return;
       }
       try {
         const text = await model.respond(
-          { question, state, pack, history },
+          { question, state, pack, history, evidence },
           partial => {
-            const reply = replyFrom(partial, pack, true);
+            const reply = replyFrom(partial, evidence, true);
             if (reply !== '' && current()) {
               changed({
                 type: TurnEventType.partial,
@@ -103,7 +104,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
         if (!current()) {
           return;
         }
-        const reply = replyFrom(text, pack);
+        const reply = replyFrom(text, evidence);
         if (reply !== '') {
           finish(answerAbout(reply, subject));
           return;

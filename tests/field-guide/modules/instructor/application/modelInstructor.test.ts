@@ -59,7 +59,12 @@ test('the cloud answers first when it can', async () => {
   expect(await ask()).toEqual(answerAbout('It starts the engine.', battery));
   expect(local.respond).not.toHaveBeenCalled();
   expect(cloud.respond).toHaveBeenCalledWith(
-    { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
+    expect.objectContaining({
+      question: QUESTION,
+      state: INITIAL_SESSION,
+      pack,
+      history: [],
+    }),
     expect.any(Function),
   );
 });
@@ -200,4 +205,17 @@ test('cancelling one instructor leaves another pending answer active', async () 
   });
   expect(firstModel.cancel).toHaveBeenCalled();
   expect(secondModel.cancel).not.toHaveBeenCalled();
+});
+
+test('a battery voltage does not ground a coolant capacity', async () => {
+  instructor = createModelInstructor([
+    fakeModel(ModelName.cloud, replies('Coolant capacity is 12 litres.')),
+  ]);
+  const answer = await ask(
+    jest.fn(),
+    instructor,
+    'Explain the coolant reservoir',
+  );
+  expect(answer.reply).toBe(NOT_COVERED_REPLY);
+  expect(answer.event).toBeNull();
 });

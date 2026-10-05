@@ -22,7 +22,7 @@ export const COOL_OFF_MS = 30000;
 export const CLOUD_HISTORY_TURNS = 4;
 
 /**
- * Everything the pack knows, once per pack: the proxy caches it, and a large model can
+ * Everything the pack knows, once per pack: the upstream model receives an ephemeral cache hint, and can
  * reason across parts instead of seeing only the notes picked for one.
  */
 export function cloudInstructions(pack: Pack): string {
@@ -39,7 +39,13 @@ export function cloudInstructions(pack: Pack): string {
   );
   const procedures = pack.procedures.map(
     procedure =>
-      `${procedure.title}: ${procedure.steps.map(step => step.text).join(' ')}`,
+      `${procedure.title}: ${procedure.steps
+        .map(step =>
+          [step.text, step.caution === '' ? '' : `Caution: ${step.caution}`]
+            .filter(Boolean)
+            .join(' '),
+        )
+        .join(' ')}`,
   );
   return [
     ...rulesFor(pack, Grounding.strict, ReplyFormat.structured),
@@ -77,9 +83,9 @@ export function createCloudModel({
     name: ModelName.cloud,
     isReady: () => url !== null && now() >= offlineUntil,
     prewarm() {
-      // The proxy caches the instructions on the first question; nothing to load here.
+      // The first question sends the upstream cache hint; nothing to load here.
     },
-    respond({ question, state, pack, history }, onText) {
+    respond({ question, state, pack, history, evidence }, onText) {
       stopCurrent?.();
       return new Promise<string>((resolve, reject) => {
         // Looked up per request: the global only exists where React Native installs it.
@@ -157,6 +163,7 @@ export function createCloudModel({
               pack,
               history.slice(-CLOUD_HISTORY_TURNS),
               PromptNotes.none,
+              evidence,
             ),
           }),
         );

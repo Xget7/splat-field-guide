@@ -1,5 +1,10 @@
 import { languageModel } from 'react-native-on-device';
-import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/session';
+import { createModelInstructor } from '../../../../../apps/field-guide/src/modules/instructor/application/modelInstructor';
+import {
+  INITIAL_SESSION,
+  startAt,
+} from '../../../../../apps/field-guide/src/domain/session';
+import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
   Grounding,
@@ -66,6 +71,7 @@ test('asks with the subject notes and passes the streamed text through', async (
     });
   const request = {
     question: 'What does the battery do?',
+    evidence: evidenceFor('What does the battery do?', INITIAL_SESSION, pack),
     state: INITIAL_SESSION,
     pack,
     history: [],
@@ -86,4 +92,60 @@ test('cancel works without the native module', () => {
   expect(model.cancel).toHaveBeenCalled();
   jest.mocked(languageModel).mockImplementationOnce(noNativeModule);
   expect(() => onDeviceModel.cancel()).not.toThrow();
+});
+
+test('explaining another procedure supplies its authored steps and cautions without starting it', async () => {
+  jest.mocked(model.availability).mockReturnValue('available');
+  jest
+    .mocked(model.respond)
+    .mockResolvedValueOnce('Read the coolant level with the engine cold.');
+  const changed = jest.fn();
+  await createModelInstructor([onDeviceModel]).ask(
+    {
+      question: 'How do I check the coolant level?',
+      state: startAt('check-brake-fluid', 1, pack),
+      pack,
+      history: [],
+    },
+    changed,
+  );
+  const prompt = jest.mocked(model.respond).mock.calls[0][1];
+  expect(prompt).toContain('Step engine-cold');
+  expect(prompt).toContain('Step locate');
+  expect(prompt).toContain('Step read-level');
+  expect(prompt).toContain('Only with the engine cold.');
+  expect(changed.mock.calls.at(-1)?.[0].answer.event?.type).not.toBe('start');
+});
+
+test('oversized procedure evidence falls back rather than dropping its caution', async () => {
+  jest.mocked(model.availability).mockReturnValue('available');
+  const large = {
+    ...pack,
+    procedures: pack.procedures.map(procedure =>
+      procedure.id === 'check-coolant'
+        ? {
+            ...procedure,
+            steps: procedure.steps.map((step, index) =>
+              index === 0
+                ? { ...step, text: 'instruction '.repeat(600) }
+                : step,
+            ),
+          }
+        : procedure,
+    ),
+  };
+  const changed = jest.fn();
+  await createModelInstructor([onDeviceModel]).ask(
+    {
+      question: 'How do I check the coolant level?',
+      state: INITIAL_SESSION,
+      pack: large,
+      history: [],
+    },
+    changed,
+  );
+  expect(model.respond).not.toHaveBeenCalled();
+  expect(changed.mock.calls.at(-1)?.[0].answer.caution).toContain(
+    'Only with the engine cold.',
+  );
 });

@@ -41,7 +41,7 @@ export const onDeviceModel: InstructorModel = {
       // Another model or the script answers without it.
     }
   },
-  respond({ question, state, pack, history }, onText) {
+  respond({ question, state, pack, history, evidence }, onText) {
     return languageModel().respond(
       onDeviceInstructions(pack),
       promptFor(
@@ -50,6 +50,7 @@ export const onDeviceModel: InstructorModel = {
         pack,
         history.slice(-ON_DEVICE_HISTORY_TURNS),
         PromptNotes.subject,
+        evidence,
       ),
       onText,
     );

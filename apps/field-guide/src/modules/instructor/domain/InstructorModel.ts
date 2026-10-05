@@ -1,5 +1,6 @@
 import type { Pack } from '../../../domain/pack';
 import type { SessionState } from '../../../domain/session';
+import type { AuthoredEvidence } from './context';
 import type { PreviousExchange } from './grounding';
 
 export const ModelName = { cloud: 'cloud', onDevice: 'onDevice' } as const;
@@ -9,6 +10,7 @@ export interface ModelRequest {
   readonly question: string;
   readonly state: SessionState;
   readonly pack: Pack;
+  readonly evidence: AuthoredEvidence;
   /** The conversation so far, oldest first; each model keeps as much as it can hold. */
   readonly history: readonly PreviousExchange[];
 }
