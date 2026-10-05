@@ -5,6 +5,7 @@ import {
   answerFor,
   NOT_COVERED_REPLY,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/instructor';
+import { TurnEventType } from '../../../../../apps/field-guide/src/modules/instructor/domain/turn';
 import { createModelInstructor } from '../../../../../apps/field-guide/src/modules/instructor/application/modelInstructor';
 import {
   ModelName,
@@ -31,8 +32,25 @@ const replies = (text: string) => async () => text;
 const fails = async (): Promise<string> => {
   throw new Error('down');
 };
-const ask = (onPartial = jest.fn()) =>
-  instructor.modelAnswer(QUESTION, INITIAL_SESSION, pack, [], onPartial);
+async function ask(
+  onPartial = jest.fn(),
+  owner = instructor,
+  question = QUESTION,
+) {
+  let answer;
+  await owner.ask(
+    { question, state: INITIAL_SESSION, pack, history: [] },
+    event => {
+      if (event.type === TurnEventType.partial && event.exchange.reply !== '') {
+        onPartial({ reply: event.exchange.reply, part: event.exchange.part });
+      }
+      if (event.type === TurnEventType.answer) {
+        answer = event.answer;
+      }
+    },
+  );
+  return answer!;
+}
 
 test('the cloud answers first when it can', async () => {
   const cloud = fakeModel(ModelName.cloud, replies('It starts the engine.'));
@@ -116,34 +134,40 @@ test('cancel stops the chain and silences late partials', async () => {
     local,
   ]);
   const answer = ask(onPartial);
-  instructor.cancelInstructor();
+  instructor.cancel();
   finish('Late words.');
   await answer;
   expect(onPartial).not.toHaveBeenCalled();
   expect(local.respond).not.toHaveBeenCalled();
 });
 
-test('scripted questions and a moment with no ready model skip the models', () => {
-  instructor = createModelInstructor([
-    fakeModel(ModelName.cloud, replies('Cloud.')),
-  ]);
-  expect(instructor.usesModel(QUESTION, pack)).toBe(true);
-  expect(instructor.usesModel('next', pack)).toBe(false);
-  expect(instructor.usesModel('What oil does it take?', pack)).toBe(false);
+test('commands stay synchronous and questions with no ready model use the script', async () => {
+  const model = fakeModel(ModelName.cloud, replies('Cloud.'));
+  instructor = createModelInstructor([model]);
+  const changed = jest.fn();
+  const done = instructor.ask(
+    { question: 'next', state: INITIAL_SESSION, pack, history: [] },
+    changed,
+  );
+  expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+    type: TurnEventType.answer,
+  });
+  await done;
+  expect(model.respond).not.toHaveBeenCalled();
   instructor = createModelInstructor([
     fakeModel(ModelName.cloud, replies('Cloud.'), false),
   ]);
-  expect(instructor.usesModel(QUESTION, pack)).toBe(false);
+  expect(await ask()).toEqual(answerFor(QUESTION, INITIAL_SESSION, pack));
 });
 
 test('prewarm reaches only ready models and cancel reaches all', () => {
   const ready = fakeModel(ModelName.cloud, replies(''));
   const idle = fakeModel(ModelName.onDevice, replies(''), false);
   instructor = createModelInstructor([ready, idle]);
-  instructor.prewarmInstructor(pack);
+  instructor.prewarm(pack);
   expect(ready.prewarm).toHaveBeenCalledWith(pack);
   expect(idle.prewarm).not.toHaveBeenCalled();
-  instructor.cancelInstructor();
+  instructor.cancel();
   expect(ready.cancel).toHaveBeenCalled();
   expect(idle.cancel).toHaveBeenCalled();
 });
@@ -162,15 +186,9 @@ test('cancelling one instructor leaves another pending answer active', async () 
   });
   const first = createModelInstructor([firstModel]);
   const second = createModelInstructor([secondModel]);
-  const pending = second.modelAnswer(
-    QUESTION,
-    INITIAL_SESSION,
-    pack,
-    [],
-    onPartial,
-  );
+  const pending = ask(onPartial, second);
 
-  first.cancelInstructor();
+  first.cancel();
   finish();
 
   expect(await pending).toEqual(

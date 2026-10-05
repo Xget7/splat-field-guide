@@ -3,6 +3,7 @@ import { highlightFor } from '../../../domain/derive';
 import type { ProcedureId } from '../../../domain/pack';
 import type { SessionEvent } from '../../../domain/session';
 import type { ReadyGuide } from '../../../modules/catalog/catalog';
+import { sessionForExchange } from '../../../modules/instructor/domain/turn';
 import type { ModelInstructor } from '../../../modules/instructor/application/modelInstructor';
 import {
   useInstructorVoice,
@@ -48,11 +49,13 @@ export function useViewerSession({
     null,
     () => initialViewerState(procedureId, stepIndex, pack),
   );
-  const { session, exchange, thread, frameRequest } = state;
+  const { exchange, thread, frameRequest } = state;
+  const session = useMemo(
+    () => sessionForExchange(state.session, exchange, pack),
+    [state.session, exchange, pack],
+  );
   const stateRef = useRef(state);
   stateRef.current = state;
-  const answerGeneration = useRef(0);
-  const modelRequest = useRef<number | null>(null);
   const interruptVoice = useRef<(() => void) | null>(null);
 
   const highlight = useMemo(
@@ -61,33 +64,23 @@ export function useViewerSession({
   );
   const marked = useMemo(() => markedPartsFor(session, pack), [session, pack]);
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
-  const invalidateAnswer = useCallback(() => {
-    answerGeneration.current += 1;
-    if (modelRequest.current !== null) {
-      modelRequest.current = null;
-      instructor.cancelInstructor();
-    }
-  }, [instructor]);
-  const cancelAnswer = useCallback(() => {
-    invalidateAnswer();
-    act({ type: ViewerActionType.cancel });
-  }, [invalidateAnswer]);
+  const cancelAnswer = useCallback(() => instructor.cancel(), [instructor]);
   const dispatch = useCallback(
     (event: SessionEvent) => {
-      invalidateAnswer();
+      cancelAnswer();
       interruptVoice.current?.();
       act({ type: ViewerActionType.session, event });
     },
-    [invalidateAnswer],
+    [cancelAnswer],
   );
   /** Leaves the guide's flow to look around, and comes back to it. */
   const changeMode = useCallback(
     (type: typeof ViewerActionType.explore | typeof ViewerActionType.guide) => {
-      invalidateAnswer();
+      cancelAnswer();
       interruptVoice.current?.();
       act({ type });
     },
-    [invalidateAnswer],
+    [cancelAnswer],
   );
   const explore = useCallback(
     () => changeMode(ViewerActionType.explore),
@@ -103,36 +96,19 @@ export function useViewerSession({
       if (question === '') {
         return;
       }
-      invalidateAnswer();
       interruptVoice.current?.();
-      const id = answerGeneration.current;
       const current = stateRef.current;
-      if (!instructor.usesModel(question, pack)) {
-        act({ type: ViewerActionType.ask, question, id });
-        return;
-      }
-      modelRequest.current = id;
-      act({ type: ViewerActionType.begin, question, id });
-      instructor
-        .modelAnswer(
+      instructor.ask(
+        {
           question,
-          current.session,
+          state: current.session,
           pack,
-          answeredExchanges(current),
-          partial => {
-            if (id === answerGeneration.current) {
-              act({ type: ViewerActionType.partial, id, partial });
-            }
-          },
-        )
-        .then(answer => {
-          if (id === answerGeneration.current) {
-            modelRequest.current = null;
-            act({ type: ViewerActionType.answer, id, answer });
-          }
-        });
+          history: answeredExchanges(current),
+        },
+        event => act({ type: ViewerActionType.turn, event }),
+      );
     },
-    [pack, invalidateAnswer, instructor],
+    [pack, instructor],
   );
 
   const thinking =
@@ -173,11 +149,11 @@ export function useViewerSession({
 
   useEffect(() => {
     if (instructorOpen) {
-      instructor.prewarmInstructor(pack);
+      instructor.prewarm(pack);
     }
   }, [instructorOpen, pack, instructor]);
 
-  useEffect(() => () => invalidateAnswer(), [invalidateAnswer, pack]);
+  useEffect(() => () => cancelAnswer(), [cancelAnswer, pack]);
 
   useEffect(() => {
     // The library offers to continue where this leaves off, once there is something to

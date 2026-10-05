@@ -1416,6 +1416,30 @@ describe('viewer screen', () => {
       expect(output.speak).not.toHaveBeenCalled();
     });
 
+    test('a replacing question restores a streamed selection before taking its baseline', async () => {
+      jest.mocked(model.availability).mockReturnValue('available');
+      const first = deferred<string>();
+      const second = deferred<string>();
+      jest
+        .mocked(model.respond)
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise);
+      await mount({ mode: LearnMode.instructor });
+      await ask('Explain the battery');
+      const partial = jest.mocked(model.respond).mock.calls[0][2];
+      await act(async () => partial('It supplies'));
+      expect(debug().getState().selectedPart).toBe('battery');
+      await ask('What gets hot when I drive?');
+      expect(debug().getState().selectedPart).toBeNull();
+      await act(async () => second.reject(new Error('model failed')));
+      expect(debug().getState().selectedPart).toBeNull();
+      await act(async () => {
+        partial('Late words.');
+        first.resolve('Late answer.');
+      });
+      expect(debug().getState().selectedPart).toBeNull();
+    });
+
     test('model errors restore the script even after a provisional highlight', async () => {
       jest.mocked(model.availability).mockReturnValue('available');
       const answer = deferred<string>();
