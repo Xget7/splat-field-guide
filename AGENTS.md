@@ -19,7 +19,7 @@ Complete this step when the owned module, its interface and the evidence needed 
 | `apps/field-guide/src/app` | Composition and navigation |
 | `apps/field-guide/src/domain` | Pure pack/session rules, tours and highlight/framing derivation |
 | `apps/field-guide/src/features` | Library, guide detail, viewer and AR presentation |
-| `apps/field-guide/src/modules` | Catalog, pack paths, progress and instructor coordination |
+| `apps/field-guide/src/modules` | Catalog, pack paths, ordered progress, instructor turns and viewport ownership |
 | `apps/field-guide/src/shared` | UI primitives, general hooks and route contracts |
 | `packages/react-native-splat` | Nitro view, C interface, C++ geometry and Metal rendering |
 | `packages/react-native-on-device` | Transcription, Apple generation, Kokoro and audio coordination |
@@ -40,23 +40,47 @@ Run commands from the stated directory, using fakes rather than paid requests.
 | --- | --- | --- |
 | Root | Prepare demo | `nice -n 19 scripts/prepare.sh --pack /path/to/gol-trend-engine-bay-1.tar.gz` |
 | Root | Engine framework | `nice -n 19 packages/react-native-splat/scripts/build-ios-engine.sh` |
+| `apps/field-guide` | Install JS | `nice -n 19 npm ci` |
 | `apps/field-guide` | Start/run | `npm start`, `nice -n 19 npm run ios` |
 | `apps/field-guide` | Tests | `nice -n 19 npm test -- --runInBand` |
 | `apps/field-guide` | Lint and types | `nice -n 19 npm run lint`, `nice -n 19 npm run typecheck` |
-| Each native package | Install/codegen | `npm ci`, `nice -n 19 npm run codegen` |
+| Each native package | Install/codegen | `nice -n 19 npm ci`, `nice -n 19 npm run codegen` |
 | Each native package | Lint and types | `nice -n 19 npm run lint`, `nice -n 19 npm run typecheck` |
-| `packages/react-native-on-device` | JS tests | `nice -n 19 npm test -- --runInBand` |
-| `services/instructor-proxy` | Install/tests/types | `npm ci`, `nice -n 19 npm test`, `nice -n 19 npx tsc --noEmit` |
-| Root | Pipeline checks/lint | `nice -n 19 uv run pipeline/preflight.py` |
-| Root | Verify exported pack | `nice -n 19 uv run pipeline/export_checks.py --pack data/pack/gol-trend-engine-bay/1 --labels data/segment/lift/all/labels.npy` |
-| Root | Pipeline regression tests | `nice -n 19 uv run --with pytest pytest tests/pipeline` |
+| `packages/react-native-splat` | Artifact tests | `nice -n 19 npm test` |
+| `packages/react-native-on-device` | JS/Swift harness tests | `nice -n 19 npm test -- --runInBand` |
+| `services/instructor-proxy` | Install/tests/types | `nice -n 19 npm ci`, `nice -n 19 npm test`, `nice -n 19 npx tsc --noEmit -p .` |
+| Root | Pipeline preflight | `nice -n 19 uv run pipeline/preflight.py` |
+| Root | Verify exported pack | `nice -n 19 uv run pipeline/export_checks.py --pack data/pack/gol-trend-engine-bay/1 --labels data/pack/.sources/lift/labels.npy` |
+| Root | Marking-page tests | `nice -n 19 node --test tests/pipeline/test_mark_page.cjs` |
+| Root | Pipeline lint | `nice -n 19 uvx ruff check --select F,E9 pipeline tests/pipeline scripts` |
+| Root | Pack archive | `nice -n 19 scripts/package-pack.sh` |
+| `apps/field-guide` | Ruby dependencies | `nice -n 19 bundle install` |
+| `apps/field-guide/ios` | Pods after preparation/codegen | `nice -n 19 bundle exec pod install` |
 
 Omit `--pack` once the public release exists, or supply `FIELD_GUIDE_PACK_URL`; matching pack files and engine fingerprints are reused.
-Preparation includes the pinned Kokoro fetch and CocoaPods installation.
+Preparation includes the pinned Kokoro fetch, app Gemfile installation and `bundle exec pod install`.
+It accepts only `--pack <archive>`; force an engine rebuild with `build-ios-engine.sh --force`, then rerun preparation.
+App/package tools need Node 22.11+; the proxy uses Node 26+; pipeline scripts need Python 3.12+, uv and Node for the app parser.
+Install each package in its own directory before its checks; preparation installs app dependencies, not package development dependencies.
 Pipeline export checks require the corresponding capture/training artifacts; a missing source is a blocker to report, not evidence of a passed real-pack check.
 Nitro outputs in `nitrogen/generated` are intentionally committed with their specifications.
+On-device tests compile Swift harnesses on macOS 26+ and skip those checks on other hosts.
 
-Build and test the C++ core and Metal implementation on the Mac, from root:
+Run pipeline regression tests from root with the dependencies used by the fake-backed suite:
+
+```sh
+nice -n 19 uv run --with 'numpy<2' --with opencv-python-headless --with pillow --with scipy --with pyyaml --with modal --with fastapi --with httpx2 python -m unittest discover -s tests/pipeline
+```
+
+Build and test the GPU-independent C++/C interface from root:
+
+```sh
+nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
+nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
+nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
+```
+
+Build and test the Metal implementation and shared core on the Mac, from root:
 
 ```sh
 nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release

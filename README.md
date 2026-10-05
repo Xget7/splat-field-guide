@@ -30,7 +30,7 @@ flowchart TD
 
 ## Quickstart
 
-On an Apple silicon Mac, install Xcode 27, an iOS 26+ simulator, Node.js 22.11+, CMake, Python 3, Ruby and Bundler.
+On an Apple silicon Mac, install Xcode 27, an iOS 26+ simulator, Node.js 26+, CMake, Python 3, Ruby and Bundler.
 From a clean clone, at the repository root:
 
 ```sh
@@ -39,7 +39,7 @@ cd apps/field-guide
 nice -n 19 npm run ios
 ```
 
-Preparation verifies the pack, builds the engine, fetches pinned speech resources and installs JS/pod dependencies.
+Preparation verifies the pack, builds the engine, fetches pinned speech resources and installs JS dependencies and CocoaPods through Bundler.
 Once published, omit `--pack` to use the release asset; until then, supply the archive or set `FIELD_GUIDE_PACK_URL`.
 The [app setup](apps/field-guide/README.md) covers signing and preparing transcription/Apple Intelligence assets before offline voice use.
 

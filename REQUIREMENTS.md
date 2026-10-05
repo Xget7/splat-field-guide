@@ -16,14 +16,14 @@ These requirements are targets; [TASKS.md](TASKS.md) records evidence and remain
 - R9. Animated framing fits the highlighted parts.
 - R10. The acceptance iPhone sustains 60 fps while orbiting and draws no unchanged idle frames.
 
-The original budget was 1.5M splats; the current high tier has about 2.5M before filtering and needs device measurement or a smaller export.
+The original budget was 1.5M splats; the current high tier has about 2.5M before runtime filtering and needs device measurement or a smaller export.
 
 ## Guidance and instructor
 
 - R11. The part card gives its name and explanation.
 - R12. Three procedures check coolant, brake fluid and power steering fluid, alongside the parts tour.
 - R13. Steps highlight and frame their parts.
-- R14. Next/back/repeat work by voice and button; stop/finish clear continuation, while exploration preserves it.
+- R14. Next/back/repeat work by voice and button; procedure Stop/Finish clear continuation, while Explore preserves it.
 - R15. Questions prefer Claude online, then Apple Foundation Models on a prepared eligible device, then scripted guidance.
 - R16. Answers use pack evidence and relevant cautions, declining unsupported specifications.
 - R17. Commands and validated text replies use the session actions to show parts or advance guidance.

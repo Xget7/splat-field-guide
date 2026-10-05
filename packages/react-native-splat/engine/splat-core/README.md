@@ -10,12 +10,5 @@ No graphics, no platform APIs, no React Native.
 | Sorting | Morton reorder at load, for GPU cache locality | `splat/sorting/` |
 | Math | Column-major matrices and vectors shared with the renderer | `splat/math/` |
 
-## Build and test
-
-```
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-Set `SPLAT_FIXTURES_DIR` to a folder holding `kitchen_500k.spz` to run the World Labs integration test.
+Build/test commands are in [AGENTS.md](../../../../AGENTS.md#prepare-and-verify).
+Set `SPLAT_FIXTURES_DIR` to a directory containing `kitchen_500k.spz` for the optional World Labs integration test.
