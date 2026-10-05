@@ -2,7 +2,7 @@
 # Builds the engine as ios/Frameworks/SplatKitCore.xcframework, which the pod vendors: one
 # static library for devices and one for the simulator, each the engine, its Metal renderer,
 # SPZ and its zstd merged, with the C interface's headers and module map. Run it before
-# `pod install` and after changing anything under engine/.
+# `pod install`. A current artifact is reused; --force rebuilds it.
 #
 #   scripts/build-ios-engine.sh
 #
@@ -11,6 +11,19 @@
 set -euo pipefail
 
 package="$(cd "$(dirname "$0")/.." && pwd)"
+force=false
+case "${1:-}" in
+  "") ;;
+  --force) force=true ;;
+  *) echo "Usage: build-ios-engine.sh [--force]" >&2; exit 2 ;;
+esac
+[[ $# -le 1 ]] || { echo "Usage: build-ios-engine.sh [--force]" >&2; exit 2; }
+identity="$package/scripts/engine-artifact.rb"
+if ! $force && ruby "$identity" --verify 2>/dev/null; then
+  echo "Engine framework is current"
+  exit 0
+fi
+fingerprint="$(ruby "$identity")"
 engine="$package/engine"
 build="${SPLAT_IOS_BUILD_DIR:-$package/build/ios-engine}"
 jobs="${SPLAT_BUILD_JOBS:-$(sysctl -n hw.ncpu)}"
@@ -19,7 +32,6 @@ output="$package/ios/Frameworks/SplatKitCore.xcframework"
 deployment_target=15.1
 sdks=(iphoneos iphonesimulator)
 
-libraries=()
 for sdk in "${sdks[@]}"; do
   tree="$build/$sdk"
   sdk_path="$(xcrun --sdk "$sdk" --show-sdk-path)"
@@ -41,7 +53,6 @@ for sdk in "${sdks[@]}"; do
     "$tree/splatkit-engine/splat-core/libsplat_core.a" \
     "$tree/_deps/spz-build/libspz.a" \
     "$tree/_deps/zstd-build/lib/libzstd.a"
-  libraries+=(-library "$tree/libSplatKitCore.a" -headers "$build/headers")
 done
 
 rm -rf "$build/headers"
@@ -51,6 +62,15 @@ cp "$engine/splatkit-engine/include/splatkit/sfg.h" \
   "$engine/splatkit-ios/Sources/SplatKitCore/include/splatkit/sfg_metal.h" \
   "$build/headers/splatkit/"
 
+candidate="$build/SplatKitCore.xcframework"
+rm -rf "$candidate"
+python3 "$package/scripts/package-ios-engine.py" "$build" "$candidate"
+[[ "$(ruby "$identity")" == "$fingerprint" ]] || {
+  echo "Engine sources changed during the build; run scripts/prepare.sh again" >&2
+  exit 1
+}
+ruby "$identity" --record "$candidate" "$fingerprint"
+mkdir -p "$(dirname "$output")"
 rm -rf "$output"
-xcodebuild -create-xcframework "${libraries[@]}" -output "$output"
+mv "$candidate" "$output"
 echo "Built $output"

@@ -1,5 +1,5 @@
 module.exports = {
   root: true,
   extends: '@react-native',
-  ignorePatterns: ['*.js', 'nitrogen/', 'engine/'],
+  ignorePatterns: ['*.js', 'nitrogen/', 'engine/', 'build/'],
 };
