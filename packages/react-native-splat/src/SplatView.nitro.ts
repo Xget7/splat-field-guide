@@ -43,6 +43,10 @@ export interface CameraLimits {
 export interface SplatSource {
   splatPath: string;
   labelsPath: string;
+  splatSha256: string;
+  labelsSha256: string;
+  /** Source count before native haze removal and spatial reordering. */
+  expectedSplatCount: number;
 }
 
 export type SplatErrorCode =

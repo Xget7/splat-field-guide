@@ -79,20 +79,26 @@ final class SplatRenderLoop {
 
   /// Decodes on a background queue and shows the cloud on the frame after, keeping the current
   /// one until then. The engine owns replacement, including loads still being decoded.
-  func load(splatPath: String, labelsPath: String?) {
+  func load(source: SplatSource) {
     if let engine = currentEngine {
-      scheduleLoad(engine, splatPath: splatPath, labelsPath: labelsPath)
+      scheduleLoad(engine, source: source)
     } else {
       post { [self] engine in
-        scheduleLoad(engine, splatPath: splatPath, labelsPath: labelsPath)
+        scheduleLoad(engine, source: source)
       }
     }
   }
 
-  private func scheduleLoad(_ engine: SplatEngine, splatPath: String, labelsPath: String?) {
+  private func scheduleLoad(_ engine: SplatEngine, source: SplatSource) {
     let request = sfg_begin_load(engine.handle)
     Self.loads.async { [self] in
-      _ = sfg_load_request(engine.handle, request, splatPath, labelsPath)
+      source.splatSha256.withCString { splatDigest in
+        source.labelsSha256.withCString { labelsDigest in
+          var identity = sfg_source_identity(splat_sha256: splatDigest, labels_sha256: labelsDigest,
+            expected_splat_count: UInt32(exactly: source.expectedSplatCount) ?? 0)
+          _ = sfg_load_request(engine.handle, request, source.splatPath, source.labelsPath, &identity)
+        }
+      }
       post { _ in }
     }
   }

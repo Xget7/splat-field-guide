@@ -35,6 +35,10 @@ add_library(splat_core STATIC
 target_include_directories(splat_core PUBLIC include)
 find_package(ZLIB REQUIRED)  # the SPZ gzip container is inflated here, with a ceiling
 target_link_libraries(splat_core PRIVATE spz ZLIB::ZLIB PUBLIC Threads::Threads)
+if(NOT APPLE)
+  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+  target_link_libraries(splat_core PRIVATE OpenSSL::Crypto)
+endif()
 target_compile_options(splat_core PRIVATE
   $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>
 )

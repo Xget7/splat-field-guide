@@ -39,7 +39,8 @@ class SplatEngine {
     splat::SplatWorldLoader::WorldReport report;
   };
   using FileLoader = std::function<splat::Result<LoadedWorld>(
-      const std::string&, const std::string&, splat::CoordinateFrame, int)>;
+      const std::string&, const std::string&, splat::CoordinateFrame, int,
+      const splat::SourceIdentity*)>;
   explicit SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile = {});
   ~SplatEngine();
 
@@ -71,7 +72,8 @@ class SplatEngine {
   // a cloud or report its outcome until another reservation replaces it. Any thread.
   uint64_t beginLoad();
   bool loadWorldFile(uint64_t request, const std::string& spzPath, const std::string& labelsPath,
-                     splat::CoordinateFrame sourceFrame);
+                     splat::CoordinateFrame sourceFrame,
+                     const splat::SourceIdentity* identity = nullptr);
 
   // What the host needs to know about loading and the GPU. Ready fires on the render thread
   // once a frame of the new world has finished on the GPU, so it is on screen; failures fire

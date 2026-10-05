@@ -52,5 +52,5 @@ Android needs the Vulkan backend, Kotlin/JNI Nitro adapters, resource packaging 
 
 - [App setup](apps/field-guide/README.md), [capture-to-pack recipe](pipeline/README.md) and [acceptance checklist](TASKS.md).
 - [Vocabulary](CONTEXT.md), [decisions](docs/adr/), [research index](docs/research/README.md) and [requirements](REQUIREMENTS.md).
-- [Provenance](docs/PROVENANCE.md) and [MIT license](LICENSE), with inherited licenses retained.
+- [Provenance](docs/PROVENANCE.md), [third-party notices](THIRD_PARTY_NOTICES.md) and [MIT license](LICENSE).
 - [Agent instructions](AGENTS.md) for the repo map, commands and contribution rules.

@@ -25,7 +25,7 @@ Inherited source and third-party resources keep the licenses below.
 
 Speech files and hashes are enumerated in [kokoro-models.json](../apps/field-guide/scripts/kokoro-models.json); preparation copies their notices into the resource bundle.
 ONNX Runtime's own third-party notices remain distinct from its top-level MIT license.
-Engine/dependency and font notices must also be included in the distributed app; the current font resource list and engine podspec do not bundle them.
+The app bundles one [third-party notices file](../THIRD_PARTY_NOTICES.md), including engine/dependency and font texts; its inventory identifies unavailable local texts.
 
 ## Preparation and test tools, not shipped in the app
 

@@ -4,6 +4,7 @@ import gzip
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -18,6 +19,51 @@ import export_checks
 
 
 class PreparationTests(unittest.TestCase):
+    def test_app_build_copies_only_manifest_runtime_files_and_reuses_unchanged_files(self):
+        project = (ROOT / 'apps/field-guide/ios/FieldGuide.xcodeproj/project.pbxproj').read_text()
+        phase = project.split('name = "Copy the bundled packs";')[1]
+        script = json.loads(re.search(r'shellScript = ("(?:\\.|[^"\\])*");', phase).group(1))
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            ios = repo / 'apps/field-guide/ios'
+            ios.mkdir(parents=True)
+            scripts = repo / 'scripts'
+            scripts.mkdir()
+            for file in (ROOT / 'scripts').glob('copy_bundled_packs.py'):
+                shutil.copyfile(file, scripts / file.name)
+            app_scripts = ios.parent / 'scripts'
+            app_scripts.mkdir()
+            shutil.copy2(ROOT / 'apps/field-guide/scripts/copy_ar_reference.sh', app_scripts / 'copy_ar_reference.sh')
+            landmarks = ios.parent / 'assets/ar/landmarks.json'
+            landmarks.parent.mkdir(parents=True)
+            landmarks.write_text('{}')
+            pack = repo / 'data/pack/gol-trend-engine-bay/1'
+            (pack / 'high').mkdir(parents=True)
+            manifest = {'packId': 'gol-trend-engine-bay', 'packVersion': 1, 'tiers': [
+                {'cloud': {'path': 'high/cloud.spz'}, 'labels': {'path': 'high/labels.bin'}}]}
+            (pack / 'manifest.json').write_text(json.dumps(manifest))
+            for name in ['high/cloud.spz', 'high/labels.bin', 'unreferenced.bin']:
+                (pack / name).write_bytes(b'fixture')
+            for name in ['releases/demo.tar.gz', '.sources/labels.npy', 'gol-trend-engine-bay/.prepare.lock']:
+                file = repo / 'data/pack' / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_bytes(b'not runtime content')
+            destination = repo / 'build/FieldGuide.app/packs'
+            destination.mkdir(parents=True)
+            (destination / 'old-pack.bin').write_bytes(b'stale build')
+            env = {**os.environ, 'SRCROOT': str(ios), 'TARGET_BUILD_DIR': str(repo / 'build'),
+                   'UNLOCALIZED_RESOURCES_FOLDER_PATH': 'FieldGuide.app'}
+            result = subprocess.run(['sh', '-c', script], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            expected = {'gol-trend-engine-bay/1/' + name for name in
+                        ['manifest.json', 'high/cloud.spz', 'high/labels.bin']}
+            files = {str(file.relative_to(destination)): file.stat().st_mtime_ns
+                     for file in destination.rglob('*') if file.is_file()}
+            self.assertEqual(set(files), expected)
+            self.assertEqual(subprocess.run(['sh', '-c', script], env=env, capture_output=True).returncode, 0)
+            self.assertEqual(files, {str(file.relative_to(destination)): file.stat().st_mtime_ns
+                                     for file in destination.rglob('*') if file.is_file()})
+
     def test_archive_round_trip_cache_and_failed_replacement(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory) / 'repo'
@@ -62,7 +108,7 @@ class PreparationTests(unittest.TestCase):
             environment = {**os.environ, 'FIELD_GUIDE_TEST_TRACE': str(trace)}
             binaries = repo / 'bin'
             binaries.mkdir()
-            for command in ('npm', 'pod'):
+            for command in ('npm', 'pod', 'bundle'):
                 script = binaries / command
                 script.write_text(f'#!/bin/sh\nprintf "{command} %s\\n" "$*" >> "$FIELD_GUIDE_TEST_TRACE"\n')
                 script.chmod(0o755)
@@ -79,7 +125,9 @@ class PreparationTests(unittest.TestCase):
             result = subprocess.run(prepare, env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(trace.read_text().splitlines()[0:2], ['engine 0', 'kokoro'])
-            self.assertEqual(trace.read_text().splitlines()[-1], 'pod install')
+            for name in ('react-native-splat', 'react-native-on-device'):
+                self.assertIn(f'npm ci --prefix {repo / "packages" / name}', trace.read_text().splitlines())
+            self.assertEqual(trace.read_text().splitlines()[-2:], ['bundle install', 'bundle exec pod install'])
             cached = subprocess.run(['sh', str(repo / 'scripts/prepare.sh'), '--pack', str(repo / 'missing.tar.gz')],
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(cached.returncode, 0, cached.stderr)

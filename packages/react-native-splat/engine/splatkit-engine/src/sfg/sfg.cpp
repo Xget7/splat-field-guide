@@ -87,9 +87,13 @@ bool sfg_load(sfg_engine* engine, const char* spz_path, const char* labels_path)
 
 uint64_t sfg_begin_load(sfg_engine* engine) { return engineOf(engine).beginLoad(); }
 
-bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path, const char* labels_path) {
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path, const char* labels_path,
+                      const sfg_source_identity* identity) {
+  std::optional<splat::SourceIdentity> source;
+  if (identity) source.emplace(splat::SourceIdentity{identity->splat_sha256, identity->labels_sha256,
+                                                   identity->expected_splat_count});
   return engineOf(engine).loadWorldFile(request, spz_path, labels_path != nullptr ? labels_path : "",
-                                        splatkit::kPackFrame);
+                                        splatkit::kPackFrame, source ? &*source : nullptr);
 }
 
 bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos) {

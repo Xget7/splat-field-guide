@@ -27,7 +27,8 @@ final class HybridSplatView: HybridSplatViewSpec {
 
   var view: UIView { metalView }
 
-  var source = SplatSource(splatPath: "", labelsPath: "") {
+  var source = SplatSource(splatPath: "", labelsPath: "", splatSha256: "", labelsSha256: "",
+    expectedSplatCount: 0) {
     didSet { changed.insert(.source) }
   }
 
@@ -103,9 +104,9 @@ final class HybridSplatView: HybridSplatViewSpec {
       loop.post { engine in sfg_set_highlight(engine.handle, labels, labels.count) }
     }
     if changed.contains(.source) {
-      loop.load(
-        splatPath: Self.resolved(source.splatPath),
-        labelsPath: source.labelsPath.isEmpty ? nil : Self.resolved(source.labelsPath))
+      loop.load(source: SplatSource(splatPath: Self.resolved(source.splatPath),
+        labelsPath: Self.resolved(source.labelsPath), splatSha256: source.splatSha256,
+        labelsSha256: source.labelsSha256, expectedSplatCount: source.expectedSplatCount))
     }
     changed.removeAll()
   }

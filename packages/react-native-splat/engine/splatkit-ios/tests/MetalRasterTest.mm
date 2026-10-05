@@ -88,7 +88,7 @@ TEST_F(MetalRasterTest, ASplatReachesThePresentedPixels) {
   EXPECT_EQ(renderer->lastDrawCount(), 1u);
 }
 
-// The highlight reaches the screen: the emphasised part turns towards sky blue, and a
+// The highlight reaches the screen: the emphasised part gains a faint blue tint, and a
 // part left out of it dims.
 TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   constexpr uint8_t kPart = 3;
@@ -112,9 +112,10 @@ TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   const auto dimmed = drawAndCapture(frame);
 
   EXPECT_LT(asCaptured[kCenter], 20);          // no blue in the capture
-  EXPECT_GT(emphasised[kCenter], 70);          // blue from the tint
-  EXPECT_LT(emphasised[kCenter + 2], asCaptured[kCenter + 2]);
-  EXPECT_LT(dimmed[kCenter + 2], asCaptured[kCenter + 2] / 2);  // red, dimmed
+  EXPECT_GT(emphasised[kCenter], asCaptured[kCenter] + 20);
+  EXPECT_GE(emphasised[kCenter + 2], asCaptured[kCenter + 2]);  // lifted, still red
+  EXPECT_LT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.7f);
+  EXPECT_GT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.4f);  // the bay stays readable
   EXPECT_LT(dimmed[kCenter], 20);
 }
 

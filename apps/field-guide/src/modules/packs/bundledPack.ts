@@ -5,11 +5,7 @@ import { parsePack } from '../../domain/parsePack';
 
 export const bundledPack = parsePack(manifest);
 
-export type PackSource = SplatSource & {
-  readonly splatSha256: string;
-  readonly labelsSha256: string;
-  readonly expectedSplatCount: number;
-};
+export type PackSource = SplatSource;
 
 export function sourceFor(pack: Pack): PackSource {
   const baseDirectory = `packs/${pack.packId}/${pack.packVersion}/`;
