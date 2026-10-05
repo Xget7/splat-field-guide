@@ -36,6 +36,7 @@ Release packaging must also retain the engine dependency and font notices; sourc
 | Brush 0.3.0 | Local Gaussian-splat training | [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE) |
 | SAM 3.1 | Mask marking/propagation on Modal; pipeline code pins SAM repository revision `2345a4a` | Meta [SAM License](https://huggingface.co/facebook/sam3.1/blob/main/LICENSE), covering code and weights |
 | PyTorch / torchvision | SAM execution | BSD-3-Clause, [Torch](https://github.com/pytorch/pytorch/blob/main/LICENSE), [vision](https://github.com/pytorch/vision/blob/main/LICENSE) |
+| SAM support packages | einops, hydra-core, setuptools, pycocotools, scikit-image and psutil, as listed in the Modal image | MIT / MIT / MIT / BSD-2-Clause / BSD-3-Clause / BSD-3-Clause |
 | NumPy / SciPy | Lifting and geometry | BSD-3-Clause |
 | OpenCV / Pillow / PyYAML | Images, projection and content parsing | Apache-2.0 / HPND / MIT |
 | FastAPI / httpx2 / uvicorn | Marking interface and local preflight | MIT / BSD-3-Clause / BSD-3-Clause |
