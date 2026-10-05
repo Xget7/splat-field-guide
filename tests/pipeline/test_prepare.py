@@ -62,7 +62,7 @@ class PreparationTests(unittest.TestCase):
             environment = {**os.environ, 'FIELD_GUIDE_TEST_TRACE': str(trace)}
             binaries = repo / 'bin'
             binaries.mkdir()
-            for command in ('npm', 'pod'):
+            for command in ('npm', 'pod', 'bundle'):
                 script = binaries / command
                 script.write_text(f'#!/bin/sh\nprintf "{command} %s\\n" "$*" >> "$FIELD_GUIDE_TEST_TRACE"\n')
                 script.chmod(0o755)
@@ -79,7 +79,9 @@ class PreparationTests(unittest.TestCase):
             result = subprocess.run(prepare, env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(trace.read_text().splitlines()[0:2], ['engine 0', 'kokoro'])
-            self.assertEqual(trace.read_text().splitlines()[-1], 'pod install')
+            for name in ('react-native-splat', 'react-native-on-device'):
+                self.assertIn(f'npm ci --prefix {repo / "packages" / name}', trace.read_text().splitlines())
+            self.assertEqual(trace.read_text().splitlines()[-2:], ['bundle install --jobs 2', 'bundle exec pod install'])
             cached = subprocess.run(['sh', str(repo / 'scripts/prepare.sh'), '--pack', str(repo / 'missing.tar.gz')],
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(cached.returncode, 0, cached.stderr)
