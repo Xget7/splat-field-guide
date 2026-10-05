@@ -202,7 +202,7 @@ Los FPS son de cámara; no representan velocidad ni confianza del modelo.
 La API pública no entrega un score de confianza.
 Guarda metadatos en el archivo indicado y un estado `.status.json`.
 Para conservar la lectura humana, redirigir stdout a `.work/ar-check/ar-monitor.log`; no se escribe automáticamente.
-El límite histórico de captura era 512 KiB; la retención suficiente para repetir el veredicto corresponde al monitor actualizado.
+La captura se limita a 512 KiB; alcanzar el límite conserva un error que invalida el veredicto, permitiendo repetirlo desde el archivo.
 La salida a consola está desactivada en los lanzamientos normales.
 El HUD del iPhone muestra siempre, a 1 Hz, referencia cargada, estado y FPS de cámara, cantidad de motores encontrados/seguidos y tiempo de sesión, sin Mac ni conexión.
 Los metadatos del HUD viven en memoria; no guarda imágenes ni logs en disco.
