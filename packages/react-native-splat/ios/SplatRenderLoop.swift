@@ -4,7 +4,8 @@ import SplatKitCore
 
 /// The thread that draws one view. Its run loop runs the view's commands in the order they
 /// were sent, and a display link draws while the engine has something to do, stopping when it
-/// rests. Every method may be called from any thread; none waits for the render thread.
+/// rests. Every method may be called from any thread. Commands enqueue work; a load
+/// reservation briefly serializes with cloud publication and upload inside the engine.
 final class SplatRenderLoop {
   /// ProMotion screens draw at up to 120 Hz while the camera or a fade moves.
   private static let frameRates = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
@@ -20,7 +21,6 @@ final class SplatRenderLoop {
   // Under the lock.
   private var runLoop: CFRunLoop?
   private var sharedEngine: SplatEngine?
-  private var latestLoad = 0
 
   // Render thread only.
   private var engine: SplatEngine?
@@ -78,19 +78,22 @@ final class SplatRenderLoop {
   }
 
   /// Decodes on a background queue and shows the cloud on the frame after, keeping the current
-  /// one until then. A newer load that arrives first replaces this one.
+  /// one until then. The engine owns replacement, including loads still being decoded.
   func load(splatPath: String, labelsPath: String?) {
-    let ticket = locked { () -> Int in
-      latestLoad += 1
-      return latestLoad
-    }
-    post { [self] engine in
-      Self.loads.async { [self] in
-        guard locked({ ticket == latestLoad }) else { return }
-        // A failure is an error event.
-        _ = sfg_load(engine.handle, splatPath, labelsPath)
-        post { _ in }
+    if let engine = currentEngine {
+      scheduleLoad(engine, splatPath: splatPath, labelsPath: labelsPath)
+    } else {
+      post { [self] engine in
+        scheduleLoad(engine, splatPath: splatPath, labelsPath: labelsPath)
       }
+    }
+  }
+
+  private func scheduleLoad(_ engine: SplatEngine, splatPath: String, labelsPath: String?) {
+    let request = sfg_begin_load(engine.handle)
+    Self.loads.async { [self] in
+      _ = sfg_load_request(engine.handle, request, splatPath, labelsPath)
+      post { _ in }
     }
   }
 
@@ -128,8 +131,8 @@ final class SplatRenderLoop {
       }
       // Nothing runs after the stop.
       self.runLoop = nil
+      if let sharedEngine { _ = sfg_begin_load(sharedEngine.handle) }
       sharedEngine = nil
-      latestLoad += 1  // a queued load is dropped
     }
   }
 

@@ -91,6 +91,14 @@ void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback SFG_NULLABLE 
 // then on. False when it failed, which is also an event; the current world stays.
 bool sfg_load(sfg_engine* engine, const char* spz_path, const char* SFG_NULLABLE labels_path);
 
+// Any thread: reserves a replacement before its decoding is scheduled. A newer reservation
+// supersedes every older request, including its pending upload and completion events.
+uint64_t sfg_begin_load(sfg_engine* engine);
+// Any thread, blocking: decodes only for this reservation. False for a superseded request,
+// without a failure event. The engine must outlive both the reservation and the call.
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path,
+                      const char* SFG_NULLABLE labels_path);
+
 // One vsync: steps the camera and the highlight and draws if anything visible changed. True
 // when a frame was drawn.
 bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos);

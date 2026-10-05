@@ -1,4 +1,5 @@
 require "json"
+require_relative "scripts/engine-artifact"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 
@@ -13,9 +14,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/xget7/splat-field-guide.git", :tag => "#{s.version}" }
 
   engine = "ios/Frameworks/SplatKitCore.xcframework"
-  unless File.exist?(File.join(__dir__, engine))
-    raise "#{s.name}: #{engine} is missing; build it with scripts/build-ios-engine.sh, then run pod install again"
-  end
+  EngineArtifact.verify!(__dir__)
 
   s.source_files        = ["ios/*.swift"]
   s.vendored_frameworks = engine

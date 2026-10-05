@@ -4,8 +4,9 @@ import type { HybridObject } from 'react-native-nitro-modules';
 export interface SpeechOutput extends HybridObject<{ ios: 'swift' }> {
   /**
    * Stops anything already being said, then says `text`; resolves when it ends or is stopped.
-   * `onWord` gets each word's range in `text`, in UTF-16 code units like a JS string index, just
-   * before it is spoken.
+   * `onWord` gets each word's range in `text`, in UTF-16 code units like a JS string index, during
+   * playback. Kokoro estimates each start from word length and the sentence audio duration;
+   * the Apple fallback reports its own word callbacks.
    */
   speak(
     text: string,

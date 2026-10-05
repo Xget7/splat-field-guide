@@ -8,6 +8,14 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `ARCameraTracking` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARCameraTracking; }
+// Forward declaration of `ARTrackingEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingEvent; }
+// Forward declaration of `ARTrackingState` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARTrackingState; }
+// Forward declaration of `ARTrackingTelemetry` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
 // Forward declaration of `Bounds` to properly resolve imports.
 namespace margelo::nitro::splat { struct Bounds; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
@@ -32,6 +40,10 @@ namespace margelo::nitro::splat { struct Vec3; }
 namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Include C++ defined types
+#include "ARCameraTracking.hpp"
+#include "ARTrackingEvent.hpp"
+#include "ARTrackingState.hpp"
+#include "ARTrackingTelemetry.hpp"
 #include "Bounds.hpp"
 #include "CameraLimits.hpp"
 #include "HybridARGuideViewSpec.hpp"

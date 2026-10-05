@@ -71,7 +71,19 @@ bool finite(const splat::Bounds& b) {
 
 }  // namespace
 
-SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer) : renderer_(std::move(renderer)) {}
+SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile)
+    : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
+  if (!loadFile_) {
+    loadFile_ = [](const std::string& spzPath, const std::string& labelsPath,
+                   splat::CoordinateFrame frame, int degree) -> splat::Result<LoadedWorld> {
+      splat::SplatWorldLoader loader;
+      loader.setMaxShDegree(degree);
+      const auto result = loader.loadWorldFile(spzPath, labelsPath, frame);
+      if (!result) return result.error();
+      return LoadedWorld{loader.takeWorld(), result.value()};
+    };
+  }
+}
 
 // The renderer goes first: it waits for the GPU, which may still read the world.
 SplatEngine::~SplatEngine() {
@@ -87,14 +99,48 @@ void SplatEngine::setShDegree(int degree) {
 
 // Loading: decode on the calling thread, report, and leave the result for the frame.
 
+uint64_t SplatEngine::beginLoad() {
+  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+  pendingWorld_.reset();
+  return ++currentLoad_;
+}
+
 bool SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
                             splat::CoordinateFrame sourceFrame) {
-  return report(loader_.loadWorld(spz, labels, sourceFrame));
+  const uint64_t request = beginLoad();
+  splat::SplatWorldLoader loader;
+  loader.setMaxShDegree(maxShDegree_.load());
+  const auto result = loader.loadWorld(spz, labels, sourceFrame);
+  if (!result) return finishLoad(request, result.error());
+  return finishLoad(request, LoadedWorld{loader.takeWorld(), result.value()});
 }
 
 bool SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                                 splat::CoordinateFrame sourceFrame) {
-  return report(loader_.loadWorldFile(spzPath, labelsPath, sourceFrame));
+  return loadWorldFile(beginLoad(), spzPath, labelsPath, sourceFrame);
+}
+
+bool SplatEngine::loadWorldFile(uint64_t request, const std::string& spzPath,
+                                const std::string& labelsPath, splat::CoordinateFrame sourceFrame) {
+  {
+    const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+    if (request == 0 || request != currentLoad_) return false;
+  }
+  return finishLoad(request, loadFile_(spzPath, labelsPath, sourceFrame, maxShDegree_.load()));
+}
+
+bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result) {
+  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+  if (request != currentLoad_) return false;
+  if (!result) return report(result.error());
+  report(result.value().report);
+  pendingWorld_ = std::move(result.value().cloud);
+  return true;
+}
+
+bool SplatEngine::hasPendingWorld() const {
+  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+  return pendingWorld_ != nullptr;
 }
 
 bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
@@ -116,7 +162,8 @@ bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldRepor
 
 // Uploads what the loader left. True when a new world is drawn from now on.
 bool SplatEngine::applyPendingWorld() {
-  auto cloud = loader_.takeWorld();
+  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+  auto cloud = std::move(pendingWorld_);
   if (!cloud) return false;
   const auto start = Clock::now();
   if (!renderer_->uploadWorld(*cloud, kMaxShDegree)) {
@@ -130,6 +177,7 @@ bool SplatEngine::applyPendingWorld() {
     framedBounds_ = cloud->bounds;
     framedExtent_ = {};
   }
+  uploadedLoad_ = currentLoad_;
   showing_ = Showing::awaitingDraw;
   reveal_.start(cloud->bounds, revealSeconds_);
   const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
@@ -139,6 +187,11 @@ bool SplatEngine::applyPendingWorld() {
 
 // Ready once the world is on screen: a host that shows its view then shows the world.
 void SplatEngine::reportShown() {
+  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
+  if (uploadedLoad_ != currentLoad_) {
+    showing_ = Showing::nothing;
+    return;
+  }
   if (showing_ != Showing::awaitingGpu || !renderer_->hasCompletedWorldFrame()) return;
   showing_ = Showing::nothing;
   emit(Event::worldReady, {}, sourceCount_);
@@ -307,7 +360,7 @@ bool SplatEngine::needsFrame() const {
   if (renderer_->failed()) return !gpuFailureReported_;
   if (!renderer_->ready()) return false;
   return redrawNeeded_ || showing_ != Showing::nothing || camera_.animating() ||
-         highlight_.fading() || reveal_.active() || loader_.hasWorld() ||
+         highlight_.fading() || reveal_.active() || hasPendingWorld() ||
          renderer_->generation() != lastDrawnGeneration_;
 }
 

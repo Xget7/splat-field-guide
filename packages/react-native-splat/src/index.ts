@@ -1,21 +1,18 @@
-import { NitroModules, getHostComponent } from 'react-native-nitro-modules';
+import { getHostComponent } from 'react-native-nitro-modules';
 import type { HybridViewMethods } from 'react-native-nitro-modules';
 import ARGuideViewConfig from '../nitrogen/generated/shared/json/ARGuideViewConfig.json';
 import SplatViewConfig from '../nitrogen/generated/shared/json/SplatViewConfig.json';
 import type { ARGuideViewProps } from './ARGuideView.nitro';
-import type {
-  SplatDiagnostics as SplatDiagnosticsSpec,
-} from './SplatDiagnostics.nitro';
 import type { SplatViewMethods, SplatViewProps } from './SplatView.nitro';
 
 export type {
   ARGuideView as ARGuideViewSpec,
   ARGuideViewProps,
+  ARTrackingState,
+  ARCameraTracking,
+  ARTrackingTelemetry,
+  ARTrackingEvent,
 } from './ARGuideView.nitro';
-export type {
-  SplatDiagnostics as SplatDiagnosticsSpec,
-  SplatDiagnosticsSnapshot,
-} from './SplatDiagnostics.nitro';
 export type {
   Bounds,
   CameraLimits,
@@ -35,10 +32,7 @@ export const SplatView = getHostComponent<SplatViewProps, SplatViewMethods>(
   () => SplatViewConfig,
 );
 
-export const ARGuideView = getHostComponent<ARGuideViewProps, HybridViewMethods>(
-  'ARGuideView',
-  () => ARGuideViewConfig,
-);
-
-export const SplatDiagnostics =
-  NitroModules.createHybridObject<SplatDiagnosticsSpec>('SplatDiagnostics');
+export const ARGuideView = getHostComponent<
+  ARGuideViewProps,
+  HybridViewMethods
+>('ARGuideView', () => ARGuideViewConfig);

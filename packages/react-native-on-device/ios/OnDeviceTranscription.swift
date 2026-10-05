@@ -11,7 +11,7 @@ extension DictationTranscriber.Result: TranscriptionResult {}
 /// Live transcription with SpeechAnalyzer, the on-device model behind Notes and Voice Memos,
 /// which hears accented speech far better than SFSpeechRecognizer. Audio comes in on the
 /// microphone's tap thread; everything else, callbacks included, is on the main queue.
-final class OnDeviceTranscription: @unchecked Sendable {
+final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendable {
   private struct Model {
     let locale: Locale
     let format: AVAudioFormat

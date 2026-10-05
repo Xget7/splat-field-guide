@@ -82,3 +82,87 @@ nativeSuite('native speech text ranges', () => {
     expect(plan(' \n\t ')).toEqual([]);
   });
 });
+
+nativeSuite('native conversation', () => {
+  const conversationOutput = path.join(root, 'build/tests/ConversationProbe');
+  beforeAll(() => {
+    fs.mkdirSync(path.dirname(conversationOutput), { recursive: true });
+    const stubLibrary = path.join(
+      path.dirname(conversationOutput),
+      'libNitroModules.a',
+    );
+    execFileSync('swiftc', [
+      path.join(__dirname, 'NitroModulesStub.swift'),
+      '-target',
+      `${process.arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos26.0`,
+      '-emit-library',
+      '-static',
+      '-emit-module',
+      '-module-name',
+      'NitroModules',
+      '-emit-module-path',
+      path.join(path.dirname(conversationOutput), 'NitroModules.swiftmodule'),
+      '-o',
+      stubLibrary,
+    ]);
+    execFileSync('swiftc', [
+      path.join(root, 'ios/OnDeviceAudioLevel.swift'),
+      path.join(root, 'ios/OnDeviceConversation.swift'),
+      path.join(root, 'ios/OnDeviceAudioGraph.swift'),
+      path.join(root, 'ios/HybridSpeechOutput.swift'),
+      path.join(root, 'ios/SpeechTextPlan.swift'),
+      '-I',
+      path.dirname(conversationOutput),
+      stubLibrary,
+      '-target',
+      `${process.arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos26.0`,
+      path.join(__dirname, 'ConversationProbe.swift'),
+      '-o',
+      conversationOutput,
+    ]);
+  }, 30000);
+
+  const conversation = scenario =>
+    JSON.parse(
+      execFileSync(conversationOutput, [scenario], { encoding: 'utf8' }),
+    );
+
+  test('keeps steady speech in one turn until the speaker pauses', () => {
+    const events = conversation('sustained');
+    expect(events[0]).toBe('partial:Check coolant');
+    expect(events.filter(event => event.startsWith('voice:true'))).toHaveLength(
+      1,
+    );
+    const ended = events.filter(event => event.startsWith('voice:false'));
+    expect(ended).toHaveLength(1);
+    expect(Number(ended[0].split(':')[2])).toBeGreaterThanOrEqual(214);
+    expect(events.at(-1)).toBe('turn:Check coolant:229');
+  });
+
+  test('stops on audio loss once, rejects late results and can restart listening', () => {
+    const events = conversation('loss');
+    expect(events.filter(event => event.startsWith('stopped:'))).toEqual([
+      'stopped:Audio session interrupted',
+    ]);
+    expect(events).not.toContain('partial:stale');
+    expect(events.at(-1)).toBe('partial:Restarted');
+  });
+
+  test('the audio graph reports engine loss and interruptions for playback, including pending output', () => {
+    expect(conversation('graph')).toEqual([
+      'playback stopped',
+      'playback stopped',
+    ]);
+  });
+
+  test('engine loss settles real speech output while synthesis is still pending', () => {
+    expect(conversation('output')).toEqual(['stopped before playback']);
+  });
+
+  test('explicit cancellation rejects late results without a spontaneous stop', () => {
+    const events = conversation('cancel');
+    expect(events.filter(event => event.startsWith('stopped:'))).toEqual([]);
+    expect(events).not.toContain('partial:stale');
+    expect(events.at(-1)).toBe('partial:Restarted');
+  });
+});

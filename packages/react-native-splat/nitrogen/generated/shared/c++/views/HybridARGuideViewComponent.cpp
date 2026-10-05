@@ -23,7 +23,7 @@ namespace margelo::nitro::splat::views {
     referencePath(nitro::ReactProp<std::string>::fromRawValue("ARGuideView", "referencePath", rawProps, sourceProps.referencePath)),
     landmarksPath(nitro::ReactProp<std::string>::fromRawValue("ARGuideView", "landmarksPath", rawProps, sourceProps.landmarksPath)),
     torchEnabled(nitro::ReactProp<bool>::fromRawValue("ARGuideView", "torchEnabled", rawProps, sourceProps.torchEnabled)),
-    onTrackingStateChanged(nitro::ReactProp<std::function<void(const std::string& /* eventJson */)>>::fromRawValue("ARGuideView", "onTrackingStateChanged", rawProps, sourceProps.onTrackingStateChanged)),
+    onTrackingStateChanged(nitro::ReactProp<std::function<void(const ARTrackingEvent& /* event */)>>::fromRawValue("ARGuideView", "onTrackingStateChanged", rawProps, sourceProps.onTrackingStateChanged)),
     hybridRef(nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridARGuideViewSpec>& /* ref */)>>>::fromRawValue("ARGuideView", "hybridRef", rawProps, sourceProps.hybridRef)) { }
 
   bool HybridARGuideViewProps::filterObjectKeys(const std::string& propName) {

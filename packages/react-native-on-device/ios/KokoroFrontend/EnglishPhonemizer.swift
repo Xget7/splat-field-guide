@@ -48,7 +48,7 @@ struct KokoroEnglishPhonemizer: Sendable {
 
     /// Punctuation characters the loaded `vocab.json` can encode.
     /// Characters outside this set are dropped (they would be silently
-    /// skipped at `KokoroAneVocab.encode` anyway).
+    /// skipped at the model's vocabulary encoder anyway).
     let allowedPunctuation: Set<Character>
 
     init(
@@ -69,8 +69,8 @@ struct KokoroEnglishPhonemizer: Sendable {
     ///
     /// - Parameter fallback: per-word G2P for words missing from every
     ///   lexicon. Receives the normalized (lower-cased) spelling. `nil`
-    ///   return skips the word with a warning; a thrown error aborts.
-    /// - Throws: `KokoroAneError.inputProcessingFailed` when the input is
+    ///   return fails synthesis; a thrown error also aborts.
+    /// - Throws: `OnDeviceError` when the input is
     ///   empty or nothing could be resolved.
     func phonemize(
         _ text: String,

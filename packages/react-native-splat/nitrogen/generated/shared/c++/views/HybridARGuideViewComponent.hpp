@@ -18,6 +18,7 @@
 #include <string>
 
 #include <string>
+#include "ARTrackingEvent.hpp"
 #include <functional>
 #include <memory>
 #include "HybridARGuideViewSpec.hpp"
@@ -46,7 +47,7 @@ namespace margelo::nitro::splat::views {
     nitro::ReactProp<std::string> referencePath;
     nitro::ReactProp<std::string> landmarksPath;
     nitro::ReactProp<bool> torchEnabled;
-    nitro::ReactProp<std::function<void(const std::string& /* eventJson */)>> onTrackingStateChanged;
+    nitro::ReactProp<std::function<void(const ARTrackingEvent& /* event */)>> onTrackingStateChanged;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridARGuideViewSpec>& /* ref */)>>> hybridRef;
 
     [[nodiscard]]

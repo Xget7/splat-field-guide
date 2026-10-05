@@ -1,15 +1,17 @@
 import AVFoundation
 
 /// The audio engine speech plays through. Listening taps the same engine with
-/// voice processing on, so echo cancellation hears what the app says and only the user's
-/// voice reaches recognition, which lets the user talk over an answer. Main queue only.
-final class OnDeviceAudioGraph {
+/// voice processing on, so echo cancellation has a reference for Kokoro playback.
+/// Apple fallback plays outside this graph and still needs caller-side echo filtering. Main queue only.
+final class OnDeviceAudioGraph: ConversationAudio {
   static let shared = OnDeviceAudioGraph()
   static let speechSampleRate: Double = 24_000
 
   private(set) var engine = AVAudioEngine()
   private(set) var player = AVAudioPlayerNode()
   private let speechFormat: AVAudioFormat
+  private var onListeningStopped: ((String) -> Void)?
+  private var observers: [NSObjectProtocol] = []
   private var playing = false
   private(set) var listening = false
 
@@ -18,13 +20,27 @@ final class OnDeviceAudioGraph {
       channels: 1) else { preconditionFailure("Mono float audio is always available") }
     speechFormat = format
     attachPlayer()
+    let center = NotificationCenter.default
+    observers = [
+      center.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil,
+        queue: .main) { [weak self] notification in
+        guard let self, notification.object as AnyObject? === self.engine else { return }
+        self.audioLost(Self.engineChanged)
+      },
+      center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil,
+        queue: .main) { [weak self] notification in
+        guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+          type == AVAudioSession.InterruptionType.began.rawValue else { return }
+        self?.audioLost(Self.audioInterrupted)
+      },
+    ]
   }
 
   /// Gets the player ready for 24 kHz mono speech buffers.
   func startPlayback() throws {
     try OnDeviceAudioSession.activate()
-    playing = true
     try startEngine()
+    playing = true
   }
 
   /// Stops speech; the engine keeps running only while it is also listening.
@@ -35,7 +51,7 @@ final class OnDeviceAudioGraph {
   }
 
   /// Opens the microphone with echo cancellation and taps it until `stopListening`.
-  func startListening(tap: @escaping AVAudioNodeTapBlock) throws -> AVAudioFormat {
+  func startListening(onStopped: @escaping (String) -> Void, tap: @escaping AVAudioNodeTapBlock) throws -> AVAudioFormat {
     try OnDeviceAudioSession.activate()
     stopListening()
     interruptPlayback()
@@ -55,6 +71,7 @@ final class OnDeviceAudioGraph {
     }
     input.installTap(onBus: OnDeviceAudioGraph.inputBus, bufferSize: OnDeviceAudioGraph.tapBufferSize,
       format: format, block: tap)
+    onListeningStopped = onStopped
     listening = true
     do { try startEngine() } catch {
       stopListening()
@@ -68,8 +85,21 @@ final class OnDeviceAudioGraph {
   func stopListening() {
     guard listening else { return }
     listening = false
+    onListeningStopped = nil
     engine.inputNode.removeTap(onBus: OnDeviceAudioGraph.inputBus)
     reset()
+  }
+
+  private static let engineChanged = "Audio engine configuration changed"
+  private static let audioInterrupted = "Audio session interrupted"
+
+  private func audioLost(_ reason: String) {
+    let stopped = onListeningStopped
+    stopListening()
+    if stopped == nil { reset() }
+    // Also cancels synthesis and Apple fallback, which need not be playing in this engine.
+    NotificationCenter.default.post(name: Self.didInterruptPlayback, object: self)
+    stopped?(reason)
   }
 
   private static let inputBus: AVAudioNodeBus = 0
@@ -101,6 +131,6 @@ final class OnDeviceAudioGraph {
     engine.connect(player, to: engine.mainMixerNode, format: speechFormat)
   }
 
-  /// Posted on the main queue when the microphone takes the engine over and speech stops.
+  /// Posted on main when the microphone takes over or system audio is lost.
   static let didInterruptPlayback = Notification.Name("OnDeviceAudioGraphDidInterruptPlayback")
 }

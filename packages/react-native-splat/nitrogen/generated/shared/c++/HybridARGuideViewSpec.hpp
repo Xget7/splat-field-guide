@@ -13,9 +13,11 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `ARTrackingEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingEvent; }
 
 #include <string>
+#include "ARTrackingEvent.hpp"
 #include <functional>
 
 namespace margelo::nitro::splat {
@@ -51,12 +53,12 @@ namespace margelo::nitro::splat {
       virtual void setLandmarksPath(const std::string& landmarksPath) = 0;
       virtual bool getTorchEnabled() = 0;
       virtual void setTorchEnabled(bool torchEnabled) = 0;
-      virtual std::function<void(const std::string& /* eventJson */)> getOnTrackingStateChanged() = 0;
-      virtual void setOnTrackingStateChanged(const std::function<void(const std::string& /* eventJson */)>& onTrackingStateChanged) = 0;
+      virtual std::function<void(const ARTrackingEvent& /* event */)> getOnTrackingStateChanged() = 0;
+      virtual void setOnTrackingStateChanged(const std::function<void(const ARTrackingEvent& /* event */)>& onTrackingStateChanged) = 0;
 
     public:
       // Methods
-      
+
 
     protected:
       // Hybrid Setup

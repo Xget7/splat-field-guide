@@ -47,8 +47,8 @@ sfg_vec3 toC(splat::Vec3 v) {
 
 }  // namespace
 
-sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
-  return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer))};
+sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile) {
+  return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
 }
 
 SplatEngine& engineOf(sfg_engine* engine) {
@@ -82,6 +82,13 @@ void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback callback, voi
 
 bool sfg_load(sfg_engine* engine, const char* spz_path, const char* labels_path) {
   return engineOf(engine).loadWorldFile(spz_path, labels_path != nullptr ? labels_path : "",
+                                        splatkit::kPackFrame);
+}
+
+uint64_t sfg_begin_load(sfg_engine* engine) { return engineOf(engine).beginLoad(); }
+
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path, const char* labels_path) {
+  return engineOf(engine).loadWorldFile(request, spz_path, labels_path != nullptr ? labels_path : "",
                                         splatkit::kPackFrame);
 }
 

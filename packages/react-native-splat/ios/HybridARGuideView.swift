@@ -1,7 +1,7 @@
 import NitroModules
 import UIKit
 
-/// The registration experiment: React Native supplies local files and receives state JSON.
+/// The registration experiment: React Native supplies local files and receives typed tracking events.
 /// Nitro applies view props in a batch on the main thread.
 final class HybridARGuideView: HybridARGuideViewSpec {
   private let nativeView = ARGuideNativeView()
@@ -10,7 +10,7 @@ final class HybridARGuideView: HybridARGuideViewSpec {
   var referencePath = ""
   var landmarksPath = ""
   var torchEnabled = false
-  var onTrackingStateChanged: (String) -> Void = { _ in } {
+  var onTrackingStateChanged: (ARTrackingEvent) -> Void = { _ in } {
     didSet { nativeView.setEventHandler(onTrackingStateChanged) }
   }
 

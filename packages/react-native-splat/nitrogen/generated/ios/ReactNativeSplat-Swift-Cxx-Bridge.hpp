@@ -8,6 +8,14 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `ARCameraTracking` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARCameraTracking; }
+// Forward declaration of `ARTrackingEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingEvent; }
+// Forward declaration of `ARTrackingState` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARTrackingState; }
+// Forward declaration of `ARTrackingTelemetry` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `HybridARGuideViewSpec` to properly resolve imports.
@@ -34,6 +42,10 @@ namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
+#include "ARCameraTracking.hpp"
+#include "ARTrackingEvent.hpp"
+#include "ARTrackingState.hpp"
+#include "ARTrackingTelemetry.hpp"
 #include "CameraLimits.hpp"
 #include "HybridARGuideViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
@@ -58,28 +70,73 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
  */
 namespace margelo::nitro::splat::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* eventJson */)>
+  // pragma MARK: std::optional<std::string>
   /**
-   * Specialized version of `std::function<void(const std::string&)>`.
+   * Specialized version of `std::optional<std::string>`.
    */
-  using Func_void_std__string = std::function<void(const std::string& /* eventJson */)>;
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
+  }
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::optional<bool>
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * eventJson * /)>`, this can be used from Swift.
+   * Specialized version of `std::optional<bool>`.
    */
-  class Func_void_std__string_Wrapper final {
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::optional<ARTrackingTelemetry>
+  /**
+   * Specialized version of `std::optional<ARTrackingTelemetry>`.
+   */
+  using std__optional_ARTrackingTelemetry_ = std::optional<ARTrackingTelemetry>;
+  inline std::optional<ARTrackingTelemetry> create_std__optional_ARTrackingTelemetry_(const ARTrackingTelemetry& value) noexcept {
+    return std::optional<ARTrackingTelemetry>(value);
+  }
+  inline bool has_value_std__optional_ARTrackingTelemetry_(const std::optional<ARTrackingTelemetry>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline ARTrackingTelemetry get_std__optional_ARTrackingTelemetry_(const std::optional<ARTrackingTelemetry>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::function<void(const ARTrackingEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const ARTrackingEvent&)>`.
+   */
+  using Func_void_ARTrackingEvent = std::function<void(const ARTrackingEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const ARTrackingEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_ARTrackingEvent_Wrapper final {
   public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* eventJson */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* eventJson */)>>(std::move(func))) {}
-    inline void call(std::string eventJson) const noexcept {
-      _function->operator()(eventJson);
+    explicit Func_void_ARTrackingEvent_Wrapper(std::function<void(const ARTrackingEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const ARTrackingEvent& /* event */)>>(std::move(func))) {}
+    inline void call(ARTrackingEvent event) const noexcept {
+      _function->operator()(event);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* eventJson */)>> _function;
+    std::unique_ptr<std::function<void(const ARTrackingEvent& /* event */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
-    return Func_void_std__string_Wrapper(std::move(value));
+  Func_void_ARTrackingEvent create_Func_void_ARTrackingEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_ARTrackingEvent_Wrapper wrap_Func_void_ARTrackingEvent(Func_void_ARTrackingEvent value) noexcept {
+    return Func_void_ARTrackingEvent_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridARGuideViewSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridARGuideViewSpec>`.
@@ -87,11 +144,11 @@ namespace margelo::nitro::splat::bridge::swift {
   using std__shared_ptr_HybridARGuideViewSpec_ = std::shared_ptr<HybridARGuideViewSpec>;
   std::shared_ptr<HybridARGuideViewSpec> create_std__shared_ptr_HybridARGuideViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridARGuideViewSpec_(std__shared_ptr_HybridARGuideViewSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridARGuideViewSpec>
   using std__weak_ptr_HybridARGuideViewSpec_ = std::weak_ptr<HybridARGuideViewSpec>;
   inline std__weak_ptr_HybridARGuideViewSpec_ weakify_std__shared_ptr_HybridARGuideViewSpec_(const std::shared_ptr<HybridARGuideViewSpec>& strong) noexcept { return strong; }
-  
+
   // pragma MARK: std::shared_ptr<HybridSplatDiagnosticsSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridSplatDiagnosticsSpec>`.
@@ -99,11 +156,11 @@ namespace margelo::nitro::splat::bridge::swift {
   using std__shared_ptr_HybridSplatDiagnosticsSpec_ = std::shared_ptr<HybridSplatDiagnosticsSpec>;
   std::shared_ptr<HybridSplatDiagnosticsSpec> create_std__shared_ptr_HybridSplatDiagnosticsSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridSplatDiagnosticsSpec_(std__shared_ptr_HybridSplatDiagnosticsSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridSplatDiagnosticsSpec>
   using std__weak_ptr_HybridSplatDiagnosticsSpec_ = std::weak_ptr<HybridSplatDiagnosticsSpec>;
   inline std__weak_ptr_HybridSplatDiagnosticsSpec_ weakify_std__shared_ptr_HybridSplatDiagnosticsSpec_(const std::shared_ptr<HybridSplatDiagnosticsSpec>& strong) noexcept { return strong; }
-  
+
   // pragma MARK: Result<SplatDiagnosticsSnapshot>
   using Result_SplatDiagnosticsSnapshot_ = Result<SplatDiagnosticsSnapshot>;
   inline Result_SplatDiagnosticsSnapshot_ create_Result_SplatDiagnosticsSnapshot_(const SplatDiagnosticsSnapshot& value) noexcept {
@@ -112,7 +169,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Result_SplatDiagnosticsSnapshot_ create_Result_SplatDiagnosticsSnapshot_(const std::exception_ptr& error) noexcept {
     return Result<SplatDiagnosticsSnapshot>::withError(error);
   }
-  
+
   // pragma MARK: std::vector<double>
   /**
    * Specialized version of `std::vector<double>`.
@@ -123,7 +180,7 @@ namespace margelo::nitro::splat::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::optional<CameraLimits>
   /**
    * Specialized version of `std::optional<CameraLimits>`.
@@ -138,7 +195,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline CameraLimits get_std__optional_CameraLimits_(const std::optional<CameraLimits>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<double>
   /**
    * Specialized version of `std::optional<double>`.
@@ -153,7 +210,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::function<void()>
   /**
    * Specialized version of `std::function<void()>`.
@@ -175,7 +232,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
     return Func_void_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<void(const SplatError& /* error */)>
   /**
    * Specialized version of `std::function<void(const SplatError&)>`.
@@ -197,7 +254,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Func_void_SplatError_Wrapper wrap_Func_void_SplatError(Func_void_SplatError value) noexcept {
     return Func_void_SplatError_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::optional<ViewDirection>
   /**
    * Specialized version of `std::optional<ViewDirection>`.
@@ -212,7 +269,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline ViewDirection get_std__optional_ViewDirection_(const std::optional<ViewDirection>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<double>>
   /**
    * Specialized version of `std::shared_ptr<Promise<double>>`.
@@ -224,7 +281,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline PromiseHolder<double> wrap_std__shared_ptr_Promise_double__(std::shared_ptr<Promise<double>> promise) noexcept {
     return PromiseHolder<double>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(double /* result */)>
   /**
    * Specialized version of `std::function<void(double)>`.
@@ -246,7 +303,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
     return Func_void_double_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
   /**
    * Specialized version of `std::function<void(const std::exception_ptr&)>`.
@@ -268,7 +325,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridSplatViewSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridSplatViewSpec>`.
@@ -276,11 +333,11 @@ namespace margelo::nitro::splat::bridge::swift {
   using std__shared_ptr_HybridSplatViewSpec_ = std::shared_ptr<HybridSplatViewSpec>;
   std::shared_ptr<HybridSplatViewSpec> create_std__shared_ptr_HybridSplatViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridSplatViewSpec_(std__shared_ptr_HybridSplatViewSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridSplatViewSpec>
   using std__weak_ptr_HybridSplatViewSpec_ = std::weak_ptr<HybridSplatViewSpec>;
   inline std__weak_ptr_HybridSplatViewSpec_ weakify_std__shared_ptr_HybridSplatViewSpec_(const std::shared_ptr<HybridSplatViewSpec>& strong) noexcept { return strong; }
-  
+
   // pragma MARK: Result<void>
   using Result_void_ = Result<void>;
   inline Result_void_ create_Result_void_() noexcept {
@@ -289,7 +346,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
     return Result<void>::withError(error);
   }
-  
+
   // pragma MARK: Result<std::shared_ptr<Promise<double>>>
   using Result_std__shared_ptr_Promise_double___ = Result<std::shared_ptr<Promise<double>>>;
   inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::shared_ptr<Promise<double>>& value) noexcept {
@@ -298,7 +355,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<double>>>::withError(error);
   }
-  
+
   // pragma MARK: Result<double>
   using Result_double_ = Result<double>;
   inline Result_double_ create_Result_double_(double value) noexcept {
@@ -307,7 +364,7 @@ namespace margelo::nitro::splat::bridge::swift {
   inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
     return Result<double>::withError(error);
   }
-  
+
   // pragma MARK: Result<std::optional<ViewDirection>>
   using Result_std__optional_ViewDirection__ = Result<std::optional<ViewDirection>>;
   inline Result_std__optional_ViewDirection__ create_Result_std__optional_ViewDirection__(const std::optional<ViewDirection>& value) noexcept {

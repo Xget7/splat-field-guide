@@ -8,6 +8,8 @@
   "files": [
     "src",
     "ios",
+    "scripts",
+    "engine",
     "nitrogen",
     "nitro.json",
     "ReactNativeSplat.podspec",
@@ -16,7 +18,8 @@
   "scripts": {
     "codegen": "nitrogen",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test __tests__/*.test.js"
   },
   "peerDependencies": {
     "react": "*",
