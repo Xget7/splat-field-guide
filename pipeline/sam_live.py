@@ -5,11 +5,11 @@ Deploy:       modal deploy sam_live.py         (the page stays up; `modal app st
 Saved to the sfg-spike-frames volume under /marks/<part>/: marks.json and one stored-layout mask per photo.
 """
 
-import os
 import pathlib
 
 import modal
 
+import artifacts
 import mask_tools
 
 HERE = pathlib.Path(__file__).parent
@@ -36,12 +36,12 @@ sam_image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("mask_tools")
+    .add_local_python_source("mask_tools", "artifacts")
 )
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install("fastapi[standard]", "pillow", "numpy<2")
-    .add_local_python_source("mask_tools", "live_api")
+    .add_local_python_source("mask_tools", "live_api", "artifacts", "masks")
     .add_local_file(HERE / "mark.html", "/root/mark.html")
 )
 
@@ -67,7 +67,8 @@ class Sam:
         self.model = build_sam3_image_model(enable_inst_interactivity=True)
         hf_cache.commit()
         processor = Sam3Processor(self.model)
-        names = sorted(os.listdir("/frames/jpg"))
+        self.capture = artifacts.capture(pathlib.Path("/frames/jpg"))
+        names = [p["name"] for p in self.capture["photos"]]
         # Image features are computed once per photo; every click after that only runs the mask decoder.
         self.states, self.orientations = {}, {}
         with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -97,25 +98,11 @@ class Sam:
         return torch.cuda.get_device_name()
 
     @modal.method()
-    def segment(self, frame: int, marks: dict) -> dict:
+    def segment(self, frame: int, marks: dict, capture: str) -> dict:
+        assert capture == self.capture["sha256"], "SAM loaded a different capture"
         mask, score = self.mask(frame, marks)
         return {"png": None if mask is None else mask_tools.mask_png(mask), "score": score}
 
-    @modal.method()
-    def save(self, request: dict) -> list[int]:
-        masks = {}
-        for frame, marks in request["photos"].items():
-            mask, _ = self.mask(frame, marks)
-            if mask is not None:
-                masks[frame] = mask
-        folder = pathlib.Path("/frames/marks") / request["part"]
-        folder.mkdir(parents=True, exist_ok=True)
-        for old in folder.glob("*"):
-            old.unlink()  # a photo whose marks were cleared must not keep its old mask
-        for name, data in mask_tools.marks_files(request, masks, self.orientations).items():
-            (folder / name).write_bytes(data)
-        frames_volume.commit()
-        return sorted(masks)
 
 
 @app.function(image=web_image, volumes={"/frames": frames_volume}, scaledown_window=20 * 60, timeout=10 * 60)
@@ -131,11 +118,8 @@ def web():
         async def warm(self):
             return await self.sam.warm.remote.aio()
 
-        async def segment(self, frame, marks):
-            return await self.sam.segment.remote.aio(frame, marks)
-
-        async def save(self, request):
-            return await self.sam.save.remote.aio(request)
+        async def segment(self, frame, marks, capture):
+            return await self.sam.segment.remote.aio(frame, marks, capture)
 
     return live_api.make_app(ModalSam(), pathlib.Path("/frames/jpg"), pathlib.Path("/root/mark.html"),
-                             pathlib.Path("/frames/marks"), frames_volume.reload)
+                             pathlib.Path("/frames/marks"), frames_volume.reload, frames_volume.commit)

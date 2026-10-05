@@ -4,9 +4,9 @@
 # ///
 """Everything that can be checked without a GPU, before a SAM run is sent to Modal.
 
-Run:  uv run preflight.py [--clicks prompts-v1.json] [--volume]
+Run:  uv run pipeline/preflight.py [--volume]
       uv run preflight.py --serve-fake     (the marking page on http://127.0.0.1:8765 with a fake SAM)
-Exit code 1 when any check fails; preflight/clicks.jpg shows every click where SAM will see it.
+Exit code 1 when any check fails; no GPU work is started.
 """
 
 import argparse
@@ -45,8 +45,7 @@ def check(name: str):
 
 
 def test_code_compiles():
-    sources = ["sam_clicks.py", "sam_live.py", "sam_track.py", "live_api.py", "mask_tools.py", "lift.py", "lift_all.py",
-               "export.py", "export_checks.py", "preflight.py"]
+    sources = sorted(p.name for p in HERE.glob("*.py"))
     for file in sources:
         py_compile.compile(str(HERE / file), doraise=True)
     lint = subprocess.run(["uvx", "ruff", "check", "--quiet", "--select", "F,E9", *sources],
@@ -56,13 +55,11 @@ def test_code_compiles():
 
 def test_modal_app_builds():
     sys.path.insert(0, str(HERE))
-    import sam_clicks  # noqa: F401  (defines the image and function without contacting Modal)
     import sam_live
     import sam_track
 
-    assert callable(sam_clicks.main)
     sam = sam_live.Sam()  # the web function calls these by name, so a rename must fail here, not on Modal
-    missing = [m for m in ("warm", "segment", "save") if not hasattr(sam, m)]
+    missing = [m for m in ("warm", "segment") if not hasattr(sam, m)]
     assert not missing, f"sam_live.Sam lacks {missing}"
     assert sam_track.DEFAULT_VARIANT in sam_track.VARIANTS
     assert {order for order, _ in sam_track.VARIANTS.values()} == {"capture", "view"}
@@ -117,21 +114,6 @@ def test_marks_checks_catch_bad_marks():
     }
     for case, marks in bad.items():
         assert mask_tools.check_marks(marks, lambda f: shape, parts), f"{case} passed"
-
-
-def test_prompt_checks_catch_bad_files():
-    names = ["a.jpg", "b.jpg"]
-    good = {"frames": names, "parts": [{"id": "cap", "clicks": [{"frame": 1, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]}
-    assert mask_tools.check_prompts(good, names)[0] == []
-    bad = [
-        {**good, "frames": ["b.jpg", "a.jpg"]},
-        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 1, "x": .5, "y": .5, "positive": False}]}]},
-        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 9, "x": .5, "y": .5, "positive": True}]}]},
-        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 0, "photo": "b.jpg", "x": .5, "y": .5, "positive": True}]}]},
-        {**good, "parts": [{"id": "cap", "clicks": [{"frame": 0, "x": 1.2, "y": .5, "positive": True}]}]},
-    ]
-    for i, prompts in enumerate(bad):
-        assert mask_tools.check_prompts(prompts, names)[0], f"bad case {i} passed"
 
 
 def test_contact_sheet_edge_cases():
@@ -217,19 +199,10 @@ class FakeSam:
     async def warm(self):
         return "fake"
 
-    async def segment(self, frame, marks):
+    async def segment(self, frame, marks, capture):
         mask, score = self.mask(frame, marks)
         return {"png": None if mask is None else mask_tools.mask_png(mask), "score": score}
 
-    async def save(self, request):
-        masks = {f: m for f, marks in request["photos"].items() if (m := self.mask(f, marks)[0]) is not None}
-        folder = self.out / request["part"]
-        folder.mkdir(parents=True, exist_ok=True)
-        for old in folder.glob("*"):
-            old.unlink()
-        for name, data in mask_tools.marks_files(request, masks, self.orientations).items():
-            (folder / name).write_bytes(data)
-        return sorted(masks)
 
 
 def page_app(out: pathlib.Path):
@@ -261,6 +234,7 @@ def test_page_api_with_fake_sam():
         assert "<canvas" in client.get("/").text
         config = client.get("/api/config").json()
         assert list(config["parts"]) == list(mask_tools.PARTS) and config["saved"] == {}, config["saved"]
+        capture = config["capture"]
         key = mask_tools.KEYFRAMES[2]
         outside = min(set(range(len(list(PHOTOS.glob("*.jpg"))))) - set(mask_tools.photos_to_mark()))
         photo = Image.open(io.BytesIO(client.get(f"/photo/{key}.jpg").content))
@@ -269,25 +243,26 @@ def test_page_api_with_fake_sam():
         assert client.post("/api/warm").json() == {"device": "fake"}
 
         click = {"x": 0.3, "y": 0.2, "positive": True}
-        answer = client.post("/api/segment", json={"frame": key, "clicks": [click]}).json()
+        answer = client.post("/api/segment", json={"capture": capture, "frame": key, "clicks": [click]}).json()
         shown = Image.open(io.BytesIO(__import__("base64").b64decode(answer["mask"].split(",")[1])))
         assert shown.size == photo.size and shown.mode == "LA", (shown.size, shown.mode)
         assert shown.getpixel((int(0.3 * photo.width), int(0.2 * photo.height)))[1] == 255, "mask not under the click"
-        only_no = {"frame": key, "clicks": [{**click, "positive": False}]}
+        only_no = {"capture": capture, "frame": key, "clicks": [{**click, "positive": False}]}
         assert client.post("/api/segment", json=only_no).json()["mask"] is None
-        for bad in ({"frame": key, "clicks": [{**click, "x": 1.2}]},
-                    {"frame": key, "box": [0.5, 0.1, 0.4, 0.9]},
-                    {"frame": key, "box": [0.1, 0.1, 0.4]}):
+        for bad in ({"capture": capture, "frame": key, "clicks": [{**click, "x": 1.2}]},
+                    {"capture": capture, "frame": key, "box": [0.5, 0.1, 0.4, 0.9]},
+                    {"capture": capture, "frame": key, "box": [0.1, 0.1, 0.4]}):
             assert client.post("/api/segment", json=bad).status_code == 422, f"accepted {bad}"
-        assert client.post("/api/segment", json={"frame": outside, "clicks": [click]}).status_code == 404
+        assert client.post("/api/segment", json={"capture": capture, "frame": outside, "clicks": [click]}).status_code == 404
 
-        request = {"part": "engine", "photos": {str(key): {"clicks": [click], "box": None},
+        request = {"capture": capture, "part": "engine", "photos": {str(key): {"clicks": [click], "box": None},
                                                 str(mask_tools.KEYFRAMES[0]): {"clicks": [], "box": [0.1, 0.1, 0.9, 0.9]}}}
-        assert client.post("/api/save", json=request).json() == {"saved": sorted([key, mask_tools.KEYFRAMES[0]])}
+        assert client.post("/api/save", json=request).json()["saved"] == sorted([key, mask_tools.KEYFRAMES[0]])
         assert client.post("/api/save", json={**request, "part": "../x"}).status_code == 400
         assert client.post("/api/save", json={**request, "part": "battery"}).status_code == 404, "saved foreign photos"
         assert client.get("/api/config").json()["saved"] == {"engine": sorted([key, mask_tools.KEYFRAMES[0]])}
-        saved = pathlib.Path(tmp) / "engine"
+        import masks
+        saved = masks.folder(pathlib.Path(tmp) / "engine")
         assert json.loads((saved / "marks.json").read_text())["part"] == "engine"
         stored = Image.open(saved / f"{key:05d}.png")
         raw = Image.open(sorted(PHOTOS.glob("*.jpg"))[key])
@@ -333,18 +308,21 @@ def test_entrypoints_run_in_the_modal_cli_python():
     assert cli, "no modal CLI on PATH"
     shebang = pathlib.Path(cli).resolve().read_text(errors="ignore").splitlines()[0]
     python = shebang.removeprefix("#!").strip()
-    code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, sam_clicks, mask_tools, json; "
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import sam_track, json; "
             "plan = sam_track.plan('engine'); assert len(plan['centres']) == 124; sam_track.choose_variant([], 'view order, all keyframes'); "
-            "mask_tools.check_prompts({'frames': [], 'parts': []}, [])")
+            "assert len(plan['photo_identities']) == 124")
     result = subprocess.run([python, "-c", code, str(HERE)], capture_output=True, text=True, cwd=HERE)
     assert result.returncode == 0, result.stderr.strip().splitlines()[-1]
     return python
 
 
 def test_cameras_cover_every_photo():
-    cameras = json.loads((HERE / "cameras.json").read_text())
-    assert sorted(map(int, cameras)) == list(range(len(list(PHOTOS.glob("*.jpg"))))), "camera poses and photos differ"
-    return f"{len(cameras)} poses"
+    import cameras
+    import lift
+
+    value = cameras.read(HERE / "cameras.json", PHOTOS, lift.SPARSE)
+    assert value == cameras.generate(PHOTOS, lift.SPARSE), "tracker camera geometry differs from reconstruction"
+    return f"{len(value['photos'])} capture-bound poses"
 
 
 def test_projection_matches_opencv():
@@ -666,50 +644,6 @@ def test_colmap_poses_reproject_their_points():
     return f"median {ours:.2f} px, COLMAP's own {colmap:.2f} px"
 
 
-def check_real_data(clicks_path: pathlib.Path):
-    names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
-    prompts = json.loads(clicks_path.read_text())
-
-    @check("clicks file matches the photos")
-    def _():
-        errors, warnings = mask_tools.check_prompts(prompts, names)
-        assert not errors, "; ".join(errors)
-        parts = [p for p in prompts["parts"] if p["clicks"]]
-        return f"{len(parts)} parts, {sum(len(p['clicks']) for p in parts)} clicks" + (
-            f"; {len(warnings)} warnings (see below)" if warnings else "")
-
-    @check("photo orientations are supported")
-    def _():
-        found = {Image.open(PHOTOS / n).getexif().get(274, 1) for n in names}
-        assert found <= SUPPORTED_ORIENTATIONS, f"unsupported EXIF orientations {found - SUPPORTED_ORIENTATIONS}"
-        return f"EXIF {sorted(found)}"
-
-    @check("click sheet rendered")
-    def _():
-        orientations, stored = {}, {}
-        for i, n in enumerate(names):
-            orientations[i] = Image.open(PHOTOS / n).getexif().get(274, 1)
-        clicked = sorted({c["frame"] for p in prompts["parts"] for c in p["clicks"]})
-        for f in clicked:
-            # OpenCV applies EXIF by default; SAM gets pixels re-saved without EXIF, so read the stored pixels.
-            photo = cv2.imread(str(PHOTOS / names[f]), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
-            scale = 1416 / max(photo.shape[:2])
-            stored[f] = cv2.resize(photo, None, fx=scale, fy=scale)
-        colours = {p["id"]: mask_tools.PALETTE_BGR[i % len(mask_tools.PALETTE_BGR)] for i, p in enumerate(prompts["parts"])}
-        sheet = mask_tools.contact_sheet(lambda f: stored[f], clicked, {}, colours, prompts, orientations)
-        legend = np.zeros((40 + 28 * len(colours), 520, 3), np.uint8)
-        cv2.putText(legend, "white ring = es esto, red ring = esto no", (10, 26), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 1)
-        for i, p in enumerate(prompts["parts"]):
-            cv2.circle(legend, (20, 52 + 28 * i), 9, colours[p["id"]], -1)
-            cv2.putText(legend, f"{p['name']} ({len(p['clicks'])})", (40, 58 + 28 * i), cv2.FONT_HERSHEY_SIMPLEX, .6, (255, 255, 255), 1)
-        OUT.mkdir(exist_ok=True)
-        (OUT / "clicks.jpg").write_bytes(sheet)
-        cv2.imwrite(str(OUT / "legend.png"), legend)
-        return f"{len(clicked)} photos -> {OUT / 'clicks.jpg'}"
-
-    return mask_tools.check_prompts(prompts, names)[1]
-
-
 def check_volume():
     @check("owner's marks on the Modal volume")
     def _():
@@ -744,7 +678,6 @@ def check_volume():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--clicks", type=pathlib.Path, help="also check a click file for sam_clicks.py")
     parser.add_argument("--volume", action="store_true", help="also list the Modal volume (read only)")
     parser.add_argument("--serve-fake", action="store_true", help="serve the marking page with a fake SAM")
     args = parser.parse_args()
@@ -758,7 +691,6 @@ def main():
     for name, fn in [("code compiles and lints", test_code_compiles),
                      ("Modal app definition imports", test_modal_app_builds),
                      ("click orientation matches the browser", test_orientation_matches_what_the_browser_shows),
-                     ("prompt checks reject bad files", test_prompt_checks_catch_bad_files),
                      ("marks checks reject bad marks", test_marks_checks_catch_bad_marks),
                      ("contact sheet survives edge cases", test_contact_sheet_edge_cases),
                      ("mask orientation matches the photo", test_mask_orientation_matches_the_photo),
@@ -787,14 +719,11 @@ def main():
 
     for name, fn in export_checks.SYNTHETIC_CHECKS:
         check(f"export: {name}")(fn)
-    warnings = check_real_data(args.clicks) if args.clicks else []
     if args.volume:
         check_volume()
 
     for ok, line in results:
         print(f"{'PASS' if ok else 'FAIL'}  {line}")
-    for w in warnings:
-        print(f"warn  {w}")
     sys.exit(0 if all(ok for ok, _ in results) else 1)
 
 

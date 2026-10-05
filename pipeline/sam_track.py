@@ -16,6 +16,8 @@ import pathlib
 
 import modal
 
+import artifacts
+import masks as saved_masks
 import mask_tools
 
 HERE = pathlib.Path(__file__).parent
@@ -61,7 +63,7 @@ image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("mask_tools")
+    .add_local_python_source("mask_tools", "artifacts", "masks")
 )
 
 
@@ -72,8 +74,8 @@ image = (
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=40 * 60,
 )
-def track(part: str, centres: list[list[float]], directions: list[list[float]], variant: str = "") -> dict[str, bytes]:
-    import os
+def track(part: str, centres: list[list[float]], directions: list[list[float]], capture: str,
+          photo_identities: list[dict], reconstruction_sha256: str, variant: str = "") -> dict[str, bytes]:
     import tempfile
     import time
 
@@ -83,8 +85,11 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
     from PIL import Image
     from sam3.model_builder import build_sam3_video_model
 
-    names = sorted(os.listdir("/frames/jpg"))
-    marks_dir = pathlib.Path("/frames/marks") / part
+    found = artifacts.capture(pathlib.Path("/frames/jpg"))
+    assert found["sha256"] == capture and found["photos"] == photo_identities, "tracking capture identity mismatch"
+    names = [p["name"] for p in found["photos"]]
+    saved_masks.read(pathlib.Path("/frames/marks") / part, capture)
+    marks_dir = saved_masks.folder(pathlib.Path("/frames/marks") / part)
     drawn = {int(p.stem): cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) > 0 for p in sorted(marks_dir.glob("*.png"))}
     assert drawn, f"no marks saved for {part}; save them on the marking page first"
     assert len(centres) == len(names), f"{len(centres)} camera poses for {len(names)} photos"
@@ -135,7 +140,12 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
     keyframes = sorted(drawn)
     scoring, best = choose_variant(keyframes, variant)
     holdouts = mask_tools.pick_holdouts(keyframes, centres, directions) if scoring else []
-    report = {"keyframes": keyframes, "holdouts": holdouts, "variants": {}}
+    checkpoints = {str(p.relative_to("/hf")): artifacts.sha256(p) for p in pathlib.Path("/hf").rglob("sam3.pt")}
+    assert checkpoints, "SAM checkpoint identity unavailable"
+    report = {"part": part, "capture_sha256": capture, "reconstruction_sha256": reconstruction_sha256,
+              "marks_sha256": artifacts.tree(marks_dir), "sam_commit": SAM3_COMMIT,
+              "torch": torch.__version__, "checkpoints": checkpoints,
+              "keyframes": keyframes, "holdouts": holdouts, "variants": {}}
     held_out_tiles = {}
     for variant_name, (order_name, max_cond) in (VARIANTS if scoring else {}).items():
         started = time.time()
@@ -191,24 +201,34 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
 
 
 def plan(part: str) -> dict:
-    """Everything the run needs from this machine. Runs in the modal CLI's Python, so standard library only."""
-    names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
+    """Check names, bytes and reconstruction before starting a GPU; standard library only."""
+    assert part in mask_tools.PARTS, f"unknown part {part}"
+    found = artifacts.capture(PHOTOS)
     cameras = json.loads((HERE / "cameras.json").read_text())
-    assert len(cameras) == len(names), f"{len(cameras)} camera poses for {len(names)} photos"
-    return {"part": part,
-            "centres": [cameras[str(i)]["c"] for i in range(len(names))],
-            "directions": [cameras[str(i)]["d"] for i in range(len(names))]}
+    assert cameras["captureSha256"] == found["sha256"], "tracker cameras belong to another capture"
+    assert cameras["reconstruction"] == artifacts.reconstruction(DATA / "capture/full/sparse/0"), \
+        "tracker cameras belong to another reconstruction"
+    photos = cameras["photos"]
+    assert [{k: p[k] for k in ("name", "bytes", "sha256")} for p in photos] == found["photos"], \
+        "tracker camera photo identities differ"
+    return {"part": part, "capture": found["sha256"], "photo_identities": found["photos"],
+            "reconstruction_sha256": cameras["reconstruction"]["sha256"],
+            "centres": [p["c"] for p in photos], "directions": [p["d"] for p in photos]}
 
 
 @app.local_entrypoint()
-def main(part: str = "engine", variant: str = ""):
-    choose_variant([], variant)  # a misspelt variant fails here, not after the GPU is up
-    out = DATA / "segment" / "tracks" / part
-    for name, data in track.remote(**plan(part), variant=variant).items():
-        target = out / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-    report = json.loads((out / "report.json").read_text())
-    for name, result in report["variants"].items():
-        print(f"{name}: mean IoU {result['mean']:.3f} {result['iou']}")
-    print(f"best: {report['best']}; written to {out}")
+def main(part: str = "all", variant: str = ""):
+    choose_variant([], variant)
+    parts = list(mask_tools.PARTS) if part == "all" else [part]
+    plans = [plan(p) for p in parts]
+    for inputs in plans:
+        out = DATA / "segment" / "tracks" / inputs["part"]
+        with artifacts.candidate(out) as staged:
+            for name, data in track.remote(**inputs, variant=variant).items():
+                target = staged / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            report = json.loads((staged / "report.json").read_text())
+            assert report["capture_sha256"] == inputs["capture"], "returned tracking capture differs"
+            assert len(report["photos"]) == len(inputs["photo_identities"]), "incomplete tracking result"
+        print(f"{inputs['part']}: best {report['best']}; written to {out}")
