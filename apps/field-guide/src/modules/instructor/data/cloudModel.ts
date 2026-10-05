@@ -21,8 +21,8 @@ export const COOL_OFF_MS = 30000;
 export const CLOUD_HISTORY_TURNS = 4;
 
 /**
- * Everything the pack knows, once per pack: the upstream model receives an ephemeral cache hint, and can
- * reason across parts instead of seeing only the notes picked for one.
+ * Everything the pack knows: an upstream ephemeral cache hint can reuse these instructions,
+ * while a large model can reason across parts rather than seeing only the notes picked for one.
  */
 export function cloudInstructions(pack: Pack): string {
   const parts = pack.parts.map(part =>
@@ -158,7 +158,9 @@ export function createCloudModel({
               );
             } else if (typeof event.text === 'string') {
               text += event.text;
-              clearTimeout(timers[0]);
+              if (text.trim() !== '') {
+                clearTimeout(timers[0]);
+              }
               onText(text);
             } else if (event.done === true) {
               settle();

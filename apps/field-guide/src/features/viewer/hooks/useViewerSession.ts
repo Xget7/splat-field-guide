@@ -23,6 +23,8 @@ import {
   type ViewerState,
 } from '../model/viewerState';
 
+const PROGRESS_FAILURE = 'Field guide: progress not saved';
+
 interface Options {
   guide: ReadyGuide;
   procedureId: ProcedureId;
@@ -164,9 +166,7 @@ export function useViewerSession({
             procedureId: progressProcedure,
             stepIndex: progressStep,
           });
-    saved.catch(failure =>
-      console.warn('Field guide: progress not saved', failure),
-    );
+    saved.catch(failure => console.warn(PROGRESS_FAILURE, failure));
   }, [guide.id, progressProcedure, progressStep]);
 
   const stopVoice = voice.stop;
@@ -174,7 +174,7 @@ export function useViewerSession({
     stopVoice();
     dispatch({ type: SessionEventType.end });
     return clearProgress().catch(failure =>
-      console.warn('Field guide: progress not saved', failure),
+      console.warn(PROGRESS_FAILURE, failure),
     );
   }, [dispatch, stopVoice]);
 

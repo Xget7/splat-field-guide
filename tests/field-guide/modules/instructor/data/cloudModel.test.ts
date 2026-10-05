@@ -185,13 +185,19 @@ test.each([
   },
 );
 
-test('gives up when no text arrives in time', async () => {
-  const cloud = model();
-  const reply = cloud.respond(request, jest.fn());
-  jest.advanceTimersByTime(FIRST_TEXT_MS);
-  await expect(reply).rejects.toThrow('no text in time');
-  expect(cloud.isReady()).toBe(false);
-});
+test.each([undefined, '', ' '])(
+  'gives up when no answer text arrives in time: %j',
+  async delta => {
+    const cloud = model();
+    const reply = cloud.respond(request, jest.fn());
+    if (delta !== undefined) {
+      FakeRequest.last.receive(line({ text: delta }));
+    }
+    jest.advanceTimersByTime(FIRST_TEXT_MS);
+    expect(cloud.isReady()).toBe(false);
+    await expect(reply).rejects.toThrow('no text in time');
+  },
+);
 
 test('first text stops the first-text timer, not the total one', async () => {
   const reply = model().respond(request, jest.fn());
