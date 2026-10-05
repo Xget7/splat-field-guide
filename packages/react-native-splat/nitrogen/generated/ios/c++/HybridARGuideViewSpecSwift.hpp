@@ -12,10 +12,22 @@
 // Forward declaration of `HybridARGuideViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridARGuideViewSpec_cxx; }
 
-
+// Forward declaration of `ARTrackingEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingEvent; }
+// Forward declaration of `ARTrackingState` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARTrackingState; }
+// Forward declaration of `ARTrackingTelemetry` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
+// Forward declaration of `ARCameraTracking` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARCameraTracking; }
 
 #include <string>
+#include "ARTrackingEvent.hpp"
 #include <functional>
+#include "ARTrackingState.hpp"
+#include <optional>
+#include "ARTrackingTelemetry.hpp"
+#include "ARCameraTracking.hpp"
 
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
 
@@ -83,11 +95,11 @@ namespace margelo::nitro::splat {
     inline void setTorchEnabled(bool torchEnabled) noexcept override {
       _swiftPart.setTorchEnabled(std::forward<decltype(torchEnabled)>(torchEnabled));
     }
-    inline std::function<void(const std::string& /* eventJson */)> getOnTrackingStateChanged() noexcept override {
+    inline std::function<void(const ARTrackingEvent& /* event */)> getOnTrackingStateChanged() noexcept override {
       auto __result = _swiftPart.getOnTrackingStateChanged();
       return __result;
     }
-    inline void setOnTrackingStateChanged(const std::function<void(const std::string& /* eventJson */)>& onTrackingStateChanged) noexcept override {
+    inline void setOnTrackingStateChanged(const std::function<void(const ARTrackingEvent& /* event */)>& onTrackingStateChanged) noexcept override {
       _swiftPart.setOnTrackingStateChanged(onTrackingStateChanged);
     }
 

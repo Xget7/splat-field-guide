@@ -18,7 +18,6 @@ import {
   CAMERA_STATUS,
   elapsedTime,
   INITIAL_EVENT,
-  parseEvent,
   STATUS,
   type TrackingEvent,
 } from '../model/tracking';
@@ -31,21 +30,21 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
   const [event, setEvent] = useState<TrackingEvent>(INITIAL_EVENT);
   const [attempt, setAttempt] = useState(0);
   const [torchRequested, setTorchRequested] = useState(false);
-  const receive = useCallback((json: string) => {
-    const next = parseEvent(json);
-    if (next !== null) {
-      setEvent(current =>
-        current.state === next.state &&
-        current.message === next.message &&
-        current.torchAvailable === next.torchAvailable &&
-        current.torchEnabled === next.torchEnabled &&
-        current.torchError === next.torchError &&
-        current.referenceLoaded === next.referenceLoaded &&
-        current.telemetry?.sampleTimestamp === next.telemetry?.sampleTimestamp
-          ? current
-          : next,
-      );
+  const receive = useCallback((next: TrackingEvent) => {
+    if (next.torchError) {
+      setTorchRequested(next.torchEnabled);
     }
+    setEvent(current =>
+      current.state === next.state &&
+      current.message === next.message &&
+      current.torchAvailable === next.torchAvailable &&
+      current.torchEnabled === next.torchEnabled &&
+      current.torchError === next.torchError &&
+      current.referenceLoaded === next.referenceLoaded &&
+      current.telemetry?.sampleTimestamp === next.telemetry?.sampleTimestamp
+        ? current
+        : next,
+    );
   }, []);
   const trackingCallback = useMemo(() => callback(receive), [receive]);
   const retry = () => {
@@ -175,7 +174,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
               <Text style={styles.readoutLabel}>CAMERA</Text>
               <Text testID="ar-camera-state" style={styles.readoutValue}>
                 {live
-                  ? `${cameraStatus} · ${Math.round(
+                  ? `${cameraStatus}, ${Math.round(
                       live.cameraFramesPerSecond,
                     )} FPS`
                   : cameraStatus}
@@ -208,6 +207,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
               onPress={() => {
                 Linking.openSettings().catch(() => {
                   setEvent({
+                    ...INITIAL_EVENT,
                     state: 'error',
                     message:
                       'Open Settings and enable camera access for Field Guide.',

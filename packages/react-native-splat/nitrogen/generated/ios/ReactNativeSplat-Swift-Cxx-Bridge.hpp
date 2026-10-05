@@ -8,6 +8,14 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `ARCameraTracking` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARCameraTracking; }
+// Forward declaration of `ARTrackingEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingEvent; }
+// Forward declaration of `ARTrackingState` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARTrackingState; }
+// Forward declaration of `ARTrackingTelemetry` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `HybridARGuideViewSpec` to properly resolve imports.
@@ -34,6 +42,10 @@ namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
+#include "ARCameraTracking.hpp"
+#include "ARTrackingEvent.hpp"
+#include "ARTrackingState.hpp"
+#include "ARTrackingTelemetry.hpp"
 #include "CameraLimits.hpp"
 #include "HybridARGuideViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
@@ -58,26 +70,71 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
  */
 namespace margelo::nitro::splat::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* eventJson */)>
+  // pragma MARK: std::optional<std::string>
   /**
-   * Specialized version of `std::function<void(const std::string&)>`.
+   * Specialized version of `std::optional<std::string>`.
    */
-  using Func_void_std__string = std::function<void(const std::string& /* eventJson */)>;
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
+  }
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<bool>
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * eventJson * /)>`, this can be used from Swift.
+   * Specialized version of `std::optional<bool>`.
    */
-  class Func_void_std__string_Wrapper final {
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<ARTrackingTelemetry>
+  /**
+   * Specialized version of `std::optional<ARTrackingTelemetry>`.
+   */
+  using std__optional_ARTrackingTelemetry_ = std::optional<ARTrackingTelemetry>;
+  inline std::optional<ARTrackingTelemetry> create_std__optional_ARTrackingTelemetry_(const ARTrackingTelemetry& value) noexcept {
+    return std::optional<ARTrackingTelemetry>(value);
+  }
+  inline bool has_value_std__optional_ARTrackingTelemetry_(const std::optional<ARTrackingTelemetry>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline ARTrackingTelemetry get_std__optional_ARTrackingTelemetry_(const std::optional<ARTrackingTelemetry>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(const ARTrackingEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const ARTrackingEvent&)>`.
+   */
+  using Func_void_ARTrackingEvent = std::function<void(const ARTrackingEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const ARTrackingEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_ARTrackingEvent_Wrapper final {
   public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* eventJson */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* eventJson */)>>(std::move(func))) {}
-    inline void call(std::string eventJson) const noexcept {
-      _function->operator()(eventJson);
+    explicit Func_void_ARTrackingEvent_Wrapper(std::function<void(const ARTrackingEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const ARTrackingEvent& /* event */)>>(std::move(func))) {}
+    inline void call(ARTrackingEvent event) const noexcept {
+      _function->operator()(event);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* eventJson */)>> _function;
+    std::unique_ptr<std::function<void(const ARTrackingEvent& /* event */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
-    return Func_void_std__string_Wrapper(std::move(value));
+  Func_void_ARTrackingEvent create_Func_void_ARTrackingEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_ARTrackingEvent_Wrapper wrap_Func_void_ARTrackingEvent(Func_void_ARTrackingEvent value) noexcept {
+    return Func_void_ARTrackingEvent_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::shared_ptr<HybridARGuideViewSpec>

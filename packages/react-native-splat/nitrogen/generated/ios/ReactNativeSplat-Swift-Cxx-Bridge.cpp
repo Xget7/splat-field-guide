@@ -16,11 +16,11 @@
 
 namespace margelo::nitro::splat::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* eventJson */)>
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeSplat::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& eventJson) mutable -> void {
-      swiftClosure.call(eventJson);
+  // pragma MARK: std::function<void(const ARTrackingEvent& /* event */)>
+  Func_void_ARTrackingEvent create_Func_void_ARTrackingEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeSplat::Func_void_ARTrackingEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const ARTrackingEvent& event) mutable -> void {
+      swiftClosure.call(event);
     };
   }
   

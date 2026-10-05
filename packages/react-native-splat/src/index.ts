@@ -11,6 +11,10 @@ import type { SplatViewMethods, SplatViewProps } from './SplatView.nitro';
 export type {
   ARGuideView as ARGuideViewSpec,
   ARGuideViewProps,
+  ARTrackingState,
+  ARCameraTracking,
+  ARTrackingTelemetry,
+  ARTrackingEvent,
 } from './ARGuideView.nitro';
 export type {
   SplatDiagnostics as SplatDiagnosticsSpec,

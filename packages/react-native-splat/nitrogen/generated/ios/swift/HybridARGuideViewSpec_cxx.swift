@@ -84,7 +84,7 @@ open class HybridARGuideViewSpec_cxx {
     }
   }
 
-
+  
 
   /**
    * Get the memory size of the Swift class (plus size of any other allocations)
@@ -131,7 +131,7 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.referencePath = String(newValue)
     }
   }
-
+  
   public final var landmarksPath: std.string {
     @inline(__always)
     get {
@@ -142,7 +142,7 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.landmarksPath = String(newValue)
     }
   }
-
+  
   public final var torchEnabled: Bool {
     @inline(__always)
     get {
@@ -153,21 +153,21 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.torchEnabled = newValue
     }
   }
-
-  public final var onTrackingStateChanged: bridge.Func_void_std__string {
+  
+  public final var onTrackingStateChanged: bridge.Func_void_ARTrackingEvent {
     @inline(__always)
     get {
-      return { () -> bridge.Func_void_std__string in
-        let __closureWrapper = Func_void_std__string(self.__implementation.onTrackingStateChanged)
-        return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
+      return { () -> bridge.Func_void_ARTrackingEvent in
+        let __closureWrapper = Func_void_ARTrackingEvent(self.__implementation.onTrackingStateChanged)
+        return bridge.create_Func_void_ARTrackingEvent(__closureWrapper.toUnsafe())
       }()
     }
     @inline(__always)
     set {
-      self.__implementation.onTrackingStateChanged = { () -> (String) -> Void in
-        let __wrappedFunction = bridge.wrap_Func_void_std__string(newValue)
-        return { (__eventJson: String) -> Void in
-          __wrappedFunction.call(std.string(__eventJson))
+      self.__implementation.onTrackingStateChanged = { () -> (ARTrackingEvent) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_ARTrackingEvent(newValue)
+        return { (__event: ARTrackingEvent) -> Void in
+          __wrappedFunction.call(__event)
         }
       }()
     }
@@ -177,20 +177,20 @@ open class HybridARGuideViewSpec_cxx {
   public final func getView() -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(__implementation.view).toOpaque()
   }
-
+  
   public final func beforeUpdate() {
     __implementation.beforeUpdate()
   }
-
+  
   public final func afterUpdate() {
     __implementation.afterUpdate()
   }
-
+  
   public final func maybePrepareForRecycle() {
     guard let recyclable = __implementation as? any RecyclableView else { return }
     recyclable.prepareForRecycle()
   }
-
+  
   public final func onDropView() {
     __implementation.onDropView()
   }
