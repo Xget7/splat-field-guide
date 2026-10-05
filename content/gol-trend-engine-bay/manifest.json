@@ -1,0 +1,708 @@
+{
+  "schemaVersion": 1,
+  "packId": "gol-trend-engine-bay",
+  "packVersion": 1,
+  "title": "VW Gol Trend 1.6 engine bay",
+  "tiers": [
+    {
+      "id": "high",
+      "splatCount": 2498597,
+      "cloud": {
+        "path": "high/cloud.spz",
+        "bytes": 63040843,
+        "sha256": "95481cec8678680585c64188a650b81594eb2fc6589537f31d12dcc6f9589068"
+      },
+      "labels": {
+        "path": "high/labels.bin",
+        "bytes": 2498613,
+        "sha256": "71667879c3fe7f5abf0bc75daeadcfd0fbc84d4cdc7790b570b047bd3d2eae97"
+      }
+    }
+  ],
+  "camera": {
+    "home": {
+      "azimuth": -4.5,
+      "elevation": 48.5,
+      "radius": 0.703
+    },
+    "limits": {
+      "minAzimuth": -90.9,
+      "maxAzimuth": 83.9,
+      "minElevation": 26.8,
+      "maxElevation": 80.4,
+      "minRadius": 0.308,
+      "maxRadius": 1.674
+    }
+  },
+  "parts": [
+    {
+      "id": "coolant-reservoir",
+      "label": 1,
+      "parent": null,
+      "name": "Coolant reservoir",
+      "aliases": [
+        "coolant tank",
+        "expansion tank",
+        "coolant bottle",
+        "radiator reservoir",
+        "coolant cap",
+        "antifreeze"
+      ],
+      "summary": "The translucent pink tank with the blue cap that holds spare engine coolant.",
+      "details": "It lets the coolant expand as the engine warms and draws it back as the engine cools. Check the level through the tank wall between the MIN and MAX marks, with the engine cold. A level that keeps dropping means a leak, so have it inspected. Never open the cap while the engine is hot, because the system is under pressure and can spray scalding coolant.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the expansion tank of the engine's cooling system. In this bay it is the translucent pink tank with the blue cap."
+        },
+        {
+          "topic": "purpose",
+          "text": "The tank gives the coolant room to expand as the engine warms up, and takes it back as the engine cools. The water pump circulates coolant through the engine, and the radiator passes the heat it picked up to the air. The thermostat decides when coolant flows through the radiator, and the fan adds airflow when the car is slow or stopped. Additives in the coolant also protect the system against corrosion and freezing."
+        },
+        {
+          "topic": "construction",
+          "text": "The tank has a filler neck, a cap and hose connections, and no moving parts. In a pressurised system like this one, valves in the cap release excess pressure and let air back in as the coolant cools."
+        },
+        {
+          "topic": "check",
+          "text": "Wait until the engine is completely cold. Read the level through the tank wall, without opening the cap. The level should sit between the MIN and MAX marks. Look at the tank, the cap and the hose joints for wet spots or dried crust, which point to a leak. If the level keeps dropping, have the system inspected instead of topping up again and again. If the tank is empty, the engine has overheated, or steam is coming out, do not drive the car; get help first."
+        },
+        {
+          "topic": "faults",
+          "text": "A cracked tank or a leaking hose joint lowers the level and leaves coolant around the joint. A faulty pressure cap can cause coolant loss, excess pressure or overheating. A low level does not prove the tank is at fault, because a leak anywhere in the circuit looks the same. Oil, sludge or other dirt in the coolant needs a workshop check of the whole system."
+        },
+        {
+          "topic": "maintenance",
+          "text": "Never choose coolant by its colour, and never mix products that are not confirmed to be compatible. After a flush, refill or repair, the system has to be bled to remove trapped air."
+        },
+        {
+          "topic": "specifications",
+          "text": "The coolant type, mix ratio, capacity and change interval are in the owner's manual, or a Volkswagen dealer can confirm them from the VIN."
+        },
+        {
+          "topic": "safety",
+          "text": "Never open the cap while the engine is hot, because pressurised coolant and steam can cause severe burns. Keep coolant in its labelled container, away from children and animals, and clean up spills. Never pour engine oil, steering fluid or brake fluid into this tank."
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.7068,
+          -0.0122,
+          -0.0483
+        ],
+        "max": [
+          -0.3901,
+          0.2232,
+          0.3783
+        ]
+      },
+      "anchor": [
+        -0.5636,
+        0.2232,
+        0.1339
+      ]
+    },
+    {
+      "id": "power-steering-reservoir",
+      "label": 2,
+      "parent": null,
+      "name": "Power steering reservoir",
+      "aliases": [
+        "power steering tank",
+        "steering fluid tank",
+        "hydraulic steering reservoir",
+        "steering reservoir",
+        "power steering cap",
+        "steering fluid cap"
+      ],
+      "summary": "The dark square tank with the yellow-green cap that holds the power steering fluid.",
+      "details": "It feeds the hydraulic pump that makes the steering light. Check the level against the marks on the tank or cap, and top up only with the fluid named in your owner's manual. A heavy steering wheel or a whine when turning can mean low fluid. Never run the pump dry and never top up with a fluid the manual does not name.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the fluid tank of the hydraulic power steering. In this bay it is the dark square tank with the yellow-green cap, next to the coolant tank."
+        },
+        {
+          "topic": "purpose",
+          "text": "A pump driven by the engine draws fluid from the tank, sends it through the steering gear and back. When you turn the wheel, that hydraulic pressure helps move the steering, so it takes less effort. The tank only stores the fluid; the pump makes the pressure. Losing fluid, or air getting into the circuit, weakens the assistance and can damage the pump."
+        },
+        {
+          "topic": "construction",
+          "text": "The reservoir has a cap, an outlet that feeds the pump and an inlet for the fluid returning from the steering. Some systems also have a filter, which is replaced when the pump is repaired."
+        },
+        {
+          "topic": "check",
+          "text": "Check it with the engine stopped. Look at the tank, its hose joints and the pump for leaks. Read the level against the marks on the tank or on the cap, as the owner's manual describes. If the level is low, have the system checked for a leak before topping up."
+        },
+        {
+          "topic": "faults",
+          "text": "Heavy steering, a whining pump, visible leaks and foaming fluid are signs of trouble in the system. A worn drive belt, dirty fluid or a worn pump can also weaken the assistance, so the tank is only one possible cause. A leak, or a pump that no longer moves fluid properly, needs a workshop."
+        },
+        {
+          "topic": "maintenance",
+          "text": "Never top up with a generic steering fluid or with automatic transmission fluid unless it is the approved one. Any repair that opens the circuit needs the manufacturer's refill and bleeding procedure."
+        },
+        {
+          "topic": "specifications",
+          "text": "The approved fluid, capacity and change interval are in the owner's manual, or a Volkswagen dealer can confirm them from the VIN."
+        },
+        {
+          "topic": "safety",
+          "text": "Never run the pump with an empty tank, because it is lubricated by the fluid and gets damaged without it. Never hold the steering wheel at full lock, because that puts the system at maximum pressure. Leave hot fluid checks, bleeding and work near a running pump to a workshop."
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.5032,
+          0.0035,
+          -0.0817
+        ],
+        "max": [
+          -0.2031,
+          0.22,
+          0.3256
+        ]
+      },
+      "anchor": [
+        -0.4185,
+        0.22,
+        0.2056
+      ]
+    },
+    {
+      "id": "brake-fluid-reservoir",
+      "label": 3,
+      "parent": null,
+      "name": "Brake fluid reservoir",
+      "aliases": [
+        "brake reservoir",
+        "brake fluid tank",
+        "brake fluid bottle",
+        "master cylinder reservoir",
+        "brake fluid cap",
+        "brake cap"
+      ],
+      "summary": "The white reservoir with the yellow cap that holds the brake fluid.",
+      "details": "It supplies the master cylinder that pushes fluid to the brakes. Check that the level sits between MIN and MAX, and keep the cap closed except to top up. A level that falls slowly can be pad wear, but a sudden drop is a leak and needs a workshop before you drive. Never let brake fluid touch the paint, and never use fluid from an opened container that has been stored for a long time.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the supply tank of the brake master cylinder. In this bay it is the white reservoir with the yellow cap."
+        },
+        {
+          "topic": "purpose",
+          "text": "The master cylinder turns the force on the pedal into hydraulic pressure, and the brake fluid carries that force to the brakes at each wheel. As the pads wear, the caliper pistons sit further out and hold more fluid, so the level in the tank falls slowly. Brake fluid absorbs moisture over time, which lowers its boiling point. Under heavy braking that moisture can boil into vapour bubbles, which compress and can cause a serious loss of braking."
+        },
+        {
+          "topic": "construction",
+          "text": "A plastic master cylinder reservoir is made of the tank, a cap and a diaphragm, and it may carry a fluid level sensor. The fluid flows from the tank's outlets into the master cylinder below it. The tank only stores fluid; the pressure is made in the master cylinder."
+        },
+        {
+          "topic": "check",
+          "text": "Check it with the engine stopped and the bay cool. Read the level through the reservoir wall, keeping the cap closed. The level should sit between the MIN and MAX marks. Look for wet spots around the reservoir and notice any recent change in how the pedal feels. If the level is below MIN, has dropped suddenly, or the pedal feels soft or sinks, do not drive until the brakes have been checked. A level check does not replace a check of the brakes themselves or a test of the fluid's condition."
+        },
+        {
+          "topic": "faults",
+          "text": "A leak at the reservoir, a seal or anywhere in the brakes lowers the level and can let air into the system. A slow drop can come from pad wear, but it should still be checked, not just topped up. Old fluid that has absorbed moisture can fail under heat even when the level looks right. The colour of the fluid does not tell whether it is still safe."
+        },
+        {
+          "topic": "maintenance",
+          "text": "The fluid is changed and the brakes are bled by a workshop, with fresh fluid of the approved grade."
+        },
+        {
+          "topic": "specifications",
+          "text": "The approved brake fluid grade and change interval are in the owner's manual, or a Volkswagen dealer can confirm them from the VIN."
+        },
+        {
+          "topic": "safety",
+          "text": "Brake fluid damages paint, so clean any spill at once. Keep dirt and other fluids out of the reservoir, and keep the fluid container closed so it does not absorb moisture. Never top up to hide a loss of fluid that has no explanation."
+        }
+      ],
+      "bounds": {
+        "min": [
+          0.2032,
+          -0.0867,
+          -0.2775
+        ],
+        "max": [
+          0.2889,
+          0.0903,
+          -0.1695
+        ]
+      },
+      "anchor": [
+        0.2484,
+        0.0903,
+        -0.1985
+      ]
+    },
+    {
+      "id": "battery",
+      "label": 4,
+      "parent": null,
+      "name": "Battery",
+      "aliases": [
+        "car battery",
+        "accumulator"
+      ],
+      "summary": "The black 12 volt battery below the air box that starts the engine and powers the electrics.",
+      "details": "It supplies the starter and holds power for the electronics when the engine is off. Check that the terminals are tight, clean and free of white or green crust. Keep sparks, flames and metal tools away from it. Never short the terminals with a tool or ring, and always disconnect the negative terminal first.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the 12 volt starter battery, which stores energy to start the engine and to power the electrics. In this bay it is the black battery below the air box."
+        },
+        {
+          "topic": "purpose",
+          "text": "It supplies the large current the starter motor needs, and it powers the ignition and the electronics. The alternator recharges it while the engine runs, but short trips may not give it enough time to recharge fully. The fuses protect the circuits it feeds from too much current. A slow start can come from the battery, its connections, the starter or the charging system, so it is not a diagnosis by itself."
+        },
+        {
+          "topic": "construction",
+          "text": "A lead-acid battery holds lead plates, separators between them, and sulphuric acid as the electrolyte. Its cells are joined inside an acid-resistant plastic case, with two terminals for the cables. Some batteries hold free liquid electrolyte and others soak it into glass fibre mats, so the type decides what maintenance applies. A replacement must match the size, the terminal layout, the electrical rating and the mounting."
+        },
+        {
+          "topic": "check",
+          "text": "Switch off everything electrical, and wear eye protection near the battery. Read its label without removing it or loosening the terminals. Check the case for cracks, swelling or leaks, and stop if it is damaged. Look for corrosion on the terminals, damaged cable insulation or a loose connection, keeping metal tools away from the terminals. If starting is weak or the battery keeps going flat, have a workshop test the battery and the charging system. Never open a sealed, maintenance-free battery to check or add liquid."
+        },
+        {
+          "topic": "faults",
+          "text": "Corroded terminals reduce how well the battery delivers current. Being left undercharged for long damages the plates and weakens starting. A leaking or damaged case means the battery must be replaced, not repaired. A battery that keeps going flat needs a check of the electrical system before it is replaced."
+        },
+        {
+          "topic": "maintenance",
+          "text": "Keep the outside and the terminals clean, and follow the battery maker's instructions when charging it."
+        },
+        {
+          "topic": "specifications",
+          "text": "The required capacity, cold cranking rating and battery size are in the owner's manual, or a parts shop can match them from the car and the battery fitted."
+        },
+        {
+          "topic": "safety",
+          "text": "Battery acid burns skin and eyes, and charging releases explosive gas. Keep flames, sparks, cigarettes, rings and metal tools away from the terminals. When the battery must be disconnected, remove the negative terminal first and reconnect it last. Never disconnect the battery while the engine is running."
+        }
+      ],
+      "bounds": {
+        "min": [
+          0.4079,
+          -0.11,
+          -0.0241
+        ],
+        "max": [
+          0.6529,
+          0.099,
+          0.1857
+        ]
+      },
+      "anchor": [
+        0.4672,
+        0.099,
+        0.152
+      ]
+    },
+    {
+      "id": "fuse-box",
+      "label": 5,
+      "parent": null,
+      "name": "Fuse box",
+      "aliases": [
+        "fuses",
+        "fuse block",
+        "relay box",
+        "fuse and relay box"
+      ],
+      "summary": "The block of fuses that sits on top of the battery.",
+      "details": "Its fuses protect the main circuits fed by the battery, melting to cut a circuit when too much current flows. Volkswagen leaves the fuses on top of the battery to a workshop; the fuses an owner may change are in the fuse box inside the cabin. A new fuse that blows again means a fault that needs diagnosis. Never put in a bigger fuse or a wire, and never work on it with wet hands.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the fuse holder that sits on top of the battery. It groups protective fuses and their connections in one place."
+        },
+        {
+          "topic": "purpose",
+          "text": "A fuse cuts a circuit when too much current melts the metal link inside it. That protects the circuit from an overload or a short circuit, so a blown fuse is also a sign to look for the fault behind it. The battery supplies the power, and each fuse protects one of the feeds that leave it."
+        },
+        {
+          "topic": "construction",
+          "text": "A fuse holder has an insulating body, metal contacts and cable connections around the fuses. Fuses can plug in or bolt down, and a replacement must be the same type and rating."
+        },
+        {
+          "topic": "check",
+          "text": "Switch off everything electrical and keep the area dry. With the engine stopped and the bay cool, look at the cover for damage, a loose fit or signs of overheating. If you see melted plastic, corrosion or damaged wiring, stop and have an auto electrician check it. Volkswagen leaves the fuses on top of the battery to a workshop. The fuses an owner may change are in the fuse box inside the cabin, which the owner's manual describes."
+        },
+        {
+          "topic": "faults",
+          "text": "A blown fuse leaves the function it protects completely dead. Corroded or loose contacts can cut the connection or make it heat up. A new fuse that blows again means a fault that needs diagnosis."
+        },
+        {
+          "topic": "specifications",
+          "text": "The fuse map and ratings are in the owner's manual."
+        },
+        {
+          "topic": "safety",
+          "text": "Never fit a bigger fuse, a wire or foil in place of a fuse, because that removes the protection. Keep tools away from the battery feeds, and do not assume the block is dead with the ignition off. Keep the cover on."
+        }
+      ],
+      "bounds": {
+        "min": [
+          0.3325,
+          0.0253,
+          -0.0603
+        ],
+        "max": [
+          0.6725,
+          0.1673,
+          0.1643
+        ]
+      },
+      "anchor": [
+        0.4579,
+        0.1673,
+        0.0549
+      ]
+    },
+    {
+      "id": "engine",
+      "label": 6,
+      "parent": null,
+      "name": "Engine",
+      "aliases": [
+        "motor",
+        "engine block",
+        "1.6 engine"
+      ],
+      "summary": "The 1.6 litre 8 valve petrol engine that drives the car.",
+      "details": "It turns fuel and air into power, and it includes the valve cover and the intake manifold. Look for leaks, loose hoses and a level oil reading at the dipstick while it is cold. A running or freshly stopped engine is hot and has moving belts and a fan that can start on their own. Never put hands, loose sleeves or hair near the belts and fan.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is a 1.6 litre petrol engine of Volkswagen's EA111 family, which this Gol Trend used from 2008 to 2011. It has four cylinders, a single overhead camshaft driven by a timing belt, and two valves per cylinder. The valve cover and the intake manifold are parts of it."
+        },
+        {
+          "topic": "purpose",
+          "text": "The engine draws in air and fuel, compresses them, ignites them with a spark and pushes out the exhaust. The burning gases push the pistons, which turn the crankshaft and send power through the gearbox to the wheels. The battery and the starter turn it over to start, and the intake supplies the air it burns. Engine oil protects the moving parts, and the coolant carries away heat."
+        },
+        {
+          "topic": "check",
+          "text": "Do a visual check with the engine stopped and cold. Look for fresh oil or coolant on the visible parts, without removing covers. Look for damaged hoses or loose wiring, without pulling on them. To read the oil, with the car level and the engine off, pull the dipstick, wipe it clean, push it fully back in, then pull it again and read the level between the marks. If oil is needed, add a little of the approved oil through the filler cap and read again, never above the top mark. Refit the dipstick and the filler cap, and have the engine checked if it keeps losing oil. Never reach into a running or just-stopped engine."
+        },
+        {
+          "topic": "faults",
+          "text": "Low or dirty oil causes wear, overheating and can destroy the engine. A cooling fault can raise the temperature even when the coolant tank looks fine. A rough idle, hesitation or lack of power can come from air leaks, the ignition or a mechanical problem. The oil pressure warning light means stop and switch off at once, even if the oil level is right."
+        },
+        {
+          "topic": "specifications",
+          "text": "The engine oil grade is 5W-40, as the owner's manual states. The oil capacity, oil and filter interval, spark plugs and timing belt interval are in the owner's manual and service booklet, or a Volkswagen dealer can confirm them from the VIN."
+        },
+        {
+          "topic": "safety",
+          "text": "Keep clear of the belts and the fan even with the engine stopped. Do not touch ignition wiring or hot surfaces. Never run the engine in a closed space, because the exhaust can poison you."
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.5016,
+          -0.1759,
+          -0.2438
+        ],
+        "max": [
+          0.2237,
+          0.1653,
+          0.3378
+        ]
+      },
+      "anchor": [
+        -0.1303,
+        0.1653,
+        0.1087
+      ]
+    },
+    {
+      "id": "valve-cover",
+      "label": 7,
+      "parent": "engine",
+      "name": "Valve cover",
+      "aliases": [
+        "cam cover",
+        "rocker cover",
+        "cylinder head cover",
+        "tappet cover",
+        "oil filler cap",
+        "oil cap"
+      ],
+      "summary": "The cover on top of the engine that seals the valve train and holds the oil filler cap.",
+      "details": "It keeps the oil inside and the dirt out of the valves. Look for oil seeping around its edge, which points to a failing seal. Never pour anything but engine oil through the filler cap.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the cover that closes the top of the cylinder head over the valve mechanism. It is made of cast aluminium, and the oil filler cap is on it."
+        },
+        {
+          "topic": "purpose",
+          "text": "Its seal keeps the engine oil inside the top of the engine. On this engine it also forms the upper half of the camshaft bearings, so it is a structural part, not just a lid. The crankcase ventilation carries away the gases that leak past the pistons, and a fault there can push oil out at the seals."
+        },
+        {
+          "topic": "construction",
+          "text": "The cover and the cylinder head are machined as a matched pair, and their joint is sealed with liquid sealant rather than a rubber gasket. Too much sealant can block the camshaft's oil passages, so the joint must be sealed exactly as Volkswagen specifies."
+        },
+        {
+          "topic": "check",
+          "text": "Leave the engine off until the cover is cool. Look along the seam around the cover for fresh oil or a wet trail of dirt. Check around the filler cap before blaming the seam, because spilled oil from filling looks the same. Note where the fresh oil starts, because oil runs away from where it leaks. Check the oil level as in the engine section, and have a leak that keeps coming back checked. Leave the cover and its bolts in place."
+        },
+        {
+          "topic": "faults",
+          "text": "A leaking joint leaves oil along the edge of the cover or running down the engine. Spilled oil and leaks from other seals can look the same until the source is found. A joint resealed with the wrong amount or placement of sealant can leak again. Too much pressure in the crankcase can push oil past good seals, so the ventilation may need checking too."
+        },
+        {
+          "topic": "maintenance",
+          "text": "Resealing it needs the specified surface preparation, bead placement and amount of sealant."
+        },
+        {
+          "topic": "safety",
+          "text": "Never loosen the cover to look at the valves, because it holds the camshaft bearings. Never smear extra sealant on the outside instead of finding and fixing the leak. Pour only the approved engine oil through the filler, and keep dirt out."
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.285,
+          -0.1306,
+          0.0192
+        ],
+        "max": [
+          0.144,
+          0.1639,
+          0.2759
+        ]
+      },
+      "anchor": [
+        -0.0763,
+        0.1639,
+        0.1592
+      ]
+    },
+    {
+      "id": "intake-manifold",
+      "label": 8,
+      "parent": "engine",
+      "name": "Intake manifold",
+      "aliases": [
+        "inlet manifold",
+        "air intake manifold",
+        "manifold"
+      ],
+      "summary": "The part that carries air from the air box and throttle to each cylinder.",
+      "details": "It spreads the incoming air evenly across the cylinders. Check that its hoses are attached and not cracked, because a loose one lets in unmetered air and the engine runs badly. Never run the engine with the air intake open or the hoses off.",
+      "notes": [
+        {
+          "topic": "identity",
+          "text": "It is the part that spreads the incoming air to the engine's cylinders. It is made of polyamide plastic reinforced with glass fibre, and it carries the throttle body and the intake pressure and temperature sensor."
+        },
+        {
+          "topic": "purpose",
+          "text": "Air comes in through the air filter, passes the throttle and is shared between the cylinders. The throttle controls how much air enters, and the pressure sensor tells the engine computer how much air the engine is taking in."
+        },
+        {
+          "topic": "check",
+          "text": "Check it with the engine stopped and the bay cool. Look at the manifold, the duct joints and the hoses for cracks, loose clamps or disconnected hoses. Check that the electrical connectors are seated, without unplugging the sensors. Note any rough idle, hesitation or warning light, and have a workshop look for air leaks and read the fault codes. Never start the engine with intake parts removed."
+        },
+        {
+          "topic": "faults",
+          "text": "A leaking seal or hose lets in air the engine does not measure, which causes an unstable idle, jerking when accelerating or a loss of power. A dirty throttle, a wrong pressure reading or another vacuum leak can cause the same symptoms. A pressure fault code does not prove the sensor itself has to be replaced."
+        },
+        {
+          "topic": "maintenance",
+          "text": "Keep the air filter and the ducts after it sealed, because dirt that gets in wears the engine."
+        },
+        {
+          "topic": "safety",
+          "text": "Never spray flammable products around the engine to hunt for an air leak. Leave running-engine tests, smoke tests and throttle work to a workshop. Keep tools and debris out of any intake opening, and refit everything before starting."
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.319,
+          -0.0728,
+          -0.362
+        ],
+        "max": [
+          0.1476,
+          0.1464,
+          0.0375
+        ]
+      },
+      "anchor": [
+        -0.0844,
+        0.1464,
+        -0.097
+      ]
+    }
+  ],
+  "procedures": [
+    {
+      "id": "check-coolant",
+      "title": "Check the coolant level",
+      "steps": [
+        {
+          "id": "engine-cold",
+          "text": "Park on level ground and switch the engine off. Wait until the engine is completely cold.",
+          "parts": [
+            "engine"
+          ],
+          "caution": "Hot coolant is under pressure and can cause severe burns. Do not check a hot engine."
+        },
+        {
+          "id": "locate",
+          "text": "Find the translucent pink tank with the blue cap at the front left of the bay.",
+          "parts": [
+            "coolant-reservoir"
+          ]
+        },
+        {
+          "id": "read-level",
+          "text": "Read the level through the tank wall. It must sit between the MIN and MAX marks.",
+          "parts": [
+            "coolant-reservoir"
+          ]
+        },
+        {
+          "id": "top-up",
+          "text": "If it is below MIN, leave the cap on and note it for a top-up with the coolant your owner's manual names. Do not mix coolant types.",
+          "parts": [
+            "coolant-reservoir"
+          ],
+          "caution": "Never open the cap unless the engine is cold. Open it slowly."
+        },
+        {
+          "id": "close",
+          "text": "If you opened the cap, close it until it is tight. Check around the tank for wet spots or pink crust.",
+          "parts": [
+            "coolant-reservoir"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "check-brake-fluid",
+      "title": "Check the brake fluid level",
+      "steps": [
+        {
+          "id": "locate",
+          "text": "Find the white reservoir with the yellow cap near the air box.",
+          "parts": [
+            "brake-fluid-reservoir"
+          ]
+        },
+        {
+          "id": "clean-cap",
+          "text": "Wipe dirt off the reservoir and cap with a clean cloth before you look.",
+          "parts": [
+            "brake-fluid-reservoir"
+          ]
+        },
+        {
+          "id": "read-level",
+          "text": "Read the level through the reservoir wall. It must sit between the MIN and MAX marks.",
+          "parts": [
+            "brake-fluid-reservoir"
+          ]
+        },
+        {
+          "id": "low-level",
+          "text": "If it is below MIN, have the brakes checked before you drive. Top up only with the brake fluid your owner's manual names.",
+          "parts": [
+            "brake-fluid-reservoir"
+          ],
+          "caution": "A sudden drop means a leak and unsafe brakes. Brake fluid damages paint, so wipe any spill at once."
+        },
+        {
+          "id": "close",
+          "text": "Close the cap tight. Keep the brake fluid container sealed.",
+          "parts": [
+            "brake-fluid-reservoir"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "check-power-steering-fluid",
+      "title": "Check the power steering fluid level",
+      "steps": [
+        {
+          "id": "locate",
+          "text": "Find the dark square tank with the yellow-green cap next to the coolant tank.",
+          "parts": [
+            "power-steering-reservoir",
+            "coolant-reservoir"
+          ]
+        },
+        {
+          "id": "clean-cap",
+          "text": "Wipe the tank and cap with a clean cloth before you open it.",
+          "parts": [
+            "power-steering-reservoir"
+          ]
+        },
+        {
+          "id": "read-level",
+          "text": "Read the level against the marks on the tank or the cap, as shown in your owner's manual.",
+          "parts": [
+            "power-steering-reservoir"
+          ]
+        },
+        {
+          "id": "top-up",
+          "text": "If it is low, top up with the fluid your owner's manual names, up to the MAX mark.",
+          "parts": [
+            "power-steering-reservoir"
+          ],
+          "caution": "Do not use a fluid the manual does not name. Do not overfill."
+        },
+        {
+          "id": "close",
+          "text": "Close the cap tight. Check the tank and hoses for oil leaks.",
+          "parts": [
+            "power-steering-reservoir"
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "captureSha256": "7baafdfa4989ed599629887d69701a400e35d6e005801c1cbe7f711b0cd9af74",
+    "reconstructionSha256": "dd597772bc49a33561597ef71bfb69f993f250f9174f10cafd02d5b0d5d3cf85",
+    "ply": {
+      "path": "data/splat/engine_30000.ply",
+      "bytes": 636463344,
+      "sha256": "574df407f54ae8a3609fcd5e09f2ad8708e42f8c8495ec26c079fa156e637b9d"
+    },
+    "labels": {
+      "path": "data/pack/.sources/lift/labels.npy",
+      "bytes": 2697000,
+      "sha256": "13fe498e4a8fba4dfd3276f9af6495880f8dd6743cfd68596d6b3f448ba6c07c"
+    },
+    "liftingReport": {
+      "path": "data/pack/.sources/lift/report.json",
+      "bytes": 22996,
+      "sha256": "d960183f6a7dce1b18118c5b5e8ea1ae18dd84fca308abbcaf19228662d7b5d8"
+    },
+    "content": {
+      "path": "content/gol-trend-engine-bay/pack.yaml",
+      "bytes": 7989,
+      "sha256": "588bc36631524dfa4fab1a650911901290830092c76a5e1be271ebb2a96c389a"
+    },
+    "knowledge": {
+      "path": "content/gol-trend-engine-bay/knowledge.md",
+      "bytes": 25165,
+      "sha256": "847d696a07434fc6056c1449efb17b43678fc9d19b8785919d20eae7979b8834"
+    },
+    "partLabels": {
+      "coolant-reservoir": 1,
+      "power-steering-reservoir": 2,
+      "brake-fluid-reservoir": 3,
+      "battery": 4,
+      "fuse-box": 5,
+      "engine": 6,
+      "valve-cover": 7,
+      "intake-manifold": 8
+    }
+  }
+}
