@@ -5,6 +5,7 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
+import { Platform } from 'react-native';
 import { catalogFor } from '../../modules/catalog/catalog';
 import { CatalogProvider } from '../../modules/catalog/CatalogContext';
 import type { Pack } from '../../domain/pack';
@@ -50,11 +51,13 @@ export function RootNavigator({ pack }: { pack: Pack }) {
             component={ViewerScreen}
             options={VIEWER_OPTIONS}
           />
-          <Stack.Screen
-            name={Route.ar}
-            component={ARScreen}
-            options={VIEWER_OPTIONS}
-          />
+          {Platform.OS === 'ios' && (
+            <Stack.Screen
+              name={Route.ar}
+              component={ARScreen}
+              options={VIEWER_OPTIONS}
+            />
+          )}
         </Stack.Navigator>
       </NavigationContainer>
     </CatalogProvider>

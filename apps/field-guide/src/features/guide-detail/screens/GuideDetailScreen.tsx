@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Image,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -194,28 +195,30 @@ export function GuideDetailScreen({
         <SectionHeader title="Procedures" />
         <ProcedureList rows={checks} onChoose={openProcedure} />
       </View>
-      <View style={styles.section}>
-        <SectionHeader title="Augmented reality" />
-        <Pressable
-          testID="open-ar"
-          accessibilityRole="button"
-          accessibilityLabel={AR_TITLE}
-          onPress={() => navigation.navigate(Route.ar, { guideId: guide.id })}
-          style={({ pressed }) => [styles.arRow, pressed && styles.pressed]}
-        >
-          <Icon
-            name={IconName.camera}
-            size={Layout.rowIcon}
-            color={Color.secondaryText}
-          />
-          <Text style={styles.arTitle}>{AR_TITLE}</Text>
-          <Icon
-            name={IconName.next}
-            size={Layout.rowIcon}
-            color={Color.faint}
-          />
-        </Pressable>
-      </View>
+      {Platform.OS === 'ios' && (
+        <View style={styles.section}>
+          <SectionHeader title="Augmented reality" />
+          <Pressable
+            testID="open-ar"
+            accessibilityRole="button"
+            accessibilityLabel={AR_TITLE}
+            onPress={() => navigation.navigate(Route.ar, { guideId: guide.id })}
+            style={({ pressed }) => [styles.arRow, pressed && styles.pressed]}
+          >
+            <Icon
+              name={IconName.camera}
+              size={Layout.rowIcon}
+              color={Color.secondaryText}
+            />
+            <Text style={styles.arTitle}>{AR_TITLE}</Text>
+            <Icon
+              name={IconName.next}
+              size={Layout.rowIcon}
+              color={Color.faint}
+            />
+          </Pressable>
+        </View>
+      )}
     </>
   );
   const start = (
