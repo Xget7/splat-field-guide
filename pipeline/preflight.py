@@ -647,13 +647,16 @@ def test_colmap_poses_reproject_their_points():
 def check_volume():
     @check("owner's marks on the Modal volume")
     def _():
+        import artifacts
         import lift
+        import masks
 
+        capture = artifacts.capture(PHOTOS)["sha256"]
         with tempfile.TemporaryDirectory() as folder:
             fetched = subprocess.run(["modal", "volume", "get", "sfg-spike-frames", "/marks", folder],
                                      capture_output=True, text=True)
             assert fetched.returncode == 0, fetched.stderr.strip()
-            saved = {part.name: {"marks": json.loads((part / "marks.json").read_text()), "masks": lift.load_masks(part)}
+            saved = {part.name: {"marks": masks.read(part, capture), "masks": lift.load_masks(part)}
                      for part in sorted(pathlib.Path(folder, "marks").iterdir()) if part.is_dir()}
         names = sorted(PHOTOS.glob("*.jpg"))
 
@@ -666,7 +669,7 @@ def check_volume():
         assert not errors, "; ".join(errors)
         return ", ".join(f"{part} {len(entry['masks'])}" for part, entry in saved.items())
 
-    @check("photos on the Modal volume")
+    @check("photo count on the Modal volume")
     def _():
         listing = subprocess.run(["modal", "volume", "ls", "sfg-spike-frames", "/jpg"], capture_output=True, text=True)
         assert listing.returncode == 0, listing.stderr.strip()

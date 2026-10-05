@@ -2,7 +2,7 @@
 
 Check first:  uv run preflight.py              (runs the page against a fake SAM, no GPU)
 Deploy:       modal deploy sam_live.py         (the page stays up; `modal app stop sfg-sam-live` takes it down)
-Saved to the sfg-spike-frames volume under /marks/<part>/: marks.json and one stored-layout mask per photo.
+Saved as complete revisions under /marks/<part>/sets/<revision>/, selected by current.json.
 """
 
 import pathlib
@@ -105,7 +105,8 @@ class Sam:
 
 
 
-@app.function(image=web_image, volumes={"/frames": frames_volume}, scaledown_window=20 * 60, timeout=10 * 60)
+# Saved revision comparison and promotion share one writer.
+@app.function(image=web_image, volumes={"/frames": frames_volume}, max_containers=1, scaledown_window=20 * 60, timeout=10 * 60)
 @modal.concurrent(max_inputs=20)
 @modal.asgi_app()
 def web():

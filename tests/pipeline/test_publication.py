@@ -23,10 +23,6 @@ class PublicationTests(unittest.TestCase):
                                      '--pack', directory], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0, result.stdout)
 
-
-if __name__ == '__main__':
-    unittest.main()
-
 class SourceContractTests(unittest.TestCase):
     def test_foreign_part_mapping_is_rejected_by_the_consumer(self):
         manifest = export_checks.sample_manifest()
@@ -86,3 +82,7 @@ class ExportFailureTests(unittest.TestCase):
                     export.main()
             self.assertEqual((out / 'high/cloud.spz').read_bytes(), b'last good cloud')
             self.assertEqual((out / 'manifest.json').read_text(), 'last good manifest')
+
+
+if __name__ == '__main__':
+    unittest.main()

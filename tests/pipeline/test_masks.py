@@ -25,9 +25,6 @@ class FakeSam:
             return {'png': None, 'score': 0.0}
         return {'png': mask_tools.mask_png([[True, False], [False, False]]), 'score': 0.5}
 
-    async def save(self, request):
-        return list(request['photos'])
-
 
 class MaskTests(unittest.TestCase):
     def test_reopen_and_failed_replacement_keep_saved_prompts(self):
@@ -55,9 +52,34 @@ class MaskTests(unittest.TestCase):
             self.assertEqual(client.post('/api/save', json={**request, 'photos': {}}).status_code, 200)
             self.assertEqual(client.get('/api/config').json()['marks']['engine']['photos'], {})
 
-
-if __name__ == '__main__':
-    unittest.main()
+    def test_volume_diagnostic_reads_the_selected_saved_revision(self):
+        import json
+        import shutil
+        import subprocess
+        from unittest.mock import patch
+        import preflight
+        import artifacts
+        source = pathlib.Path(__file__).resolve().parents[2] / 'data/segment/marks'
+        capture = artifacts.capture(preflight.PHOTOS)['sha256']
+        def run(command, **kwargs):
+            if command[2] == 'get':
+                target = pathlib.Path(command[-1]) / 'marks'
+                for part in source.iterdir():
+                    if not part.is_dir():
+                        continue
+                    revision = 'a' * 32
+                    saved = target / part.name / 'sets' / revision
+                    shutil.copytree(part, saved)
+                    marks = json.loads((saved / 'marks.json').read_text())
+                    marks['capture'] = capture
+                    (saved / 'marks.json').write_text(json.dumps(marks))
+                    (target / part.name / 'current.json').write_text(json.dumps({'revision': revision}))
+                return subprocess.CompletedProcess(command, 0, '', '')
+            return subprocess.CompletedProcess(command, 0, '.jpg\n' * 124, '')
+        with patch.object(preflight.subprocess, 'run', side_effect=run), patch.object(preflight, 'results', []):
+            preflight.check_volume()
+            self.assertEqual(len(preflight.results), 2)
+            self.assertTrue(all(ok for ok, _ in preflight.results), preflight.results)
 
 class StorageFailureTests(unittest.TestCase):
     def test_failed_volume_commit_preserves_the_previous_set(self):
@@ -87,3 +109,7 @@ class StorageFailureTests(unittest.TestCase):
             self.assertEqual(reopened['revision'], first['revision'])
             self.assertEqual(reopened['photos'], {'0': prompt})
             self.assertEqual(client.get('/mask/engine/0.png').status_code, 200)
+
+
+if __name__ == '__main__':
+    unittest.main()
