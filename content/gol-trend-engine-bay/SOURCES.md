@@ -25,10 +25,14 @@ Unconfirmed specifications and observations that still need the owner's review a
 
 ## Unconfirmed
 
-- Coolant type for the 2010 Gol Trend 1.6 (which VW G12 variant). Steps say "the coolant your owner's manual names".
-- Brake fluid specification (DOT 4 was suggested by a secondary Opinautos page for other Gol generations, 2002 and 2015, not this car). Steps say "the brake fluid your owner's manual names".
-- Power steering fluid specification (a forum mentions VW part G 004 000 M2, not verified). Steps say "the fluid your owner's manual names".
-- Whether the power steering level is read from marks on the tank or a dipstick in the cap, and whether the car has MIN and MAX marks on the brake reservoir. Power steering steps say "marks on the tank or the cap".
+- Coolant type for the 2010 Gol Trend 1.6 (which VW G12 variant).
+  Steps say "the coolant your owner's manual names".
+- Brake fluid specification (DOT 4 was suggested by a secondary Opinautos page for other Gol generations, 2002 and 2015, not this car).
+  Steps say "the brake fluid your owner's manual names".
+- Power steering fluid specification (a forum mentions VW part G 004 000 M2, not verified).
+  Steps say "the fluid your owner's manual names".
+- Whether the power steering level is read from marks on the tank or a dipstick in the cap, and whether the car has MIN and MAX marks on the brake reservoir.
+  Power steering steps say "marks on the tank or the cap".
   Brake fluid details and procedure steps currently assert MIN and MAX marks, so the owner must verify those markings before this content is considered reviewed.
 - Exact MIN and MAX wording on the coolant tank for this model year (2010 edition manual not found online).
 - Fuse box cover and layout for the 2010 car.

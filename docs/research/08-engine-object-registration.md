@@ -59,9 +59,9 @@ Estos comandos se ejecutan desde la raíz del repo; rechazan sobrescribir result
 
 ```sh
 mkdir -p tools
-xcrun swiftc -parse-as-library -O -target arm64-apple-macos15.0 \
+nice -n 19 xcrun swiftc -parse-as-library -O -target arm64-apple-macos15.0 \
   pipeline/reconstruct_reference.swift -o tools/reconstruct-reference
-tools/reconstruct-reference --photos data/capture/jpg \
+nice -n 19 tools/reconstruct-reference --photos data/capture/jpg \
   --output data/ar-reference/gol-trend-engine-bay/medium.usdz --detail medium
 ```
 
@@ -108,16 +108,17 @@ La receta publicada para cargar referencias y añadir anchoring en Composer Pro 
 
 **3. Entrenar una referencia.**
 Create ML usa USDZ fotorealista, escala correcta y un objeto rígido; entrenamiento local en Mac.
-Nuestro [runner](../../pipeline/train_reference.py) ejecuta `xcrun createml objecttracker` en modo standard con `--upright`, guarda progreso, logs y checkpoint, y vigila el espacio libre.
+Nuestro [runner](../../pipeline/train_reference.py) ejecuta `xcrun createml objecttracker`, registra modo/ángulos y vigila el disco; la receta actual usa explícitamente `--mode standard --angles front` para la referencia de [10](10-object-tracking-training-audit.md).
 Comando desde la raíz:
 
 ```sh
 uv run pipeline/train_reference.py \
   --source data/ar-reference/gol-trend-engine-bay/aligned.cleaned.usdz \
-  --output data/ar-reference/gol-trend-engine-bay/engine-bay.referenceobject
+  --output data/ar-reference/gol-trend-engine-bay/engine-bay.referenceobject \
+  --mode standard --angles front --plan
 ```
 
-`--front` puede restringir más las vistas si el USDZ está orientado adecuadamente; `--training-mode extended` aumenta costo y tamaño.
+`--angles front` restringe las vistas si el USDZ está orientado adecuadamente; `--mode extended` aumenta costo/tamaño y retirar `--plan` inicia el entrenamiento.
 Las piezas metálicas/brillantes requieren buena representación; no hay evidencia todavía de precisión o robustez suficientes para nuestro vano grande y complejo.
 [Preparación y entrenamiento oficiales](https://developer.apple.com/documentation/visionos/implementing-object-tracking-in-your-app).
 
@@ -203,7 +204,7 @@ La API pública no entrega un score de confianza.
 Guarda metadatos en el archivo indicado y un estado `.status.json`.
 Para conservar la lectura humana, redirigir stdout a `.work/ar-check/ar-monitor.log`; no se escribe automáticamente.
 La captura se limita a 512 KiB; alcanzar el límite conserva un error que invalida el veredicto, permitiendo repetirlo desde el archivo.
-La salida a consola está desactivada en los lanzamientos normales.
+La salida a consola solo existe en Debug con `FIELD_GUIDE_AR_DIAGNOSTICS=1`; Release conserva el HUD, sin ese stream de diagnóstico.
 El HUD del iPhone muestra siempre, a 1 Hz, referencia cargada, estado y FPS de cámara, cantidad de motores encontrados/seguidos y tiempo de sesión, sin Mac ni conexión.
 Los metadatos del HUD viven en memoria; no guarda imágenes ni logs en disco.
 Una foto en pantalla sirve como experimento; el reconocimiento físico continúa pendiente.
@@ -220,13 +221,14 @@ No son porcentajes de acierto: el preprocesamiento de ARKit no es público, las 
 El tracker tiene entradas de rayos de cámara y salidas `Classification`, `ConfidenceScore`, `KeyPoints3D`; aquí solo se inspecciona su interfaz.
 
 ```sh
-xcrun swiftc -O pipeline/probe_reference.swift -o tools/probe-reference
+mkdir -p tools .work/ar-check
+nice -n 19 xcrun swiftc -O pipeline/probe_reference.swift -o tools/probe-reference
 tools/probe-reference data/ar-reference/gol-trend-engine-bay/engine-bay.referenceobject \
   data/capture/jpg/1790717105584360.jpg
 # Positivo: abrir AR y apuntar al motor real durante la ventana de captura.
-uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected
+uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor-positive.log
 # Negativo: misma prueba apuntando a una escena sin ese motor.
-uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect absent
+uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect absent > .work/ar-check/ar-monitor-negative.log
 ```
 
 La comprobación devuelve exit 0/1 y exige muestras de cámara y ausencia de errores de sesión.
@@ -242,7 +244,7 @@ Resumen conservado en `tools/ar-device-20261002/photo-screen-test.summary.json`.
 
 Cada compilación copia automáticamente `engine-bay.referenceobject` si existe.
 El simulador muestra la limitación de hardware; el reconocimiento se prueba en un **iPhone físico con iOS 27**.
-La matriz identidad actual es candidata: revisar el frame de la referencia entrenada antes de aceptar los puntos como correctos.
+La matriz identidad actual es candidata: `publish_landmarks.py` convierte picks crudos con registro ligado a digests y al pack, pero el frame entrenado y la alineación física siguen pendientes.
 
 **Compilación para iPhone completada el 2 de octubre:** Release firmado en `tools/ar-device-20261002/FieldGuide.app`, referencia y landmarks incluidos y comprobados, firma válida y perfil que incluye el iPhone del usuario.
 Se regeneró CocoaPods para incluir archivos del módulo de voz que faltaban en el proyecto local.

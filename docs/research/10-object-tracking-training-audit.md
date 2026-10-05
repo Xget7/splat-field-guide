@@ -80,14 +80,14 @@ Una foto en pantalla no valida el volumen real.
 | App carga `ARReferenceObject(archiveURL:)` y usa `detectionObjects` | Coincide con la configuración de Apple para objetos quietos |
 | Última prueba real: fallo informado por el usuario, sin captura de estados | Falta distinguir detección, seguimiento y dibujo |
 
-La tabla anterior conserva el resumen compartible de los artefactos locales del autor, excluidos de git: `training-standard.source.json`, `training-standard.summary.txt`, `aligned.candidate.prepared.json` y `aligned.cleaned.cleaned.json` bajo `data/ar-reference/gol-trend-engine-bay/`, más `data/pack/gol-trend-engine-bay/1.report.json`.
+La tabla anterior conserva el resumen compartible de los artefactos locales del autor, excluidos de git: `training-standard.source.json`, `training-standard.summary.txt`, `aligned.candidate.prepared.json` y `aligned.cleaned.cleaned.json` bajo `data/ar-reference/gol-trend-engine-bay/`, más el reporte histórico del pack, cuya ruta actual es `data/pack/gol-trend-engine-bay/1/publication.json`.
 La [integración ARKit](../../packages/react-native-splat/ios/ARGuideNativeView.swift) sí está en el repositorio.
 
 Comando: `xcrun createml objecttracker --source aligned.cleaned.usdz --output engine-bay.referenceobject --checkpoint training-standard.checkpoint --training-mode standard --upright`, más progreso/resumen.
 Terminó con `exitCode=0` en 4 h 26 min.
 Sus cuatro losses sin etiquetas no expresan porcentaje de acierto.
 
-Captura positiva con iPhone conectado y motor delante: `uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected`.
+Captura positiva con app Debug, iPhone conectado y motor delante: crear `.work/ar-check`, luego `uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor.log`.
 Abre la app: entrar a AR y encuadrar el vano.
 Exige frames sin errores y una muestra con objeto seguido; verificar alineación aparte.
 El HUD offline no conserva historial.

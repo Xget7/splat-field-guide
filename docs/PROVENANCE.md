@@ -25,7 +25,7 @@ Inherited source and third-party resources keep the licenses below.
 
 Speech files and hashes are enumerated in [kokoro-models.json](../apps/field-guide/scripts/kokoro-models.json); preparation copies their notices into the resource bundle.
 ONNX Runtime's own third-party notices remain distinct from its top-level MIT license.
-Release packaging must also retain the engine dependency and font notices; source presence alone does not verify their inclusion in a distributed app.
+Engine/dependency and font notices must also be included in the distributed app; the current font resource list and engine podspec do not bundle them.
 
 ## Preparation and test tools, not shipped in the app
 
@@ -33,8 +33,8 @@ Release packaging must also retain the engine dependency and font notices; sourc
 | --- | --- | --- |
 | Polycam | Capture/export of photos and LiDAR depth | Proprietary service/application terms |
 | COLMAP 4.2 | Camera poses from photos | [BSD-3-Clause](https://github.com/colmap/colmap/blob/4.2.0/COPYING.txt), with its own dependency notices |
-| Brush 0.3.0 | Local Gaussian-splat training | [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE) |
-| SAM 3.1 | Mask marking/propagation on Modal; pipeline code pins SAM repository revision `2345a4a` | Meta [SAM License](https://huggingface.co/facebook/sam3.1/blob/main/LICENSE), covering code and weights |
+| Brush 0.3.0 | Local training; recorded binary SHA-256 `8380ed40cce870025393e1ea0257e0752351c67a409d827b76dc75ec3a999a71` | [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE) |
+| SAM 3.1 | Modal masks/tracking; source `2345a4a`, Torch 2.8.0, torchvision 0.23.0; new tracking reports record cached checkpoint digests | Meta [SAM License](https://huggingface.co/facebook/sam3.1/blob/main/LICENSE), covering code and weights |
 | PyTorch / torchvision | SAM execution | BSD-3-Clause, [Torch](https://github.com/pytorch/pytorch/blob/main/LICENSE), [vision](https://github.com/pytorch/vision/blob/main/LICENSE) |
 | SAM support packages | einops, hydra-core, setuptools, pycocotools, scikit-image and psutil, as listed in the Modal image | MIT / MIT / MIT / BSD-2-Clause / BSD-3-Clause / BSD-3-Clause |
 | NumPy / SciPy | Lifting and geometry | BSD-3-Clause |
@@ -50,6 +50,20 @@ Release packaging must also retain the engine dependency and font notices; sourc
 
 SAM is used only during preparation; no SAM code or weights are bundled in Field Guide.
 Its license includes end-use restrictions, including military/warfare uses, so it must be reviewed before reusing this pipeline for defence training.
+
+## Capture and authored content
+
+| Material | Ownership and evidence |
+| --- | --- |
+| Original capture | Author's 124 Polycam photos and captured depth of their 2010 VW Gol Trend; raw export excluded from git/release, permission needed from the author |
+| Ingested capture | Ordered names/bytes/digests in [tracker cameras](../pipeline/cameras.json); original/conversion receipt in local `capture.json` |
+| Authored guide | Original part descriptions, procedures and knowledge under the root MIT license; [sources/qualifications](../content/gol-trend-engine-bay/SOURCES.md) distinguish external evidence from owner-confirmed oil guidance |
+| Hand-marked masks | Author-reviewed eight-part prompts/keyframes; new revisions retain capture binding, historical imports explicitly record retrospective binding |
+| Historical training | Original COLMAP/Brush settings and SAM checkpoint identities not fully recoverable; imported byte identities do not establish the historical execution environment |
+| Exported pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) schema-1 `sources` records capture/reconstruction, PLY/lifting/labels/content identities and exact part mapping; cloud/labels digests remain byte-compatible |
+| AR reference | Author-supplied Object Capture/Create ML output and reviewed landmark picks; separate candidate registration, physical acceptance pending |
+
+The [pipeline recipe](../pipeline/README.md) explains new receipts, retrospective import and which files enter the release archive.
 
 ## Inherited modifications
 

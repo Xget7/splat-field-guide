@@ -3,7 +3,7 @@
 Status: completed historical capture experiment, 2026-09-29; its measurements inform [ADR 0009](../adr/0009-poses-from-colmap.md) and the local workflow in [ADR 0013](../adr/0013-local-pipeline-with-modal-sam.md).
 
 Run on 2026-09-29 on an M4 Pro (24 GB) with the first capture of a 2010 VW Gol Trend 1.6 engine bay.
-The measurements are historical; the retained Brush recipe became part of the local pipeline.
+The measurements are historical; the supported ingest/pose/training recipe and receipt limits are in [pipeline/README.md](../../pipeline/README.md).
 
 ## Capture
 
