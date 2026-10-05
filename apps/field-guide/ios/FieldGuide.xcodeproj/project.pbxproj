@@ -255,7 +255,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The app loads its packs from packs/<id>/<version>/ in its resources (react-native-splat\n# resolves a relative source path there). rsync keeps a rebuild with an unchanged pack quick.\nset -euo pipefail\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\nif [ ! -d \"$PACKS\" ]; then\n  echo \"error: no packs at $PACKS; run pipeline/export.py first\" >&2\n  exit 1\nfi\nmkdir -p \"$DEST\"\nrsync -a --delete \"$PACKS/\" \"$DEST/\"\n\"$SRCROOT/../scripts/copy_ar_reference.sh\"\n";
+			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\npython3 \"$SRCROOT/../../../scripts/copy_bundled_packs.py\" \"$PACKS\" \"$DEST\" gol-trend-engine-bay/1\n\"$SRCROOT/../scripts/copy_ar_reference.sh\"\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
