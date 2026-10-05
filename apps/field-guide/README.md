@@ -43,6 +43,7 @@ Debug needs reachable Metro; Release embeds JS.
 | Packs | Build-time bundled resources; no first-launch pack installer or downloaded updates |
 | Instructor | Commands first, then Claude through the Worker, Apple on device and scripted fallback |
 | Model replies | Authored evidence in prompts, text replies and heuristic grounding guards; no model session tools |
+| Remote configuration | [cloudModel.ts](src/modules/instructor/data/cloudModel.ts) exports `INSTRUCTOR_PROXY_URL`; set it to your Worker URL or `null` for offline-only guidance |
 | Remote completion | Proxy errors and streams without successful completion trigger model fallback |
 | Reading | Text steps/answers and typed questions, without microphone or playback |
 | Voice | Continuous listening, spoken steps/answers and interruption; a 0.7-second acoustic pause precedes transcription settlement |
