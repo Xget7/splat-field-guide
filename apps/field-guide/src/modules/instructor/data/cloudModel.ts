@@ -58,6 +58,20 @@ export function cloudInstructions(pack: Pack): string {
   ].join('\n');
 }
 
+const ANSWER_PATH = '/v1/answer';
+const CONTENT_TYPE_HEADER = 'Content-Type';
+const JSON_CONTENT_TYPE = 'application/json';
+const HTTP_OK = 200;
+const Failure = {
+  unreadable: 'unreadable stream',
+  badEvent: 'bad event',
+  incomplete: 'stream ended early',
+  network: 'network',
+  firstText: 'no text in time',
+  total: 'too slow',
+  cancelled: 'cancelled',
+} as const;
+
 interface ProxyEvent {
   readonly text?: unknown;
   readonly done?: unknown;
@@ -111,7 +125,7 @@ export function createCloudModel({
           reject(new Error(`Cloud model: ${reason}`));
         };
         const read = () => {
-          if (finished || xhr.status !== 200) {
+          if (finished || xhr.status !== HTTP_OK) {
             return;
           }
           const body = xhr.responseText;
@@ -127,10 +141,24 @@ export function createCloudModel({
             try {
               event = JSON.parse(line);
             } catch {
-              fail('unreadable stream');
+              fail(Failure.unreadable);
               return;
             }
-            if (typeof event.text === 'string') {
+            if (
+              event === null ||
+              typeof event !== 'object' ||
+              Array.isArray(event)
+            ) {
+              fail(Failure.badEvent);
+              return;
+            }
+            if (event.error !== undefined) {
+              fail(
+                typeof event.error === 'string'
+                  ? event.error
+                  : Failure.badEvent,
+              );
+            } else if (typeof event.text === 'string') {
               text += event.text;
               clearTimeout(timers[0]);
               onText(text);
@@ -138,22 +166,22 @@ export function createCloudModel({
               settle();
               resolve(text);
             } else {
-              fail(typeof event.error === 'string' ? event.error : 'bad event');
+              fail(Failure.badEvent);
             }
           }
         };
         xhr.onprogress = read;
         xhr.onload = () => {
-          if (xhr.status !== 200) {
+          if (xhr.status !== HTTP_OK) {
             fail(`status ${xhr.status}`);
             return;
           }
           read();
-          fail('stream ended early');
+          fail(Failure.incomplete);
         };
-        xhr.onerror = () => fail('network');
-        xhr.open('POST', `${url}/v1/answer`);
-        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onerror = () => fail(Failure.network);
+        xhr.open('POST', `${url}${ANSWER_PATH}`);
+        xhr.setRequestHeader(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE);
         xhr.send(
           JSON.stringify({
             system: cloudInstructions(pack),
@@ -168,10 +196,10 @@ export function createCloudModel({
           }),
         );
         timers.push(
-          setTimeout(() => fail('no text in time'), FIRST_TEXT_MS),
-          setTimeout(() => fail('too slow'), TOTAL_MS),
+          setTimeout(() => fail(Failure.firstText), FIRST_TEXT_MS),
+          setTimeout(() => fail(Failure.total), TOTAL_MS),
         );
-        stopCurrent = () => fail('cancelled', false);
+        stopCurrent = () => fail(Failure.cancelled, false);
       });
     },
     cancel() {

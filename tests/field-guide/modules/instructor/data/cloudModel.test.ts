@@ -1,3 +1,5 @@
+import { createModelInstructor } from '../../../../../apps/field-guide/src/modules/instructor/application/modelInstructor';
+import type { InstructorModel } from '../../../../../apps/field-guide/src/modules/instructor/domain/InstructorModel';
 import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/session';
 import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
@@ -144,10 +146,24 @@ test.each([
     'overloaded',
   ],
   [
+    'an error alongside done',
+    (sent: FakeRequest) => sent.receive(line({ done: true, error: 'cut off' })),
+    'cut off',
+  ],
+  [
+    'an error alongside text',
+    (sent: FakeRequest) => {
+      sent.receive(line({ text: 'Truncated', error: 'cut off' }));
+      sent.receive(line({ done: true }));
+    },
+    'cut off',
+  ],
+  [
     'an unreadable line',
     (sent: FakeRequest) => sent.receive('nope\n'),
     'unreadable stream',
   ],
+  ['a null event', (sent: FakeRequest) => sent.receive('null\n'), 'bad event'],
   [
     'a stream without done',
     (sent: FakeRequest) => {
@@ -206,3 +222,32 @@ test('a new request stops the one before it', async () => {
   await expect(first).rejects.toThrow('cancelled');
   expect(firstRequest.aborted).toBe(true);
 });
+
+test.each(['error', 'missing done'])(
+  'a streamed remote %s falls back to the next model',
+  async failure => {
+    const fallback: InstructorModel = {
+      name: 'onDevice',
+      isReady: () => true,
+      prewarm() {},
+      cancel() {},
+      respond: async () => 'It supplies the starter.',
+    };
+    const changed = jest.fn();
+    const answered = createModelInstructor([model(), fallback]).ask(
+      request,
+      changed,
+    );
+    FakeRequest.last.receive(line({ text: 'Provisional reply.' }));
+    if (failure === 'error') {
+      FakeRequest.last.receive(line({ error: 'cut off' }));
+    } else {
+      FakeRequest.last.end();
+    }
+    await answered;
+    expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'answer',
+      answer: { reply: 'It supplies the starter.' },
+    });
+  },
+);
