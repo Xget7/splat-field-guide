@@ -1,20 +1,13 @@
-import {
-  NoteTopic,
-  type Part,
-} from '../../../../../apps/field-guide/src/domain/pack';
+import { NoteTopic } from '../../../../../apps/field-guide/src/domain/pack';
 import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/session';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  MAX_NOTES,
-  MAX_NOTES_CHARS,
-  notesFor,
   pointsAtScreen,
   subjectOf,
   topicsFor,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 
 const pack = fixturePack();
-const part = (id: string) => pack.parts.find(candidate => candidate.id === id)!;
 const onScreen = (id: string) => ({ ...INITIAL_SESSION, selectedPart: id });
 
 describe('instructor context', () => {
@@ -75,27 +68,5 @@ describe('instructor context', () => {
     expect(subjectOf('Is the engine hot?', INITIAL_SESSION, pack)?.id).toBe(
       'engine',
     );
-  });
-
-  test('notes follow the asked topics, at most MAX_NOTES of them', () => {
-    expect(
-      notesFor('Is it safe near the battery?', part('battery')).map(
-        note => note.topic,
-      ),
-    ).toEqual([NoteTopic.safety, NoteTopic.identity]);
-    expect(MAX_NOTES).toBe(2);
-  });
-
-  test('notes never exceed the character budget', () => {
-    const long: Part = {
-      ...part('battery'),
-      notes: [
-        { topic: NoteTopic.identity, text: 'a'.repeat(MAX_NOTES_CHARS - 10) },
-        { topic: NoteTopic.purpose, text: 'b'.repeat(20) },
-      ],
-    };
-    expect(notesFor('What is it?', long).map(note => note.topic)).toEqual([
-      NoteTopic.identity,
-    ]);
   });
 });

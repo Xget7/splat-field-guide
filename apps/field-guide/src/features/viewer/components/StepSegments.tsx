@@ -3,7 +3,7 @@ import { Color, Space } from '../../../shared/ui/theme';
 
 const BAR_HEIGHT = 2;
 
-/** One bar per step: done, current, still to come. */
+/** One bar per step: earlier, current, still to come. */
 export function StepSegments({
   count,
   current,
@@ -19,7 +19,7 @@ export function StepSegments({
           key={index}
           style={[
             styles.bar,
-            index < current && styles.done,
+            index < current && styles.earlier,
             index === current && styles.current,
           ]}
         />
@@ -31,6 +31,6 @@ export function StepSegments({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Space.xs },
   bar: { flex: 1, height: BAR_HEIGHT, backgroundColor: Color.line },
-  done: { backgroundColor: Color.completed },
+  earlier: { backgroundColor: Color.completed },
   current: { backgroundColor: Color.accent },
 });

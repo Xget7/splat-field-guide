@@ -1,4 +1,4 @@
-import { findPart, type Pack, type PartId } from '../../../domain/pack';
+import { findPart, type Pack } from '../../../domain/pack';
 import {
   currentProcedure,
   currentStep,
@@ -6,7 +6,6 @@ import {
   type SessionState,
 } from '../../../domain/session';
 import { TOUR_ID } from '../../../domain/tour';
-import type { MarkedPart } from '../components/PartMarkers';
 
 export const CardKind = {
   part: 'part',
@@ -95,30 +94,5 @@ export function stepRowsFor(
       detail: part?.summary ?? rest.join(' '),
       caution: step.caution,
     };
-  });
-}
-
-/** Unknown labels leave the current selection alone; zero clears it. */
-export function partIdForLabel(
-  label: number,
-  pack: Pack,
-): PartId | null | undefined {
-  return label === 0 ? null : pack.parts.find(part => part.label === label)?.id;
-}
-
-/** The parts the screen points at: the selection, else the step's own (not those inside). */
-export function markedPartsFor(
-  state: SessionState,
-  pack: Pack,
-): readonly MarkedPart[] {
-  const ids =
-    state.selectedPart !== null
-      ? [state.selectedPart]
-      : currentStep(state, pack)?.parts ?? [];
-  return ids.flatMap(id => {
-    const part = pack.parts.find(candidate => candidate.id === id);
-    return part === undefined
-      ? []
-      : [{ id: part.id, name: part.name, bounds: part.bounds }];
   });
 }

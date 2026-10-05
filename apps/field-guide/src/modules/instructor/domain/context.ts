@@ -3,9 +3,15 @@ import {
   type Pack,
   type Part,
   type PartNote,
+  type Procedure,
+  type Step,
 } from '../../../domain/pack';
-import type { SessionState } from '../../../domain/session';
-import { focusPart, namedPart } from './instructor';
+import {
+  currentProcedure,
+  currentStep,
+  type SessionState,
+} from '../../../domain/session';
+import { focusPart, namedPart, procedureForQuestion } from './instructor';
 
 /**
  * The notes a question gets, at about four characters a token: room for two or three
@@ -245,20 +251,37 @@ export function subjectOf(
   );
 }
 
-/** The subject's notes for `question`, in the order it asks for them, within the budget. */
-export function notesFor(question: string, part: Part): PartNote[] {
-  const picked: PartNote[] = [];
-  let used = 0;
-  for (const topic of topicsFor(question)) {
-    const note = part.notes.find(candidate => candidate.topic === topic);
-    if (
-      note &&
-      picked.length < MAX_NOTES &&
-      used + note.text.length <= MAX_NOTES_CHARS
-    ) {
-      picked.push(note);
-      used += note.text.length;
-    }
-  }
-  return picked;
+/** Authored facts resolved once for a turn, before any model chooses its prompt budget. */
+export interface AuthoredEvidence {
+  readonly subject: Part | null;
+  readonly procedure: Procedure | null;
+  readonly onScreen: Part | null;
+  readonly currentProcedure: Procedure | null;
+  readonly currentStep: Step | null;
+  readonly notes: readonly PartNote[];
+  readonly safety: PartNote | null;
+}
+
+export function evidenceFor(
+  question: string,
+  state: SessionState,
+  pack: Pack,
+): AuthoredEvidence {
+  const subject = subjectOf(question, state, pack);
+  const notes =
+    subject === null
+      ? []
+      : topicsFor(question).flatMap(topic =>
+          subject.notes.filter(note => note.topic === topic),
+        );
+  return {
+    subject,
+    procedure: procedureForQuestion(question, pack),
+    onScreen: focusPart(state, pack) ?? null,
+    currentProcedure: currentProcedure(state, pack) ?? null,
+    currentStep: currentStep(state, pack) ?? null,
+    notes,
+    safety:
+      subject?.notes.find(note => note.topic === NoteTopic.safety) ?? null,
+  };
 }

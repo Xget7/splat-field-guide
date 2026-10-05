@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { parseProgress } from '../../../../apps/field-guide/src/modules/progress/model/progress';
 import {
+  clearProgress,
   loadProgress,
   saveProgress,
 } from '../../../../apps/field-guide/src/modules/progress/data/progressStorage';
@@ -44,4 +45,26 @@ test('progress survives a storage round trip', async () => {
   expect(await loadProgress()).toBeNull();
   await saveProgress(good);
   expect(await loadProgress()).toEqual(good);
+});
+
+test('a delayed save cannot resurrect progress after Stop clears it', async () => {
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  jest.mocked(AsyncStorage.setItem).mockImplementationOnce(async (...args) => {
+    await delayed;
+    return write(...args);
+  });
+  const saving = saveProgress({
+    guideId: 'gol-trend-engine-bay',
+    procedureId: 'check-coolant',
+    stepIndex: 2,
+  });
+  await Promise.resolve();
+  const clearing = clearProgress();
+  release();
+  await Promise.all([saving, clearing]);
+  expect(await loadProgress()).toBeNull();
 });

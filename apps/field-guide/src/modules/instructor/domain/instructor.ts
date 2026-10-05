@@ -260,7 +260,7 @@ export function commandAnswer(
   }
 }
 
-/** Whether `question` asks for a specification the pack deliberately leaves out. */
+/** Whether `question` asks for a specification that must come from authored facts. */
 export function asksForSpecification(question: string): boolean {
   const phrase = normalize(question);
   return SPECIFICATION_PATTERNS.some(pattern => pattern.test(phrase));
@@ -384,6 +384,16 @@ function requestedProcedure(
   return procedure && [...words].some(word => PROCEDURE_INTENT.has(word))
     ? procedure
     : undefined;
+}
+
+/** The authored procedure a question asks about, without starting it. */
+export function procedureForQuestion(
+  question: string,
+  pack: Pack,
+): Procedure | null {
+  return (
+    requestedProcedure(new Set(wordsOf(normalize(question))), pack) ?? null
+  );
 }
 
 /**

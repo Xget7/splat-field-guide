@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { highlightFor } from '../../../domain/derive';
 import type { ProcedureId } from '../../../domain/pack';
-import type { SessionEvent } from '../../../domain/session';
+import { SessionEventType, type SessionEvent } from '../../../domain/session';
 import type { ReadyGuide } from '../../../modules/catalog/catalog';
+import { sessionForExchange } from '../../../modules/instructor/domain/turn';
 import type { ModelInstructor } from '../../../modules/instructor/application/modelInstructor';
 import {
   useInstructorVoice,
@@ -12,7 +12,7 @@ import {
   clearProgress,
   saveProgress,
 } from '../../../modules/progress/data/progressStorage';
-import { cardContentFor, markedPartsFor } from '../model/guideContent';
+import { cardContentFor } from '../model/guideContent';
 import {
   answeredExchanges,
   initialViewerState,
@@ -22,6 +22,8 @@ import {
   type ViewerAction,
   type ViewerState,
 } from '../model/viewerState';
+
+const PROGRESS_FAILURE = 'Field guide: progress not saved';
 
 interface Options {
   guide: ReadyGuide;
@@ -48,46 +50,33 @@ export function useViewerSession({
     null,
     () => initialViewerState(procedureId, stepIndex, pack),
   );
-  const { session, exchange, thread, frameRequest } = state;
+  const { exchange, thread, frameRequest } = state;
+  const session = useMemo(
+    () => sessionForExchange(state.session, exchange, pack),
+    [state.session, exchange, pack],
+  );
   const stateRef = useRef(state);
   stateRef.current = state;
-  const answerGeneration = useRef(0);
-  const modelRequest = useRef<number | null>(null);
   const interruptVoice = useRef<(() => void) | null>(null);
 
-  const highlight = useMemo(
-    () => [...highlightFor(session, pack)],
-    [session, pack],
-  );
-  const marked = useMemo(() => markedPartsFor(session, pack), [session, pack]);
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
-  const invalidateAnswer = useCallback(() => {
-    answerGeneration.current += 1;
-    if (modelRequest.current !== null) {
-      modelRequest.current = null;
-      instructor.cancelInstructor();
-    }
-  }, [instructor]);
-  const cancelAnswer = useCallback(() => {
-    invalidateAnswer();
-    act({ type: ViewerActionType.cancel });
-  }, [invalidateAnswer]);
+  const cancelAnswer = useCallback(() => instructor.cancel(), [instructor]);
   const dispatch = useCallback(
     (event: SessionEvent) => {
-      invalidateAnswer();
+      cancelAnswer();
       interruptVoice.current?.();
       act({ type: ViewerActionType.session, event });
     },
-    [invalidateAnswer],
+    [cancelAnswer],
   );
   /** Leaves the guide's flow to look around, and comes back to it. */
   const changeMode = useCallback(
     (type: typeof ViewerActionType.explore | typeof ViewerActionType.guide) => {
-      invalidateAnswer();
+      cancelAnswer();
       interruptVoice.current?.();
       act({ type });
     },
-    [invalidateAnswer],
+    [cancelAnswer],
   );
   const explore = useCallback(
     () => changeMode(ViewerActionType.explore),
@@ -103,36 +92,19 @@ export function useViewerSession({
       if (question === '') {
         return;
       }
-      invalidateAnswer();
       interruptVoice.current?.();
-      const id = answerGeneration.current;
       const current = stateRef.current;
-      if (!instructor.usesModel(question, pack)) {
-        act({ type: ViewerActionType.ask, question, id });
-        return;
-      }
-      modelRequest.current = id;
-      act({ type: ViewerActionType.begin, question, id });
-      instructor
-        .modelAnswer(
+      instructor.ask(
+        {
           question,
-          current.session,
+          state: current.session,
           pack,
-          answeredExchanges(current),
-          partial => {
-            if (id === answerGeneration.current) {
-              act({ type: ViewerActionType.partial, id, partial });
-            }
-          },
-        )
-        .then(answer => {
-          if (id === answerGeneration.current) {
-            modelRequest.current = null;
-            act({ type: ViewerActionType.answer, id, answer });
-          }
-        });
+          history: answeredExchanges(current),
+        },
+        event => act({ type: ViewerActionType.turn, event }),
+      );
     },
-    [pack, invalidateAnswer, instructor],
+    [pack, instructor],
   );
 
   const thinking =
@@ -173,31 +145,38 @@ export function useViewerSession({
 
   useEffect(() => {
     if (instructorOpen) {
-      instructor.prewarmInstructor(pack);
+      instructor.prewarm(pack);
     }
   }, [instructorOpen, pack, instructor]);
 
-  useEffect(() => () => invalidateAnswer(), [invalidateAnswer, pack]);
+  useEffect(() => () => cancelAnswer(), [cancelAnswer, pack]);
 
+  // Explore sets the procedure aside; Stop and Finish remove both continuation positions.
+  const progressSession =
+    state.session.procedureId === null ? state.resume : state.session;
+  const progressProcedure = progressSession?.procedureId ?? null;
+  const progressStep = progressSession?.stepIndex ?? 0;
   useEffect(() => {
-    // The library offers to continue where this leaves off, once there is something to
-    // continue: the first step is where a fresh start lands anyway.
-    if (session.procedureId === null) {
-      // Exploring sets the guide aside; where it left off is still the place to continue.
-      return;
-    }
+    // The first step is where a fresh start lands anyway, so there is nothing to continue.
     const saved =
-      session.stepIndex === 0
+      progressProcedure === null || progressStep === 0
         ? clearProgress()
         : saveProgress({
             guideId: guide.id,
-            procedureId: session.procedureId,
-            stepIndex: session.stepIndex,
+            procedureId: progressProcedure,
+            stepIndex: progressStep,
           });
-    saved.catch(failure =>
-      console.warn('Field guide: progress not saved', failure),
+    saved.catch(failure => console.warn(PROGRESS_FAILURE, failure));
+  }, [guide.id, progressProcedure, progressStep]);
+
+  const stopVoice = voice.stop;
+  const finish = useCallback(() => {
+    stopVoice();
+    dispatch({ type: SessionEventType.end });
+    return clearProgress().catch(failure =>
+      console.warn(PROGRESS_FAILURE, failure),
     );
-  }, [guide.id, session.procedureId, session.stepIndex]);
+  }, [dispatch, stopVoice]);
 
   return {
     session,
@@ -205,9 +184,8 @@ export function useViewerSession({
     canResume: state.resume !== null,
     explore,
     resumeGuide,
+    finish,
     frameRequest,
-    highlight,
-    marked,
     card,
     thread,
     exchange,

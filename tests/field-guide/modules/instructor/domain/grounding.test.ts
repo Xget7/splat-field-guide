@@ -3,11 +3,11 @@ import {
   INITIAL_SESSION,
   startAt,
 } from '../../../../../apps/field-guide/src/domain/session';
+import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import { TOUR_ID } from '../../../../../apps/field-guide/src/domain/tour';
 import {
   answerAbout,
-  Grounding,
   inventsNumbers,
   MAX_HISTORY_CHARS,
   MAX_QUESTION_CHARS,
@@ -21,21 +21,15 @@ import { NOT_COVERED_REPLY } from '../../../../../apps/field-guide/src/modules/i
 
 const pack = fixturePack();
 const battery = pack.parts.find(part => part.id === 'battery')!;
+const evidence = evidenceFor(
+  'What does the battery do?',
+  INITIAL_SESSION,
+  pack,
+);
 
 describe('rules', () => {
-  test('both groundings forbid guessed specifications and name the pack', () => {
-    for (const grounding of [Grounding.strict, Grounding.flagged]) {
-      const rules = rulesFor(pack, grounding).join('\n');
-      expect(rules).toContain(pack.title);
-      expect(rules).toContain('DO NOT state a number');
-      expect(rules).toContain(NOT_COVERED_REPLY);
-    }
-  });
-
   test('structured rules keep replies brief and grounded; small models stay plain', () => {
-    const rules = rulesFor(pack, Grounding.strict, ReplyFormat.structured).join(
-      '\n',
-    );
+    const rules = rulesFor(pack, ReplyFormat.structured).join('\n');
     expect(rules).toContain('at most three short sentences');
     expect(rules).toContain(
       'unless the content is a list of steps, symptoms or checks',
@@ -43,18 +37,7 @@ describe('rules', () => {
     expect(rules).toContain(NOT_COVERED_REPLY);
     expect(rules).toContain('safety warning only when');
     expect(rules).not.toContain('general mechanical knowledge');
-    expect(rulesFor(pack, Grounding.strict).join('\n')).toContain(
-      'No lists, no markdown.',
-    );
-  });
-
-  test('only flagged grounding may add general knowledge, and must say so', () => {
-    expect(rulesFor(pack, Grounding.strict).join('\n')).not.toContain(
-      'Not in my data',
-    );
-    expect(rulesFor(pack, Grounding.flagged).join('\n')).toContain(
-      'start with "Not in my data."',
-    );
+    expect(rulesFor(pack).join('\n')).toContain('No lists, no markdown.');
   });
 });
 
@@ -156,17 +139,17 @@ describe('prompt', () => {
 
 describe('replies', () => {
   test('a number the pack never states is invented', () => {
-    expect(inventsNumbers('Use 5W-30 oil.', pack)).toBe(true);
-    expect(inventsNumbers('It is a 12 volt battery.', pack)).toBe(false);
-    expect(inventsNumbers('No numbers here.', pack)).toBe(false);
+    expect(inventsNumbers('Use 5W-30 oil.', evidence)).toBe(true);
+    expect(inventsNumbers('It is a 12 volt battery.', evidence)).toBe(false);
+    expect(inventsNumbers('No numbers here.', evidence)).toBe(false);
   });
 
   test('an invented number turns the reply into the not covered answer', () => {
-    expect(replyFrom('It holds 4 litres.', pack)).toBe(NOT_COVERED_REPLY);
+    expect(replyFrom('It holds 4 litres.', evidence)).toBe(NOT_COVERED_REPLY);
   });
 
   test('markdown is dropped and space collapsed for speech', () => {
-    expect(replyFrom('**No.**\n\nKeep  `sparks` away.', pack)).toBe(
+    expect(replyFrom('**No.**\n\nKeep  `sparks` away.', evidence)).toBe(
       'No. Keep sparks away.',
     );
   });
@@ -174,8 +157,8 @@ describe('replies', () => {
   test('keeps at most three sentences, not counting a decimal point', () => {
     expect(
       replyFrom('It is a 12.0 volt one. Two! Three? Four. Five.', {
-        ...pack,
-        title: 'Pack 12.0',
+        ...evidence,
+        notes: [{ topic: 'identity', text: 'It is a 12.0 volt battery.' }],
       }),
     ).toBe('It is a 12.0 volt one. Two! Three?');
   });
@@ -183,17 +166,21 @@ describe('replies', () => {
   test('list markers survive streaming and limits, but cannot hide an invented specification', () => {
     const list =
       '1. **Check:** Read the label.\n2. Keep sparks away.\n3. Inspect the terminals.\n4. Report damage.';
-    expect(replyFrom(list, pack)).toBe(list.split('\n').slice(0, 3).join('\n'));
-    expect(replyFrom('1', pack, true)).toBe('');
-    expect(replyFrom('1. Keep sparks away.\n2.', pack, true)).toBe(
+    expect(replyFrom(list, evidence)).toBe(
+      list.split('\n').slice(0, 3).join('\n'),
+    );
+    expect(replyFrom('1', evidence, true)).toBe('');
+    expect(replyFrom('1. Keep sparks away.\n2.', evidence, true)).toBe(
       '1. Keep sparks away.',
     );
-    expect(inventsNumbers(replyFrom(list, pack), pack)).toBe(false);
-    expect(replyFrom('9. Use the battery.', pack)).toBe(NOT_COVERED_REPLY);
-    expect(replyFrom(`- ${NOT_COVERED_REPLY}`, pack)).toBe(NOT_COVERED_REPLY);
-    expect(replyFrom('1. Use 9 volts.\n2. Inspect the terminals.', pack)).toBe(
+    expect(inventsNumbers(replyFrom(list, evidence), evidence)).toBe(false);
+    expect(replyFrom('9. Use the battery.', evidence)).toBe(NOT_COVERED_REPLY);
+    expect(replyFrom(`- ${NOT_COVERED_REPLY}`, evidence)).toBe(
       NOT_COVERED_REPLY,
     );
+    expect(
+      replyFrom('1. Use 9 volts.\n2. Inspect the terminals.', evidence),
+    ).toBe(NOT_COVERED_REPLY);
   });
 
   test('a reply about the subject highlights it, not covered highlights nothing', () => {

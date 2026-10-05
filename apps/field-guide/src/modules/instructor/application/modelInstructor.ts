@@ -1,92 +1,129 @@
-import type { Pack, PartId } from '../../../domain/pack';
-import type { SessionState } from '../../../domain/session';
-import { subjectOf } from '../domain/context';
-import {
-  answerAbout,
-  replyFrom,
-  type PreviousExchange,
-} from '../domain/grounding';
+import type { Pack } from '../../../domain/pack';
+import { evidenceFor } from '../domain/context';
+import { answerAbout, replyFrom } from '../domain/grounding';
 import {
   answerFor,
   isQuestion,
   isScripted,
   type InstructorAnswer,
 } from '../domain/instructor';
-import type { InstructorModel } from '../domain/InstructorModel';
+import type { InstructorModel, ModelRequest } from '../domain/InstructorModel';
+import {
+  ExchangePhase,
+  TurnEventType,
+  type Exchange,
+  type TurnEvent,
+} from '../domain/turn';
 
-export interface PartialAnswer {
-  readonly reply: string;
-  readonly part: PartId | null;
-}
-
-/** Model order is supplied by the composition; each instructor owns its request lifecycle. */
+/** Owns one turn, including routing, fallback and the lifetime of its provisional presentation. */
 export function createModelInstructor(models: readonly InstructorModel[]) {
-  // Each question or cancel starts a new request; an older one stops trying models.
   let request = 0;
-
+  let active: { id: number; changed: (event: TurnEvent) => void } | null = null;
   const readyModels = () => models.filter(model => model.isReady());
 
-  /**
-   * Scripted questions, words that ask nothing, and questions no model can take now keep the
-   * synchronous path, which costs no request.
-   */
-  function usesModel(question: string, pack: Pack): boolean {
-    return (
-      !isScripted(question, pack) &&
-      isQuestion(question, pack) &&
-      readyModels().length > 0
-    );
-  }
-
-  function prewarmInstructor(pack: Pack): void {
+  function prewarm(pack: Pack): void {
     readyModels().forEach(model => model.prewarm(pack));
   }
 
-  function cancelInstructor(): void {
-    request += 1;
+  function cancel(): void {
+    const previous = active;
+    active = null;
     models.forEach(model => model.cancel());
+    previous?.changed({ type: TurnEventType.cancel });
   }
 
-  /**
-   * Asks each ready model in turn until one replies, then the script. The part is chosen
-   * before any model runs, from the question and the screen, so it is highlighted as soon
-   * as the first words stream in; the models only write the reply.
-   */
-  async function modelAnswer(
-    question: string,
-    state: SessionState,
-    pack: Pack,
-    history: readonly PreviousExchange[],
-    onPartial: (answer: PartialAnswer) => void,
-  ): Promise<InstructorAnswer> {
+  async function ask(
+    input: Omit<ModelRequest, 'evidence'>,
+    changed: (event: TurnEvent) => void,
+  ): Promise<void> {
+    const question = input.question.trim();
+    if (question === '') {
+      return;
+    }
+    if (active !== null) {
+      cancel();
+    }
+    const { state, pack, history } = input;
     const id = ++request;
-    const subject = subjectOf(question, state, pack);
-    for (const model of readyModels()) {
-      if (id !== request) {
-        break;
+    active = { id, changed };
+    const exchange: Exchange = {
+      id,
+      question,
+      reply: '',
+      caution: '',
+      part: null,
+      phase: ExchangePhase.pending,
+    };
+    changed({ type: TurnEventType.begin, exchange });
+    const current = () => active?.id === id;
+    const finish = (answer: InstructorAnswer) => {
+      if (!current()) {
+        return;
       }
+      active = null;
+      changed({
+        type: TurnEventType.answer,
+        answer,
+        exchange: {
+          ...exchange,
+          reply: answer.reply,
+          caution: answer.caution,
+          part: answer.part,
+          phase: ExchangePhase.done,
+        },
+      });
+    };
+    if (isScripted(question, pack) || !isQuestion(question, pack)) {
+      finish(answerFor(question, state, pack));
+      return;
+    }
+    const evidence = evidenceFor(question, state, pack);
+    const subject = evidence.subject;
+    for (const model of readyModels()) {
+      if (!current()) {
+        return;
+      }
+      let responding = true;
       try {
         const text = await model.respond(
-          { question, state, pack, history },
+          { question, state, pack, history, evidence },
           partial => {
-            const reply = replyFrom(partial, pack, true);
-            if (reply !== '' && id === request) {
-              onPartial({ reply, part: answerAbout(reply, subject).part });
+            const reply = replyFrom(partial, evidence, true);
+            if (reply !== '' && responding && current()) {
+              changed({
+                type: TurnEventType.partial,
+                exchange: {
+                  ...exchange,
+                  reply,
+                  part: answerAbout(reply, subject).part,
+                  phase: ExchangePhase.streaming,
+                },
+              });
             }
           },
         );
-        const reply = replyFrom(text, pack);
+        if (!current()) {
+          return;
+        }
+        const reply = replyFrom(text, evidence);
         if (reply !== '') {
-          return answerAbout(reply, subject);
+          finish(answerAbout(reply, subject));
+          return;
         }
       } catch {
         // The next model, or the script, answers instead.
+      } finally {
+        responding = false;
+      }
+      if (current()) {
+        // A failed model's provisional words and highlight do not belong to its fallback.
+        changed({ type: TurnEventType.partial, exchange });
       }
     }
-    return answerFor(question, state, pack);
+    finish(answerFor(question, state, pack));
   }
 
-  return { usesModel, prewarmInstructor, cancelInstructor, modelAnswer };
+  return { prewarm, ask, cancel };
 }
 
 export type ModelInstructor = ReturnType<typeof createModelInstructor>;

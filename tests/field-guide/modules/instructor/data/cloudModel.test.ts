@@ -1,9 +1,9 @@
+import { createModelInstructor } from '../../../../../apps/field-guide/src/modules/instructor/application/modelInstructor';
+import type { InstructorModel } from '../../../../../apps/field-guide/src/modules/instructor/domain/InstructorModel';
 import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/session';
+import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  Grounding,
-  promptFor,
-  PromptNotes,
   ReplyFormat,
   rulesFor,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/grounding';
@@ -19,6 +19,7 @@ const pack = fixturePack();
 const URL = 'https://proxy.example';
 const request = {
   question: 'What does the battery do?',
+  evidence: evidenceFor('What does the battery do?', INITIAL_SESSION, pack),
   state: INITIAL_SESSION,
   pack,
   history: [],
@@ -82,9 +83,7 @@ afterEach(() => jest.useRealTimers());
 test('instructions are strict structured rules followed by every note and guided check', () => {
   const instructions = cloudInstructions(pack);
   expect(
-    instructions.startsWith(
-      rulesFor(pack, Grounding.strict, ReplyFormat.structured).join('\n'),
-    ),
+    instructions.startsWith(rulesFor(pack, ReplyFormat.structured).join('\n')),
   ).toBe(true);
   expect(instructions).toContain(
     'Part: Coolant reservoir (also called coolant tank, expansion tank)',
@@ -93,7 +92,7 @@ test('instructions are strict structured rules followed by every note and guided
     'faults: A battery that keeps going flat needs a charging check.',
   );
   expect(instructions).toContain(
-    'Check the coolant level: Step engine-cold Step locate Step read-level',
+    'Check the coolant level: Step engine-cold Caution: Only with the engine cold. Step locate Step read-level',
   );
 });
 
@@ -109,13 +108,7 @@ test('posts the instructions and a prompt without notes to the proxy', () => {
   expect(sent.headers['Content-Type']).toBe('application/json');
   expect(JSON.parse(sent.body)).toEqual({
     system: cloudInstructions(pack),
-    prompt: promptFor(
-      request.question,
-      INITIAL_SESSION,
-      pack,
-      [],
-      PromptNotes.none,
-    ),
+    prompt: 'Part: Battery\nQuestion: What does the battery do?',
   });
 });
 
@@ -142,10 +135,24 @@ test.each([
     'overloaded',
   ],
   [
+    'an error alongside done',
+    (sent: FakeRequest) => sent.receive(line({ done: true, error: 'cut off' })),
+    'cut off',
+  ],
+  [
+    'an error alongside text',
+    (sent: FakeRequest) => {
+      sent.receive(line({ text: 'Truncated', error: 'cut off' }));
+      sent.receive(line({ done: true }));
+    },
+    'cut off',
+  ],
+  [
     'an unreadable line',
     (sent: FakeRequest) => sent.receive('nope\n'),
     'unreadable stream',
   ],
+  ['a null event', (sent: FakeRequest) => sent.receive('null\n'), 'bad event'],
   [
     'a stream without done',
     (sent: FakeRequest) => {
@@ -170,13 +177,19 @@ test.each([
   },
 );
 
-test('gives up when no text arrives in time', async () => {
-  const cloud = model();
-  const reply = cloud.respond(request, jest.fn());
-  jest.advanceTimersByTime(FIRST_TEXT_MS);
-  await expect(reply).rejects.toThrow('no text in time');
-  expect(cloud.isReady()).toBe(false);
-});
+test.each([undefined, '', ' '])(
+  'gives up when no answer text arrives in time: %j',
+  async delta => {
+    const cloud = model();
+    const reply = cloud.respond(request, jest.fn());
+    if (delta !== undefined) {
+      FakeRequest.last.receive(line({ text: delta }));
+    }
+    jest.advanceTimersByTime(FIRST_TEXT_MS);
+    expect(cloud.isReady()).toBe(false);
+    await expect(reply).rejects.toThrow('no text in time');
+  },
+);
 
 test('first text stops the first-text timer, not the total one', async () => {
   const reply = model().respond(request, jest.fn());
@@ -204,3 +217,31 @@ test('a new request stops the one before it', async () => {
   await expect(first).rejects.toThrow('cancelled');
   expect(firstRequest.aborted).toBe(true);
 });
+
+test.each(['error', 'missing done'])(
+  'a streamed remote %s falls back to the next model',
+  async failure => {
+    const fallback: InstructorModel = {
+      isReady: () => true,
+      prewarm() {},
+      cancel() {},
+      respond: async () => 'It supplies the starter.',
+    };
+    const changed = jest.fn();
+    const answered = createModelInstructor([model(), fallback]).ask(
+      request,
+      changed,
+    );
+    FakeRequest.last.receive(line({ text: 'Provisional reply.' }));
+    if (failure === 'error') {
+      FakeRequest.last.receive(line({ error: 'cut off' }));
+    } else {
+      FakeRequest.last.end();
+    }
+    await answered;
+    expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'answer',
+      answer: { reply: 'It supplies the starter.' },
+    });
+  },
+);

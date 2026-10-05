@@ -8,30 +8,20 @@ import {
   type SessionState,
 } from '../../../domain/session';
 import {
-  answerFor,
-  type InstructorAnswer,
-} from '../../../modules/instructor/domain/instructor';
-import type { PartialAnswer } from '../../../modules/instructor/application/modelInstructor';
+  ExchangePhase,
+  TurnEventType,
+  type Exchange,
+  type TurnEvent,
+} from '../../../modules/instructor/domain/turn';
 import { cardContentFor, type CardContent } from './guideContent';
+
+export {
+  ExchangePhase,
+  type Exchange,
+} from '../../../modules/instructor/domain/turn';
 
 // A long session scrolls back this far; older entries drop off the top.
 export const MAX_THREAD_ENTRIES = 60;
-
-export const ExchangePhase = {
-  pending: 'pending',
-  streaming: 'streaming',
-  done: 'done',
-} as const;
-export type ExchangePhase = (typeof ExchangePhase)[keyof typeof ExchangePhase];
-
-/** A question and what the instructor said back. */
-export interface Exchange {
-  readonly question: string;
-  readonly reply: string;
-  readonly caution: string;
-  readonly id: number;
-  readonly phase: ExchangePhase;
-}
 
 export const EntryKind = { step: 'step', exchange: 'exchange' } as const;
 export type EntryKind = (typeof EntryKind)[keyof typeof EntryKind];
@@ -60,51 +50,23 @@ export interface ViewerState {
   readonly stepsShown: number;
   /** Bumped to frame the step again even when the session itself did not change. */
   readonly frameRequest: number;
-  /** Streaming selection is provisional until the final answer is accepted. */
-  readonly answerSession: SessionState | null;
   /** Where the guide left off while exploring, to pick it up again. */
   readonly resume: SessionState | null;
 }
 
 export const ViewerActionType = {
   session: 'session',
-  ask: 'ask',
-  begin: 'begin',
-  partial: 'partial',
-  answer: 'answer',
-  cancel: 'cancel',
+  turn: 'turn',
   explore: 'explore',
   guide: 'guide',
 } as const;
-export type ViewerActionType =
-  (typeof ViewerActionType)[keyof typeof ViewerActionType];
 
 export type ViewerAction =
   | {
       readonly type: typeof ViewerActionType.session;
       readonly event: SessionEvent;
     }
-  | {
-      readonly type: typeof ViewerActionType.ask;
-      readonly question: string;
-      readonly id: number;
-    }
-  | {
-      readonly type: typeof ViewerActionType.begin;
-      readonly question: string;
-      readonly id: number;
-    }
-  | {
-      readonly type: typeof ViewerActionType.partial;
-      readonly partial: PartialAnswer;
-      readonly id: number;
-    }
-  | {
-      readonly type: typeof ViewerActionType.answer;
-      readonly answer: InstructorAnswer;
-      readonly id: number;
-    }
-  | { readonly type: typeof ViewerActionType.cancel }
+  | { readonly type: typeof ViewerActionType.turn; readonly event: TurnEvent }
   | { readonly type: typeof ViewerActionType.explore }
   | { readonly type: typeof ViewerActionType.guide };
 
@@ -120,7 +82,6 @@ export function initialViewerState(
       thread: [],
       stepsShown: 0,
       frameRequest: 0,
-      answerSession: null,
       resume: null,
     },
     pack,
@@ -187,9 +148,13 @@ function apply(
     ...state,
     session,
     exchange,
-    answerSession: null,
     // Starting a procedure while exploring is a new guide; the old one is not resumed.
-    resume: session.procedureId === null ? state.resume : null,
+    resume:
+      event.type === SessionEventType.end
+        ? null
+        : session.procedureId === null
+        ? state.resume
+        : null,
     // Repeat means "show me again", which the user wants after orbiting away.
     frameRequest:
       event.type === SessionEventType.repeat
@@ -204,90 +169,30 @@ export function reduceViewer(
   pack: Pack,
 ): ViewerState {
   switch (action.type) {
-    case ViewerActionType.cancel: {
-      if (
-        state.exchange === null ||
-        state.exchange.phase === ExchangePhase.done
-      ) {
-        return state;
-      }
-      // The answer that was live before this question becomes live again.
-      const last = state.thread[state.thread.length - 1];
-      const restored = last?.kind === EntryKind.exchange ? last.exchange : null;
-      return {
-        ...state,
-        session: state.answerSession ?? state.session,
-        exchange: restored,
-        thread: restored === null ? state.thread : state.thread.slice(0, -1),
-        answerSession: null,
-      };
-    }
-    case ViewerActionType.begin: {
-      const question = action.question.trim();
-      return question === ''
-        ? state
-        : {
-            ...settle(state),
-            answerSession: state.session,
-            exchange: {
-              id: action.id,
-              phase: ExchangePhase.pending,
-              question,
-              reply: '',
-              caution: '',
-            },
+    case ViewerActionType.turn: {
+      const event = action.event;
+      switch (event.type) {
+        case TurnEventType.begin:
+          return { ...settle(state), exchange: event.exchange };
+        case TurnEventType.partial:
+          return { ...state, exchange: event.exchange };
+        case TurnEventType.answer:
+          return event.answer.event === null
+            ? { ...state, exchange: event.exchange }
+            : apply(state, event.answer.event, pack, event.exchange);
+        case TurnEventType.cancel: {
+          const last = state.thread[state.thread.length - 1];
+          const restored =
+            last?.kind === EntryKind.exchange ? last.exchange : null;
+          return {
+            ...state,
+            exchange: restored,
+            thread:
+              restored === null ? state.thread : state.thread.slice(0, -1),
           };
-    }
-    case ViewerActionType.partial: {
-      if (
-        state.exchange?.id !== action.id ||
-        state.exchange.phase === ExchangePhase.done
-      ) {
-        return state;
+        }
       }
-      const exchange: Exchange = {
-        ...state.exchange,
-        phase: ExchangePhase.streaming,
-        reply: action.partial.reply,
-      };
-      return action.partial.part === null
-        ? { ...state, exchange }
-        : {
-            ...apply(
-              state,
-              { type: SessionEventType.select, partId: action.partial.part },
-              pack,
-              exchange,
-            ),
-            answerSession: state.answerSession,
-          };
-    }
-    case ViewerActionType.answer: {
-      if (
-        state.exchange?.id !== action.id ||
-        state.exchange.phase === ExchangePhase.done
-      ) {
-        return state;
-      }
-      const { answer } = action;
-      const base = {
-        ...state,
-        session: state.answerSession ?? state.session,
-        answerSession: null,
-      };
-      const next =
-        answer.event === null
-          ? base
-          : apply(base, answer.event, pack, state.exchange);
-      return {
-        ...next,
-        exchange: {
-          ...state.exchange,
-          phase: ExchangePhase.done,
-          reply: answer.reply,
-          caution: answer.caution,
-        },
-      };
+      return state;
     }
     case ViewerActionType.session: {
       const next = apply(state, action.event, pack, null);
@@ -305,7 +210,6 @@ export function reduceViewer(
       return showStep(
         {
           ...settle(state),
-          answerSession: null,
           session: {
             ...INITIAL_SESSION,
             selectedPart: state.session.selectedPart,
@@ -322,30 +226,11 @@ export function reduceViewer(
       return showStep(
         {
           ...settle(state),
-          answerSession: null,
           session: state.resume,
           resume: null,
         },
         pack,
       );
-    }
-    case ViewerActionType.ask: {
-      const question = action.question.trim();
-      if (question === '') {
-        return state;
-      }
-      const settled = settle(state);
-      const answer = answerFor(question, state.session, pack);
-      const exchange: Exchange = {
-        question,
-        reply: answer.reply,
-        caution: answer.caution,
-        id: action.id,
-        phase: ExchangePhase.done,
-      };
-      return answer.event === null
-        ? { ...settled, exchange, answerSession: null }
-        : apply(settled, answer.event, pack, exchange);
     }
   }
 }

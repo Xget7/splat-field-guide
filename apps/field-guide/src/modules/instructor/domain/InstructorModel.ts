@@ -1,14 +1,13 @@
 import type { Pack } from '../../../domain/pack';
 import type { SessionState } from '../../../domain/session';
+import type { AuthoredEvidence } from './context';
 import type { PreviousExchange } from './grounding';
-
-export const ModelName = { cloud: 'cloud', onDevice: 'onDevice' } as const;
-export type ModelName = (typeof ModelName)[keyof typeof ModelName];
 
 export interface ModelRequest {
   readonly question: string;
   readonly state: SessionState;
   readonly pack: Pack;
+  readonly evidence: AuthoredEvidence;
   /** The conversation so far, oldest first; each model keeps as much as it can hold. */
   readonly history: readonly PreviousExchange[];
 }
@@ -18,7 +17,6 @@ export interface ModelRequest {
  * shared grounding, sized to what it can hold; the caller checks and shapes the text.
  */
 export interface InstructorModel {
-  readonly name: ModelName;
   /** Whether a request is worth trying now. Synchronous, so routing never waits. */
   isReady(): boolean;
   /** Gets ready for questions about `pack`, if the model benefits from it. */
