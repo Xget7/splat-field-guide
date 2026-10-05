@@ -45,8 +45,7 @@ final class OnDeviceAudioLevel {
 }
 
 /// Whether someone is talking, read from the microphone level against the room's own noise:
-/// speech has to stand clear of the quietest level of the last few seconds, so a fan, an engine
-/// or a crowd does not count as a voice however loud it is. Owned by one input tap and accessed
+/// speech has to stand clear of the background measured before it began. Owned by one input tap and accessed
 /// only on its audio thread.
 final class OnDeviceVoiceActivity {
   enum Change { case started, ended }
@@ -55,7 +54,7 @@ final class OnDeviceVoiceActivity {
   private static let margin = 0.2
   // About -40 dBFS: below this nothing is a voice, however still the room.
   private static let minimumVoice = 0.25
-  // The quietest level over this long is the room's noise; speech always pauses within it.
+  // Only quiet samples enter this window, so sustained speech cannot raise its own threshold.
   private static let floorWindow: TimeInterval = 3
   // Louder for this long is a voice rather than a click or a knock.
   private static let onset: TimeInterval = 0.1
@@ -68,16 +67,19 @@ final class OnDeviceVoiceActivity {
   private var louderSince: TimeInterval?
   private var speakingSince: TimeInterval?
   private var lastVoice: TimeInterval = 0
+  private var noiseFloor = 0.0
 
   /// Takes the level at `time`, in seconds, and returns the change it makes, if any.
   func update(_ level: Double, at time: TimeInterval) -> Change? {
-    recent.removeAll { time - $0.time > Self.floorWindow }
-    let floor = recent.map(\.level).min() ?? level
-    recent.append((time, level))
-    let voice = level >= max(floor + Self.margin, Self.minimumVoice)
+    if speakingSince == nil, louderSince == nil {
+      recent.removeAll { time - $0.time > Self.floorWindow }
+      noiseFloor = recent.map(\.level).min() ?? level
+    }
+    let voice = level >= max(noiseFloor + Self.margin, Self.minimumVoice)
 
     guard let since = speakingSince else {
       guard voice else {
+        recent.append((time, level))
         louderSince = nil
         return nil
       }

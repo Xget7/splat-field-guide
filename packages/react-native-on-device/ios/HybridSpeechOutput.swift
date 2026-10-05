@@ -68,19 +68,6 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     super.init()
     let center = NotificationCenter.default
     observers = [
-      center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil,
-        queue: .main) { [weak self] notification in
-        guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-          type == AVAudioSession.InterruptionType.began.rawValue else { return }
-        self?.stopCurrent()
-      },
-      // A route or format change stops the engine under the player.
-      center.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil,
-        queue: .main) { [weak self] notification in
-        guard let self, notification.object as AnyObject? === self.graph.engine,
-          self.active?.playing == true else { return }
-        self.stopCurrent()
-      },
       center.addObserver(forName: OnDeviceAudioGraph.didInterruptPlayback, object: graph,
         queue: .main) { [weak self] _ in self?.stopCurrent() },
     ]
