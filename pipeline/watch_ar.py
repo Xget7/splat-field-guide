@@ -22,6 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = "[ARGuide] "
 CAPTURE_LIMIT = 512 * 1024
+CAPTURE_FULL = {"event": "error", "detail": "capture byte limit reached"}
 
 
 def recognition_verdict(records: list[dict], expected: str) -> dict:
@@ -46,9 +47,9 @@ def recognition_verdict(records: list[dict], expected: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", default="xgetphone")
+    parser.add_argument("--device", help="Connected iPhone name or identifier, required for a live capture.")
     parser.add_argument("--duration", type=int, default=900, help="Capture seconds (default: 15 minutes).")
-    parser.add_argument("--output", type=Path, default=ROOT / "tools/ar-device-20261002/ar-live.jsonl")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/pack/ar-diagnostics/ar-live.jsonl")
     parser.add_argument("--expect", choices=("detected", "absent"), help="Exit 1 when ARKit's result does not match.")
     parser.add_argument("--check-capture", type=Path, help="Evaluate an existing JSONL without launching the phone app.")
     args = parser.parse_args()
@@ -61,6 +62,8 @@ def main() -> None:
         raise SystemExit(0 if verdict["pass"] else 1)
     if not 1 <= args.duration <= 3600:
         parser.error("duration must be between 1 and 3600 seconds")
+    if not args.device:
+        parser.error("a live capture requires --device")
     output = args.output.resolve()
     status_path = output.with_suffix(".status.json")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -108,12 +111,14 @@ def main() -> None:
     selector.register(child.stdout, selectors.EVENT_READ)
     deadline = time.monotonic() + args.duration
     pending = b""
+    limit_record = (json.dumps(CAPTURE_FULL, separators=(",", ":")) + "\n").encode()
+    full = False
     save_status()
     print(f"Preparando captura en {args.device}; esperando confirmación de Xcode.", flush=True)
     print("Sin imágenes ni audio; registro limitado a 512 KiB. FPS = cámara, no inferencias.", flush=True)
     try:
         with output.open("wb") as capture:
-            while time.monotonic() < deadline:
+            while time.monotonic() < deadline and not full:
                 ready = selector.select(timeout=0.5)
                 if not ready:
                     if child.poll() is not None:
@@ -144,9 +149,12 @@ def main() -> None:
                     except json.JSONDecodeError:
                         continue
                     encoded = (json.dumps(record, separators=(",", ":")) + "\n").encode()
-                    if capture.tell() + len(encoded) > CAPTURE_LIMIT:
-                        capture.seek(0)
-                        capture.truncate()
+                    if capture.tell() + len(encoded) + len(limit_record) > CAPTURE_LIMIT:
+                        # Retain every sample used by the verdict, and mark the incomplete capture on replay too.
+                        capture.write(limit_record)
+                        records.append(CAPTURE_FULL)
+                        full = True
+                        break
                     capture.write(encoded)
                     capture.flush()
                     state["events"] += 1
@@ -158,12 +166,12 @@ def main() -> None:
                         state["frameSamples"] += 1
                         state["samplesWithTrackedObject"] += int(record["trackedObjectAnchors"] > 0)
                         state["lastFrame"] = record
-                        print(f"Cámara: {record['cameraTracking']} · {record['cameraFramesPerSecond']} FPS"
-                              f" · Objetos: {record['objectAnchors']} · Seguidos: {record['trackedObjectAnchors']}"
-                              f" · Pins: {record['pinsEnabled']}", flush=True)
+                        print(f"Cámara: {record['cameraTracking']}, {record['cameraFramesPerSecond']} FPS"
+                              f", Objetos: {record['objectAnchors']}, Seguidos: {record['trackedObjectAnchors']}"
+                              f", Pins: {record['pinsEnabled']}", flush=True)
                     elif record.get("event") == "state":
                         state["lastState"] = record
-                        print(f"Estado: {record['state']} · {record['message']}", flush=True)
+                        print(f"Estado: {record['state']}, {record['message']}", flush=True)
                     elif record.get("event") == "error":
                         state["errors"] = (state["errors"] + [record])[-10:]
                         print(f"Error: {record['detail']}", flush=True)
