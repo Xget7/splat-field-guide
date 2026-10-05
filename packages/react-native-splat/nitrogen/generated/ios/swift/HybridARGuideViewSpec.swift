@@ -16,7 +16,7 @@ public protocol HybridARGuideViewSpec_protocol: HybridObject, HybridView {
   var onTrackingStateChanged: (_ event: ARTrackingEvent) -> Void { get set }
 
   // Methods
-  
+
 }
 
 public extension HybridARGuideViewSpec_protocol {

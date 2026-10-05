@@ -58,7 +58,7 @@ namespace margelo::nitro::splat {
 
     public:
       // Methods
-      
+
 
     protected:
       // Hybrid Setup

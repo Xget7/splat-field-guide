@@ -44,22 +44,22 @@ public extension ARTrackingEvent {
   var state: ARTrackingState {
     return self.__state
   }
-  
+
   @inline(__always)
   var message: String {
     return String(self.__message)
   }
-  
+
   @inline(__always)
   var torchAvailable: Bool {
     return self.__torchAvailable
   }
-  
+
   @inline(__always)
   var torchEnabled: Bool {
     return self.__torchEnabled
   }
-  
+
   @inline(__always)
   var torchError: String? {
     return { () -> String? in
@@ -71,7 +71,7 @@ public extension ARTrackingEvent {
       }
     }()
   }
-  
+
   @inline(__always)
   var referenceLoaded: Bool? {
     return { () -> Bool? in
@@ -83,7 +83,7 @@ public extension ARTrackingEvent {
       }
     }()
   }
-  
+
   @inline(__always)
   var telemetry: ARTrackingTelemetry? {
     return self.__telemetry.value

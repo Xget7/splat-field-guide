@@ -105,7 +105,7 @@ namespace margelo::nitro::splat {
 
   public:
     // Methods
-    
+
 
   private:
     ReactNativeSplat::HybridARGuideViewSpec_cxx _swiftPart;

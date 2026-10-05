@@ -26,37 +26,37 @@ public extension ARTrackingTelemetry {
   var sampleTimestamp: Double {
     return self.__sampleTimestamp
   }
-  
+
   @inline(__always)
   var cameraTracking: ARCameraTracking {
     return self.__cameraTracking
   }
-  
+
   @inline(__always)
   var cameraFramesPerSecond: Double {
     return self.__cameraFramesPerSecond
   }
-  
+
   @inline(__always)
   var objectAnchors: Double {
     return self.__objectAnchors
   }
-  
+
   @inline(__always)
   var trackedObjectAnchors: Double {
     return self.__trackedObjectAnchors
   }
-  
+
   @inline(__always)
   var allObjectAnchors: Double {
     return self.__allObjectAnchors
   }
-  
+
   @inline(__always)
   var sessionSeconds: Double {
     return self.__sessionSeconds
   }
-  
+
   @inline(__always)
   var pinsEnabled: Bool {
     return self.__pinsEnabled

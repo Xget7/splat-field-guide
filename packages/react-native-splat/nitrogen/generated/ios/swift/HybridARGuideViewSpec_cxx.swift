@@ -84,7 +84,7 @@ open class HybridARGuideViewSpec_cxx {
     }
   }
 
-  
+
 
   /**
    * Get the memory size of the Swift class (plus size of any other allocations)
@@ -131,7 +131,7 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.referencePath = String(newValue)
     }
   }
-  
+
   public final var landmarksPath: std.string {
     @inline(__always)
     get {
@@ -142,7 +142,7 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.landmarksPath = String(newValue)
     }
   }
-  
+
   public final var torchEnabled: Bool {
     @inline(__always)
     get {
@@ -153,7 +153,7 @@ open class HybridARGuideViewSpec_cxx {
       self.__implementation.torchEnabled = newValue
     }
   }
-  
+
   public final var onTrackingStateChanged: bridge.Func_void_ARTrackingEvent {
     @inline(__always)
     get {
@@ -177,20 +177,20 @@ open class HybridARGuideViewSpec_cxx {
   public final func getView() -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(__implementation.view).toOpaque()
   }
-  
+
   public final func beforeUpdate() {
     __implementation.beforeUpdate()
   }
-  
+
   public final func afterUpdate() {
     __implementation.afterUpdate()
   }
-  
+
   public final func maybePrepareForRecycle() {
     guard let recyclable = __implementation as? any RecyclableView else { return }
     recyclable.prepareForRecycle()
   }
-  
+
   public final func onDropView() {
     __implementation.onDropView()
   }
