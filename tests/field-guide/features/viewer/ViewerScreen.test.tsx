@@ -1514,29 +1514,41 @@ describe('viewer screen', () => {
       expect(debug().getState().selectedPart).toBe('coolant-reservoir');
     });
 
-    test('a replacing question restores a streamed selection before taking its baseline', async () => {
-      jest.mocked(model.availability).mockReturnValue('available');
-      const first = deferred<string>();
-      const second = deferred<string>();
-      jest
-        .mocked(model.respond)
-        .mockReturnValueOnce(first.promise)
-        .mockReturnValueOnce(second.promise);
-      await mount({ mode: LearnMode.instructor });
-      await ask('Explain the battery');
-      const partial = jest.mocked(model.respond).mock.calls[0][2];
-      await act(async () => partial('It supplies'));
-      expect(debug().getState().selectedPart).toBe('battery');
-      await ask('What gets hot when I drive?');
-      expect(debug().getState().selectedPart).toBeNull();
-      await act(async () => second.reject(new Error('model failed')));
-      expect(debug().getState().selectedPart).toBeNull();
-      await act(async () => {
-        partial('Late words.');
-        first.resolve('Late answer.');
-      });
-      expect(debug().getState().selectedPart).toBeNull();
-    });
+    test.each(['failure', 'cancel', 'unselected final'])(
+      'a replacing question restores a streamed selection before taking its baseline: %s',
+      async outcome => {
+        jest.mocked(model.availability).mockReturnValue('available');
+        const first = deferred<string>();
+        const second = deferred<string>();
+        jest
+          .mocked(model.respond)
+          .mockReturnValueOnce(first.promise)
+          .mockReturnValueOnce(second.promise);
+        await mount({ mode: LearnMode.instructor });
+        await ask('Explain the battery');
+        const partial = jest.mocked(model.respond).mock.calls[0][2];
+        await act(async () => partial('It supplies'));
+        expect(debug().getState().selectedPart).toBe('battery');
+        await ask('What gets hot when I drive?');
+        expect(debug().getState().selectedPart).toBeNull();
+        if (outcome === 'cancel') {
+          await press('instructor-stop');
+          await act(async () => second.resolve('Cancelled reply.'));
+        } else if (outcome === 'unselected final') {
+          await act(async () =>
+            second.resolve('No data on that. Refer to the technical manual.'),
+          );
+        } else {
+          await act(async () => second.reject(new Error('model failed')));
+        }
+        expect(debug().getState().selectedPart).toBeNull();
+        await act(async () => {
+          partial('Late words.');
+          first.resolve('Late answer.');
+        });
+        expect(debug().getState().selectedPart).toBeNull();
+      },
+    );
 
     test('model errors restore the script even after a provisional highlight', async () => {
       jest.mocked(model.availability).mockReturnValue('available');

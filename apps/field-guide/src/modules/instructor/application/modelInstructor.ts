@@ -83,12 +83,13 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
       if (!current()) {
         return;
       }
+      let responding = true;
       try {
         const text = await model.respond(
           { question, state, pack, history, evidence },
           partial => {
             const reply = replyFrom(partial, evidence, true);
-            if (reply !== '' && current()) {
+            if (reply !== '' && responding && current()) {
               changed({
                 type: TurnEventType.partial,
                 exchange: {
@@ -111,6 +112,8 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
         }
       } catch {
         // The next model, or the script, answers instead.
+      } finally {
+        responding = false;
       }
       if (current()) {
         // A failed model's provisional words and highlight do not belong to its fallback.

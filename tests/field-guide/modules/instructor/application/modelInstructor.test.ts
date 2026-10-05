@@ -204,3 +204,37 @@ test('a battery voltage does not ground a coolant capacity', async () => {
   expect(answer.reply).toBe(NOT_COVERED_REPLY);
   expect(answer.event).toBeNull();
 });
+
+test('late words from a failed model cannot replace the fallback model in the same turn', async () => {
+  let late!: (text: string) => void;
+  let nextText!: (text: string) => void;
+  let finish!: (text: string) => void;
+  instructor = createModelInstructor([
+    fakeModel((_request, onText) => {
+      late = onText;
+      return Promise.reject(new Error('failed'));
+    }),
+    fakeModel((_request, onText) => {
+      nextText = onText;
+      return new Promise<string>(resolve => {
+        finish = resolve;
+      });
+    }),
+  ]);
+  const changed = jest.fn();
+  const pending = instructor.ask(
+    { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
+    changed,
+  );
+  await Promise.resolve();
+  nextText('It supplies the starter.');
+  const streaming = changed.mock.calls.at(-1)?.[0];
+  late('Discarded remote words.');
+  expect(changed.mock.calls.at(-1)?.[0]).toBe(streaming);
+  finish('It supplies the starter.');
+  await pending;
+  expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+    type: TurnEventType.answer,
+    answer: { reply: 'It supplies the starter.' },
+  });
+});
