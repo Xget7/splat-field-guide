@@ -24,6 +24,6 @@ for package in react-native-splat react-native-on-device; do
   nice -n 19 npm ci --prefix "$ROOT/packages/$package"
 done
 export BUNDLE_GEMFILE="$ROOT/apps/field-guide/Gemfile"
-nice -n 19 bundle install --jobs 2
+nice -n 19 bundle install
 cd "$ROOT/apps/field-guide/ios"
 nice -n 19 bundle exec pod install

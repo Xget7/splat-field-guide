@@ -81,7 +81,7 @@ class PreparationTests(unittest.TestCase):
             self.assertEqual(trace.read_text().splitlines()[0:2], ['engine 0', 'kokoro'])
             for name in ('react-native-splat', 'react-native-on-device'):
                 self.assertIn(f'npm ci --prefix {repo / "packages" / name}', trace.read_text().splitlines())
-            self.assertEqual(trace.read_text().splitlines()[-2:], ['bundle install --jobs 2', 'bundle exec pod install'])
+            self.assertEqual(trace.read_text().splitlines()[-2:], ['bundle install', 'bundle exec pod install'])
             cached = subprocess.run(['sh', str(repo / 'scripts/prepare.sh'), '--pack', str(repo / 'missing.tar.gz')],
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(cached.returncode, 0, cached.stderr)
