@@ -1,7 +1,7 @@
 # English frontend
 
 These five files are adapted from [FluidAudio](https://github.com/FluidInference/FluidAudio/tree/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS), under Apache-2.0.
-The license is retained in `../../LICENSES/FluidAudio.txt`.
+The license is retained in [LICENSES/FluidAudio.txt](../../LICENSES/FluidAudio.txt).
 The English phonemizer keeps Misaki dictionary pronunciations, initialisms, contractions and possessives, with the small English BART model for unknown words.
 The normalizer uses the upstream conservative numeric rules and `SayAsInterpreter`.
 

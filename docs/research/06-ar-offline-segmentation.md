@@ -1,6 +1,6 @@
 # Pipeline: SAM preprocesado → piezas marcadas sobre el motor en vivo
 
-Estado: propuesta histórica del 2026-10-01; el camino con marcador quedó como diagnóstico y la integración actual de cuatro puntos está en [08](08-engine-object-registration.md), con máscaras semánticas todavía propuestas.
+Estado: propuesta histórica del 2026-10-01; el camino con marcador quedó como diagnóstico y la integración actual de cuatro puntos y eventos Nitro tipados está en [08](08-engine-object-registration.md), con máscaras semánticas todavía propuestas.
 
 ## Objetivo: qué debería hacer la app
 
@@ -27,7 +27,7 @@ La app ya integra reconocimiento y cuatro puntos para comprobar alineación; esa
 | ARKit + Metal, en el iPhone | Referencia y pack locales + cámara + pieza elegida | Pose del motor y video con el color sobre la pieza | Mostrar dónde está la batería mientras movés el teléfono |
 
 **El pack es la salida de la preparación y una entrada del teléfono.**
-Hoy se incluye durante la compilación; las descargas dentro de la app son futuras.
+Hoy se incluye durante la compilación tras preparación verificada; la referencia AR se prepara aparte y las descargas dentro de la app son futuras.
 ARKit busca el conjunto conocido con la referencia entrenada y entrega la pose; si no está reconocido y registrado, la app mantiene la cámara sin resaltado.
 
 Las máscaras de SAM se convierten en **etiquetas del modelo 3D** durante la preparación.
@@ -102,7 +102,7 @@ Podemos obtener sus coordenadas desde puntos triangulados de COLMAP:
 ```python
 from pipeline.export import Placement
 
-report = json.loads(Path("data/pack/gol-trend-engine-bay/1.report.json").read_text())
+report = json.loads(Path("data/pack/gol-trend-engine-bay/1/publication.json").read_text())
 p = report["placement"]
 placement = Placement(np.asarray(p["rotation"]), np.asarray(p["origin"]), p["scale"])
 rec = pycolmap.Reconstruction("data/capture/full/sparse/0")
@@ -114,7 +114,7 @@ xyz_pack = placement.points(xyz.reshape(1, 3))[0]
 ```
 
 `image_id` y `point2d_index` salen de una pequeña herramienta de selección sobre las fotos; hay que crearla.
-`placement` es la misma transformación de [export.py](../../pipeline/export.py), guardada en `1.report.json`.
+`placement` es la misma transformación de [export.py](../../pipeline/export.py), guardada en `publication.json`.
 [API PyCOLMAP](https://colmap.github.io/pycolmap/pycolmap.html).
 
 Medir la distancia real entre dos puntos conocidos.

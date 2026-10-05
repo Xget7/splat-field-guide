@@ -21,19 +21,11 @@ tests/                                   GPU tests that run on a Mac
 tools/splat_snapshot.mm                  draws a pack through the engine into a PNG, on a Mac
 ```
 
-## Build and test
+Build/test commands are in [AGENTS.md](../../../../AGENTS.md#prepare-and-verify); the macOS Metal build also tests the shared core and C interface.
+Set `SPLAT_SPZ_PATH` to an SPZ to enable `MetalRasterTest.ARealWorldFillsTheView`.
+`splat_snapshot` uses the app's renderer to draw a labelled cloud from a pose, with selected parts highlighted.
+From the repository root after the Metal build:
 
-```
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-This also builds and tests `splat-core` and `splatkit-engine`.
-Set `SPLAT_SPZ_PATH` to any SPZ to render it at phone resolution in `MetalRasterTest.ARealWorldFillsTheView`.
-
-`splat_snapshot` draws a cloud and its labels exactly as the app does, from a pose, with parts highlighted:
-
-```
-build/splat_snapshot --spz high/cloud.spz --labels high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out engine.png
+```sh
+packages/react-native-splat/build/checks/splat_snapshot --spz data/pack/gol-trend-engine-bay/1/high/cloud.spz --labels data/pack/gol-trend-engine-bay/1/high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out /tmp/engine.png
 ```

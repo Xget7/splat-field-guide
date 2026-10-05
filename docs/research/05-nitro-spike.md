@@ -41,7 +41,7 @@ The three criteria are therefore not yet verified on the device.
 - A hybrid object captured in a Reanimated worklet is serialised by Nitro's Worklets support; no manual `box` is needed.
 - The Xcode 27 simulator SDK has no `MTLDrawable.addPresentedHandler`; the simulator uses the command buffer completed handler, the device uses the presented handler (device path compiled, not run).
 - The app links the library with `file:`; Metro needs `watchFolders` and must block the library's own `node_modules`, or react-native is loaded twice ([`metro.config.js`](../../apps/field-guide/metro.config.js)).
-- Engine integration: Nitro already builds the pod with Swift/C++ interop, so the C interface `sfg.h` from the design is the simplest seam; list it in the podspec `public_header_files` and call it from the Swift render thread.
+- Engine integration now uses `sfg.h` from a separately built, source-fingerprinted XCFramework before CocoaPods vendors it ([ADR 0014](../adr/0014-bare-react-native-with-nitro-packages.md)).
   `engine/` is excluded from nitrogen and eslint in `nitro.json` and `.eslintrc.js`.
 - Android was not touched: `nitro.json` autolinks iOS only.
 

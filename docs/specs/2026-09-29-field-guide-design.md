@@ -23,7 +23,7 @@ The engine came from an inherited SplatKit copy; it was not all new work for thi
 | All-Modal, input-hash-cached pipeline | Local COLMAP/Brush/lifting/export, with SAM on Modal |
 | LiDAR metric scale | Approximate battery-derived scale, with physical dimensions still to verify |
 | Lifting onto decoded final SPZ | PLY-order lifting, with cloud/labels cropped and exported together |
-| Fixed tier budgets and every splat drawn | Default Brush growth and runtime haze/sparse filtering, without LOD |
+| Fixed tier budgets and every splat drawn | Recorded Brush growth ceiling and runtime haze/sparse filtering, without LOD |
 | Content reviewed against the owner's manual | Authored content with [source qualifications](../../content/gol-trend-engine-bay/SOURCES.md); manual/physical review pending |
 | Separate ARCHITECTURE.md | Architecture in the README, AGENTS.md, app setup and ADRs |
 
@@ -35,8 +35,8 @@ Changed decisions supersede the old records in [ADR 0012](../adr/0012-text-instr
 The pack holds versioned authored content, an SPZ cloud and a labels sidecar for each tier.
 `labels.bin` uses a 16-byte header: magic `SFGL`, u16 version 1, u16 label width 1, u32 splat count and u32 reserved zero, followed by one u8 label per SPZ splat.
 Zero means no part; labels are local to the pack representation, while part IDs persist across versions.
-The app rejects unknown manifest schema versions; preparation verifies manifest file identities before bundling.
-Native labels-format/count checks alone do not prove that two equal-count files belong together.
+The app accepts schema 1 with an optional source-identity extension; preparation validates the actual app schema and shipped file identities before bundling.
+Native loading also checks manifest-provided file digests and the expected decoded splat count.
 
 The session's procedure position and selected part determine highlight and framing.
 Selecting a part overrides step emphasis until the step changes; a parent highlight includes its children.

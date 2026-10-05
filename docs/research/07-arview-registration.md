@@ -21,7 +21,7 @@ La app ya conecta ARView y cuatro puntos; no hay mediciones comparativas física
 ## 2. Qué tenemos y qué falta
 
 **Disponible:** `cloud.spz`, `labels.bin`, aproximadamente 2,5 millones de splats, selección de piezas, renderer Metal propio y un [USDZ del vano con alineación candidata](08-engine-object-registration.md#qué-existe-ahora).
-**Implementado:** limpieza, entrenamiento y sesión AR con cuatro puntos.
+**Implementado:** limpieza, entrenamiento y sesión AR con cuatro puntos, eventos tipados y reintento de flash según el estado real.
 **Pendiente:** validar escala/calibración y reconocimiento físico, máscara semántica y composición sobre video.
 No hay USDZ separado por pieza.
 
@@ -42,7 +42,7 @@ Esta decisión es nuestra evaluación técnica según los assets y código exist
 2. Medir el motor y preparar landmarks métricos.
 3. Obtener un USDZ fiel al vano, registrarlo con el pack y guardar `referenceFromPack`; entrenar su `.referenceobject` con Create ML.
   [Pasos concretos](08-engine-object-registration.md#pipeline-propuesto).
-4. Descargar SPZ, labels, referencia entrenada y registro al teléfono.
+4. Incluir SPZ/labels en la compilación con `scripts/prepare.sh`; preparar e incluir aparte la referencia entrenada y su registro candidato.
 
 ### B. Arranque del iPhone
 
