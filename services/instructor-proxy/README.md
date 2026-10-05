@@ -14,6 +14,10 @@ The translator handles split chunks and multi-line data, reads completion and bl
 Use Node 26 or later, enter `services/instructor-proxy`, and run `npm install`, `npm test`, and `npx tsc --noEmit -p .`.
 For deployment setup, run `npx wrangler login`, then `npx wrangler secret put ANTHROPIC_API_KEY`, then `npm run deploy` from this directory.
 For local development, put `ANTHROPIC_API_KEY` in an ignored `.dev.vars` file and run `npm run dev`.
+Connect a deployed Worker by setting `INSTRUCTOR_PROXY_URL` in [cloudModel.ts](../../apps/field-guide/src/modules/instructor/data/cloudModel.ts) to its base URL, without `/v1/answer`.
+The app appends that path when sending each question.
+The checked-in value points to the author's demo Worker; deploying your own Worker does not change that app setting automatically.
+Set `INSTRUCTOR_PROXY_URL` to `null` to disable the remote adapter and use Apple Foundation Models, then scripted guidance when the on-device model is unavailable.
 Set a monthly spend limit on the key in the Anthropic console.
 This demo endpoint has no caller authentication and accepts caller-supplied instructions.
 The per-IP limiter bounds request rate; the account spend limit is a separate manual setting.
