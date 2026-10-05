@@ -20,6 +20,9 @@ import time
 
 import cv2
 import numpy as np
+from PIL import Image
+
+import masks
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -43,6 +46,8 @@ def read_ply(path: pathlib.Path) -> tuple[np.ndarray, bytes]:
         header, names, count = b"", [], 0
         while not header.endswith(b"end_header\n"):
             line = f.readline()
+            if not line:
+                raise ValueError("truncated PLY header")
             header += line
             if line.startswith(b"element vertex"):
                 count = int(line.split()[2])
@@ -70,6 +75,8 @@ def read_cameras(sparse: pathlib.Path) -> dict[str, tuple]:
             _, w, x, y, z, tx, ty, tz, camera_id = struct.unpack("<idddddddi", f.read(64))
             name = b""
             while (c := f.read(1)) != b"\0":
+                if not c:
+                    raise ValueError("truncated COLMAP image name")
                 name += c
             (points,) = struct.unpack("<Q", f.read(8))
             f.seek(24 * points, 1)
@@ -130,7 +137,8 @@ def composite(values: np.ndarray, cell, weight, width: int, height: int) -> np.n
 
 
 def load_masks(folder: pathlib.Path) -> dict[int, np.ndarray]:
-    return {int(p.stem): cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) > 0 for p in sorted(folder.glob("[0-9]*.png"))}
+    saved = masks.folder(folder)
+    return {int(p.stem): cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) > 0 for p in sorted(saved.glob("[0-9]*.png"))}
 
 
 def load_tracked(folder: pathlib.Path, keyframes) -> dict[int, np.ndarray]:
@@ -211,7 +219,12 @@ class Scene:
         for image, on in ((photo, truth), (render, rendered)):
             accent = 255 * np.array(HIGHLIGHT_RGB[::-1])  # BGR
             image[on] = ((1 - HIGHLIGHT_MIX) * image[on] + HIGHLIGHT_MIX * accent).astype(np.uint8)
-        return np.hstack([cv2.rotate(photo, cv2.ROTATE_90_CLOCKWISE), cv2.rotate(render, cv2.ROTATE_90_CLOCKWISE)])
+        with Image.open(self.photos[frame]) as source:
+            orientation = source.getexif().get(274, 1)
+        turn = {3: cv2.ROTATE_180, 6: cv2.ROTATE_90_CLOCKWISE, 8: cv2.ROTATE_90_COUNTERCLOCKWISE}.get(orientation)
+        if turn is not None:
+            photo, render = cv2.rotate(photo, turn), cv2.rotate(render, turn)
+        return np.hstack([photo, render])
 
 
 def voters(scene: Scene, keyframes: dict[int, np.ndarray], tracked: dict[int, np.ndarray], trust: float):

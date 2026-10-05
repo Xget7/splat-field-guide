@@ -2,10 +2,10 @@
 # requires-python = ">=3.12"
 # dependencies = ["numpy<2", "opencv-python-headless", "pillow", "scipy", "pyyaml"]
 # ///
-"""Checks for export.py: the maths on synthetic data, then the pack it wrote when there is one.
+"""Checks for export.py: the maths on synthetic data, then the pack it wrote and its recorded source artifacts.
 
 Run:  uv run export_checks.py [--pack ../data/pack/gol-trend-engine-bay/1] [--labels <labels.npy used for the pack>]
-Exit code 1 when any check fails. Without a pack only the synthetic checks run, and the output says so.
+Exit code 1 when any check fails. A missing pack or source artifact fails verification.
 The SPZ reader here is written from nianticlabs/spz load-spz.cc, not from export.py, so a shared mistake cannot hide.
 """
 
@@ -17,6 +17,7 @@ import json
 import math
 import pathlib
 import struct
+import subprocess
 import sys
 import tempfile
 import warnings
@@ -35,7 +36,6 @@ HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
 PACK = DATA / "pack" / export.PACK_ID / str(export.PACK_VERSION)
 results: list[tuple[bool, str]] = []
-skipped: list[str] = []
 
 SEED = 11
 POSITION_TOLERANCE = 0.5 / (1 << export.SPZ_FRACTIONAL_BITS) + 1e-6   # half a fixed-point step
@@ -49,9 +49,7 @@ RENDER_SCALE = 1 / 8
 RENDER_COLOUR_TOLERANCE = 0.03   # mean absolute colour difference over compared cells (colour is 0 to 1)
 RENDER_COVERAGE_TOLERANCE = 0.01  # cells covered in only one of the two renders
 BOUNDS_TOLERANCE = 1e-3
-FULL_TURN_DEG, POLE_DEG = 360.0, 90.0      # parsePack's FULL_TURN_DEGREES and POLE_DEGREES
 SPZ_DIMS = {0: 0, 1: 3, 2: 8, 3: 15, 4: 24}
-NOTE_TOPICS = set(knowledge.TOPICS.values())   # parsePack's NOTE_TOPICS
 
 
 def check(name: str):
@@ -71,7 +69,7 @@ def read_spz(data: bytes) -> dict:
     raw = gzip.decompress(data)
     magic, version, n, degree, fractional_bits, flags, reserved = struct.unpack_from("<IIIBBBB", raw, 0)
     assert magic == 0x5053474E, "not NGSP"
-    assert version in (2, 3), f"version {version}"
+    assert version == 3, f"version {version}; this export checker accepts SPZ v3 only"
     assert flags == 0 and reserved == 0, "flags or reserved bits set"
     dim = SPZ_DIMS[degree]
     quat_bytes = 4 if version >= 3 else 3
@@ -353,181 +351,20 @@ def test_labels_bin_layout():
     assert np.array_equal(np.frombuffer(raw, np.uint8, offset=16), labels), "labels"
 
 
-# --- A Python mirror of parsePack's checks (apps/field-guide/src/domain/parsePack.ts) ---
+# --- The actual consumer parser ---
 
-class PackError(Exception):
-    def __init__(self, code: str, path: str):
-        super().__init__(f"{code} at {path or 'root'}")
-        self.code, self.path = code, path
-
-
-def parse_pack(root):
-    def obj(v, p):
-        if not isinstance(v, dict):
-            raise PackError("invalidField", p)
-        return v
-
-    def arr(v, p):
-        if not isinstance(v, list):
-            raise PackError("invalidField", p)
-        return v
-
-    def text(v, p):
-        if not isinstance(v, str):
-            raise PackError("invalidField", p)
-        return v
-
-    def name(v, p):
-        if not text(v, p).strip():
-            raise PackError("invalidField", p)
-        return v
-
-    def num(v, p):
-        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
-            raise PackError("invalidField", p)
-        return v
-
-    def count(v, p):
-        if num(v, p) != int(v) or v < 0:
-            raise PackError("invalidField", p)
-        return v
-
-    def vec3(v, p):
-        items = arr(v, p)
-        if len(items) != 3:
-            raise PackError("invalidField", p)
-        return [num(x, f"{p}[{i}]") for i, x in enumerate(items)]
-
-    def file(v, p):
-        v = obj(v, p)
-        name(v.get("path"), f"{p}.path"), count(v.get("bytes"), f"{p}.bytes"), text(v.get("sha256"), f"{p}.sha256")
-
-    root = obj(root, "")
-    if num(root.get("schemaVersion"), "schemaVersion") != 1:
-        raise PackError("unsupportedSchemaVersion", "schemaVersion")
-    tiers = arr(root.get("tiers"), "tiers")
-    for i, tier in enumerate(tiers):
-        tier = obj(tier, f"tiers[{i}]")
-        name(tier.get("id"), f"tiers[{i}].id"), count(tier.get("splatCount"), f"tiers[{i}].splatCount")
-        file(tier.get("cloud"), f"tiers[{i}].cloud"), file(tier.get("labels"), f"tiers[{i}].labels")
-    if not tiers:
-        raise PackError("invalidField", "tiers")
-    parts = arr(root.get("parts"), "parts")
-    for i, part in enumerate(parts):
-        p = f"parts[{i}]"
-        part = obj(part, p)
-        name(part.get("id"), f"{p}.id")
-        label = num(part.get("label"), f"{p}.label")
-        if label != int(label) or not 1 <= label <= 255:
-            raise PackError("labelOutOfRange", f"{p}.label")
-        if part.get("parent") is not None:
-            name(part["parent"], f"{p}.parent")
-        name(part.get("name"), f"{p}.name")
-        for k, alias in enumerate(arr(part.get("aliases", []), f"{p}.aliases")):
-            name(alias, f"{p}.aliases[{k}]")
-        for key in ("summary", "details"):
-            text(part.get(key, ""), f"{p}.{key}")
-        topics = []
-        for k, note in enumerate(arr(part.get("notes", []), f"{p}.notes")):
-            note = obj(note, f"{p}.notes[{k}]")
-            if note.get("topic") not in NOTE_TOPICS:
-                raise PackError("invalidField", f"{p}.notes[{k}].topic")
-            text(note.get("text"), f"{p}.notes[{k}].text")
-            if not note["text"].strip():
-                raise PackError("invalidField", f"{p}.notes[{k}].text")
-            topics.append(note["topic"])
-        if len(set(topics)) != len(topics):
-            raise PackError("invalidField", f"{p}.notes")
-        bounds = obj(part.get("bounds"), f"{p}.bounds")
-        low, high = vec3(bounds.get("min"), f"{p}.bounds.min"), vec3(bounds.get("max"), f"{p}.bounds.max")
-        if any(a > b for a, b in zip(low, high)):
-            raise PackError("invalidField", f"{p}.bounds")
-        vec3(part.get("anchor"), f"{p}.anchor")
-    procedures = arr(root.get("procedures"), "procedures")
-    for i, procedure in enumerate(procedures):
-        p = f"procedures[{i}]"
-        procedure = obj(procedure, p)
-        name(procedure.get("id"), f"{p}.id"), name(procedure.get("title"), f"{p}.title")
-        steps = arr(procedure.get("steps"), f"{p}.steps")
-        if not steps:
-            raise PackError("invalidField", f"{p}.steps")
-        for k, step in enumerate(steps):
-            s = f"{p}.steps[{k}]"
-            step = obj(step, s)
-            name(step.get("id"), f"{s}.id"), text(step.get("text"), f"{s}.text")
-            text(step.get("caution", ""), f"{s}.caution")
-            for j, part in enumerate(arr(step.get("parts"), f"{s}.parts")):
-                name(part, f"{s}.parts[{j}]")
-    camera = obj(root.get("camera"), "camera")
-    for group, keys in (("home", ("azimuth", "elevation", "radius")),
-                        ("limits", ("minAzimuth", "maxAzimuth", "minElevation", "maxElevation", "minRadius",
-                                    "maxRadius"))):
-        for key in keys:
-            num(obj(camera.get(group), f"camera.{group}").get(key), f"camera.{group}.{key}")
-    check_camera(camera["home"], camera["limits"])
-    name(root.get("packId"), "packId"), count(root.get("packVersion"), "packVersion"), name(root.get("title"), "title")
-    ids, labels = set(), set()
-    for i, part in enumerate(parts):
-        if part["id"] in ids:
-            raise PackError("duplicatePartId", f"parts[{i}].id")
-        ids.add(part["id"])
-        if part["label"] in labels:
-            raise PackError("duplicatePartLabel", f"parts[{i}].label")
-        labels.add(part["label"])
-    parent_of = {p["id"]: p.get("parent") for p in parts}
-    for i, part in enumerate(parts):
-        if part.get("parent") is not None and part["parent"] not in ids:
-            raise PackError("unknownParent", f"parts[{i}].parent")
-    for i, part in enumerate(parts):
-        walked, nxt = {part["id"]}, part.get("parent")
-        while nxt is not None:
-            if nxt in walked:
-                raise PackError("parentCycle", f"parts[{i}].parent")
-            walked.add(nxt)
-            nxt = parent_of.get(nxt)
-    procedure_ids = set()
-    for i, procedure in enumerate(procedures):
-        if procedure["id"] in procedure_ids:
-            raise PackError("duplicateProcedureId", f"procedures[{i}].id")
-        procedure_ids.add(procedure["id"])
-        step_ids = set()
-        for k, step in enumerate(procedure["steps"]):
-            if step["id"] in step_ids:
-                raise PackError("duplicateStepId", f"procedures[{i}].steps[{k}].id")
-            step_ids.add(step["id"])
-            for j, part in enumerate(step["parts"]):
-                if part not in ids:
-                    raise PackError("unknownStepPart", f"procedures[{i}].steps[{k}].parts[{j}]")
-
-
-def check_camera(home: dict, limits: dict):
-    """parsePack's checkCamera: limits in order and in range, and the home inside them."""
-    def invalid(where: str):
-        raise PackError("invalidField", where)
-
-    for key in ("minAzimuth", "maxAzimuth"):
-        if abs(limits[key]) > FULL_TURN_DEG:
-            invalid(f"camera.limits.{key}")
-    if limits["minAzimuth"] >= limits["maxAzimuth"] or limits["maxAzimuth"] - limits["minAzimuth"] > FULL_TURN_DEG:
-        invalid("camera.limits.maxAzimuth")
-    for key in ("minElevation", "maxElevation"):
-        if abs(limits[key]) >= POLE_DEG:
-            invalid(f"camera.limits.{key}")
-    if limits["minElevation"] > limits["maxElevation"]:
-        invalid("camera.limits.maxElevation")
-    if limits["minRadius"] <= 0:
-        invalid("camera.limits.minRadius")
-    if limits["minRadius"] > limits["maxRadius"]:
-        invalid("camera.limits.maxRadius")
-    for key, name in (("azimuth", "Azimuth"), ("elevation", "Elevation"), ("radius", "Radius")):
-        if not limits[f"min{name}"] <= home[key] <= limits[f"max{name}"]:
-            invalid(f"camera.home.{key}")
+def parse_pack(value):
+    result = subprocess.run(['node', str(HERE.parent / 'scripts/validate-pack.cjs'), '--json'],
+                            input=json.dumps(value), capture_output=True, text=True)
+    if result.returncode:
+        raise ValueError(result.stderr.strip())
+    return json.loads(result.stdout)
 
 
 def sample_manifest() -> dict:
     content = yaml.safe_load(export.CONTENT.read_text())
     zero = {"bounds": {"min": [0.0] * 3, "max": [1.0] * 3}, "anchor": [0.0, 1.0, 0.0]}
-    entry = {"path": "x", "bytes": 1, "sha256": ""}
+    entry = {"path": "high/test.bin", "bytes": 1, "sha256": ""}
     return {"schemaVersion": 1, "packId": "p", "packVersion": 1, "title": "t",
             "tiers": [{"id": "high", "splatCount": 1, "cloud": entry, "labels": entry}],
             "camera": {"home": {"azimuth": 0, "elevation": 35, "radius": 1.2},
@@ -589,50 +426,11 @@ def test_framing_radius_fits_a_box():
     return f"cube {expected:.3f} m upright, long box {radius:.3f} m, fills {ndc.max():.3f} of the half view"
 
 
-def test_manifest_mirror():
-    import copy
-
-    good = sample_manifest()
-    parse_pack(good)
-
-    def broken(mutate, code):
-        bad = copy.deepcopy(good)
-        mutate(bad)
-        try:
-            parse_pack(bad)
-        except PackError as e:
-            assert e.code == code, f"{code} expected, got {e.code}"
-            return
-        raise AssertionError(f"{code} was accepted")
-
-    broken(lambda m: m.update(schemaVersion=2), "unsupportedSchemaVersion")
-    broken(lambda m: m["parts"][1].update(label=m["parts"][0]["label"]), "duplicatePartLabel")
-    broken(lambda m: m["parts"][0].update(label=0), "labelOutOfRange")
-    broken(lambda m: m["parts"][0].update(parent="nope"), "unknownParent")
-    broken(lambda m: m["parts"][0].update(bounds={"min": [1, 1, 1], "max": [0, 0, 0]}), "invalidField")
-    broken(lambda m: m["camera"]["limits"].pop("minAzimuth"), "invalidField")
-    broken(lambda m: m["camera"]["limits"].update(minAzimuth=90, maxAzimuth=-90), "invalidField")
-    broken(lambda m: m["camera"]["limits"].update(minAzimuth=-181, maxAzimuth=180), "invalidField")
-    broken(lambda m: m["camera"]["home"].update(azimuth=120), "invalidField")
-    broken(lambda m: m["camera"]["home"].update(elevation=5), "invalidField")
-    broken(lambda m: m["camera"]["limits"].update(maxElevation=90), "invalidField")
-    broken(lambda m: m["camera"]["limits"].update(minRadius=0), "invalidField")
-    full_turn = copy.deepcopy(good)
-    full_turn["camera"]["limits"].update(minAzimuth=-180, maxAzimuth=180)
-    parse_pack(full_turn)
-    broken(lambda m: m["procedures"][0]["steps"][0].update(parts=["nope"]), "unknownStepPart")
-    broken(lambda m: m["parts"][5].update(parent="valve-cover"), "parentCycle")
-    broken(lambda m: m["parts"][0].update(notes=[{"topic": "colour", "text": "Pink."}]), "invalidField")
-    broken(lambda m: m["parts"][0].update(notes=[{"topic": "safety", "text": " "}]), "invalidField")
-    broken(lambda m: m["parts"][0].update(notes=[{"topic": "safety", "text": "a"}, {"topic": "safety", "text": "b"}]),
-           "invalidField")
-
-
 # --- The pack on disk ---
 
 def load_pack(pack: pathlib.Path):
     manifest = json.loads((pack / "manifest.json").read_text())
-    report = json.loads((pack.parent / f"{pack.name}.report.json").read_text())
+    report = json.loads((pack / "publication.json").read_text())
     return manifest, report
 
 
@@ -656,14 +454,11 @@ def test_manifest_against_files(pack: pathlib.Path):
     for part in manifest["parts"]:
         assert part["notes"] == notes[part["id"]], f"{part['id']}.notes differ from knowledge.md"
     identity = (manifest["schemaVersion"], manifest["packId"], manifest["packVersion"])
-    assert identity == (1, export.PACK_ID, export.PACK_VERSION)
-    camera = manifest["camera"]
-    home, limits = camera["home"], camera["limits"]
-    check_camera(home, limits)
+    assert identity[:2] == (export.SCHEMA_VERSION, export.PACK_ID) and identity[2] > 0
     return f"{len(manifest['parts'])} parts, {tier['splatCount']:,} splats"
 
 
-def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_part: str):
+def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_part: str, source_ply: pathlib.Path | None = None, source_report: pathlib.Path | None = None):
     """The SPZ decodes; labels.bin has the spec header and is the input labels cropped the way the report says."""
     manifest, report = load_pack(pack)
     tier = manifest["tiers"][0]
@@ -677,7 +472,19 @@ def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_pa
     assert labels.max() <= len(manifest["parts"]), "a label no part carries"
 
     # Recompute the crop from the PLY and the recorded placement: same count, same splats, same labels.
-    splat, _ = lift.read_ply(lift.SPLAT)
+    sources = manifest["sources"]
+    source_ply = source_ply or HERE.parent / sources["ply"]["path"]
+    label_path = label_path or HERE.parent / sources["labels"]["path"]
+    assert export.sha256(source_ply) == sources["ply"]["sha256"], "source PLY digest mismatch"
+    assert export.sha256(label_path) == sources["labels"]["sha256"], "source labels digest mismatch"
+    report_path = source_report or HERE.parent / sources["liftingReport"]["path"]
+    for key, path in (("ply", source_ply), ("labels", label_path), ("liftingReport", report_path),
+                      ("content", export.CONTENT), ("knowledge", export.KNOWLEDGE)):
+        assert path.stat().st_size == sources[key]["bytes"], f"{key} source byte count mismatch"
+        assert export.sha256(path) == sources[key]["sha256"], f"{key} source digest mismatch"
+    contract = export.source_contract(source_ply, label_path, report_path, [p["id"] for p in manifest["parts"]])
+    assert contract == sources, "publication source identities differ"
+    splat, _ = lift.read_ply(source_ply)
     place = report["placement"]
     placement = export.Placement(np.array(place["rotation"]), np.array(place["origin"]), place["scale"])
     placed = placement.points(np.stack([np.asarray(splat[k], np.float64) for k in "xyz"], 1))
@@ -685,12 +492,9 @@ def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_pa
     keep = np.flatnonzero(((placed >= low) & (placed <= high)).all(1))
     assert len(keep) == decoded["count"], f"{len(keep):,} splats in the crop box, {decoded['count']:,} in the SPZ"
     detail = f"{decoded['count']:,} splats"
-    if label_path:
-        source = export.read_labels(label_path, len(splat), [p["id"] for p in manifest["parts"]], mask_part)
-        assert np.array_equal(source[keep], labels), "labels.bin is not the input labels in SPZ order"
-        detail += f", labels match {label_path.name}"
-    else:
-        skipped.append("labels.bin against the input labels (pass --labels)")
+    source = export.read_labels(label_path, len(splat), [p["id"] for p in manifest["parts"]], mask_part)
+    assert np.array_equal(source[keep], labels), "labels.bin is not the input labels in SPZ order"
+    detail += f", labels match {label_path.name}"
     compare_clouds(placement.apply(export.load_splats(splat, keep, decoded["degree"])), decoded)
     return detail, decoded, keep, labels, splat, placement, report
 
@@ -812,7 +616,6 @@ SYNTHETIC_CHECKS = [("SH basis is orthonormal", test_sh_basis_is_orthonormal),
                     ("SPZ round trip, synthetic", test_spz_round_trip_synthetic),
                     ("labels.bin layout", test_labels_bin_layout),
                     ("framing radius fits a box", test_framing_radius_fits_a_box),
-                    ("manifest mirror rejects what parsePack rejects", test_manifest_mirror),
                     ("knowledge.md reads into plain notes", test_knowledge_notes)]
 
 
@@ -846,12 +649,10 @@ def main():
             check("render matches the original PLY")(
                 lambda: test_render_matches_original(decoded, keep, splat, placement, report))
     else:
-        skipped.append(f"every check on the pack (no {args.pack / 'manifest.json'}; run export.py first)")
+        results.append((False, f"missing pack manifest: {args.pack / 'manifest.json'}"))
 
     for ok, line in results:
         print(f"{'PASS' if ok else 'FAIL'}  {line}")
-    for line in skipped:
-        print(f"skip  {line}")
     sys.exit(0 if all(ok for ok, _ in results) else 1)
 
 

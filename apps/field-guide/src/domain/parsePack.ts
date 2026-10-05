@@ -6,6 +6,7 @@ import {
   PART_LABEL_MIN,
   Pack,
   PackFile,
+  PackSources,
   NoteTopic,
   Part,
   PartNote,
@@ -159,10 +160,68 @@ function readBounds(value: unknown, path: string): Bounds {
 
 function readFile(value: unknown, path: string): PackFile {
   const object = readObject(value, path);
+  const filePath = readName(object.path, at(path, 'path'));
+  if (
+    !/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_.-]+)*\.[a-zA-Z0-9]+$/.test(filePath) ||
+    filePath.split('/').some(segment => segment === '..' || segment === '.')
+  ) {
+    return fail(
+      PackErrorCode.invalidField,
+      at(path, 'path'),
+      'expected a relative file path',
+    );
+  }
   return {
-    path: readName(object.path, at(path, 'path')),
+    path: filePath,
     bytes: readCount(object.bytes, at(path, 'bytes')),
     sha256: readText(object.sha256, at(path, 'sha256')),
+  };
+}
+
+function readDigest(value: unknown, path: string): string {
+  const digest = readText(value, path);
+  if (!/^[a-f0-9]{64}$/.test(digest)) {
+    return fail(PackErrorCode.invalidField, path, 'expected a SHA-256 digest');
+  }
+  return digest;
+}
+
+function readSources(
+  value: unknown,
+  parts: readonly Part[],
+): PackSources | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const object = readObject(value, 'sources');
+  const mapping = readObject(object.partLabels, 'sources.partLabels');
+  if (
+    Object.keys(mapping).length !== parts.length ||
+    parts.some(part => mapping[part.id] !== part.label)
+  ) {
+    return fail(
+      PackErrorCode.invalidField,
+      'sources.partLabels',
+      'mapping differs from the parts',
+    );
+  }
+  const sourceFile = (key: string): PackFile => {
+    const file = readFile(object[key], at('sources', key));
+    readDigest(file.sha256, at(at('sources', key), 'sha256'));
+    return file;
+  };
+  return {
+    captureSha256: readDigest(object.captureSha256, 'sources.captureSha256'),
+    reconstructionSha256: readDigest(
+      object.reconstructionSha256,
+      'sources.reconstructionSha256',
+    ),
+    ply: sourceFile('ply'),
+    labels: sourceFile('labels'),
+    liftingReport: sourceFile('liftingReport'),
+    content: sourceFile('content'),
+    knowledge: sourceFile('knowledge'),
+    partLabels: Object.fromEntries(parts.map(part => [part.id, part.label])),
   };
 }
 
@@ -487,6 +546,7 @@ function buildPack(value: unknown): Pack {
     packId: readName(root.packId, 'packId'),
     packVersion: readCount(root.packVersion, 'packVersion'),
     title: readName(root.title, 'title'),
+    sources: readSources(root.sources, parts),
     tiers,
     camera,
     parts,

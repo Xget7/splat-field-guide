@@ -21,6 +21,18 @@ export interface PackFile {
   readonly sha256: string;
 }
 
+/** The source artifacts and label mapping accepted by publication. */
+export interface PackSources {
+  readonly captureSha256: string;
+  readonly reconstructionSha256: string;
+  readonly ply: PackFile;
+  readonly labels: PackFile;
+  readonly liftingReport: PackFile;
+  readonly content: PackFile;
+  readonly knowledge: PackFile;
+  readonly partLabels: Readonly<Record<PartId, PartLabel>>;
+}
+
 export interface Tier {
   readonly id: string;
   readonly splatCount: number;
@@ -94,6 +106,7 @@ export interface Pack {
   readonly packId: string;
   readonly packVersion: number;
   readonly title: string;
+  readonly sources?: PackSources;
   readonly tiers: readonly Tier[];
   readonly camera: { readonly home: CameraHome; readonly limits: CameraLimits };
   readonly parts: readonly Part[];

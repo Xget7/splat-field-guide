@@ -5,11 +5,20 @@ import { parsePack } from '../../domain/parsePack';
 
 export const bundledPack = parsePack(manifest);
 
-export function sourceFor(pack: Pack): SplatSource {
+export type PackSource = SplatSource & {
+  readonly splatSha256: string;
+  readonly labelsSha256: string;
+  readonly expectedSplatCount: number;
+};
+
+export function sourceFor(pack: Pack): PackSource {
   const baseDirectory = `packs/${pack.packId}/${pack.packVersion}/`;
   const tier = pack.tiers[0];
   return {
     splatPath: baseDirectory + tier.cloud.path,
     labelsPath: baseDirectory + tier.labels.path,
+    splatSha256: tier.cloud.sha256,
+    labelsSha256: tier.labels.sha256,
+    expectedSplatCount: tier.splatCount,
   };
 }

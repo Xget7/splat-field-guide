@@ -29,7 +29,9 @@ import time
 import cv2
 import numpy as np
 
+import artifacts
 import lift
+import masks
 import mask_tools
 
 HERE = pathlib.Path(__file__).parent
@@ -154,10 +156,16 @@ def drop_strays(parts: dict[str, dict], labels: np.ndarray, points: np.ndarray) 
 
 def load_part(scene: lift.Scene, part: str, marks: pathlib.Path, tracks: pathlib.Path) -> dict | None:
     """The photos that vote for a part, or None when the owner has not marked it."""
+    capture = artifacts.capture(lift.PHOTOS)["sha256"]
+    masks.read(marks / part, capture)
     keyframes = lift.load_masks(marks / part)
     if not keyframes:
         return None
-    tracked = lift.load_tracked(tracks / part, keyframes) if (tracks / part / "report.json").exists() else {}
+    report = json.loads((tracks / part / "report.json").read_text())
+    assert report["capture_sha256"] == capture, f"{part}: tracking capture mismatch"
+    assert report["reconstruction_sha256"] == artifacts.reconstruction(lift.SPARSE)["sha256"], f"{part}: tracking reconstruction mismatch"
+    assert report["marks_sha256"] == artifacts.tree(masks.folder(marks / part)), f"{part}: tracking used different saved marks"
+    tracked = lift.load_tracked(tracks / part, keyframes)
     views, rejected = lift.voters(scene, keyframes, tracked, 1.0)
     return {"keyframes": keyframes, "tracked": tracked, "views": views, "rejected": rejected}
 
@@ -191,6 +199,7 @@ def tint(splat: np.ndarray, labels: np.ndarray) -> np.ndarray:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--ply", type=pathlib.Path, default=lift.SPLAT)
     parser.add_argument("--marks", type=pathlib.Path, default=DATA / "segment" / "marks")
     parser.add_argument("--tracks", type=pathlib.Path, default=DATA / "segment" / "tracks")
     parser.add_argument("--out", type=pathlib.Path, default=DATA / "segment" / "lift" / "all")
@@ -198,7 +207,7 @@ def main():
     started = time.time()
     parts = pack_parts()
 
-    splat, header = lift.read_ply(lift.SPLAT)
+    splat, header = lift.read_ply(args.ply)
     scene = lift.load_scene(splat)
     loaded = {}
     for part in parts:
@@ -210,7 +219,7 @@ def main():
     missing = [p for p in parts if p not in loaded]
     untracked = [p for p, info in loaded.items() if not info["tracked"]]
     print(f"no marks yet: {missing or 'none'}; keyframes only (no tracks): {untracked or 'none'}")
-    assert loaded, f"no marks under {args.marks}"
+    assert not missing and not untracked, "all parts need saved marks and tracked masks before lifting"
 
     lifted = lift_parts(scene, parts, loaded)
     labels = drop_strays(parts, lifted, scene.points)
@@ -218,34 +227,40 @@ def main():
         dropped = int(((lifted == info["label"]) & (labels != info["label"])).sum())
         if dropped:
             print(f"{part}: dropped {dropped:,} splats away from its body")
-    args.out.mkdir(parents=True, exist_ok=True)
-    np.save(args.out / "labels.npy", labels)
-    report = {"splats": len(labels), "labels": {p: v["label"] for p, v in parts.items()},
-              "missing_marks": missing, "keyframes_only": untracked,
-              "unlabelled": int((labels == NO_PART).sum()),
-              "dropped_away_from_body": int((lifted != labels).sum()), "parts": {}}
-    for part, info in loaded.items():
-        family = [part] + [c for c, p in parts.items() if p["parent"] == part]
-        covered = np.isin(labels, [parts[f]["label"] for f in family])  # a parent's mask covers its children
-        views, tiles = {}, []
-        for frame, (mask, _) in sorted(info["views"].items()):
-            score, rendered, truth = scene.check(covered, frame, mask)
-            views[frame] = round(score, 4)
-            if frame in info["keyframes"]:
-                tiles.append(lift.label(scene.preview(frame, mask, rendered, truth), f"{frame + 1}: IoU {score:.2f}"))
-        cv2.imwrite(str(args.out / f"views_{part}.jpg"), lift.sheet(tiles), [cv2.IMWRITE_JPEG_QUALITY, 85])
-        report["parts"][part] = {
-            "label": parts[part]["label"], "keyframes": sorted(info["keyframes"]),
-            "tracked": sorted(set(info["tracked"]) - set(info["rejected"])), "rejected": info["rejected"],
-            "labelled": int((labels == parts[part]["label"]).sum()), "labelled_with_children": int(covered.sum()),
-            "mean_iou": float(np.mean(list(views.values()))), "views": views}
-        print(f"{part} (label {parts[part]['label']}): {report['parts'][part]['labelled']:,} splats, "
-              f"mean IoU {report['parts'][part]['mean_iou']:.3f} ({time.time() - started:.0f} s)")
-    (args.out / "report.json").write_text(json.dumps(report, indent=2))
-    with open(args.out / "parts.ply", "wb") as f:
-        f.write(header)
-        f.write(tint(splat, labels).tobytes())
-    print(f"written to {args.out} ({time.time() - started:.0f} s)")
+    with artifacts.candidate(args.out) as out:
+        np.save(out / "labels.npy", labels)
+        report = {"labels_sha256": artifacts.sha256(out / "labels.npy"),
+                  "sources": {"ply_sha256": artifacts.sha256(args.ply),
+                              "capture_sha256": artifacts.capture(lift.PHOTOS)["sha256"],
+                              "reconstruction_sha256": artifacts.reconstruction(lift.SPARSE)["sha256"],
+                              "marks_sha256": {p: artifacts.tree(masks.folder(args.marks / p)) for p in parts},
+                              "tracks_sha256": {p: artifacts.tree(args.tracks / p) for p in parts}},
+                  "splats": len(labels), "labels": {p: v["label"] for p, v in parts.items()},
+                  "missing_marks": missing, "keyframes_only": untracked,
+                  "unlabelled": int((labels == NO_PART).sum()),
+                  "dropped_away_from_body": int((lifted != labels).sum()), "parts": {}}
+        for part, info in loaded.items():
+            family = [part] + [c for c, p in parts.items() if p["parent"] == part]
+            covered = np.isin(labels, [parts[f]["label"] for f in family])  # a parent's mask covers its children
+            views, tiles = {}, []
+            for frame, (mask, _) in sorted(info["views"].items()):
+                score, rendered, truth = scene.check(covered, frame, mask)
+                views[frame] = round(score, 4)
+                if frame in info["keyframes"]:
+                    tiles.append(lift.label(scene.preview(frame, mask, rendered, truth), f"{frame + 1}: IoU {score:.2f}"))
+            cv2.imwrite(str(out / f"views_{part}.jpg"), lift.sheet(tiles), [cv2.IMWRITE_JPEG_QUALITY, 85])
+            report["parts"][part] = {
+                "label": parts[part]["label"], "keyframes": sorted(info["keyframes"]),
+                "tracked": sorted(set(info["tracked"]) - set(info["rejected"])), "rejected": info["rejected"],
+                "labelled": int((labels == parts[part]["label"]).sum()), "labelled_with_children": int(covered.sum()),
+                "mean_iou": float(np.mean(list(views.values()))), "views": views}
+            print(f"{part} (label {parts[part]['label']}): {report['parts'][part]['labelled']:,} splats, "
+                  f"mean IoU {report['parts'][part]['mean_iou']:.3f} ({time.time() - started:.0f} s)")
+        (out / "report.json").write_text(json.dumps(report, indent=2))
+        with open(out / "parts.ply", "wb") as f:
+            f.write(header)
+            f.write(tint(splat, labels).tobytes())
+        print(f"written to {args.out} ({time.time() - started:.0f} s)")
 
 
 if __name__ == "__main__":
