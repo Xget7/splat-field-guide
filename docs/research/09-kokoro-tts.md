@@ -1,5 +1,7 @@
 # Kokoro-82M speech on iOS
 
+Status: implemented choice, researched 2026-10-01 and recorded in [ADR 0015](../adr/0015-kokoro-with-vendored-english-frontend.md); physical latency, listening quality and Release size remain measurements.
+
 Research date: 2026-10-01.
 The app needs a natural English instructor voice that works offline from its first launch, preserves UTF-16 word highlighting, shares the microphone audio session, and automatically falls back to Apple speech.
 The integration must support this repository's CocoaPods, React Native 0.87, iOS 26, and Xcode 27 setup without linking GPL or LGPL components.
@@ -9,7 +11,8 @@ The integration must support this repository's CocoaPods, React Native 0.87, iOS
 Use Microsoft's maintained `onnxruntime-c` 1.30.0 CocoaPod with a small Objective-C++ adapter with the CPU execution provider, the 8-bit Kokoro-82M v1.0 ONNX model, and the `af_heart` voice.
 Vendor the small Apache-2.0 English frontend from FluidAudio, backed by its bundled Misaki pronunciation lexicon and small CPU-only Core ML BART grapheme-to-phoneme models.
 This combination keeps Kokoro inference away from the documented Core ML Kokoro crashes, supports simulator measurement, avoids the MLX simulator restriction, and links no eSpeak component.
-Microsoft documents the iOS native package and Objective-C or Swift integration, including its CocoaPods installation route; no additional React Native speech interface is required. [ONNX Runtime Objective-C API](https://onnxruntime.ai/docs/get-started/with-obj-c.html), [mobile deployment](https://onnxruntime.ai/docs/tutorials/mobile/).
+Microsoft documents the iOS native package and Objective-C or Swift integration, including its CocoaPods installation route; no additional React Native speech interface is required.
+[ONNX Runtime Objective-C API](https://onnxruntime.ai/docs/get-started/with-obj-c.html), [mobile deployment](https://onnxruntime.ai/docs/tutorials/mobile/).
 
 The decision trades the Neural Engine's potential speed advantage for a smaller quantized model, catchable runtime errors, straightforward CocoaPods packaging, and a simulator path that can actually run Kokoro.
 Real iPhone time to first audio and real-time factor remain device measurements, because neither this custom composition nor the candidate libraries publish a directly comparable 15-word iPhone benchmark.
@@ -28,39 +31,58 @@ Kokoro generates complete chunks rather than yielding audio sample by sample, so
 | sherpa-onnx | Kokoro ONNX, lexicon and eSpeak phonemization | No directly comparable first-audio benchmark found in the inspected primary sources | Full multilingual example has a 310 MiB model and 26 MiB voice pack, with lexicons and eSpeak data in addition | Mature native iOS binaries and Swift wrapper, but the standard Kokoro path compiles and calls GPL eSpeak | Reject the standard linked Kokoro distribution |
 | Official ONNX Runtime plus vendored English frontend | Kokoro v1.0 quantized, permissive lexicon and BART fallback | Must measure the exact app composition in the simulator and on an iPhone | 92.36 MB model plus about 12.54 MB selected frontend and voice resources before runtime code | Official iOS CocoaPod, CPU inference, bundled resources, and no eSpeak dependency | Select |
 
-FluidAudio's performance table reports M5 Pro warm synthesis and states that the non-streaming Kokoro TTFT metric equals the time to complete the waveform, so those values cannot be presented as measured iPhone playback latency. [FluidAudio TTS benchmarks](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Documentation/TTS/Benchmarks.md).
-Its actor facade exposes raw samples and predicted acoustic-frame durations, but its English frontend initialization uses a shared cache and fetches missing resources even when the caller supplies a custom model directory. [KokoroAneManager source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/KokoroAneManager.swift).
-The same facade retains advisories for iOS 26.4 and later and iOS 27, documenting process-ending BNNS or MPSGraph failures that a Swift fallback cannot catch. [KokoroAneManager OS advisory](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/KokoroAneManager.swift), [iOS 26.6 report](https://github.com/FluidInference/FluidAudio/issues/844), [iOS 27 report](https://github.com/FluidInference/FluidAudio/issues/889).
+FluidAudio's performance table reports M5 Pro warm synthesis and states that the non-streaming Kokoro TTFT metric equals the time to complete the waveform, so those values cannot be presented as measured iPhone playback latency.
+[FluidAudio TTS benchmarks](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Documentation/TTS/Benchmarks.md).
+Its actor facade exposes raw samples and predicted acoustic-frame durations, but its English frontend initialization uses a shared cache and fetches missing resources even when the caller supplies a custom model directory.
+[KokoroAneManager source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/KokoroAneManager.swift).
+The same facade retains advisories for iOS 26.4 and later and iOS 27, documenting process-ending BNNS or MPSGraph failures that a Swift fallback cannot catch.
+[KokoroAneManager OS advisory](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/KokoroAneManager.swift), [iOS 26.6 report](https://github.com/FluidInference/FluidAudio/issues/844), [iOS 27 report](https://github.com/FluidInference/FluidAudio/issues/889).
 Some upstream documentation describes fixes on macOS 26.6 and proposed fixes for particular graph shapes, but it does not establish that the corresponding iPhone pipeline is safe for this app's target OS.
 
-KokoroSwift 1.0.11 pins MLX Swift 0.30.2, MisakiSwift 1.0.6, and MLXUtilsLibrary 0.0.6, while its eSpeak dependency and target product remain commented out. [KokoroSwift package manifest](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Package.swift).
-Its release benchmark claims about 3.3x realtime on iPhone 13 Pro after warmup but supplies no cold-start or 15-word first-audio measurement. [KokoroSwift README](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/README.md).
-Its model loader uses `try!`, and the main initializer force-unwraps expected model tensors, making malformed-resource errors difficult to recover from without a fork or comprehensive prevalidation. [WeightLoader source](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Sources/KokoroSwift/TTSEngine/WeightLoader.swift), [KokoroTTS source](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Sources/KokoroSwift/TTSEngine/KokoroTTS.swift).
-MLX's own iOS documentation says simulator GPUs lack the Metal features required for array evaluation, which rules out genuine simulator Kokoro timing with this backend. [MLX iOS documentation](https://github.com/ml-explore/mlx-swift/blob/0.30.2/Source/MLX/Documentation.docc/Articles/running-on-ios.md).
-MLX's scoped `withError` can translate C++ runtime errors into Swift errors, but it cannot catch Swift forced unwraps or replace unsupported simulator hardware. [MLX ErrorHandler source](https://github.com/ml-explore/mlx-swift/blob/0.30.2/Source/MLX/ErrorHandler.swift).
+KokoroSwift 1.0.11 pins MLX Swift 0.30.2, MisakiSwift 1.0.6, and MLXUtilsLibrary 0.0.6, while its eSpeak dependency and target product remain commented out.
+[KokoroSwift package manifest](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Package.swift).
+Its release benchmark claims about 3.3x realtime on iPhone 13 Pro after warmup but supplies no cold-start or 15-word first-audio measurement.
+[KokoroSwift README](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/README.md).
+Its model loader uses `try!`, and the main initializer force-unwraps expected model tensors, making malformed-resource errors difficult to recover from without a fork or comprehensive prevalidation.
+[WeightLoader source](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Sources/KokoroSwift/TTSEngine/WeightLoader.swift), [KokoroTTS source](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/Sources/KokoroSwift/TTSEngine/KokoroTTS.swift).
+MLX's own iOS documentation says simulator GPUs lack the Metal features required for array evaluation, which rules out genuine simulator Kokoro timing with this backend.
+[MLX iOS documentation](https://github.com/ml-explore/mlx-swift/blob/0.30.2/Source/MLX/Documentation.docc/Articles/running-on-ios.md).
+MLX's scoped `withError` can translate C++ runtime errors into Swift errors, but it cannot catch Swift forced unwraps or replace unsupported simulator hardware.
+[MLX ErrorHandler source](https://github.com/ml-explore/mlx-swift/blob/0.30.2/Source/MLX/ErrorHandler.swift).
 
-Sherpa's standard Kokoro lexicon directly initializes eSpeak and calls its phonemizer for unknown words, including when a pronunciation lexicon is provided. [Kokoro lexicon source](https://github.com/k2-fsa/sherpa-onnx/blob/master/sherpa-onnx/csrc/kokoro-multi-lang-lexicon.cc).
-Its CMake dependency fetches and builds the eSpeak source, so checking only sherpa's Apache-2.0 top-level license would miss the linked GPL component. [eSpeak CMake dependency](https://github.com/k2-fsa/sherpa-onnx/blob/master/cmake/espeak-ng-for-piper.cmake), [eSpeak GPL license](https://github.com/espeak-ng/espeak-ng/blob/master/COPYING).
-Sherpa publishes static and dynamic iOS xcframeworks and a Swift package, which demonstrates a workable native distribution but does not remove that Kokoro frontend constraint. [Sherpa package manifest](https://github.com/k2-fsa/sherpa-onnx/blob/master/Package.swift), [Kokoro model documentation](https://github.com/k2-fsa/sherpa/blob/master/docs/source/onnx/tts/pretrained_models/kokoro.rst).
+Sherpa's standard Kokoro lexicon directly initializes eSpeak and calls its phonemizer for unknown words, including when a pronunciation lexicon is provided.
+[Kokoro lexicon source](https://github.com/k2-fsa/sherpa-onnx/blob/master/sherpa-onnx/csrc/kokoro-multi-lang-lexicon.cc).
+Its CMake dependency fetches and builds the eSpeak source, so checking only sherpa's Apache-2.0 top-level license would miss the linked GPL component.
+[eSpeak CMake dependency](https://github.com/k2-fsa/sherpa-onnx/blob/master/cmake/espeak-ng-for-piper.cmake), [eSpeak GPL license](https://github.com/espeak-ng/espeak-ng/blob/master/COPYING).
+Sherpa publishes static and dynamic iOS xcframeworks and a Swift package, which demonstrates a workable native distribution but does not remove that Kokoro frontend constraint.
+[Sherpa package manifest](https://github.com/k2-fsa/sherpa-onnx/blob/master/Package.swift), [Kokoro model documentation](https://github.com/k2-fsa/sherpa/blob/master/docs/source/onnx/tts/pretrained_models/kokoro.rst).
 
-The inspected `herrkaefer/SwiftKokoroONNX` alternative warns that its tokenizer has limited accuracy for complex words and long sentences, has no releases, and is therefore a weaker frontend foundation than FluidAudio's tested English implementation. [SwiftKokoroONNX README](https://github.com/herrkaefer/SwiftKokoroONNX), [package manifest](https://github.com/herrkaefer/SwiftKokoroONNX/blob/master/Package.swift).
-The inspected `mweinbach/kokoro-swift` alternative includes MLX and segmented Core ML engines with a bundled Misaki frontend, but its actual package manifest declares only macOS support despite its README's broader platform claim. [kokoro-swift manifest](https://github.com/mweinbach/kokoro-swift/blob/main/Package.swift), [kokoro-swift README](https://github.com/mweinbach/kokoro-swift/blob/main/README.md).
+The inspected `herrkaefer/SwiftKokoroONNX` alternative warns that its tokenizer has limited accuracy for complex words and long sentences, has no releases, and is therefore a weaker frontend foundation than FluidAudio's tested English implementation.
+[SwiftKokoroONNX README](https://github.com/herrkaefer/SwiftKokoroONNX), [package manifest](https://github.com/herrkaefer/SwiftKokoroONNX/blob/master/Package.swift).
+The inspected `mweinbach/kokoro-swift` alternative includes MLX and segmented Core ML engines with a bundled Misaki frontend, but its actual package manifest declares only macOS support despite its README's broader platform claim.
+[kokoro-swift manifest](https://github.com/mweinbach/kokoro-swift/blob/main/Package.swift), [kokoro-swift README](https://github.com/mweinbach/kokoro-swift/blob/main/README.md).
 Using the official ONNX runtime with a narrowly vendored frontend avoids adding an unverified third-party iOS wrapper.
 
 ## Voice and quality
 
-Choose `af_heart`, an American English female voice that the original model author grades A, the highest listed overall grade among the American English voices. [Original Kokoro voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/VOICES.md).
+Choose `af_heart`, an American English female voice that the original model author grades A, the highest listed overall grade among the American English voices.
+[Original Kokoro voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/VOICES.md).
 This gives the instructor one consistent pronunciation dialect and a strong default, while the owner's listening preference still needs an iPhone listening test.
-The original catalog notes weaker output for very short utterances and rushing above roughly 400 phoneme tokens, supporting sentence segmentation and a bounded maximum chunk length. [Original Kokoro voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/VOICES.md).
-The ONNX conversion publishes audio samples for the different precision variants and identifies `model_quantized.onnx` as an 8-bit, approximately 92.4 MB option. [ONNX model card](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md).
+The original catalog notes weaker output for very short utterances and rushing above roughly 400 phoneme tokens, supporting sentence segmentation and a bounded maximum chunk length.
+[Original Kokoro voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/VOICES.md).
+The ONNX conversion publishes audio samples for the different precision variants and identifies `model_quantized.onnx` as an 8-bit, approximately 92.4 MB option.
+[ONNX model card](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md).
 Quantization quality and unusual equipment names need listening checks, because a sample and a model author's general quality claim do not replace evaluation of the app's own instructor answers.
 
 ## Frontend and licenses
 
-The vendored English phonemizer uses Misaki lexicon entries, punctuation, initialism and possessive rules, and an injected neural fallback for unknown words rather than eSpeak. [English phonemizer source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/G2P/English/KokoroAneEnglishPhonemizer.swift).
-FluidAudio's small English `G2PModel` uses CPU-only Core ML encoder and decoder predictions and has a bounded greedy decoding loop. [G2PModel source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/G2P/G2PModel.swift).
+The vendored English phonemizer uses Misaki lexicon entries, punctuation, initialism and possessive rules, and an injected neural fallback for unknown words rather than eSpeak.
+[English phonemizer source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/KokoroAne/G2P/English/KokoroAneEnglishPhonemizer.swift).
+FluidAudio's small English `G2PModel` uses CPU-only Core ML encoder and decoder predictions and has a bounded greedy decoding loop.
+[G2PModel source](https://github.com/FluidInference/FluidAudio/blob/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS/G2P/G2PModel.swift).
 This is a separate small BART graph and does not include the seven-stage Kokoro vocoder, prosody, or iSTFT graphs implicated in the upstream Kokoro crash reports.
-The converter traces the English G2P model from `PeterReid/graphemes_to_phonemes_en_us` and bounds encoder and decoder lengths to 64 tokens, so an unknown word must fit within that limit after BOS and EOS tokens are added. [Conversion source](https://github.com/FluidInference/mobius/blob/864ef8050f2f281d0761de26e3a03108f9f1ce73/models/tts/kokoro/coreml/g2p/convert-to-coreml.py).
+The converter traces the English G2P model from `PeterReid/graphemes_to_phonemes_en_us` and bounds encoder and decoder lengths to 64 tokens, so an unknown word must fit within that limit after BOS and EOS tokens are added.
+[Conversion source](https://github.com/FluidInference/mobius/blob/864ef8050f2f281d0761de26e3a03108f9f1ce73/models/tts/kokoro/coreml/g2p/convert-to-coreml.py).
 
 | Shipped component | License | Primary source |
 | --- | --- | --- |
@@ -74,7 +96,8 @@ The converter traces the English G2P model from `PeterReid/graphemes_to_phonemes
 The selected path includes neither an eSpeak binary nor its GPL data directory.
 Bundled notices must retain the upstream license texts, model attribution, and the exact source revision of the adapted frontend.
 Adapting FluidAudio also requires documenting the local changes, especially removal of downloader and global-cache dependencies and routing logs through `OnDeviceLog`.
-The rejected MLX route would have used MIT KokoroSwift and MLX, Apache-2.0 MisakiSwift and MLXUtilsLibrary, and MIT ZIPFoundation, with no eSpeak product in the pinned manifest. [KokoroSwift license](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/LICENSE), [MLX license](https://github.com/ml-explore/mlx-swift/blob/0.30.2/LICENSE), [MisakiSwift license](https://github.com/mlalma/MisakiSwift/blob/1.0.6/LICENSE), [MLXUtilsLibrary license](https://github.com/mlalma/MLXUtilsLibrary/blob/0.0.6/LICENSE), [ZIPFoundation license](https://github.com/weichsel/ZIPFoundation/blob/development/LICENSE).
+The rejected MLX route would have used MIT KokoroSwift and MLX, Apache-2.0 MisakiSwift and MLXUtilsLibrary, and MIT ZIPFoundation, with no eSpeak product in the pinned manifest.
+[KokoroSwift license](https://github.com/mlalma/kokoro-ios/blob/4d6d1d8ff8cd012014180c9cd4cf0151e7682354/LICENSE), [MLX license](https://github.com/ml-explore/mlx-swift/blob/0.30.2/LICENSE), [MisakiSwift license](https://github.com/mlalma/MisakiSwift/blob/1.0.6/LICENSE), [MLXUtilsLibrary license](https://github.com/mlalma/MLXUtilsLibrary/blob/0.0.6/LICENSE), [ZIPFoundation license](https://github.com/weichsel/ZIPFoundation/blob/development/LICENSE).
 
 ## Bundled model provenance
 
@@ -92,7 +115,8 @@ Cache the verified model directory in CI if build speed matters, but never accep
 Use the `resolve/<immutable revision>/<file path>` Hugging Face URL pattern rather than `resolve/main`.
 The ONNX repository's own `config.json` is only 44 bytes and does not contain Kokoro's phoneme vocabulary, which is why the original model configuration is fetched separately.
 The compiled G2P bundles contain five files each, including nested `analytics` and `weights` directories, and there is no matching prebuilt zip in the selected repository revision.
-The file sizes and large-file digests below come from the repositories' primary file metadata, and small-file digests were verified directly against the pinned downloaded contents. [ONNX files](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231), [G2P files](https://huggingface.co/FluidInference/kokoro-82m-coreml/tree/006395f65025af251858b1ab0a7178a6a1e73f9f), [original config](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/config.json).
+The file sizes and large-file digests below come from the repositories' primary file metadata, and small-file digests were verified directly against the pinned downloaded contents.
+[ONNX files](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231), [G2P files](https://huggingface.co/FluidInference/kokoro-82m-coreml/tree/006395f65025af251858b1ab0a7178a6a1e73f9f), [original config](https://huggingface.co/hexgrad/Kokoro-82M/blob/04393022a04dcb701fd2061b8d5dbe23ac7be751/config.json).
 
 | File | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -117,7 +141,8 @@ This is a resource budget rather than the measured Release `.app` increase, whic
 
 ## Implementation constraints
 
-The ONNX model takes `input_ids` as int64 `[1, tokenCount + 2]`, `style` as float32 `[1, 256]`, and `speed` as float32 `[1]`, and produces mono float32 audio at 24,000 Hz. [ONNX model inference example](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md).
+The ONNX model takes `input_ids` as int64 `[1, tokenCount + 2]`, `style` as float32 `[1, 256]`, and `speed` as float32 `[1]`, and produces mono float32 audio at 24,000 Hz.
+[ONNX model inference example](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md).
 Reserve zero-valued BOS and EOS tokens and keep each phoneme sequence within the 510-token limit.
 The voice file is little-endian float32 with 510 length-dependent 256-value style rows, so choose the row for the unpadded phoneme count and safely clamp the final supported index.
 The original ONNX export returns waveform audio without original-text word timestamps, so report each sentence's original UTF-16 word ranges using audio-duration weighting when no alignment is available.

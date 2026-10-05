@@ -1,15 +1,12 @@
-# Offline-first packs, with one pack bundled in the app
+# Bundle one offline pack
 
-Status: accepted
+Status: accepted.
 
-Field sites often have no network, so the app reads everything from installed packs and never needs a server to work.
-One pack ships inside the app and is installed on first launch; newer packs download from the pack server when online, are verified by SHA-256 and installed atomically.
+The guide must open without a server at a field site.
 
-**Pros**
-- Works in airplane mode from the first launch.
-- A half-downloaded or corrupted pack can never be opened.
+Read the prepared pack directly from iOS bundle resources.
+Verify its manifest hashes during scripts/prepare.sh, before bundling.
 
-**Cons**
-- The bundled pack makes the app larger by its size (tens of MB).
-- No signatures yet; integrity only, not authenticity.
-  Syncing progress back to a server is a later step.
+- No first-launch installation or in-app download manager exists.
+- Atomic downloaded updates and authenticity are future work.
+- Offline voice requires prepared system transcription/model assets, separately from bundled output.

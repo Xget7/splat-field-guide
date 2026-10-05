@@ -1,14 +1,11 @@
-# No level of detail; the pipeline sets the splat count
+# Use one cloud per tier without LOD
 
-Status: accepted
+Status: accepted.
 
-A guide shows one piece of equipment, not a world, so the pipeline crops the capture to the equipment and trains to a fixed splat budget per tier.
-The engine draws every splat of the pack it loads and drops SplatKit's level-of-detail tree.
+A guide shows one equipment assembly, with one part label per splat.
 
-**Pros**
-- Part labels map one to one onto drawn splats; no merged nodes to label.
-- Less engine code and less memory.
+Crop during export and load one tier, removing the inherited LOD tree.
 
-**Cons**
-- A tier too large for a device simply runs slower; there is no runtime fallback.
-  The pipeline produces a smaller tier if the oldest test phone needs one.
+- Brush used default growth, not a fixed training budget.
+- Runtime haze/sparse filtering carries labels together; the engine does not draw every exported splat.
+- Only the high tier exists; smaller export or capped retraining depends on device performance.

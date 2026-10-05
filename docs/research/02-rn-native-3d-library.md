@@ -1,5 +1,7 @@
 # React Native native 3D library: exposure, structure, tooling
 
+Status: historical alternatives, 2026-09-29; iOS adopted [Nitro](../adr/0005-nitro-views.md), while glue, workspace and LOD sketches below remain historical proposals.
+
 Date: 2026-09-29.
 Sources are primary only: library source on GitHub (cloned at main on this date), official docs, release notes.
 Versions checked on npm today: react-native 0.87.1 (released 2026-08-26), reanimated 4.7.0, worklets 0.13.0, gesture-handler 3.3.0, nitro-modules 0.37.1, skia 2.13.1, vision-camera 5.2.3, filament 1.11.0, builder-bob 0.43.1, create-react-native-library 0.63.1.

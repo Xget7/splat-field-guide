@@ -1,7 +1,9 @@
 # First capture spike
 
+Status: completed historical capture experiment, 2026-09-29; its measurements inform [ADR 0009](../adr/0009-poses-from-colmap.md) and the local workflow in [ADR 0013](../adr/0013-local-pipeline-with-modal-sam.md).
+
 Run on 2026-09-29 on an M4 Pro (24 GB) with the first capture of a 2010 VW Gol Trend 1.6 engine bay.
-Throwaway: the scripts are not part of the pipeline; the numbers inform its design.
+The measurements are historical; the retained Brush recipe became part of the local pipeline.
 
 ## Capture
 
@@ -29,5 +31,5 @@ The whole run took 3 h 8 min, about 2.7 steps per second on average.
 ## What it means for the pipeline
 
 - The capture is good enough to register completely; coverage below the band and close-ups of demo parts are the likely gaps.
-- Full-resolution training on this Mac takes hours, which is why training runs on Modal ([ADR 0008](../adr/0008-pipeline-on-modal.md)).
-- Splat growth must be capped by a budget, not left to default densification: left alone it reached 2.7M, almost twice the 1.5M iPhone target ([ADR 0010](../adr/0010-no-level-of-detail.md)).
+- Full-resolution training on this Mac took hours; the completed Brush run was retained locally, while SAM runs on Modal ([ADR 0013](../adr/0013-local-pipeline-with-modal-sam.md)).
+- Default growth reached 2.7M, exceeding the original 1.5M iPhone budget; capped retraining remains conditional on physical frame-rate checks ([ADR 0010](../adr/0010-no-level-of-detail.md)).

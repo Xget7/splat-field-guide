@@ -1,97 +1,147 @@
 # Splat Field Guide
 
-A field maintenance guide on a phone: a photoreal Gaussian-splat capture of real equipment where every part can be found, highlighted and explained, step by step, by an AI instructor that works offline.
-This glossary is the vocabulary of the code, the docs and the conversation; it names concepts, not implementations.
+A maintenance guide for real equipment, with a captured picture, named parts, procedures and an instructor.
+This glossary gives the code, documentation and conversation one vocabulary.
 
 ## Language
 
-### The equipment
+### Equipment and discovery
 
 **Equipment**:
 The physical machine a guide is about, such as one car's engine bay.
 _Avoid_: asset, model, object, vehicle
 
 **Part**:
-A named physical component of the equipment that a person can point at, such as the coolant reservoir.
-A part has a stable id that never changes between pack versions.
-A part may sit inside a larger part, its parent, such as the oil filler cap on the engine; showing the parent shows the parts inside it too.
+A named physical piece of equipment with an identity that persists across pack versions.
+A part can belong to a parent part, such as the valve cover within the engine.
 _Avoid_: component, piece, segment, object
 
-**Part label**:
-The small integer on each splat that says which part it belongs to; zero means the splat belongs to no part.
-_Avoid_: class, segment id, mask id
+**Guide**:
+A discoverable entry for an area of equipment, with its identity, category and readiness to open a pack.
+_Avoid_: procedure, pack, tutorial
+
+**Library**:
+The collection of guides a person can browse, including guides ready to open and those still to be captured.
+_Avoid_: catalog screen, gallery, home
+
+**Category**:
+An equipment grouping within the library, such as vehicles or aviation.
+_Avoid_: type, industry, section
 
 ### The picture
 
 **Splat**:
-One Gaussian: a position, a covariance, a colour and an opacity.
+One Gaussian, described by a position, covariance, colour and opacity.
 _Avoid_: point, gaussian, particle
 
 **Cloud**:
-The splats of one capture decoded into memory, each with its part label.
-_Avoid_: point cloud, scene, world
+The collection of splats representing one capture of equipment.
+_Avoid_: point cloud, scene, world, remote instructor
+
+**Part label**:
+The small integer identifying the part a splat belongs to, with zero meaning no part.
+_Avoid_: class, segment id, mask id
 
 **Highlight**:
-How parts are drawn right now: some parts emphasised, the rest dimmed, or none.
-A highlight is derived from what the person is doing, never set by hand.
-_Avoid_: selection (that is what the person chose), glow, outline
+The emphasis on the parts relevant to the current session, with the rest dimmed, or no emphasis.
+_Avoid_: selection (what the person chose), glow, outline
 
 **Pick**:
-Finding the part under a point on the screen.
+The identification of the part under a position on the picture.
 _Avoid_: hit test, raycast, tap
 
 **Framing**:
-A camera move that brings one or more parts fully into view.
+The camera position that brings the relevant parts fully into view.
 _Avoid_: focus, zoom to, fly to
 
-### The guidance
+### Guidance
 
 **Procedure**:
-An ordered set of steps that accomplishes one maintenance task, such as checking the engine oil.
+An ordered set of steps for one maintenance task, such as checking the coolant level.
 _Avoid_: guide, tutorial, workflow, lesson
 
 **Step**:
-One instruction inside a procedure, with the parts it is about.
-_Avoid_: task, stage (that is the pipeline)
+One instruction within a procedure, together with the parts and caution it concerns.
+_Avoid_: task, stage (a pipeline stage)
+
+**Parts tour**:
+A procedure introducing every part in the order it appears across the equipment's picture.
+_Avoid_: maintenance procedure, walkthrough, overview
 
 **Session**:
-One person's run through a procedure: which step they are on and which part they chose.
-_Avoid_: attempt, run, state
+One person's current exploration or procedure position, including the selected part.
+_Avoid_: progress (the saved continuation position), attempt, run, state
+
+**Progress**:
+The saved guide, procedure and step position from which a person can continue.
+_Avoid_: session, completion, history
+
+**Learning mode**:
+The choice of instructor guidance or a self-guided presentation of the procedure.
+_Avoid_: voice mode, difficulty, lesson type
 
 **Instructor**:
-The AI guide that answers questions about the equipment and moves the session forward when asked.
+The guide that answers equipment questions and responds to requests to move the session forward.
 _Avoid_: assistant, chatbot, agent, copilot
 
 **Command**:
-A fixed spoken phrase, such as "next" or "show me the battery", handled without the instructor.
+A recognised request such as "next" or "show me the battery", with a defined session action.
 _Avoid_: intent, hotword, shortcut
+
+**Exchange**:
+One question and the instructor's reply, including any accompanying caution.
+_Avoid_: message, turn, conversation
+
+**Thread**:
+The ordered history of steps presented and question-and-answer exchanges within a session.
+_Avoid_: progress, transcript, chat log
 
 ### Content
 
 **Pack**:
-Everything the app needs to guide one piece of equipment offline: the cloud, the part labels, the parts and the procedures.
-A pack is installed whole or not at all.
-_Avoid_: bundle, asset, download, content
+The versioned content for one piece of equipment, including its cloud, part labels, parts, procedures and knowledge.
+_Avoid_: bundle, asset, download, guide
 
 **Tier**:
-A version of a pack sized for a class of device, such as fewer splats for older phones.
-_Avoid_: quality, LOD, variant
+A representation of a pack sized for a class of device, such as a smaller cloud for older phones.
+_Avoid_: version, quality, LOD, variant
+
+**Part note**:
+An authored unit of knowledge about one part and one note topic.
+_Avoid_: fact, paragraph, document
+
+**Note topic**:
+The subject of a part note, such as purpose, checks, specifications or safety.
+_Avoid_: category (a library grouping), tag, heading
 
 ### Making a pack
 
 **Capture**:
-The photos, and optionally depth, taken of the equipment.
+The photographs, and optionally depth, taken of the equipment.
 _Avoid_: scan, recording, dataset
 
 **Pipeline**:
-The offline steps that turn a capture into a pack.
-Its steps are called stages.
+The preparation stages that turn a capture and authored content into a pack.
 _Avoid_: workflow, job
 
 **Mask**:
-The pixels of one photo that show one part.
+The pixels of one photograph that show one part.
 _Avoid_: segmentation, matte
 
 **Lifting**:
-Giving every splat a part label by combining the masks of all photos.
+The assignment of part labels to splats from the masks of the capture's photographs.
 _Avoid_: projection, voting, 3D segmentation
+
+### Provisional AR alignment
+
+**Reference**:
+The prepared representation of a particular rigid equipment assembly used to recognise it in the camera view.
+_Avoid_: pack, mesh, generic detector
+
+**Registration**:
+The calibrated relationship between the reference's coordinates and the pack's coordinates.
+_Avoid_: tracking, recognition, alignment gesture
+
+**Landmark**:
+An identifiable location on the equipment shared by its reference and pack for checking registration.
+_Avoid_: part anchor, marker, pin (the displayed annotation)

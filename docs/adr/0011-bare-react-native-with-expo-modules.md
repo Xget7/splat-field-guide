@@ -1,13 +1,10 @@
-# Bare React Native, with individual Expo modules
+# Bare React Native with Expo modules
 
-Status: proposed
+Status: superseded by ADR-0014.
 
-The app compiles the engine from source, so it needs full control of the native projects.
-It is a bare React Native 0.87 app that installs only the Expo modules it uses, such as file system and speech recognition.
+Native engine work required control of the Xcode project.
 
-**Pros**
-- Native build settings for C++, Metal and Vulkan stay in our hands.
-- Well-maintained modules for files and speech without writing them.
+The proposal chose bare React Native and individual Expo modules for files/speech.
+[ADR 0014](0014-bare-react-native-with-nitro-packages.md) records the actual native packages.
 
-**Cons**
-- No Expo managed workflow conveniences such as cloud builds or config plugins by default.
+- The app contains no Expo modules.

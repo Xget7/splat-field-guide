@@ -1,15 +1,12 @@
-# Part labels live in a sidecar aligned to the final SPZ order
+# Keep part labels aligned with SPZ in a sidecar
 
-Status: accepted
+Status: accepted.
 
-SPZ v4 has no per-splat extension, only file-level records.
-Each pack therefore ships `labels.bin`, one part label per splat in the exact order of the pack's SPZ file, and the manifest records the splat count and the SPZ hash it belongs to.
-The pipeline lifts labels onto the decoded final SPZ, never onto an earlier PLY, because conversion can drop splats.
+SPZ provides no per-splat extension for part labels.
 
-**Pros**
-- Any SPZ reader still opens the file.
-- One byte per splat; trivial to load and to check.
+Ship one byte per splat in labels.bin, aligned with cloud.spz.
+Lift onto the trained PLY, then crop and transform labels/cloud together during export.
 
-**Cons**
-- Two files must stay in step; a mismatched pair is rejected at load, not repaired.
-- The engine must carry labels through its own reordering, so the cloud permutes them with every other field.
+- Preparation verifies manifest file hashes before bundling.
+- Source digests and part-to-label identity belong in the manifest, preserving binary compatibility.
+- Native format/count checks cannot identify unrelated equal-count labels; filtering and Morton reordering carry labels with splats.

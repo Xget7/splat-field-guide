@@ -1,49 +1,34 @@
 # Tasks
 
-Apple first; each task names the requirements it serves ([REQUIREMENTS.md](REQUIREMENTS.md)).
+Checked items record implementation or the stated experiment, not physical acceptance of every [requirement](REQUIREMENTS.md).
 
-## Pipeline
+## Implemented
 
-- [x] Capture, COLMAP poses and a 2.7M-splat training run.
-- [x] Marking page with SAM 3 on Modal.
-- [x] Engine marked, tracked and lifted onto the splat.
-- [x] Owner marks the other seven parts on the marking page (R2, R3): 43 keyframes in all.
-- [ ] Owner re-marks the fuse box and the battery: the fuse box tracks worst (held-out IoU 0.53) and takes battery splats, so a tap on the battery can pick the fuse box (R3, R6).
-- [x] Track each part from its own marked photos (R2, R3).
-- [x] Lift every part at once, a child's splats counted for its parent (R3, R8).
-- [ ] Retrain capped at 1.5M splats and lift again on that cloud (R10), if the iPhone misses 60 fps with the 2.5M-splat pack.
-- [x] Export SPZ and `labels.bin` in SPZ order, levelled with the photos' gravity, orbit limits from the photos (R6).
-- [x] Final export with every part, scaled from the battery (R6).
-- [ ] Review render of each part highlighted (R7).
+- [x] Capture 124 photos, recover COLMAP poses and train locally with Brush.
+- [x] Mark eight parts across 43 keyframes, propagate masks on Modal and lift part labels.
+- [x] Export about 2.5M splats, cropping cloud/labels together, levelling with photo gravity and estimating scale from the battery.
+- [x] Import/prune SplatKit, retain its license, and build C++/Metal for iOS.
+- [x] Run the Nitro mount/worklet/callback spike on the simulator; implement picking, highlight, orbit/pinch and framing.
+- [x] Implement session rules, command routing and interface tests, plus cards, tour and 15 maintenance steps.
+- [x] Bundle the prepared pack at build time; implement progress, iPad layouts and iPhone portrait presentation.
+- [x] Implement Claude/Apple/scripted fallback, reading mode and continuous voice with Kokoro/Apple output.
+- [x] Integrate the provisional AR reference, four landmarks, tracking HUD and torch controls.
+- [x] Record initial Standard/Upright training and the replacement Standard/Front reference's integrity checks.
+- [x] Write the human entry points, operational agent guide, glossary, current ADRs, research index and provenance.
 
-## Engine and library
+## Acceptance and publication
 
-- [x] Import SplatKit at a recorded commit, then prune it (R4).
-- [x] Build the core and the Metal backend for iOS (R4); run in the simulator only.
-- [x] Nitro spike on React Native 0.87: mount, worklet call, render-thread callback (R4, R5); iOS simulator only, the iPhone run is pending.
-- [x] Labels carried through Morton order and checked against the cloud (R6).
-- [x] Highlight table in the Metal shaders (R7, R8); checked on the real pack with `splat_snapshot` on a Mac.
-- [x] Pick by ray against splat ellipsoids (R6); every tour part picked at its anchor in the simulator, except the battery (see the fuse box above).
-- [x] Animated framing and orbit limits, azimuth included (R9).
-- [ ] `<SplatView>` with orbit and pinch from gesture worklets (R5); a real one-finger swipe orbits in the simulator, pinch is not checked yet.
-- [ ] 60 fps orbit and no idle frames on the iPhone (R10).
+- [ ] Owner corrects or verifies fuse-box/battery masks: the recorded fuse-box held-out IoU is 0.53 and battery picks can select it (R6).
+- [ ] Review every highlighted part against the physical engine and confirm metric dimensions (R7).
+- [ ] Review content against the correct manual and confirm reservoir markings (R11, R12, R16).
+- [ ] Repeat Nitro stress, pinch, all part picks and every procedure on physical hardware (R5, R6, R12-R14).
+- [ ] Measure iPhone frame rate, idle drawing, load time, memory and thermal behaviour; shrink the tier if needed (R10).
+- [ ] Check voice commands, interruption/echo, pronunciation, latency, model fallback, cautions and stop/continue behaviour on device (R14-R17).
+- [ ] Run the prepared-device airplane-mode checklist and separately check fresh-device missing-assets behaviour (R18).
+- [ ] Validate latest-reference recognition on the real engine, then measure landmark alignment, drift, recovery and torch behaviour.
+- [ ] Decide the semantic camera-overlay renderer after AR alignment passes.
+- [ ] Fill the release repository constant, upload the archive/checksum and verify the published clean-clone quickstart (R21).
+- [ ] Record the video and deliver TestFlight (R19, R20).
 
-## App
-
-- [x] Bare React Native 0.87 app with the iOS project building (R4).
-- [x] Session reducer, highlight and framing derivation, with tests (R8, R13).
-- [ ] Command router, with tests (R14).
-- [ ] Bundled pack installed and verified on first launch (R18).
-- [x] Part card (R11); a real tap on the coolant reservoir selects it and the card shows its name and explanation, simulator.
-- [x] Parts tour: a stepper that frames each part whole and highlights it, left to right (R13); simulator.
-- [x] Procedure player (R12, R13, R14): picked from a sheet, all 15 steps frame their parts whole and pick them at the anchor, next, back and repeat by button; simulator. Voice comes with the command router.
-- [ ] Parts and procedures content, checked against the owner's manual (R11, R12).
-- [ ] Apple Foundation Models instructor with tools (R15, R16, R17).
-- [ ] On-device speech in and out, push-to-talk (R14, R15).
-
-## Delivery
-
-- [ ] On-device checklist on the iPhone in airplane mode (R18).
-- [ ] Video (R19).
-- [ ] TestFlight upload (R20).
-- [ ] README, ARCHITECTURE and PROVENANCE (R21).
+First-launch pack installation and downloaded updates are deferred; model tools and push-to-talk were replaced by text replies and continuous voice.
+[Research](docs/research/README.md) distinguishes historical tests from current proposals.
