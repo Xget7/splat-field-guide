@@ -47,8 +47,8 @@ sfg_vec3 toC(splat::Vec3 v) {
 
 }  // namespace
 
-sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
-  return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer))};
+sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile) {
+  return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
 }
 
 SplatEngine& engineOf(sfg_engine* engine) {

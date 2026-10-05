@@ -4,7 +4,8 @@ import SplatKitCore
 
 /// The thread that draws one view. Its run loop runs the view's commands in the order they
 /// were sent, and a display link draws while the engine has something to do, stopping when it
-/// rests. Every method may be called from any thread; none waits for the render thread.
+/// rests. Every method may be called from any thread. Commands enqueue work; a load
+/// reservation briefly serializes with cloud publication and upload inside the engine.
 final class SplatRenderLoop {
   /// ProMotion screens draw at up to 120 Hz while the camera or a fade moves.
   private static let frameRates = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)

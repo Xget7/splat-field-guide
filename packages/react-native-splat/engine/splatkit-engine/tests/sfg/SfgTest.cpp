@@ -1,6 +1,10 @@
 #include "splatkit/sfg.h"
 
+#include <chrono>
+#include <condition_variable>
 #include <cmath>
+#include <future>
+#include <mutex>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -98,6 +102,63 @@ TEST_F(SfgTest, SupersededLoadsCannotReplaceTheCloudOrReportAnOutcome) {
   float at[4];
   ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
   EXPECT_EQ(sfg_pick(engine, at[0], at[1]), 1);
+}
+
+TEST_F(SfgTest, AReplacementWinsWhileAnOlderSuccessOrFailureIsStillDecoding) {
+  const std::string currentSpz = writeFile("current.spz", solidPairBytes());
+  const std::string labels = writeFile("current.labels.bin", labelBytes({3, 4}));
+  for (const bool fails : {false, true}) {
+    const std::string oldSpz = writeFile("older.spz", fails ? std::vector<uint8_t>{1} : solidPairBytes());
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool decoding = false;
+    bool released = false;
+    auto loader = [&](const std::string& spzPath, const std::string& labelsPath,
+                       splat::CoordinateFrame frame, int degree) -> splat::Result<SplatEngine::LoadedWorld> {
+      splat::SplatWorldLoader files;
+      files.setMaxShDegree(degree);
+      const auto result = files.loadWorldFile(spzPath, labelsPath, frame);
+      if (spzPath == oldSpz) {
+        std::unique_lock<std::mutex> lock(mutex);
+        decoding = true;
+        changed.notify_one();
+        changed.wait(lock, [&] { return released; });
+      }
+      if (!result) return result.error();
+      return SplatEngine::LoadedWorld{files.takeWorld(), result.value()};
+    };
+    sfg_destroy(engine);
+    auto owned = std::make_unique<FakeRenderer>();
+    renderer = owned.get();
+    engine = makeSfgEngine(std::move(owned), loader);
+    events.clear();
+    sfg_set_event_callback(engine, [](void* context, sfg_event kind, const char* message, uint32_t count) {
+      static_cast<std::vector<Event>*>(context)->push_back({kind, message, count});
+    }, &events);
+    auto older = std::async(std::launch::async, [&] { return sfg_load(engine, oldSpz.c_str(), nullptr); });
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      const bool began = changed.wait_for(lock, std::chrono::seconds(5), [&] { return decoding; });
+      if (!began) { released = true; changed.notify_one(); }
+      ASSERT_TRUE(began);
+    }
+    const bool loaded = sfg_load(engine, currentSpz.c_str(), labels.c_str());
+    draw();
+    {
+      const std::lock_guard<std::mutex> lock(mutex);
+      released = true;
+      changed.notify_one();
+    }
+    EXPECT_FALSE(older.get());
+    ASSERT_TRUE(loaded);
+    draw();
+    EXPECT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
+    float at[4];
+    ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
+    EXPECT_EQ(sfg_pick(engine, at[0], at[1]), 3);
+    EXPECT_EQ(sfg_pick(engine, at[2], at[3]), 4);
+  }
 }
 
 TEST_F(SfgTest, AReplacementSuppressesPendingUploadAndGpuCompletion) {

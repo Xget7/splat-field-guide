@@ -71,7 +71,19 @@ bool finite(const splat::Bounds& b) {
 
 }  // namespace
 
-SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer) : renderer_(std::move(renderer)) {}
+SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile)
+    : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
+  if (!loadFile_) {
+    loadFile_ = [](const std::string& spzPath, const std::string& labelsPath,
+                   splat::CoordinateFrame frame, int degree) -> splat::Result<LoadedWorld> {
+      splat::SplatWorldLoader loader;
+      loader.setMaxShDegree(degree);
+      const auto result = loader.loadWorldFile(spzPath, labelsPath, frame);
+      if (!result) return result.error();
+      return LoadedWorld{loader.takeWorld(), result.value()};
+    };
+  }
+}
 
 // The renderer goes first: it waits for the GPU, which may still read the world.
 SplatEngine::~SplatEngine() {
@@ -99,7 +111,8 @@ bool SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
   splat::SplatWorldLoader loader;
   loader.setMaxShDegree(maxShDegree_.load());
   const auto result = loader.loadWorld(spz, labels, sourceFrame);
-  return finishLoad(request, loader, result);
+  if (!result) return finishLoad(request, result.error());
+  return finishLoad(request, LoadedWorld{loader.takeWorld(), result.value()});
 }
 
 bool SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
@@ -113,18 +126,15 @@ bool SplatEngine::loadWorldFile(uint64_t request, const std::string& spzPath,
     const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
     if (request == 0 || request != currentLoad_) return false;
   }
-  splat::SplatWorldLoader loader;
-  loader.setMaxShDegree(maxShDegree_.load());
-  const auto result = loader.loadWorldFile(spzPath, labelsPath, sourceFrame);
-  return finishLoad(request, loader, result);
+  return finishLoad(request, loadFile_(spzPath, labelsPath, sourceFrame, maxShDegree_.load()));
 }
 
-bool SplatEngine::finishLoad(uint64_t request, splat::SplatWorldLoader& loader,
-                             const splat::Result<splat::SplatWorldLoader::WorldReport>& result) {
+bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result) {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
   if (request != currentLoad_) return false;
-  if (!report(result)) return false;
-  pendingWorld_ = loader.takeWorld();
+  if (!result) return report(result.error());
+  report(result.value().report);
+  pendingWorld_ = std::move(result.value().cloud);
   return true;
 }
 

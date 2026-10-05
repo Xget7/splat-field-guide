@@ -10,7 +10,8 @@
 namespace splatkit {
 
 // An engine over the platform's renderer, owned by the handle until sfg_destroy.
-sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer);
+sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer,
+                          SplatEngine::FileLoader loadFile = {});
 SplatEngine& engineOf(sfg_engine* engine);
 const SplatEngine& engineOf(const sfg_engine* engine);
 

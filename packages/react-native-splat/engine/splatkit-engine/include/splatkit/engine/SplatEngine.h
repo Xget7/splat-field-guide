@@ -33,7 +33,14 @@ namespace splatkit {
 // The surface belongs to the renderer: the engine survives losing and regaining it.
 class SplatEngine {
  public:
-  explicit SplatEngine(std::unique_ptr<SplatRenderer> renderer);
+  // Local file decoding is substitutable without exposing it through the platform C API.
+  struct LoadedWorld {
+    std::unique_ptr<splat::SplatCloud> cloud;
+    splat::SplatWorldLoader::WorldReport report;
+  };
+  using FileLoader = std::function<splat::Result<LoadedWorld>(
+      const std::string&, const std::string&, splat::CoordinateFrame, int)>;
+  explicit SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile = {});
   ~SplatEngine();
 
   SplatEngine(const SplatEngine&) = delete;
@@ -146,8 +153,7 @@ class SplatEngine {
     if (events_) events_(event, message, splatCount);
   }
   bool report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
-  bool finishLoad(uint64_t request, splat::SplatWorldLoader& loader,
-                  const splat::Result<splat::SplatWorldLoader::WorldReport>& result);
+  bool finishLoad(uint64_t request, splat::Result<LoadedWorld> result);
   bool applyPendingWorld();
   bool hasPendingWorld() const;
   void refit(Extent extent);
@@ -172,6 +178,7 @@ class SplatEngine {
 
   EventSink events_;
   std::unique_ptr<SplatRenderer> renderer_;
+  FileLoader loadFile_;
   std::atomic<int> maxShDegree_{kMaxShDegree};
   // Decoding happens outside this lock. Publication, upload and events share it with
   // reservations so a replacement cannot slip between a check and its consequence.
