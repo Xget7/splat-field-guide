@@ -3,7 +3,7 @@
 import CoreML
 import Foundation
 
-/// Thread-safe CoreML-based grapheme-to-phoneme converter.
+/// CoreML grapheme-to-phoneme converter confined to KokoroEngine's serial worker.
 /// Uses a small BART encoder-decoder model to convert English words to IPA phonemes.
 final class KokoroEnglishG2P {
     enum G2PError: Error, LocalizedError {
@@ -152,11 +152,6 @@ final class KokoroEnglishG2P {
         return phonemes.isEmpty ? nil : phonemes
     }
 
-    /// Verifies that CoreML models and vocab can be loaded.
-    func ensureModelsAvailable() throws {
-        try loadIfNeeded()
-    }
-
     // MARK: - Private
 
     private func loadIfNeeded() throws {
@@ -164,7 +159,7 @@ final class KokoroEnglishG2P {
 
         let kokoroDir = directory
 
-        // Load g2p_vocab.json from cache directory
+        // Load g2p_vocab.json from bundled resources
         let vocabURL = kokoroDir.appendingPathComponent("g2p_vocab.json")
         guard FileManager.default.fileExists(atPath: vocabURL.path) else {
             throw G2PError.vocabLoadFailed("\("g2p_vocab.json") not found at \(vocabURL.path)")
@@ -200,7 +195,7 @@ final class KokoroEnglishG2P {
 
         logger.info("Loaded G2P vocab (\(gMap.count) graphemes, \(pMap.count) phonemes)")
 
-        // Load CoreML models from cache directory
+        // Load CoreML models from bundled resources
         let encoderURL = kokoroDir.appendingPathComponent("G2PEncoder.mlmodelc")
         guard FileManager.default.fileExists(atPath: encoderURL.path) else {
             throw G2PError.modelLoadFailed("\("G2PEncoder.mlmodelc") not found at \(encoderURL.path)")

@@ -45,7 +45,10 @@ export interface SplatSource {
   labelsPath: string;
 }
 
-export type SplatErrorCode = 'load-failed' | 'labels-mismatch' | 'gpu-unavailable';
+export type SplatErrorCode =
+  | 'load-failed'
+  | 'labels-mismatch'
+  | 'gpu-unavailable';
 
 export interface SplatError {
   code: SplatErrorCode;
@@ -71,8 +74,8 @@ export interface SplatViewProps extends HybridViewProps {
 }
 
 /**
- * Every method only enqueues work for the view's render thread, so a gesture worklet may call
- * them; pick and project read the frame last drawn.
+ * Mutations only enqueue work for the view's render thread, so a gesture worklet may call
+ * them. Pick runs on a worker; project and drawnDirection synchronously read the frame last drawn.
  */
 export interface SplatViewMethods extends HybridViewMethods {
   /** Radians, stopping at the limits; stops a framing. */

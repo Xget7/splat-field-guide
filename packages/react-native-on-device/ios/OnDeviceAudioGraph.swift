@@ -1,8 +1,8 @@
 import AVFoundation
 
 /// The audio engine speech plays through. Listening taps the same engine with
-/// voice processing on, so echo cancellation hears what the app says and only the user's
-/// voice reaches recognition, which lets the user talk over an answer. Main queue only.
+/// voice processing on, so echo cancellation has a reference for Kokoro playback.
+/// Apple fallback plays outside this graph and still needs caller-side echo filtering. Main queue only.
 final class OnDeviceAudioGraph: ConversationAudio {
   static let shared = OnDeviceAudioGraph()
   static let speechSampleRate: Double = 24_000

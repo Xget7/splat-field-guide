@@ -16,22 +16,31 @@ enum SplatInstrumentation {
   }
 
   static let logger = Logger(subsystem: "com.fieldguide.splat", category: "view")
+  #if DEBUG
   private static let lock = NSLock()
   private static var counts = Counts()
 
   /// Every Nth orbit call is logged, so a pan does not flood the log.
   private static let orbitLogInterval = 60
 
+  #endif
+
   static func update(_ change: (inout Counts) -> Void) {
+    #if DEBUG
     lock.lock()
     defer { lock.unlock() }
     change(&counts)
+    #endif
   }
 
   static func snapshot() -> Counts {
+    #if DEBUG
     lock.lock()
     defer { lock.unlock() }
     return counts
+    #else
+    return Counts()
+    #endif
   }
 
   static var currentThreadName: String {
@@ -41,6 +50,7 @@ enum SplatInstrumentation {
   }
 
   static func recordOrbitCall() {
+    #if DEBUG
     let onMain = Thread.isMainThread
     let name = currentThreadName
     var total = 0
@@ -56,5 +66,6 @@ enum SplatInstrumentation {
     if total == 1 || total % orbitLogInterval == 0 {
       logger.info("orbit call #\(total) on thread=\(name, privacy: .public) isMain=\(onMain)")
     }
+    #endif
   }
 }

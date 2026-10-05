@@ -16,8 +16,8 @@ export interface SpeechInput extends HybridObject<{ ios: 'swift' }> {
    */
   prepare(locale: string): Promise<SpeechInputAvailability>;
   /**
-   * Listens until `cancel`, with echo cancellation on, so the app's own speech is not heard and
-   * the user can talk over it. `hints` are words to favour, such as part names. Each spoken turn
+   * Listens until `cancel` or audio loss, with echo cancellation for shared-engine Kokoro
+   * playback. Apple speech fallback needs caller-side echo filtering. The user can talk over it. `hints` are words to favour, such as part names. Each spoken turn
    * ends when the voice pauses: `onPartial` gets its transcript as it grows and `onTurn` the whole
    * of it once. `onLevel` gets the microphone level, 0 for silence to 1 for a loud voice, smoothed
    * and at most 30 times a second. `onVoice` gets true when someone starts talking, over the
