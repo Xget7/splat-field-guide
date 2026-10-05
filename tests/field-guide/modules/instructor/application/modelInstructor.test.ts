@@ -64,15 +64,20 @@ test('the cloud answers first when it can', async () => {
   );
 });
 
-test('a failed or empty model hands over to the next one', async () => {
+test('a failed or empty model hands the same resolved evidence to the next one', async () => {
   for (const first of [fails, replies('  ')]) {
-    instructor = createModelInstructor([
-      fakeModel(first),
-      fakeModel(replies('It supplies the starter.')),
-    ]);
+    const preferred = fakeModel(first);
+    const fallback = fakeModel(replies('It supplies the starter.'));
+    instructor = createModelInstructor([preferred, fallback]);
     expect(await ask()).toEqual(
       answerAbout('It supplies the starter.', battery),
     );
+    const evidence = jest.mocked(preferred.respond).mock.calls[0][0].evidence;
+    expect(jest.mocked(fallback.respond).mock.calls[0][0].evidence).toBe(
+      evidence,
+    );
+    expect(evidence.subject?.id).toBe('battery');
+    expect(evidence.safety?.text).toBe('Keep sparks away from the terminals.');
   }
 });
 

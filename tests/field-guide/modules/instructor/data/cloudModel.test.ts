@@ -4,8 +4,6 @@ import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/sess
 import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  promptFor,
-  PromptNotes,
   ReplyFormat,
   rulesFor,
 } from '../../../../../apps/field-guide/src/modules/instructor/domain/grounding';
@@ -110,13 +108,7 @@ test('posts the instructions and a prompt without notes to the proxy', () => {
   expect(sent.headers['Content-Type']).toBe('application/json');
   expect(JSON.parse(sent.body)).toEqual({
     system: cloudInstructions(pack),
-    prompt: promptFor(
-      request.question,
-      INITIAL_SESSION,
-      pack,
-      [],
-      PromptNotes.none,
-    ),
+    prompt: 'Part: Battery\nQuestion: What does the battery do?',
   });
 });
 

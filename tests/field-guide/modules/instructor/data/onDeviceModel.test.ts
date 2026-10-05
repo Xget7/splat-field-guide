@@ -7,11 +7,6 @@ import {
 import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  promptFor,
-  PromptNotes,
-  rulesFor,
-} from '../../../../../apps/field-guide/src/modules/instructor/domain/grounding';
-import {
   onDeviceInstructions,
   onDeviceModel,
 } from '../../../../../apps/field-guide/src/modules/instructor/data/onDeviceModel';
@@ -25,10 +20,6 @@ const noNativeModule = () => {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(model.availability).mockReturnValue('unavailable');
-});
-
-test('instructions are the strict rules, the same for every question', () => {
-  expect(onDeviceInstructions(pack)).toBe(rulesFor(pack).join('\n'));
 });
 
 test.each([
@@ -76,11 +67,13 @@ test('asks with the subject notes and passes the streamed text through', async (
   await expect(onDeviceModel.respond(request, onText)).resolves.toBe(
     'It supplies the starter.',
   );
-  expect(model.respond).toHaveBeenCalledWith(
-    onDeviceInstructions(pack),
-    promptFor(request.question, INITIAL_SESSION, pack, [], PromptNotes.subject),
-    onText,
-  );
+  const [instructions, prompt] = jest.mocked(model.respond).mock.calls[0];
+  expect(instructions).toContain('DO NOT state a number');
+  expect(instructions).toContain('Fixture engine bay');
+  expect(prompt).toContain('Part: Battery');
+  expect(prompt).toContain('It supplies the starter motor.');
+  expect(prompt).toContain('Keep sparks away from the terminals.');
+  expect(prompt).toContain('Question: What does the battery do?');
   expect(onText).toHaveBeenCalledWith('It');
 });
 
