@@ -32,7 +32,7 @@ def train(args):
         raise ValueError(f"Refusing to overwrite {args.output}")
     directory = args.output.parent
     directory.mkdir(parents=True, exist_ok=True)
-    prefix = directory / f"training-{args.mode}"
+    prefix = directory / f"training-{args.mode}-{args.angles}"
     log_path = prefix.with_suffix(".log")
     csv_path = prefix.with_suffix(".progress.csv")
     summary_path = prefix.with_suffix(".summary.txt")
@@ -40,7 +40,7 @@ def train(args):
     context_path = prefix.with_suffix(".source.json")
     checkpoint_path = prefix.with_suffix(".checkpoint")
     source_digest = hashlib.sha256(args.source.read_bytes()).hexdigest()
-    context = {"source": str(args.source.resolve()), "sourceSHA256": source_digest, "mode": args.mode, "angles": "upright"}
+    context = {"source": str(args.source.resolve()), "sourceSHA256": source_digest, "mode": args.mode, "angles": args.angles}
     if context_path.exists() and json.loads(context_path.read_text()) != context:
         raise ValueError("Existing training context belongs to a different source or mode.")
     if state_path.exists():
@@ -68,7 +68,7 @@ def train(args):
     if free_gib < args.min_free_gib:
         raise ValueError(f"A guarded temp/output volume has {free_gib:.1f} GiB free; require {args.min_free_gib:.1f} GiB before starting. Foundation may ignore external TMPDIR.")
     environment["TMPDIR"] = str(scratch_dir) + "/"
-    command = ["xcrun", "createml", "objecttracker", "--source", str(args.source.resolve()), "--output", str(args.output.resolve()), "--checkpoint", str(checkpoint_path.resolve()), "--training-mode", args.mode, "--upright", "--csv-progress", "--csv-fd", "4", "--summary", "--summary-fd", "5"]
+    command = ["xcrun", "createml", "objecttracker", "--source", str(args.source.resolve()), "--output", str(args.output.resolve()), "--checkpoint", str(checkpoint_path.resolve()), "--training-mode", args.mode, f"--{args.angles}", "--csv-progress", "--csv-fd", "4", "--summary", "--summary-fd", "5"]
     state = {"status": "starting", "startedAtUTC": datetime.datetime.now(datetime.UTC).isoformat(), "runnerPID": os.getpid(), "source": str(args.source.resolve()), "sourceSHA256": source_digest, "output": str(args.output.resolve()), "checkpoint": str(checkpoint_path.resolve()), "log": str(log_path.resolve()), "progressCSV": str(csv_path.resolve()), "summary": str(summary_path.resolve()), "scratchDirectory": str(scratch_dir), "systemTemporaryDirectory": str(system_temp), "guardedPaths": sorted(map(str, guarded_paths)), "scratchFreeGiBAtStart": free_gib, "command": command}
     write_state(state_path, state)
     print(json.dumps(state, indent=2), flush=True)
@@ -113,12 +113,22 @@ def main():
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=["standard", "extended"], default="standard")
+    parser.add_argument("--angles", choices=["front", "upright", "all-angles"], default="upright")
+    parser.add_argument("--plan", action="store_true", help="Print settings without starting training")
     parser.add_argument("--scratch-dir", type=Path, help="Set child TMPDIR; macOS Foundation may still use the internal user temp directory.")
     parser.add_argument("--min-free-gib", type=float, default=30, help="Preflight reserve; 30 GiB is a conservative local guard, not an Apple requirement.")
     parser.add_argument("--stop-below-free-gib", type=float, default=2, help="Terminate before scratch disk exhaustion.")
     args = parser.parse_args()
     if args.min_free_gib <= args.stop_below_free_gib or args.stop_below_free_gib <= 0:
         parser.error("The start reserve must exceed a positive stop reserve.")
+    if args.plan:
+        if not args.source.is_file():
+            parser.error("Source must be an existing USDZ file.")
+        command = ["xcrun", "createml", "objecttracker", "--source", str(args.source.resolve()),
+                   "--output", str(args.output.resolve()), "--training-mode", args.mode, f"--{args.angles}"]
+        print(json.dumps({"sourceSHA256": hashlib.sha256(args.source.read_bytes()).hexdigest(),
+                          "mode": args.mode, "angles": args.angles, "command": command}, indent=2))
+        return
     try:
         train(args)
     except (ValueError, OSError) as error:

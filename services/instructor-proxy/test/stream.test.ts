@@ -14,7 +14,8 @@ function delta(text: string) {
   return sse("content_block_delta", { delta: { type: "text_delta", text } });
 }
 
-const stop = sse("message_stop");
+const completion = sse("message_delta", { delta: { stop_reason: "end_turn" } });
+const stop = completion + sse("message_stop");
 
 function source(parts: (string | Uint8Array)[]) {
   return new ReadableStream<Uint8Array>({
@@ -39,7 +40,7 @@ test("text deltas stay in order and end with exactly one done line", async () =>
     stop, delta("must not appear"), sse("error"),
   ])));
   assert.deepEqual(result, [
-    { text: "Check " }, { text: "the oil.\n" }, { text: "" }, { done: true },
+    { text: "Check " }, { text: "the oil.\n" }, { text: "" }, { done: true, stop: "end_turn" },
   ]);
 });
 
@@ -47,7 +48,7 @@ test("events and UTF-8 characters can be split at every byte", async () => {
   const bytes = encoder.encode(delta("Café 🔧") + stop);
   const parts = Array.from(bytes, (byte) => Uint8Array.of(byte));
   assert.deepEqual(await lines(sseToNdjson(source(parts))), [
-    { text: "Café 🔧" }, { done: true },
+    { text: "Café 🔧" }, { done: true, stop: "end_turn" },
   ]);
 });
 
@@ -56,18 +57,18 @@ test("multi-line data fields and split CRLF endings are parsed", async () => {
     ": keepalive", "id: 12", "retry: 1000", "event: content_block_delta",
     "data: {", 'data: "delta": {"type": "text_delta", "text": "oil"}',
     "data: }", "", "",
-  ].join("\r\n") + sse("message_stop", { type: "message_stop" }, "\r\n");
+  ].join("\r\n") + completion + sse("message_stop", { type: "message_stop" }, "\r\n");
   const parts = Array.from(encoder.encode(event), (byte) => Uint8Array.of(byte));
   assert.deepEqual(await lines(sseToNdjson(source(parts))), [
-    { text: "oil" }, { done: true },
+    { text: "oil" }, { done: true, stop: "end_turn" },
   ]);
 });
 
 test("bare CR endings and data without a space after the colon work", async () => {
   const event = 'event:content_block_delta\rdata:{"delta":{"type":"text_delta","text":"brakes"}}\r\r';
   assert.deepEqual(await lines(sseToNdjson(source([
-    event + sse("message_stop", {}, "\r"),
-  ]))), [{ text: "brakes" }, { done: true }]);
+    event + completion + sse("message_stop", {}, "\r"),
+  ]))), [{ text: "brakes" }, { done: true, stop: "end_turn" }]);
 });
 
 test("other event types and thinking or signature deltas are ignored", async () => {
@@ -83,7 +84,7 @@ test("other event types and thinking or signature deltas are ignored", async () 
   });
   assert.deepEqual(await lines(sseToNdjson(source([
     ...ignored, thinking, signature, delta("visible"), stop,
-  ]))), [{ text: "visible" }, { done: true }]);
+  ]))), [{ text: "visible" }, { done: true, stop: "end_turn" }]);
 });
 
 test("an error event emits one final error without exposing its payload", async () => {
@@ -144,7 +145,7 @@ test("text is available while upstream remains open, and message_stop cancels it
   assert.equal(decoder.decode(first.value), '{"text":"first"}\n');
   inputController.enqueue(encoder.encode(stop));
   const last = await reader.read();
-  assert.equal(decoder.decode(last.value), '{"done":true}\n');
+  assert.equal(decoder.decode(last.value), '{"done":true,"stop":"end_turn"}\n');
   assert.equal((await reader.read()).done, true);
   assert.equal(cancelled, true);
 });
@@ -289,14 +290,17 @@ test("the handler sends only the fixed upstream request and streams NDJSON", asy
       thinking: { type: "adaptive" },
       output_config: { effort: "low" },
     });
-    return new Response(source([delta("Use the dipstick."), stop]));
+    return new Response(source([
+      sse("content_block_start", { content_block: { type: "text" } }),
+      delta("Use the dipstick."), stop,
+    ]));
   });
   const { env, keys } = makeEnv();
   const response = await worker.fetch(input, env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "application/x-ndjson; charset=utf-8");
   assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await lines(response.body), [{ text: "Use the dipstick." }, { done: true }]);
+  assert.deepEqual(await lines(response.body), [{ text: "Use the dipstick." }, { done: true, stop: "end_turn", blocks: ["text"] }]);
   assert.deepEqual(keys, ["203.0.113.7"]);
   assert.equal(calls, 1);
 });
@@ -310,7 +314,42 @@ test("thinking deltas stay private", async (t) => {
   });
   const { env } = makeEnv();
   const response = await handleRequest(request(), env);
-  assert.deepEqual(await lines(response.body), [{ text: "answer" }, { done: true }]);
+  assert.deepEqual(await lines(response.body), [{ text: "answer" }, { done: true, stop: "end_turn" }]);
+});
+
+test("the handler rejects exhausted or incomplete answers", async (t) => {
+  let reason = "max_tokens";
+  t.mock.method(globalThis, "fetch", async () => new Response(source([
+    sse("content_block_start", { content_block: { type: "text" } }),
+    delta("Check the"),
+    sse("message_delta", { delta: { stop_reason: reason } }),
+    sse("message_stop"),
+  ])));
+  const { env } = makeEnv();
+  for (reason of ["max_tokens", "pause_turn", "refusal", "tool_use", "unknown"]) {
+    const response = await handleRequest(request(), env);
+    assert.deepEqual(await lines(response.body), [
+      { text: "Check the" }, { error: "upstream answer incomplete" },
+    ]);
+  }
+});
+
+test("empty text retains diagnostics and missing completion reasons fail", async (t) => {
+  let completed = true;
+  t.mock.method(globalThis, "fetch", async () => new Response(source([
+    sse("content_block_start", { content_block: { type: "thinking" } }),
+    delta(""), completed ? stop : sse("message_stop"),
+  ])));
+  const { env } = makeEnv();
+  assert.deepEqual(await lines((await handleRequest(request(), env)).body), [
+    { text: "" },
+    { done: true, stop: "end_turn", blocks: ["thinking"],
+      events: ["content_block_start", "content_block_delta", "message_delta", "message_stop"] },
+  ]);
+  completed = false;
+  assert.deepEqual(await lines((await handleRequest(request(), env)).body), [
+    { text: "" }, { error: "upstream answer incomplete" },
+  ]);
 });
 
 test("upstream non-2xx statuses become 502 without leaking the body or key", async (t) => {

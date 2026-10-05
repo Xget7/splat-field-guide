@@ -122,6 +122,8 @@ let current = 0;                 // index into keyframes
 let mode = "pos";
 let drag = null;
 let marks = {};                  // frame -> {clicks: [{x, y, positive}], box: [x0, y0, x1, y1] | null}
+let capture = null;
+let revision = null;
 let savedState = null;           // the marked photos as last saved, to know whether there is anything to save
 const undoStack = {};            // frame -> previous marks, newest last
 const photos = {};               // frame -> HTMLImageElement
@@ -130,12 +132,12 @@ const latest = {};               // frame -> newest request id, so late answers 
 let requestId = 0;
 const sam = { ready: false, pending: 0, error: null, saving: false };
 
-const storageKey = kind => `sfg-${kind}-v1:${part}`;
+const storageKey = kind => `sfg-${kind}-v2:${capture}:${part}`;
 function load(kind) {
   try { return JSON.parse(localStorage.getItem(storageKey(kind))); } catch { return null; }
 }
 function persist() {
-  try { localStorage.setItem(storageKey("marks"), JSON.stringify(marks)); } catch {}
+  try { localStorage.setItem(storageKey("draft"), JSON.stringify({ revision, photos: marks })); } catch {}
   refreshSave();
 }
 const markedPhotos = () => Object.fromEntries(Object.entries(marks).filter(([, m]) => hasPrompt(m)));
@@ -255,8 +257,8 @@ function redraw() {
   const entry = masks[f];
   const positives = m.clicks.filter(c => c.positive).length;
   document.getElementById("readout").innerHTML =
-    `<b>foto ${f + 1}</b> · ${positives} sí · ${m.clicks.length - positives} no` +
-    (m.box ? " · rectángulo" : "") + (entry && entry.img ? ` · calidad ${entry.score.toFixed(2)}` : "");
+    `<b>foto ${f + 1}</b> , ${positives} sí , ${m.clicks.length - positives} no` +
+    (m.box ? " , rectángulo" : "") + (entry && entry.img ? ` , calidad ${entry.score.toFixed(2)}` : "");
 }
 
 // --- marks -----------------------------------------------------------------------------------
@@ -331,18 +333,18 @@ async function segment(f) {
   const m = marksFor(f);
   const key = JSON.stringify(m);
   if (masks[f] && masks[f].key === key) return;
+  const id = ++requestId;
+  latest[f] = id;
   if (!hasPrompt(m)) {
     masks[f] = { key, img: null, score: 0, base: null };
     markThumb(f);
     if (f === frame()) redraw();
     return;
   }
-  const id = ++requestId;
-  latest[f] = id;
   sam.pending++;
   refreshStatus();
   try {
-    const answer = await api("/api/segment", { frame: f, ...m });
+    const answer = await api("/api/segment", { capture, frame: f, ...m });
     const img = answer.mask ? await loadImage(answer.mask) : null;
     sam.ready = true;
     sam.error = null;
@@ -389,14 +391,15 @@ document.getElementById("undo").onclick = undo;
 document.getElementById("clear").onclick = () => change(frame(), { clicks: [], box: null });
 async function save() {
   const photosMarked = markedPhotos();
-  if (Object.keys(photosMarked).length === 0) { toast("Todavía no marcaste ninguna foto", true); return false; }
   sam.saving = true;
   refreshStatus();
   try {
-    const { saved } = await api("/api/save", { part, photos: photosMarked });
+    const result = await api("/api/save", { capture, revision, part, photos: photosMarked });
+    const { saved } = result;
+    revision = result.revision;
     savedState = JSON.stringify(photosMarked);
-    try { localStorage.setItem(storageKey("saved"), savedState); } catch {}
-    document.querySelector(`nav button[data-part="${part}"]`)?.classList.add("saved");
+    persist();
+    document.querySelector(`nav button[data-part="${part}"]`)?.classList.toggle("saved", saved.length > 0);
     refreshSave();
     toast(`Guardado: ${saved.length} de ${keyframes.length} fotos`);
     return true;
@@ -412,7 +415,7 @@ async function save() {
 // Moving to another part saves this one first, so nothing marked is left unsaved.
 async function openPart(id) {
   if (id === part) return;
-  if (dirty() && Object.keys(markedPhotos()).length > 0 && !(await save())) return;
+  if (dirty() && !(await save())) return;
   location.search = new URLSearchParams({ part: id }).toString();
 }
 document.getElementById("save").onclick = save;
@@ -427,7 +430,10 @@ document.addEventListener("keydown", e => {
 new ResizeObserver(() => { fit(); redraw(); }).observe(stage);
 
 (async function start() {
-  const config = await (await fetch("/api/config")).json();
+  const response = await fetch("/api/config");
+  if (!response.ok) { sam.error = "No se pueden restaurar las marcas de esta captura"; refreshStatus(); return; }
+  const config = await response.json();
+  capture = config.capture;
   part = new URLSearchParams(location.search).get("part") || Object.keys(config.parts)[0];
   const info = config.parts[part];
   if (!info) { sam.error = `No existe la pieza "${part}"`; refreshStatus(); return; }
@@ -446,10 +452,15 @@ new ResizeObserver(() => { fit(); redraw(); }).observe(stage);
     nav.append(el);
   }
   nav.querySelector(".on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  marks = load("marks") || {};
-  savedState = load("saved") === null ? null : JSON.stringify(load("saved"));
-  // Saved before this page tracked saves (the engine): what is here is what was saved.
-  if (savedState === null && config.saved[part]) savedState = JSON.stringify(markedPhotos());
+  const saved = config.marks[part];
+  revision = saved?.revision || null;
+  savedState = JSON.stringify(saved?.photos || {});
+  const draft = load("draft");
+  marks = draft?.revision === revision ? draft.photos : structuredClone(saved?.photos || {});
+  for (const f of config.saved[part] || []) {
+    const m = saved.photos[f];
+    masks[f] = { key: JSON.stringify(m), img: await loadImage(`/mask/${part}/${f}.png`), score: 0, base: null };
+  }
   refreshSave();
   keyframes = info.photos;
   const strip = document.getElementById("strip");
@@ -466,7 +477,7 @@ new ResizeObserver(() => { fit(); redraw(); }).observe(stage);
     sam.ready = true;
     refreshStatus();
     console.info(`SAM on ${device}`);
-    for (const f of keyframes) if (marks[f]) segment(f);  // thumbnails show which saved marks have a mask
+    for (const f of keyframes) if (marks[f]) { markThumb(f); segment(f); }
   }).catch(error => { sam.error = "SAM no arrancó; recargá la página"; refreshStatus(); console.error(error); });
   await show(0);
 })();

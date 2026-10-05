@@ -11,27 +11,28 @@ Positions, rotations, log-scales and spherical harmonics all follow the transfor
 format the app's decoder reads (version 3, gzip); labels.bin lists one label per splat in the SPZ's order.
 
 Run:  uv run export.py [--labels ../data/segment/lift/all/labels.npy] [--out ../data/pack/gol-trend-engine-bay/1]
-Out:  <out>/manifest.json, <out>/high/cloud.spz, <out>/high/labels.bin and <out>.report.json (estimates and limits).
+Out:  <out>/manifest.json, <out>/high/cloud.spz, <out>/high/labels.bin and <out>/publication.json (estimates and limits).
 Check the result with export_checks.py.
 """
 
 import argparse
 import gzip
-import hashlib
 import itertools
 import json
 import math
 import pathlib
 import struct
+import subprocess
 import time
 
 import numpy as np
 import yaml
 from PIL import Image
 
+import artifacts
 import knowledge
 import lift
-import spike_lib
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -107,7 +108,7 @@ NARROWEST_VIEW_ASPECT = 9 / 19.5  # width over height of a phone held upright, t
 
 
 def sha256(path: pathlib.Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return artifacts.sha256(path)
 
 
 def dot(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -168,14 +169,17 @@ def read_labels(path: pathlib.Path, count: int, part_ids: list[str], mask_part: 
 def display_axes(orientation: int) -> tuple[np.ndarray, np.ndarray]:
     """Up and right of the upright photo, as unit vectors in the camera frame of its stored pixels (x right, y down)."""
     def axis(dx: float, dy: float) -> np.ndarray:
-        x, y = spike_lib.raw_from_display(0.5 + dx, 0.5 + dy, orientation)
+        x, y = mask_tools.raw_from_display(0.5 + dx, 0.5 + dy, orientation)
         v = np.array([x - 0.5, y - 0.5, 0.0])
         return v / np.linalg.norm(v)
     return axis(0, -0.5), axis(0.5, 0)
 
 
 def read_orientations(photos: list[pathlib.Path]) -> list[int]:
-    found = [Image.open(p).getexif().get(EXIF_ORIENTATION, 1) for p in photos]
+    found = []
+    for path in photos:
+        with Image.open(path) as photo:
+            found.append(photo.getexif().get(EXIF_ORIENTATION, 1))
     unsupported = sorted({o for o in found if o not in (1, 3, 6, 8)})
     assert not unsupported, f"EXIF orientations {unsupported} are not handled"
     return found
@@ -200,7 +204,10 @@ def apple_gravity(maker_note: bytes) -> np.ndarray | None:
 
 def read_device_gravity(photos: list[pathlib.Path]) -> np.ndarray:
     """Per photo, the gravity its iPhone recorded, in device axes [n, 3]."""
-    found = [apple_gravity(Image.open(p).getexif().get_ifd(EXIF_IFD).get(EXIF_MAKER_NOTE, b"")) for p in photos]
+    found = []
+    for path in photos:
+        with Image.open(path) as photo:
+            found.append(apple_gravity(photo.getexif().get_ifd(EXIF_IFD).get(EXIF_MAKER_NOTE, b"")))
     missing = [p.name for p, g in zip(photos, found) if g is None]
     assert not missing, f"{len(missing)} photos carry no Apple acceleration vector, e.g. {missing[:3]}"
     return np.stack(found)
@@ -512,13 +519,50 @@ def main():
     parser.add_argument("--ply", type=pathlib.Path, default=lift.SPLAT)
     parser.add_argument("--labels", type=pathlib.Path, default=DATA / "segment" / "lift" / "all" / "labels.npy")
     parser.add_argument("--mask-part", default="engine", help="the part a boolean labels file stands for")
-    parser.add_argument("--out", type=pathlib.Path, default=DATA / "pack" / PACK_ID / str(PACK_VERSION))
+    parser.add_argument("--out", type=pathlib.Path, default=None)
+    parser.add_argument("--pack-version", type=int, default=PACK_VERSION)
+    parser.add_argument("--replace", action="store_true", help="explicitly replace a published version after verification")
     parser.add_argument("--sh-degree", type=int, help="SH degree to write (default: what the PLY carries)")
     parser.add_argument("--sh1-bits", type=int, default=SPZ_SH1_BITS)
     parser.add_argument("--sh-rest-bits", type=int, default=SPZ_SH_REST_BITS)
     parser.add_argument("--allow-missing-parts", action="store_true",
                         help="pack parts without splats with empty bounds (test packs only)")
+    parser.add_argument("--lift-report", type=pathlib.Path, help="identity report from lift_all.py")
     args = parser.parse_args()
+    args.out = args.out or DATA / "pack" / PACK_ID / str(args.pack_version)
+    assert args.pack_version > 0, "pack version must be positive"
+    if args.out.exists() and not args.replace:
+        raise ValueError("pack version already published; use a new version or explicitly pass --replace")
+    with artifacts.candidate(args.out) as out:
+        publish(args, out)
+
+
+def source_contract(ply: pathlib.Path, labels: pathlib.Path, report_path: pathlib.Path, part_ids: list[str]) -> dict:
+    report = json.loads(report_path.read_text())
+    mapping = {part: i + 1 for i, part in enumerate(part_ids)}
+    assert report["labels"] == mapping, "lifting part-to-label mapping differs from pack.yaml"
+    sources = report["sources"]
+    assert sources["ply_sha256"] == sha256(ply), "labels belong to a different PLY"
+    assert report["labels_sha256"] == sha256(labels), "lifting labels digest mismatch"
+    capture = artifacts.capture(lift.PHOTOS)["sha256"]
+    reconstruction = artifacts.reconstruction(lift.SPARSE)["sha256"]
+    assert sources["capture_sha256"] == capture, "lifting capture identity mismatch"
+    assert sources["reconstruction_sha256"] == reconstruction, "lifting reconstruction identity mismatch"
+
+    def entry(path: pathlib.Path) -> dict:
+        # Repository paths are portable; external fixtures retain their artifact name.
+        try:
+            name = path.resolve().relative_to(HERE.parent.resolve()).as_posix()
+        except ValueError:
+            name = path.name
+        return {"path": name, "bytes": path.stat().st_size, "sha256": sha256(path)}
+
+    return {"captureSha256": capture, "reconstructionSha256": reconstruction,
+            "ply": entry(ply), "labels": entry(labels), "liftingReport": entry(report_path),
+            "content": entry(CONTENT), "knowledge": entry(KNOWLEDGE), "partLabels": mapping}
+
+
+def publish(args, out: pathlib.Path):
     started = time.time()
 
     def lap(text: str):
@@ -528,6 +572,7 @@ def main():
     part_ids = [p["id"] for p in content["parts"]]
     splat, _ = lift.read_ply(args.ply)
     count = len(splat)
+    sources = source_contract(args.ply, args.labels, args.lift_report or args.labels.with_name("report.json"), part_ids)
     labels = read_labels(args.labels, count, part_ids, args.mask_part)
     assert labels.any(), "no splat is labelled"
     lap(f"{count:,} splats, {int((labels > 0).sum()):,} labelled")
@@ -570,7 +615,6 @@ def main():
 
     cloud = placement.apply(load_splats(splat, keep, args.sh_degree))
     lap(f"transformed, SH degree {cloud['degree']} (PLY carries {cloud['ply_degree']})")
-    out = args.out
     clipped = write_spz(out / CLOUD_PATH, cloud, args.sh1_bits, args.sh_rest_bits)
     write_labels(out / LABELS_PATH, labels)
     cloud_mb, labels_mb = ((out / path).stat().st_size / 1e6 for path in (CLOUD_PATH, LABELS_PATH))
@@ -582,6 +626,8 @@ def main():
     boxes = [(np.array(g["bounds"]["min"]), np.array(g["bounds"]["max"])) for g in geometry.values()]
     camera = camera_block(placement.points(cameras["centres"]), extent, boxes)
     manifest = build_manifest(content, out, len(keep), geometry, camera)
+    manifest["sources"] = sources
+    manifest["packVersion"] = args.pack_version
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     report = {"splats": {"input": count, "kept": len(keep), "labelled_kept": int((labels > 0).sum()),
@@ -595,9 +641,17 @@ def main():
               "parts_without_splats": missing,
               "camera": camera,
               "seconds": round(time.time() - started, 1)}
-    report_path = out.parent / f"{out.name}.report.json"
+    report["sources"] = sources
+    report_path = out / "publication.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    lap(f"manifest and report written to {out}")
+    verify = subprocess.run(["node", str(HERE.parent / "scripts/validate-pack.cjs"), str(out)],
+                            capture_output=True, text=True)
+    assert verify.returncode == 0, verify.stderr.strip()
+    import export_checks
+    export_checks.test_pack_files(out, args.labels, args.mask_part, source_ply=args.ply,
+                                  source_report=args.lift_report or args.labels.with_name("report.json"))
+    export_checks.test_bounds_and_anchors(out, export_checks.read_spz((out / CLOUD_PATH).read_bytes()), labels)
+    lap(f"verified pack ready for publication to {args.out}")
     print(json.dumps({k: report[k] for k in ("levelling", "scale", "parts_without_splats")}, indent=2))
 
 

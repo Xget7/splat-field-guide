@@ -5,8 +5,7 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_SYSTEM_CHARS = 60000;
 const MAX_PROMPT_CHARS = 6000;
-// Thinking and the answer share this ceiling; the instructions keep the answer to three
-// sentences, so the rest is room for the model to reason without being cut off.
+// Thinking and the answer share this ceiling; exhausting it fails the stream so the app can fall back.
 const MAX_OUTPUT_TOKENS = 1500;
 // Requests without Cloudflare's IP header share a bucket instead of bypassing it.
 const UNKNOWN_CLIENT = "unknown";

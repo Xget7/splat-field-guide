@@ -2,15 +2,15 @@
 
 Check first:  uv run preflight.py              (runs the page against a fake SAM, no GPU)
 Deploy:       modal deploy sam_live.py         (the page stays up; `modal app stop sfg-sam-live` takes it down)
-Saved to the sfg-spike-frames volume under /marks/<part>/: marks.json and one stored-layout mask per photo.
+Saved as complete revisions under /marks/<part>/sets/<revision>/, selected by current.json.
 """
 
-import os
 import pathlib
 
 import modal
 
-import spike_lib
+import artifacts
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 SAM3_COMMIT = "2345a4a"
@@ -36,12 +36,12 @@ sam_image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("spike_lib")
+    .add_local_python_source("mask_tools", "artifacts")
 )
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install("fastapi[standard]", "pillow", "numpy<2")
-    .add_local_python_source("spike_lib", "live_api")
+    .add_local_python_source("mask_tools", "live_api", "artifacts", "masks")
     .add_local_file(HERE / "mark.html", "/root/mark.html")
 )
 
@@ -67,14 +67,15 @@ class Sam:
         self.model = build_sam3_image_model(enable_inst_interactivity=True)
         hf_cache.commit()
         processor = Sam3Processor(self.model)
-        names = sorted(os.listdir("/frames/jpg"))
+        self.capture = artifacts.capture(pathlib.Path("/frames/jpg"))
+        names = [p["name"] for p in self.capture["photos"]]
         # Image features are computed once per photo; every click after that only runs the mask decoder.
         self.states, self.orientations = {}, {}
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            for frame in spike_lib.photos_to_mark():
+            for frame in mask_tools.photos_to_mark():
                 photo = Image.open(f"/frames/jpg/{names[frame]}")
                 self.orientations[frame] = photo.getexif().get(274, 1)
-                self.states[frame] = processor.set_image(spike_lib.working_photo(photo))
+                self.states[frame] = processor.set_image(mask_tools.working_photo(photo))
         print(f"{len(self.states)} photos ready on {torch.cuda.get_device_name()}")
 
     def mask(self, frame: int, marks: dict):
@@ -82,7 +83,7 @@ class Sam:
         import torch
 
         state = self.states[frame]
-        prompt = spike_lib.sam_prompt(marks, state["original_width"], state["original_height"])
+        prompt = mask_tools.sam_prompt(marks, state["original_width"], state["original_height"])
         if prompt is None:
             return None, 0.0
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
@@ -97,28 +98,15 @@ class Sam:
         return torch.cuda.get_device_name()
 
     @modal.method()
-    def segment(self, frame: int, marks: dict) -> dict:
+    def segment(self, frame: int, marks: dict, capture: str) -> dict:
+        assert capture == self.capture["sha256"], "SAM loaded a different capture"
         mask, score = self.mask(frame, marks)
-        return {"png": None if mask is None else spike_lib.mask_png(mask), "score": score}
-
-    @modal.method()
-    def save(self, request: dict) -> list[int]:
-        masks = {}
-        for frame, marks in request["photos"].items():
-            mask, _ = self.mask(frame, marks)
-            if mask is not None:
-                masks[frame] = mask
-        folder = pathlib.Path("/frames/marks") / request["part"]
-        folder.mkdir(parents=True, exist_ok=True)
-        for old in folder.glob("*"):
-            old.unlink()  # a photo whose marks were cleared must not keep its old mask
-        for name, data in spike_lib.marks_files(request, masks, self.orientations).items():
-            (folder / name).write_bytes(data)
-        frames_volume.commit()
-        return sorted(masks)
+        return {"png": None if mask is None else mask_tools.mask_png(mask), "score": score}
 
 
-@app.function(image=web_image, volumes={"/frames": frames_volume}, scaledown_window=20 * 60, timeout=10 * 60)
+
+# Saved revision comparison and promotion share one writer.
+@app.function(image=web_image, volumes={"/frames": frames_volume}, max_containers=1, scaledown_window=20 * 60, timeout=10 * 60)
 @modal.concurrent(max_inputs=20)
 @modal.asgi_app()
 def web():
@@ -131,11 +119,8 @@ def web():
         async def warm(self):
             return await self.sam.warm.remote.aio()
 
-        async def segment(self, frame, marks):
-            return await self.sam.segment.remote.aio(frame, marks)
-
-        async def save(self, request):
-            return await self.sam.save.remote.aio(request)
+        async def segment(self, frame, marks, capture):
+            return await self.sam.segment.remote.aio(frame, marks, capture)
 
     return live_api.make_app(ModalSam(), pathlib.Path("/frames/jpg"), pathlib.Path("/root/mark.html"),
-                             pathlib.Path("/frames/marks"), frames_volume.reload)
+                             pathlib.Path("/frames/marks"), frames_volume.reload, frames_volume.commit)

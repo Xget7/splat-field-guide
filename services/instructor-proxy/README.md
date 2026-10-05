@@ -4,11 +4,20 @@ Invalid JSON or fields return 400, oversized strings return 413, other methods r
 The `LIMITER` binding uses `CF-Connecting-IP` to allow 30 requests per 60 seconds and returns 429 when exceeded, following the [Cloudflare rate limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
 Requests without the IP header share an `unknown` bucket for local development.
 The upstream request fixes the model to `MODEL`, enables streaming, gives the system text ephemeral cache control, and allows 1500 output tokens.
-The model always uses adaptive thinking, with `EFFORT` (default `low`) setting how much it reasons, and `max_tokens` leaves room for both the reasoning and the short answer.
+The model uses adaptive thinking, with `EFFORT` (default `low`) setting how much it reasons, and thinking and answer text share `max_tokens`.
 An upstream non-2xx response becomes 502 with `{"error":"upstream <status>"}` without exposing its body or the secret.
 Success returns 200 with `application/x-ndjson; charset=utf-8` and `cache-control: no-store`, emitting a `{"text":"<delta>"}` line per text delta and exactly one final `{"done":true}` or `{"error":"<reason>"}` line.
-The translator follows [Anthropic SSE events](https://platform.claude.com/docs/en/build-with-claude/streaming), handles split chunks and multi-line data, ignores other events and thinking or signature deltas, and reports interrupted or failed streams.
+Only `end_turn` and `stop_sequence` are successful stop reasons.
+An exhausted, refused, paused, unknown or missing stop reason ends with `{"error":"upstream answer incomplete"}` so the app can fall back.
+The final done line includes `stop`, the encountered content `blocks`, and `events` when no nonempty text was emitted, allowing empty replies to be diagnosed without exposing thinking.
+The translator handles split chunks and multi-line data, reads completion and block events, ignores thinking and signature deltas, and reports interrupted, malformed or failed streams.
 Use Node 26 or later, enter `services/instructor-proxy`, and run `npm install`, `npm test`, and `npx tsc --noEmit -p .`.
 For deployment setup, run `npx wrangler login`, then `npx wrangler secret put ANTHROPIC_API_KEY`, then `npm run deploy` from this directory.
 For local development, put `ANTHROPIC_API_KEY` in an ignored `.dev.vars` file and run `npm run dev`.
+Connect a deployed Worker by setting `INSTRUCTOR_PROXY_URL` in [cloudModel.ts](../../apps/field-guide/src/modules/instructor/data/cloudModel.ts) to its base URL, without `/v1/answer`.
+The app appends that path when sending each question.
+The checked-in value points to the author's demo Worker; deploying your own Worker does not change that app setting automatically.
+Set `INSTRUCTOR_PROXY_URL` to `null` to disable the remote adapter and use Apple Foundation Models, then scripted guidance when the on-device model is unavailable.
 Set a monthly spend limit on the key in the Anthropic console.
+This demo endpoint has no caller authentication and accepts caller-supplied instructions.
+The per-IP limiter bounds request rate; the account spend limit is a separate manual setting.

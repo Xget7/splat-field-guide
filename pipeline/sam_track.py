@@ -2,7 +2,7 @@
 
 The keyframes are whatever masks the owner saved for the part under /marks/<part>/. The photos are not a video,
 so the order they are fed in matters. With four or more keyframes each variant below is scored by hiding one of the
-two keyframes farthest from the others (spike_lib.pick_holdouts), tracking from the rest and comparing the
+two keyframes farthest from the others (mask_tools.pick_holdouts), tracking from the rest and comparing the
 prediction with the owner's mask (IoU); the best variant then runs with every keyframe. With fewer keyframes, or
 with --variant, nothing is scored and one variant runs directly (DEFAULT_VARIANT unless named).
 
@@ -16,7 +16,9 @@ import pathlib
 
 import modal
 
-import spike_lib
+import artifacts
+import masks as saved_masks
+import mask_tools
 
 HERE = pathlib.Path(__file__).parent
 DATA = HERE.parent / "data"
@@ -35,7 +37,7 @@ DEFAULT_VARIANT = "view order, all keyframes"  # won on the engine; used when th
 def choose_variant(keyframes: list[int], requested: str = "") -> tuple[bool, str]:
     """Whether to score the variants, and which one runs when they are not scored."""
     assert not requested or requested in VARIANTS, f"unknown variant {requested!r}; choose from {list(VARIANTS)}"
-    if requested or len(keyframes) < spike_lib.MIN_KEYFRAMES_TO_SCORE:
+    if requested or len(keyframes) < mask_tools.MIN_KEYFRAMES_TO_SCORE:
         return False, requested or DEFAULT_VARIANT
     return True, ""
 
@@ -61,7 +63,7 @@ image = (
         "pillow",
     )
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("spike_lib")
+    .add_local_python_source("mask_tools", "artifacts", "masks")
 )
 
 
@@ -72,8 +74,8 @@ image = (
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=40 * 60,
 )
-def track(part: str, centres: list[list[float]], directions: list[list[float]], variant: str = "") -> dict[str, bytes]:
-    import os
+def track(part: str, centres: list[list[float]], directions: list[list[float]], capture: str,
+          photo_identities: list[dict], reconstruction_sha256: str, variant: str = "") -> dict[str, bytes]:
     import tempfile
     import time
 
@@ -83,12 +85,15 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
     from PIL import Image
     from sam3.model_builder import build_sam3_video_model
 
-    names = sorted(os.listdir("/frames/jpg"))
-    marks_dir = pathlib.Path("/frames/marks") / part
+    found = artifacts.capture(pathlib.Path("/frames/jpg"))
+    assert found["sha256"] == capture and found["photos"] == photo_identities, "tracking capture identity mismatch"
+    names = [p["name"] for p in found["photos"]]
+    saved_masks.read(pathlib.Path("/frames/marks") / part, capture)
+    marks_dir = saved_masks.folder(pathlib.Path("/frames/marks") / part)
     drawn = {int(p.stem): cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) > 0 for p in sorted(marks_dir.glob("*.png"))}
     assert drawn, f"no marks saved for {part}; save them on the marking page first"
     assert len(centres) == len(names), f"{len(centres)} camera poses for {len(names)} photos"
-    orders = {"capture": list(range(len(names))), "view": spike_lib.view_order(centres, directions)}
+    orders = {"capture": list(range(len(names))), "view": mask_tools.view_order(centres, directions)}
     assert all(sorted(order) == list(range(len(names))) for order in orders.values()), "an order skips photos"
 
     # The tracker reads <position>.jpg; stored pixels at the size the marks were drawn at.
@@ -96,7 +101,7 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
     for i, name in enumerate(names):
         photo = Image.open(f"/frames/jpg/{name}")
         orientations[i] = photo.getexif().get(274, 1)
-        photo.thumbnail((spike_lib.WORKING_SIDE, spike_lib.WORKING_SIDE))
+        photo.thumbnail((mask_tools.WORKING_SIDE, mask_tools.WORKING_SIDE))
         stored[i] = np.asarray(photo.convert("RGB"))[:, :, ::-1]
     for frame, mask in drawn.items():
         assert mask.shape == stored[frame].shape[:2], f"mask {frame} is {mask.shape}, photo {stored[frame].shape}"
@@ -134,15 +139,20 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
 
     keyframes = sorted(drawn)
     scoring, best = choose_variant(keyframes, variant)
-    holdouts = spike_lib.pick_holdouts(keyframes, centres, directions) if scoring else []
-    report = {"keyframes": keyframes, "holdouts": holdouts, "variants": {}}
+    holdouts = mask_tools.pick_holdouts(keyframes, centres, directions) if scoring else []
+    checkpoints = {str(p.relative_to("/hf")): artifacts.sha256(p) for p in pathlib.Path("/hf").rglob("sam3.pt")}
+    assert checkpoints, "SAM checkpoint identity unavailable"
+    report = {"part": part, "capture_sha256": capture, "reconstruction_sha256": reconstruction_sha256,
+              "marks_sha256": artifacts.tree(marks_dir), "sam_commit": SAM3_COMMIT,
+              "torch": torch.__version__, "checkpoints": checkpoints,
+              "keyframes": keyframes, "holdouts": holdouts, "variants": {}}
     held_out_tiles = {}
     for variant_name, (order_name, max_cond) in (VARIANTS if scoring else {}).items():
         started = time.time()
         scores = {}
         for hidden in holdouts:
             predicted = session(order_name, max_cond, [f for f in keyframes if f != hidden])[hidden][0]
-            scores[hidden] = spike_lib.iou(predicted, drawn[hidden])
+            scores[hidden] = mask_tools.iou(predicted, drawn[hidden])
             held_out_tiles[(variant_name, hidden)] = predicted
         report["variants"][variant_name] = {"iou": scores, "mean": float(np.mean(list(scores.values()))),
                                             "seconds": round(time.time() - started)}
@@ -169,7 +179,7 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
 
     colours = {part: (0, 140, 255)}
     none = {"parts": []}
-    files["all.jpg"] = spike_lib.contact_sheet(
+    files["all.jpg"] = mask_tools.contact_sheet(
         lambda f: stored[f], list(range(len(names))), {part: {f: m for f, (m, _) in final.items()}}, colours, none,
         orientations, tile=236, per_row=8,
         label=lambda f: f"{f + 1}{' *' if f in drawn else ''} {final[f][1]:+.0f}",
@@ -181,7 +191,7 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
                 key = hidden * 10 + column
                 tiles.append(key)
                 masks[key] = drawn[hidden] if name == "owner" else held_out_tiles[(name, hidden)]
-        files["held_out.jpg"] = spike_lib.contact_sheet(
+        files["held_out.jpg"] = mask_tools.contact_sheet(
             lambda k: stored[k // 10], tiles, {part: masks}, colours, none, {k: orientations[k // 10] for k in tiles},
             per_row=len(VARIANTS) + 1,
             label=lambda k: f"{k // 10 + 1} " + ("owner" if k % 10 == 0 else f"v{k % 10} "
@@ -191,24 +201,34 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
 
 
 def plan(part: str) -> dict:
-    """Everything the run needs from this machine. Runs in the modal CLI's Python, so standard library only."""
-    names = sorted(p.name for p in PHOTOS.glob("*.jpg"))
+    """Check names, bytes and reconstruction before starting a GPU; standard library only."""
+    assert part in mask_tools.PARTS, f"unknown part {part}"
+    found = artifacts.capture(PHOTOS)
     cameras = json.loads((HERE / "cameras.json").read_text())
-    assert len(cameras) == len(names), f"{len(cameras)} camera poses for {len(names)} photos"
-    return {"part": part,
-            "centres": [cameras[str(i)]["c"] for i in range(len(names))],
-            "directions": [cameras[str(i)]["d"] for i in range(len(names))]}
+    assert cameras["captureSha256"] == found["sha256"], "tracker cameras belong to another capture"
+    assert cameras["reconstruction"] == artifacts.reconstruction(DATA / "capture/full/sparse/0"), \
+        "tracker cameras belong to another reconstruction"
+    photos = cameras["photos"]
+    assert [{k: p[k] for k in ("name", "bytes", "sha256")} for p in photos] == found["photos"], \
+        "tracker camera photo identities differ"
+    return {"part": part, "capture": found["sha256"], "photo_identities": found["photos"],
+            "reconstruction_sha256": cameras["reconstruction"]["sha256"],
+            "centres": [p["c"] for p in photos], "directions": [p["d"] for p in photos]}
 
 
 @app.local_entrypoint()
-def main(part: str = "engine", variant: str = ""):
-    choose_variant([], variant)  # a misspelt variant fails here, not after the GPU is up
-    out = DATA / "segment" / "tracks" / part
-    for name, data in track.remote(**plan(part), variant=variant).items():
-        target = out / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-    report = json.loads((out / "report.json").read_text())
-    for name, result in report["variants"].items():
-        print(f"{name}: mean IoU {result['mean']:.3f} {result['iou']}")
-    print(f"best: {report['best']}; written to {out}")
+def main(part: str = "all", variant: str = ""):
+    choose_variant([], variant)
+    parts = list(mask_tools.PARTS) if part == "all" else [part]
+    plans = [plan(p) for p in parts]
+    for inputs in plans:
+        out = DATA / "segment" / "tracks" / inputs["part"]
+        with artifacts.candidate(out) as staged:
+            for name, data in track.remote(**inputs, variant=variant).items():
+                target = staged / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            report = json.loads((staged / "report.json").read_text())
+            assert report["capture_sha256"] == inputs["capture"], "returned tracking capture differs"
+            assert len(report["photos"]) == len(inputs["photo_identities"]), "incomplete tracking result"
+        print(f"{inputs['part']}: best {report['best']}; written to {out}")

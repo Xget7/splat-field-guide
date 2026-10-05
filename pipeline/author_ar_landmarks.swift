@@ -6,6 +6,7 @@
 import Cocoa
 import SceneKit
 import Metal
+import CryptoKit
 
 guard CommandLine.arguments.count == 4 else {
     fatalError("Usage: author-ar-landmarks <medium.usdz> <raw-landmarks.json> <preview.png>")
@@ -70,6 +71,7 @@ let data = try JSONSerialization.data(withJSONObject: [
     "schemaVersion": 1,
     "coordinateSystem": "Object Capture world",
     "sourceModel": modelURL.path,
+    "sourceModelSHA256": SHA256.hash(data: try Data(contentsOf: modelURL)).map { String(format: "%02x", $0) }.joined(),
     "authoringViewport": [1200, 900],
     "landmarks": records,
 ], options: [.prettyPrinted, .sortedKeys])

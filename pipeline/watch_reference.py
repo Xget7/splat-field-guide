@@ -68,7 +68,7 @@ def snapshot(state_path):
     if state.get("status") == "completed":
         remaining = 0
     lines = [
-        "Create ML · Gol Trend · referencia AR",
+        "Create ML , Gol Trend , referencia AR",
         STATUS.get(state.get("status"), state.get("status", "Sin estado")),
         f"[{bar}] {percent}",
         f"Transcurrido: {duration(state.get('elapsedSeconds'))}",

@@ -1,9 +1,4 @@
-"""Pure helpers shared by the Modal spike and its local preflight, so the preflight tests the code that runs."""
-
-MAX_POINTS_PER_PHOTO = 12  # SAM point prompts work best with a handful of points per object and photo
-PALETTE_BGR = [(0, 140, 255), (255, 90, 0), (60, 220, 60), (230, 60, 200), (0, 230, 255), (60, 60, 255),
-               (255, 230, 120), (40, 90, 150), (180, 255, 180), (160, 0, 120), (255, 255, 255), (128, 128, 0)]
-
+"""Photo layout, mask validation and view ordering shared by marking, tracking and lifting."""
 
 def raw_from_display(x: float, y: float, orientation: int) -> tuple[float, float]:
     """The click tool shows photos upright (EXIF applied); SAM and COLMAP see the stored pixels."""
@@ -14,37 +9,6 @@ def raw_from_display(x: float, y: float, orientation: int) -> tuple[float, float
     if orientation == 8:  # stored pixels are shown rotated 90 degrees counter-clockwise
         return 1 - y, x
     return x, y
-
-
-def check_prompts(prompts: dict, photo_names: list[str]) -> tuple[list[str], list[str]]:
-    """Errors stop the run; warnings are shown and the run goes on."""
-    errors, warnings = [], []
-    if prompts.get("frames") != photo_names:
-        errors.append("the click tool's photo order differs from the photos on disk")
-    ids = [p.get("id") for p in prompts.get("parts", [])]
-    if len(ids) != len(set(ids)):
-        errors.append("two parts share an id")
-    known = set(ids)
-    for part in prompts.get("parts", []):
-        name, clicks = part.get("id"), part.get("clicks", [])
-        if part.get("parent") and part["parent"] not in known:
-            warnings.append(f"{name}: parent {part['parent']} has no clicks, so it is not in this run")
-        if not any(c.get("positive") for c in clicks):
-            errors.append(f"{name}: needs at least one positive click")
-        per_photo: dict[int, int] = {}
-        for c in clicks:
-            if not (isinstance(c.get("frame"), int) and 0 <= c["frame"] < len(photo_names)):
-                errors.append(f"{name}: click on a photo that does not exist ({c.get('frame')})")
-                continue
-            if c.get("photo") and c["photo"] != photo_names[c["frame"]]:
-                errors.append(f"{name}: click says photo {c['photo']} but index {c['frame']} is {photo_names[c['frame']]}")
-            if not (0 <= c.get("x", -1) <= 1 and 0 <= c.get("y", -1) <= 1):
-                errors.append(f"{name}: click outside the photo on photo {c['frame'] + 1}")
-            per_photo[c["frame"]] = per_photo.get(c["frame"], 0) + 1
-        for frame, count in per_photo.items():
-            if count > MAX_POINTS_PER_PHOTO:
-                warnings.append(f"{name}: {count} clicks on photo {frame + 1}; SAM does best with a few (<= {MAX_POINTS_PER_PHOTO})")
-    return errors, warnings
 
 
 TILE = 472
@@ -190,23 +154,6 @@ def sam_prompt(marks: dict, width: int, height: int) -> dict | None:
     # One click is ambiguous (a bolt, the valve cover, the engine), so let SAM offer three and keep its best.
     prompt["multimask_output"] = box is None and len(clicks) == 1
     return prompt
-
-
-def marks_files(request: dict, masks: dict, orientations: dict) -> dict[str, bytes]:
-    """What saving a part writes: its marks and one stored-layout mask PNG per marked keyframe."""
-    import io
-    import json
-
-    import numpy as np
-    from PIL import Image
-
-    files = {"marks.json": json.dumps(request, indent=2).encode()}
-    for frame, mask in masks.items():
-        raw = raw_from_display_mask(mask, orientations[frame])
-        png = io.BytesIO()
-        Image.fromarray(np.asarray(raw, bool).astype(np.uint8) * 255, "L").save(png, "PNG")
-        files[f"{frame:05d}.png"] = png.getvalue()
-    return files
 
 
 def view_distance(centres, directions):
