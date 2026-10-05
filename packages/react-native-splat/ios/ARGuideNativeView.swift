@@ -153,7 +153,8 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     }
     if torchRequested != torchEnabled {
       torchRequested = torchEnabled
-      torchError = nil
+      // A rejected toggle still needs a reply when the hardware state and error are unchanged.
+      lastEvent = nil
     }
     reconcile()
   }

@@ -170,6 +170,10 @@ describe("AR alignment screen", () => {
     expect(native().props.torchEnabled).toBe(false);
     await act(() => node("ar-flash").props.onPress());
     expect(native().props.torchEnabled).toBe(true);
+    await act(() =>
+      receive({ ...status, torchError: "Flash could not be changed." })
+    );
+    expect(native().props.torchEnabled).toBe(false);
   });
 
   test("updates live readouts while searching without replacing or restarting the camera", async () => {
