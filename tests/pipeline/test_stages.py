@@ -73,3 +73,56 @@ class StageTests(unittest.TestCase):
                 with self.assertRaisesRegex(Exception, 'capture'):
                     sam_track.plan('engine')
 
+class ReferenceRecipeTests(unittest.TestCase):
+    def test_reference_training_plan_records_front_angles_without_training(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            source = root / 'engine.usdz'
+            source.write_bytes(b'fixture')
+            result = subprocess.run([sys.executable, str(ROOT / 'pipeline/train_reference.py'), '--source', str(source),
+                                     '--output', str(root / 'engine.referenceobject'), '--angles', 'front', '--plan'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            command = json.loads(result.stdout)['command']
+            self.assertIn('--front', command)
+            self.assertNotIn('--upright', command)
+            self.assertFalse((root / 'engine.referenceobject').exists())
+
+class LandmarkPublicationTests(unittest.TestCase):
+    def test_changed_reference_model_cannot_reuse_authored_landmarks(self):
+        import json
+        import artifacts
+        import publish_landmarks
+        import export_checks
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            model = root / 'medium.usdz'
+            model.write_bytes(b'original model')
+            raw = root / 'raw.json'
+            raw.write_text(json.dumps({'sourceModel': str(model), 'sourceModelSHA256': artifacts.sha256(model),
+                                       'authoringViewport': [1200, 900],
+                                       'landmarks': [{'id': 'cap', 'label': 'Cap', 'color': [1, 0, 0],
+                                                      'position': [12, 4, 6], 'sourcePixel': [20, 30]}]}))
+            poses = root / 'medium.poses.json'
+            poses.write_text('{}')
+            manifest = export_checks.sample_manifest()
+            manifest['sources'] = {'captureSha256': 'a' * 64, 'reconstructionSha256': 'b' * 64,
+                                   'partLabels': {p['id']: p['label'] for p in manifest['parts']},
+                                   **{key: {'path': 'source.bin', 'bytes': 1, 'sha256': 'c' * 64}
+                                      for key in ['ply', 'labels', 'liftingReport', 'content', 'knowledge']}}
+            pack = root / 'manifest.json'
+            pack.write_text(json.dumps(manifest))
+            report = root / 'publication.json'
+            report.write_text(json.dumps({'sources': manifest['sources']}))
+            registration = root / 'registration.json'
+            registration.write_text(json.dumps({'matrixOrder': 'rows', 'status': 'candidate_unverified',
+                'inputs': {key: {'path': str(path), 'sha256': artifacts.sha256(path)}
+                           for key, path in [('poses', poses), ('packReport', report)]},
+                'rawReferenceFromPack': [[2, 0, 0, 10], [0, 2, 0, 0], [0, 0, 2, 0], [0, 0, 0, 1]]}))
+            model.write_bytes(b'changed model')
+            with self.assertRaisesRegex(ValueError, 'model identity'):
+                publish_landmarks.publish(raw, registration, pack, root / 'candidate.json')
+            model.write_bytes(b'original model')
+            result = publish_landmarks.publish(raw, registration, pack, root / 'candidate.json')
+            self.assertEqual(result['landmarks'][0]['position'], [1., 2., 3.])

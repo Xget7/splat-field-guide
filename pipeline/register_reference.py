@@ -162,7 +162,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--poses", type=Path, required=True)
     parser.add_argument("--sparse", type=Path, default=Path("data/capture/full/sparse/0"))
-    parser.add_argument("--pack-report", type=Path, default=Path("data/pack/gol-trend-engine-bay/1.report.json"))
+    parser.add_argument("--pack-report", type=Path, default=Path("data/pack/gol-trend-engine-bay/1/publication.json"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-position-error", type=float, default=0.02, help="RMSE limit in pack units, approximately metres.")
     parser.add_argument("--max-orientation-error", type=float, default=5.0, help="P90 camera rotation error in degrees.")
