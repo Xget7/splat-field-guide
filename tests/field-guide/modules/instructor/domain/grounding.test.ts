@@ -8,7 +8,6 @@ import { fixturePack } from '../../../fixtures/fixturePack';
 import { TOUR_ID } from '../../../../../apps/field-guide/src/domain/tour';
 import {
   answerAbout,
-  Grounding,
   inventsNumbers,
   MAX_HISTORY_CHARS,
   MAX_QUESTION_CHARS,
@@ -29,19 +28,8 @@ const evidence = evidenceFor(
 );
 
 describe('rules', () => {
-  test('both groundings forbid guessed specifications and name the pack', () => {
-    for (const grounding of [Grounding.strict, Grounding.flagged]) {
-      const rules = rulesFor(pack, grounding).join('\n');
-      expect(rules).toContain(pack.title);
-      expect(rules).toContain('DO NOT state a number');
-      expect(rules).toContain(NOT_COVERED_REPLY);
-    }
-  });
-
   test('structured rules keep replies brief and grounded; small models stay plain', () => {
-    const rules = rulesFor(pack, Grounding.strict, ReplyFormat.structured).join(
-      '\n',
-    );
+    const rules = rulesFor(pack, ReplyFormat.structured).join('\n');
     expect(rules).toContain('at most three short sentences');
     expect(rules).toContain(
       'unless the content is a list of steps, symptoms or checks',
@@ -49,18 +37,7 @@ describe('rules', () => {
     expect(rules).toContain(NOT_COVERED_REPLY);
     expect(rules).toContain('safety warning only when');
     expect(rules).not.toContain('general mechanical knowledge');
-    expect(rulesFor(pack, Grounding.strict).join('\n')).toContain(
-      'No lists, no markdown.',
-    );
-  });
-
-  test('only flagged grounding may add general knowledge, and must say so', () => {
-    expect(rulesFor(pack, Grounding.strict).join('\n')).not.toContain(
-      'Not in my data',
-    );
-    expect(rulesFor(pack, Grounding.flagged).join('\n')).toContain(
-      'start with "Not in my data."',
-    );
+    expect(rulesFor(pack).join('\n')).toContain('No lists, no markdown.');
   });
 });
 

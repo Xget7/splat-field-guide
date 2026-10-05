@@ -114,24 +114,16 @@ export function findReadyGuide(
   return guide?.status === GuideStatus.ready ? guide : undefined;
 }
 
-const BYTES_PER_MEGABYTE = 1_000_000;
 const SPLATS_PER_MILLION = 1_000_000;
 
 export interface PackFacts {
   /** "2.5M" */
   readonly splats: string;
-  /** "8" */
-  readonly parts: string;
-  /** "66 MB": what the pack takes on the phone, decimal like iOS Settings. */
-  readonly size: string;
 }
 
 export function packFacts(pack: Pack): PackFacts {
   const tier = pack.tiers[0];
-  const bytes = tier.cloud.bytes + tier.labels.bytes;
   return {
     splats: `${(tier.splatCount / SPLATS_PER_MILLION).toFixed(1)}M`,
-    parts: String(pack.parts.length),
-    size: `${Math.round(bytes / BYTES_PER_MEGABYTE)} MB`,
   };
 }

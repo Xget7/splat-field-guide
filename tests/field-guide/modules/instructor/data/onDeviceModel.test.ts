@@ -7,7 +7,6 @@ import {
 import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  Grounding,
   promptFor,
   PromptNotes,
   rulesFor,
@@ -29,9 +28,7 @@ beforeEach(() => {
 });
 
 test('instructions are the strict rules, the same for every question', () => {
-  expect(onDeviceInstructions(pack)).toBe(
-    rulesFor(pack, Grounding.strict).join('\n'),
-  );
+  expect(onDeviceInstructions(pack)).toBe(rulesFor(pack).join('\n'));
 });
 
 test.each([

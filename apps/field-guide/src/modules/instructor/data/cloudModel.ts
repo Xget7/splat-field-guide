@@ -1,12 +1,11 @@
 import type { Pack } from '../../../domain/pack';
 import {
-  Grounding,
   promptFor,
   PromptNotes,
   ReplyFormat,
   rulesFor,
 } from '../domain/grounding';
-import { ModelName, type InstructorModel } from '../domain/InstructorModel';
+import type { InstructorModel } from '../domain/InstructorModel';
 
 /** The instructor proxy (services/instructor-proxy); null keeps the instructor offline. */
 export const INSTRUCTOR_PROXY_URL: string | null =
@@ -48,7 +47,7 @@ export function cloudInstructions(pack: Pack): string {
         .join(' ')}`,
   );
   return [
-    ...rulesFor(pack, Grounding.strict, ReplyFormat.structured),
+    ...rulesFor(pack, ReplyFormat.structured),
     '',
     'Notes:',
     parts.join('\n\n'),
@@ -94,7 +93,6 @@ export function createCloudModel({
   let stopCurrent: (() => void) | null = null;
 
   return {
-    name: ModelName.cloud,
     isReady: () => url !== null && now() >= offlineUntil,
     prewarm() {
       // The first question sends the upstream cache hint; nothing to load here.

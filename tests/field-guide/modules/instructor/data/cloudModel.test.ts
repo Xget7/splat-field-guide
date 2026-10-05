@@ -4,7 +4,6 @@ import { INITIAL_SESSION } from '../../../../../apps/field-guide/src/domain/sess
 import { evidenceFor } from '../../../../../apps/field-guide/src/modules/instructor/domain/context';
 import { fixturePack } from '../../../fixtures/fixturePack';
 import {
-  Grounding,
   promptFor,
   PromptNotes,
   ReplyFormat,
@@ -86,9 +85,7 @@ afterEach(() => jest.useRealTimers());
 test('instructions are strict structured rules followed by every note and guided check', () => {
   const instructions = cloudInstructions(pack);
   expect(
-    instructions.startsWith(
-      rulesFor(pack, Grounding.strict, ReplyFormat.structured).join('\n'),
-    ),
+    instructions.startsWith(rulesFor(pack, ReplyFormat.structured).join('\n')),
   ).toBe(true);
   expect(instructions).toContain(
     'Part: Coolant reservoir (also called coolant tank, expansion tank)',
@@ -227,7 +224,6 @@ test.each(['error', 'missing done'])(
   'a streamed remote %s falls back to the next model',
   async failure => {
     const fallback: InstructorModel = {
-      name: 'onDevice',
       isReady: () => true,
       prewarm() {},
       cancel() {},
