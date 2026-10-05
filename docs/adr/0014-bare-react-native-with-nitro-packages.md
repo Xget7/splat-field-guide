@@ -6,6 +6,6 @@ Native speech/audio coordination requires control beyond the proposed Expo wrapp
 
 Use bare React Native 0.87 and local Nitro packages for the viewer, speech and Apple generation.
 
-- Preparation builds a source-fingerprinted engine before CocoaPods vendors it.
+- Preparation builds a source-fingerprinted engine before Bundler installs CocoaPods dependencies from the app Gemfile.
 - Matching frameworks are reused; stale sources or --force rebuild, and the podspec directs mismatches to scripts/prepare.sh.
 - Track generated Nitro outputs; only iOS adapters are implemented.
