@@ -9,3 +9,10 @@ __pycache__/
 packages/react-native-splat/build/
 packages/react-native-splat/ios/Frameworks/
 .DS_Store
+
+# Local credentials, including Wrangler environment variants.
+.env*
+.dev.vars*
+!.env.example
+!.env.sample
+!.dev.vars.example
