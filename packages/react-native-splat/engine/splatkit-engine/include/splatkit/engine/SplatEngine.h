@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -59,6 +60,12 @@ class SplatEngine {
   bool loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                      splat::CoordinateFrame sourceFrame);
 
+  // Reserves a replacement before a host schedules decoding. Only this request can publish
+  // a cloud or report its outcome until another reservation replaces it. Any thread.
+  uint64_t beginLoad();
+  bool loadWorldFile(uint64_t request, const std::string& spzPath, const std::string& labelsPath,
+                     splat::CoordinateFrame sourceFrame);
+
   // What the host needs to know about loading and the GPU. Ready fires on the render thread
   // once a frame of the new world has finished on the GPU, so it is on screen; failures fire
   // on whichever thread found them. Labels that do not fit the cloud are their own failure:
@@ -112,7 +119,7 @@ class SplatEngine {
 
   // Highest spherical harmonics degree decoded and uploaded with the next world, 0 to 3.
   // Any thread.
-  void setMaxShDegree(int degree) { loader_.setMaxShDegree(degree); }
+  void setMaxShDegree(int degree) { maxShDegree_.store(degree); }
   // Spherical harmonics degree drawn, 0 to 3, capped by what the loaded world carries.
   // Takes effect on the next frame. Render thread.
   void setShDegree(int degree);
@@ -139,7 +146,10 @@ class SplatEngine {
     if (events_) events_(event, message, splatCount);
   }
   bool report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
+  bool finishLoad(uint64_t request, splat::SplatWorldLoader& loader,
+                  const splat::Result<splat::SplatWorldLoader::WorldReport>& result);
   bool applyPendingWorld();
+  bool hasPendingWorld() const;
   void refit(Extent extent);
   void reportShown();
   bool step(int64_t frameTimeNanos);
@@ -162,7 +172,13 @@ class SplatEngine {
 
   EventSink events_;
   std::unique_ptr<SplatRenderer> renderer_;
-  splat::SplatWorldLoader loader_;
+  std::atomic<int> maxShDegree_{kMaxShDegree};
+  // Decoding happens outside this lock. Publication, upload and events share it with
+  // reservations so a replacement cannot slip between a check and its consequence.
+  mutable std::recursive_mutex loadMutex_;
+  uint64_t currentLoad_ = 0;
+  uint64_t uploadedLoad_ = 0;
+  std::unique_ptr<splat::SplatCloud> pendingWorld_;
   OrbitCamera camera_;
   Highlight highlight_;
   Reveal reveal_;

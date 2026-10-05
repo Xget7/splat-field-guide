@@ -85,6 +85,13 @@ bool sfg_load(sfg_engine* engine, const char* spz_path, const char* labels_path)
                                         splatkit::kPackFrame);
 }
 
+uint64_t sfg_begin_load(sfg_engine* engine) { return engineOf(engine).beginLoad(); }
+
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path, const char* labels_path) {
+  return engineOf(engine).loadWorldFile(request, spz_path, labels_path != nullptr ? labels_path : "",
+                                        splatkit::kPackFrame);
+}
+
 bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos) {
   return engineOf(engine).render(frame_time_nanos);
 }

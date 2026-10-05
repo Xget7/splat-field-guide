@@ -81,6 +81,41 @@ TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
   EXPECT_FALSE(sfg_needs_frame(engine));
 }
 
+TEST_F(SfgTest, SupersededLoadsCannotReplaceTheCloudOrReportAnOutcome) {
+  const std::string spz = writeFile("solid.spz", solidPairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
+  const uint64_t old = sfg_begin_load(engine);
+  const uint64_t current = sfg_begin_load(engine);
+  EXPECT_FALSE(sfg_load_request(engine, old, spz.c_str(), labels.c_str()));
+  EXPECT_FALSE(sfg_load_request(engine, old, "missing.spz", nullptr));
+  draw();
+  EXPECT_FALSE(renderer->world().has_value());
+  EXPECT_TRUE(events.empty());
+  ASSERT_TRUE(sfg_load_request(engine, current, spz.c_str(), labels.c_str()));
+  ASSERT_TRUE(draw());
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
+  float at[4];
+  ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
+  EXPECT_EQ(sfg_pick(engine, at[0], at[1]), 1);
+}
+
+TEST_F(SfgTest, AReplacementSuppressesPendingUploadAndGpuCompletion) {
+  const std::string spz = writeFile("pair.spz", pairBytes());
+  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  sfg_begin_load(engine);
+  draw();
+  EXPECT_FALSE(renderer->world().has_value());
+  EXPECT_TRUE(events.empty());
+  renderer->gpuFinished = false;
+  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  ASSERT_TRUE(draw());
+  sfg_begin_load(engine);
+  renderer->gpuFinished = true;
+  draw();
+  EXPECT_TRUE(events.empty());
+}
+
 TEST_F(SfgTest, ALoadWithoutLabelsIsAWorldWithNoParts) {
   const std::string spz = writeFile("solid.spz", solidPairBytes());
   ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
