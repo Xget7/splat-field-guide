@@ -1,5 +1,7 @@
 # Nitro Views spike on React Native 0.87.1
 
+Status: completed simulator spike, 2026-09-30; accepted in [ADR 0005](../adr/0005-nitro-views.md), with physical-device criteria still pending and the spike screen removed.
+
 Decides [ADR 0005](../adr/0005-nitro-views.md).
 Result: a Nitro HybridView works on iOS, all three criteria pass on the simulator; the physical iPhone run is still pending (phone locked).
 
@@ -21,11 +23,11 @@ All rows come from the iOS simulator (iPhone 17 Pro, iOS 26.5, Debug) unless sta
 
 | # | Criterion | Result | Evidence |
 |---|-----------|--------|----------|
-| 1 | 100 mount/unmount cycles, no crash, no growth | Pass | Report on screen: `PASS 100 cycles: started 100, stopped 100, peak threads 1`; os_log had 202 `render thread start` and 201 `render thread stop` (one view live) after two runs. Live views and layers return to the baseline once Hermes collects the wrappers. |
-| 2 | `orbit` from a gesture worklet on the UI thread | Pass | Native log `orbit call #1 on thread=main isMain=true` from a real pan; counters `main 4, other 0`. The JS thread is another thread, so no JS hop. The clear colour hue visibly changed. |
+| 1 | 100 mount/unmount cycles, no crash, no growth | Pass | Report on screen: `PASS 100 cycles: started 100, stopped 100, peak threads 1`; os_log had 202 `render thread start` and 201 `render thread stop` (one view live) after two runs; live views/layers back at baseline after Hermes collection. |
+| 2 | `orbit` from a gesture worklet on the UI thread | Pass | Native log `orbit call #1 on thread=main isMain=true` from a real pan; counters `main 4, other 0`; separate JS thread with no hop; clear-colour hue visibly changed. |
 | 3 | `onReady` from the render thread reaches JS | Pass | Native log `onReady fired on thread=splat.render`; the screen counter showed `onReady calls: 1` on mount and `100` after the stress run. |
 
-Physical iPhone 17 Pro (`xgetphone`): the Debug build signed, built and installed, but launch failed with "device was not, or could not be, unlocked".
+Physical iPhone 17 Pro: the Debug build signed, built and installed, but launch failed with "device was not, or could not be, unlocked".
 The three criteria are therefore not yet verified on the device.
 
 ## Findings the engine work must know

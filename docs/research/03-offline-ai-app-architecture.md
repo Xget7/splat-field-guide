@@ -1,6 +1,9 @@
 # Offline AI training app architecture (research, 2026-09-29)
 
-Legend: every claim has a URL. "(unverified)" means no primary source confirmed it, or it comes from my prior knowledge or a secondary source.
+Status: historical recommendations, 2026-09-29; wrapper/tool, Modal-model and half-duplex proposals are superseded by [ADR 0012](../adr/0012-text-instructor-with-ordered-fallback.md), [0013](../adr/0013-local-pipeline-with-modal-sam.md), [0014](../adr/0014-bare-react-native-with-nitro-packages.md) and [0015](../adr/0015-kokoro-with-vendored-english-frontend.md).
+
+Legend: every claim has a URL.
+"(unverified)" means no primary source confirmed it, or it comes from my prior knowledge or a secondary source.
 Apple developer pages are JS-rendered and several fetches returned only titles, so some Apple claims lean on library docs that restate them.
 
 ## Key findings up front
@@ -23,7 +26,8 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 - Add `minAppSchema` so an old app refuses a pack it cannot parse instead of half-installing it.
 - Per-file entries: `path`, `bytes`, `sha256`; the pack-level `contentHash` is the SHA-256 of the sorted `path:sha256` list, so the pack identity is reproducible.
 - Tiers: a `splatVariants` array (`tier`, `splatCount`, `file`, `sha256`, `bytes`, `minRamMb`); the client picks a tier by device class and can download a second tier later.
-- Parts, descriptions and procedures live in the manifest JSON (small, diffable); `labels.bin` must be tied to a specific splat file by hash, because per-splat labels are invalid if the splat is re-trained or decimated. Each variant therefore carries its own `labels` entry.
+- Parts, descriptions and procedures live in the manifest JSON (small, diffable); `labels.bin` must be tied to a specific splat file by hash, because per-splat labels are invalid if the splat is re-trained or decimated.
+  Each variant therefore carries its own `labels` entry.
 - Sign the manifest server side (Ed25519 detached signature) so a compromised CDN path cannot swap content (unverified as a requirement; design choice).
 - HTTP `ETag` / `If-None-Match` on the manifest URL gives cheap update checks.
 
@@ -46,7 +50,8 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 ### 1.4 Library choice (2026)
 - Foreground path and file ops: `expo-file-system` new object API (`File`, `Directory`, `Paths`) works in bare RN via Expo modules: https://docs.expo.dev/versions/latest/sdk/filesystem/
 - Large background downloads: `react-native-background-downloader` (above).
-- `react-native-blob-util` is still a dependency of `react-native-executorch`, so it is alive: https://github.com/software-mansion/react-native-executorch . I did not fetch its own README (unverified for New Arch details).
+- `react-native-blob-util` is still a dependency of `react-native-executorch`, so it is alive: https://github.com/software-mansion/react-native-executorch .
+  I did not fetch its own README (unverified for New Arch details).
 - Recommendation: `expo-file-system` for IO and hashing glue, `react-native-background-downloader` for the big blobs, one `PackStore` module hiding both.
 
 ### 1.5 Storage locations
@@ -69,23 +74,29 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 - Local SQLite table `outbox(id ULID, type, payload, createdAt, attempts)`; writes to domain state and outbox happen in one transaction.
 - Events are idempotent by `id`; server endpoint dedupes on `id` and returns the highest acked id.
 - Flush on connectivity change and app foreground, exponential backoff, batch of N events per request.
-- Never block the training flow on network. This is the standard transactional outbox pattern (general pattern, no library-specific source).
+- Never block the training flow on network.
+  This is the standard transactional outbox pattern (general pattern, no library-specific source).
 
 ## 2. Domain model and state
 
 ### 2.1 Entities
-- Pack: immutable content bundle (id, version, tier, parts, procedures). Loaded once into memory as read-only indexes.
+- Pack: immutable content bundle (id, version, tier, parts, procedures).
+  Loaded once into memory as read-only indexes.
 - Part: `id`, `name`, `aliases[]` (for voice matching), `description`, `splatLabelId`.
 - Procedure: `id`, `title`, ordered `steps[]`.
 - Step: `id`, `instruction`, `partIds[]` to highlight, `camera` hint, optional `spokenText`, optional `caution`.
-- Session: mutable runtime record (which pack, procedure, current step, selected part, history of events). It is what gets persisted and later synced.
-- Pack content never changes at runtime; only Session changes. That split keeps the interface small.
+- Session: mutable runtime record (which pack, procedure, current step, selected part, history of events).
+  It is what gets persisted and later synced.
+- Pack content never changes at runtime; only Session changes.
+  That split keeps the interface small.
 
 ### 2.2 State machine choice
 - XState v5 is actor-based, TypeScript-first, has React bindings (`@xstate/react`) and a separate lightweight `@xstate/store`: https://stately.ai/docs/xstate
 - The Stately docs note the VS Code extension does not fully support v5 yet (at fetch time): https://stately.ai/docs/xstate
-- The procedure here is small: idle -> running(step i) -> done, plus events NEXT, BACK, REPEAT, GOTO, SELECT_PART, PAUSE. A pure reducer `(state, event) -> state` plus derived effects is enough and is trivially unit-testable.
-- Recommendation: start with a typed reducer; adopt XState v5 only if you add async concerns (timers, confirmations, multi-actor voice turns) inside the machine. This is a judgment call, not a sourced fact.
+- The procedure here is small: idle -> running(step i) -> done, plus events NEXT, BACK, REPEAT, GOTO, SELECT_PART, PAUSE.
+  A pure reducer `(state, event) -> state` plus derived effects is enough and is trivially unit-testable.
+- Recommendation: start with a typed reducer; adopt XState v5 only if you add async concerns (timers, confirmations, multi-actor voice turns) inside the machine.
+  This is a judgment call, not a sourced fact.
 - Either way expose one interface: `dispatch(event)` and `subscribe(selector)`.
 
 ### 2.3 One dispatch path for UI and voice
@@ -99,7 +110,8 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 
 ### 3a. iOS Apple Foundation Models
 - Framework gives direct access to the on-device model behind Apple Intelligence; iOS 27 adds any-provider `LanguageModel` protocol (Apple, Claude, Gemini, others), multimodal prompts, Vision tools, "Dynamic Profiles" (swap models/tools/instructions in a session), and an Evaluations framework: https://developer.apple.com/wwdc26/guides/ios/
-- iOS 27 also offers next-gen Apple Foundation Models on Private Cloud Compute at no API cost for App Store Small Business Program apps under 2M first-time downloads: https://developer.apple.com/wwdc26/guides/ios/ . Not offline, so only a fallback.
+- iOS 27 also offers next-gen Apple Foundation Models on Private Cloud Compute at no API cost for App Store Small Business Program apps under 2M first-time downloads: https://developer.apple.com/wwdc26/guides/ios/ .
+  Not offline, so only a fallback.
 - I found no primary source stating the iOS 27 on-device context size changed; assume 4096 tokens until measured (unverified for iOS 27): https://www.react-native-ai.dev/docs/apple/generating
 - Apple publishes TN3193 for managing the context window and exceeded-context handling: https://developer.apple.com/documentation/technotes/tn3193-managing-the-on-device-foundation-model-s-context-window (body not retrievable in my fetch, so details unverified).
 - Availability enum reasons: `deviceNotEligible`, `appleIntelligenceNotEnabled`, `modelNotReady`: https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel/availability-swift.property
@@ -109,22 +121,29 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 - RN access, Callstack `@react-native-ai/apple`: text generation, embeddings, transcription, speech synthesis; iOS 26+ and Apple Intelligence device for text; requires RN 0.80+ with New Architecture; AI SDK v6 from 0.12+: https://github.com/callstackincubator/ai , https://www.react-native-ai.dev/docs/apple/generating
 - Tool calling caveats: tools pre-registered in `createAppleProvider`, empty tool call IDs, no `maxSteps`/step callbacks: https://www.react-native-ai.dev/docs/apple/generating
 - Structured output supports objects, arrays, enums, min/max constraints; not regex, string formats or unions: https://www.react-native-ai.dev/docs/apple/generating
-- Alternative `react-native-apple-llm` (deveix): availability check, sessions, structured JSON, tools; iOS 26 and Xcode 26: https://github.com/deveix/react-native-apple-llm . I did not verify New Arch support or release cadence (unverified).
-- Maturity call: Callstack's package is the better-documented, New Arch, AI-SDK-native choice; the Apple runtime tool semantics are the main sharp edge. A small custom Swift TurboModule over `LanguageModelSession` is a viable fallback if the wrapper blocks streaming tool results (judgment).
+- Alternative `react-native-apple-llm` (deveix): availability check, sessions, structured JSON, tools; iOS 26 and Xcode 26: https://github.com/deveix/react-native-apple-llm .
+  I did not verify New Arch support or release cadence (unverified).
+- Maturity call: Callstack's package is the better-documented, New Arch, AI-SDK-native choice; the Apple runtime tool semantics are the main sharp edge.
+  A small custom Swift TurboModule over `LanguageModelSession` is a viable fallback if the wrapper blocks streaming tool results (judgment).
 
 ### 3b. Android on Snapdragon 855 (Mi 9, Android 11, no Gemini Nano)
 - Constraint summary: Adreno 640 GPU, Android 11, likely 6 or 8 GB RAM (unverified for the specific unit).
 - MediaPipe LLM Inference: "maintenance-only", migrate to LiteRT-LM; targets "Pixel 8 and Samsung S23 or later"; Gemma-3 1B 4-bit listed; no tok/s published: https://developers.google.com/edge/mediapipe/solutions/genai/llm_inference/android
-- LiteRT-LM: Kotlin API stable, GPU/NPU acceleration, tool use, models Gemma/Llama/Phi-4/Qwen: https://github.com/google-ai-edge/LiteRT-LM . No RN wrapper found (unverified) and no 855 numbers.
+- LiteRT-LM: Kotlin API stable, GPU/NPU acceleration, tool use, models Gemma/Llama/Phi-4/Qwen: https://github.com/google-ai-edge/LiteRT-LM .
+  No RN wrapper found (unverified) and no 855 numbers.
 - `react-native-executorch`: needs RN 0.83+, iOS 17+, Android 13+, so not usable on the Mi 9: https://github.com/software-mansion/react-native-executorch
 - `llama.rn` (llama.cpp binding): New Arch required since v0.10, tool calling via Jinja templates, GBNF/JSON-schema grammar, OpenCL for Adreno 700+ only, Hexagon NPU experimental: https://github.com/mybigday/llama.rn
 - Mi 9 (Adreno 640) is below the OpenCL 700+ line, so expect CPU-only inference (inference from the stated requirement).
 - Callstack also ships `llama` and `mlc` providers for the AI SDK v6 (GGUF via llama.rn; MLC needs download and memory-limit capability): https://github.com/callstackincubator/ai
-- Published tok/s: no primary source for 855. A secondary dataset reports Qwen2.5-1.5B int4 at 16.8 tok/s with llama.cpp, 4 threads, on a Snapdragon 865 (S20 FE): https://huggingface.co/datasets/dispatchAI/on-device-latency (secondary, via search summary).
-- Working estimate for 855: roughly 8 to 12 tok/s for a 1B to 1.5B Q4 model, prefill several times slower than Apple's; this is my extrapolation (unverified). Benchmark on the device before committing.
-- Tool-calling reliability of small models: FunctionGemma 270M reports 58% base and 85% fine-tuned accuracy on Mobile Actions: https://blog.google/technology/developers/functiongemma/ (via search summary). A general 1B model without fine-tuning will be worse than that on multi-arg calls (judgment).
+- Published tok/s: no primary source for 855.
+  A secondary dataset reports Qwen2.5-1.5B int4 at 16.8 tok/s with llama.cpp, 4 threads, on a Snapdragon 865 (S20 FE): https://huggingface.co/datasets/dispatchAI/on-device-latency (secondary, via search summary).
+- Working estimate for 855: roughly 8 to 12 tok/s for a 1B to 1.5B Q4 model, prefill several times slower than Apple's; this is my extrapolation (unverified).
+  Benchmark on the device before committing.
+- Tool-calling reliability of small models: FunctionGemma 270M reports 58% base and 85% fine-tuned accuracy on Mobile Actions: https://blog.google/technology/developers/functiongemma/ (via search summary).
+  A general 1B model without fine-tuning will be worse than that on multi-arg calls (judgment).
 - Mitigation: constrain output with a GBNF grammar (llama.rn) to a closed set of intents and part ids, so failures become "unknown" instead of malformed calls: https://github.com/mybigday/llama.rn
-- Online fallback: a Modal-hosted endpoint serving a larger model; needs network so it is not offline-first, but suits a demo with connectivity. Modal endpoints and cold starts: https://modal.com/docs/guide/webhooks , https://modal.com/docs/guide/cold-start
+- Online fallback: a Modal-hosted endpoint serving a larger model; needs network so it is not offline-first, but suits a demo with connectivity.
+  Modal endpoints and cold starts: https://modal.com/docs/guide/webhooks , https://modal.com/docs/guide/cold-start
 - Recommendation for the Mi 9: deterministic commands + scripted answers from pack descriptions offline; optional llama.rn 1B for free-form Q&A behind a feature flag; remote Modal model when online.
 
 ### 3c. Provider seam
@@ -159,14 +178,17 @@ Apple developer pages are JS-rendered and several fetches returned only titles, 
 - Mi 9 is Android 11 (API 30): only `EXTRA_PREFER_OFFLINE` applies, and it depends on the Google speech engine having an offline pack (unverified on Mi 9).
 - `expo-speech-recognition`: on-device and continuous mode require Android 13+; Android 12 and below use `googlequicksearchbox`: https://raw.githubusercontent.com/jamsch/expo-speech-recognition/main/README.md
 - Consequence: on the Mi 9 expect online-only or unreliable-offline platform STT.
-- Offline options for the Mi 9: a keyword/command spotter or small Whisper/Vosk/sherpa-onnx model (unverified, not researched in depth). `llama.rn` also lists speech features: https://github.com/callstackincubator/ai
+- Offline options for the Mi 9: a keyword/command spotter or small Whisper/Vosk/sherpa-onnx model (unverified, not researched in depth).
+  `llama.rn` also lists speech features: https://github.com/callstackincubator/ai
 - `@react-native-voice/voice` archived 2026-01-31: https://github.com/react-native-voice/voice
-- TTS: Android `TextToSpeech` (platform, offline voices depend on installed engine; unverified for Mi 9). `expo-speech` wraps both platforms (unverified, not fetched).
+- TTS: Android `TextToSpeech` (platform, offline voices depend on installed engine; unverified for Mi 9).
+  `expo-speech` wraps both platforms (unverified, not fetched).
 
 ### 4.3 Hands-free design
 - Listen only while a procedure is active; a visible mic state and a manual push-to-talk fallback.
 - Half-duplex by default: pause recognition while TTS speaks, resume on TTS end, which sidesteps echo without relying on AEC.
-- Barge-in, if wanted: keep the mic open with echo cancellation. On iOS use voice processing (`iosVoiceProcessingEnabled`): https://raw.githubusercontent.com/jamsch/expo-speech-recognition/main/README.md
+- Barge-in, if wanted: keep the mic open with echo cancellation.
+  On iOS use voice processing (`iosVoiceProcessingEnabled`): https://raw.githubusercontent.com/jamsch/expo-speech-recognition/main/README.md
 - On Android use `AcousticEchoCanceler` with a `VOICE_COMMUNICATION` source where `isAvailable()`: https://developer.android.com/reference/android/media/audiofx/AcousticEchoCanceler
 - Barge-in trigger: only a short command vocabulary ("stop", "next", "back") accepted while TTS is speaking; everything else waits.
 - Keep TTS utterances short (one step, under about 25 words) so half-duplex gaps stay small.
@@ -264,7 +286,8 @@ interface InstructorContext { session: Session; pack: Pack; tools: InstructorToo
 ```
 - Order at runtime: `CommandRouter` -> chosen `Instructor` -> `ScriptedInstructor` on any error.
 - Adapters: `apple` (`@react-native-ai/apple` + AI SDK, tools pre-registered), `llama` (llama.rn, grammar-constrained, Android only, flag-gated), `remote` (Modal endpoint, online only), `scripted` (answers from `short`/`long` fields by part match).
-- Ranked selection: iOS: apple -> remote -> scripted. Android: llama (if benchmarked OK) -> remote -> scripted.
+- Ranked selection: iOS: apple -> remote -> scripted.
+  Android: llama (if benchmarked OK) -> remote -> scripted.
 
 ### R4. Voice pipeline
 - iOS: `expo-speech-recognition` on-device, continuous, contextual strings from part aliases -> CommandRouter -> Instructor -> `AVSpeechSynthesizer`; evaluate a native `SpeechAnalyzer` module when streaming quality matters.
