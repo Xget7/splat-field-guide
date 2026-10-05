@@ -15,10 +15,10 @@ test('preparation reuses only a current artifact and force rebuilds it', () => {
     fs.mkdirSync(scripts);
     fs.mkdirSync(bin);
     for (const name of fs.readdirSync(path.join(root, 'scripts'))) {
-      fs.copyFileSync(
-        path.join(root, 'scripts', name),
-        path.join(scripts, name),
-      );
+      const source = path.join(root, 'scripts', name);
+      if (fs.statSync(source).isFile()) {
+        fs.copyFileSync(source, path.join(scripts, name));
+      }
     }
     fs.mkdirSync(path.join(fixture, 'engine'));
     const source = path.join(fixture, 'engine/source.cpp');

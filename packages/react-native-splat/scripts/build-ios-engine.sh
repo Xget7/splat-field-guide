@@ -12,12 +12,13 @@ set -euo pipefail
 
 package="$(cd "$(dirname "$0")/.." && pwd)"
 force=false
+usage="Usage: build-ios-engine.sh [--force]"
 case "${1:-}" in
   "") ;;
   --force) force=true ;;
-  *) echo "Usage: build-ios-engine.sh [--force]" >&2; exit 2 ;;
+  *) echo "$usage" >&2; exit 2 ;;
 esac
-[[ $# -le 1 ]] || { echo "Usage: build-ios-engine.sh [--force]" >&2; exit 2; }
+[[ $# -le 1 ]] || { echo "$usage" >&2; exit 2; }
 identity="$package/scripts/engine-artifact.rb"
 if ! $force && ruby "$identity" --verify 2>/dev/null; then
   echo "Engine framework is current"
