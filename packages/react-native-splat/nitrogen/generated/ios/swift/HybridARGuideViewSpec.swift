@@ -12,6 +12,7 @@ public protocol HybridARGuideViewSpec_protocol: HybridObject, HybridView {
   // Properties
   var referencePath: String { get set }
   var landmarksPath: String { get set }
+  var torchEnabled: Bool { get set }
   var onTrackingStateChanged: (_ eventJson: String) -> Void { get set }
 
   // Methods

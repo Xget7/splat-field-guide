@@ -1,20 +1,20 @@
-import React from 'react';
-import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Linking } from 'react-native';
-import { catalogFor } from '../../../../apps/field-guide/src/modules/catalog/catalog';
-import { CatalogProvider } from '../../../../apps/field-guide/src/modules/catalog/CatalogContext';
+import React from "react";
+import ReactTestRenderer, { act } from "react-test-renderer";
+import { Linking } from "react-native";
+import { catalogFor } from "../../../../apps/field-guide/src/modules/catalog/catalog";
+import { CatalogProvider } from "../../../../apps/field-guide/src/modules/catalog/CatalogContext";
 import {
   Route,
   type ScreenProps,
-} from '../../../../apps/field-guide/src/shared/navigation/routes';
-import { bundledPack } from '../../../../apps/field-guide/src/modules/packs/bundledPack';
-import { ARScreen } from '../../../../apps/field-guide/src/features/ar/screens/ARScreen';
+} from "../../../../apps/field-guide/src/shared/navigation/routes";
+import { bundledPack } from "../../../../apps/field-guide/src/modules/packs/bundledPack";
+import { ARScreen } from "../../../../apps/field-guide/src/features/ar/screens/ARScreen";
 
-jest.mock('react-native-splat', () => ({ ARGuideView: 'ARGuideView' }));
-jest.mock('react-native-nitro-modules', () => ({
+jest.mock("react-native-splat", () => ({ ARGuideView: "ARGuideView" }));
+jest.mock("react-native-nitro-modules", () => ({
   callback: (fn: unknown) => fn,
 }));
-jest.mock('react-native-safe-area-context', () => ({
+jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 20, bottom: 34, left: 0, right: 0 }),
 }));
 
@@ -22,16 +22,26 @@ if (!bundledPack.ok) {
   throw new Error(bundledPack.error.message);
 }
 const catalog = catalogFor(bundledPack.pack);
+const liveSample = {
+  sampleTimestamp: 100,
+  cameraTracking: "normal",
+  cameraFramesPerSecond: 60,
+  objectAnchors: 0,
+  trackedObjectAnchors: 0,
+  allObjectAnchors: 0,
+  sessionSeconds: 12,
+  pinsEnabled: false,
+};
 
-describe('AR alignment screen', () => {
+describe("AR alignment screen", () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const goBack = jest.fn();
   const node = (testID: string) => renderer.root.findByProps({ testID });
   const native = () =>
-    renderer.root.findByType('ARGuideView' as React.ElementType);
+    renderer.root.findByType("ARGuideView" as React.ElementType);
   const event = async (state: string, message: string) => {
     await act(() =>
-      native().props.onTrackingStateChanged(JSON.stringify({ state, message })),
+      native().props.onTrackingStateChanged(JSON.stringify({ state, message }))
     );
   };
 
@@ -40,16 +50,16 @@ describe('AR alignment screen', () => {
     const props = {
       navigation: { goBack },
       route: {
-        key: 'ar-test',
+        key: "ar-test",
         name: Route.ar,
-        params: { guideId: 'gol-trend-engine-bay' },
+        params: { guideId: "gol-trend-engine-bay" },
       },
     } as unknown as ScreenProps<typeof Route.ar>;
     await act(() => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={catalog}>
           <ARScreen {...props} />
-        </CatalogProvider>,
+        </CatalogProvider>
       );
     });
   });
@@ -59,39 +69,217 @@ describe('AR alignment screen', () => {
     jest.restoreAllMocks();
   });
 
-  test('uses local assets and reflects recognition loss without claiming a match', async () => {
+  test("uses local assets and reflects recognition loss without claiming a match", async () => {
     expect(native().props.referencePath).toBe(
-      'ar/gol-trend-engine-bay/engine-bay.referenceobject',
+      "ar/gol-trend-engine-bay/engine-bay.referenceobject"
     );
-    await event('searching', 'Point at the engine.');
-    expect(node('ar-status').props.children).toBe('Looking for your engine');
-    await event('tracking', 'Check the four points.');
-    expect(node('ar-status').props.children).toBe('Engine located');
-    await event('limited', 'Bring the engine back into view.');
-    expect(node('ar-status').props.children).toBe(
-      'Move slowly to find the engine',
+    await event("searching", "Point at the engine.");
+    expect(node("ar-status").props.children).toBe("Looking for your engine");
+    await event("tracking", "Check the four points.");
+    expect(node("ar-status").props.children).toBe("Engine located");
+    await event("limited", "Bring the engine back into view.");
+    expect(node("ar-status").props.children).toBe(
+      "Move slowly to find the engine"
     );
-    expect(node('ar-message').props.children).toBe(
-      'Bring the engine back into view.',
+    expect(node("ar-message").props.children).toBe(
+      "Bring the engine back into view."
     );
   });
 
-  test('ignores malformed events and unknown states', async () => {
-    await event('searching', 'Point at the engine.');
-    await act(() => native().props.onTrackingStateChanged('{invalid'));
-    await event('constructor', 'A false status');
-    expect(node('ar-status').props.children).toBe('Looking for your engine');
-    expect(node('ar-message').props.children).toBe('Point at the engine.');
+  test("ignores malformed events and unknown states", async () => {
+    await event("searching", "Point at the engine.");
+    await act(() => native().props.onTrackingStateChanged("{invalid"));
+    await event("constructor", "A false status");
+    expect(node("ar-status").props.children).toBe("Looking for your engine");
+    expect(node("ar-message").props.children).toBe("Point at the engine.");
   });
 
-  test('offers camera settings after denial and a way back', async () => {
+  test("offers camera settings after denial and a way back", async () => {
     const openSettings = jest
-      .spyOn(Linking, 'openSettings')
+      .spyOn(Linking, "openSettings")
       .mockResolvedValue();
-    await event('permission-denied', 'Enable the camera in Settings.');
-    await act(() => node('ar-settings').props.onPress());
+    await event("permission-denied", "Enable the camera in Settings.");
+    await act(() => node("ar-settings").props.onPress());
     expect(openSettings).toHaveBeenCalledTimes(1);
-    await act(() => node('ar-back').props.onPress());
+    await act(() => node("ar-back").props.onPress());
     expect(goBack).toHaveBeenCalledTimes(1);
+  });
+
+  test("changes the light without replacing the camera and reports actual hardware state", async () => {
+    expect(node("ar-flash").props.disabled).toBe(true);
+    const camera = native();
+    const receive = camera.props.onTrackingStateChanged;
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "searching",
+          message: "Point at the engine.",
+          torchAvailable: true,
+          torchEnabled: false,
+        })
+      )
+    );
+    expect(node("ar-flash").props.disabled).toBe(false);
+    await act(() => node("ar-flash").props.onPress());
+    expect(native()).toBe(camera);
+    expect(native().props.onTrackingStateChanged).toBe(receive);
+    expect(native().props.torchEnabled).toBe(true);
+    // A request alone must not make the UI claim the hardware light is on.
+    expect(node("ar-flash").props.accessibilityState.selected).toBe(false);
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "searching",
+          message: "Point at the engine.",
+          torchAvailable: true,
+          torchEnabled: true,
+        })
+      )
+    );
+    expect(node("ar-flash").props.accessibilityState.selected).toBe(true);
+    expect(node("ar-status").props.children).toBe("Looking for your engine");
+    await act(() => node("ar-flash").props.onPress());
+    expect(native().props.torchEnabled).toBe(false);
+  });
+
+  test("shows a light failure without claiming a recognition failure and resets it on retry", async () => {
+    await act(() =>
+      native().props.onTrackingStateChanged(
+        JSON.stringify({
+          state: "limited",
+          message: "Move slowly.",
+          torchAvailable: true,
+          torchEnabled: false,
+          torchError: "Flash could not be changed.",
+        })
+      )
+    );
+    await act(() => node("ar-flash").props.onPress());
+    expect(node("ar-flash-error").props.children).toBe(
+      "Flash could not be changed."
+    );
+    expect(node("ar-status").props.children).toBe(
+      "Move slowly to find the engine"
+    );
+    await act(() => node("ar-retry").props.onPress());
+    expect(native().props.torchEnabled).toBe(false);
+    expect(node("ar-flash").props.disabled).toBe(true);
+    expect(
+      renderer.root.findAllByProps({ testID: "ar-flash-error" })
+    ).toHaveLength(0);
+  });
+
+  test("updates live readouts while searching without replacing or restarting the camera", async () => {
+    const camera = native();
+    const receive = camera.props.onTrackingStateChanged;
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "searching",
+          message: "Point at the engine.",
+          referenceLoaded: true,
+          telemetry: liveSample,
+        })
+      )
+    );
+    expect(node("ar-reference-state").props.children).toBe("Loaded");
+    expect(node("ar-camera-state").props.children).toBe("Stable · 60 FPS");
+    expect(node("ar-engine-state").props.children).toBe("0 found / 0 tracked");
+    expect(node("ar-elapsed").props.children).toBe("00:12");
+    // The state and message are unchanged; fresh frame metadata must still reach the HUD.
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "searching",
+          message: "Point at the engine.",
+          referenceLoaded: true,
+          telemetry: {
+            ...liveSample,
+            sampleTimestamp: 101,
+            sessionSeconds: 13,
+            cameraFramesPerSecond: 59,
+          },
+        })
+      )
+    );
+    expect(node("ar-elapsed").props.children).toBe("00:13");
+    expect(node("ar-camera-state").props.children).toBe("Stable · 59 FPS");
+    expect(native()).toBe(camera);
+    expect(native().props.onTrackingStateChanged).toBe(receive);
+  });
+
+  test("shows recognition, loss and pause without keeping stale camera measurements", async () => {
+    const receive = native().props.onTrackingStateChanged;
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "tracking",
+          message: "Check the four points.",
+          referenceLoaded: true,
+          telemetry: {
+            ...liveSample,
+            objectAnchors: 1,
+            trackedObjectAnchors: 1,
+            allObjectAnchors: 1,
+            pinsEnabled: true,
+          },
+        })
+      )
+    );
+    expect(node("ar-engine-state").props.children).toBe("1 found / 1 tracked");
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "limited",
+          message: "Move slowly.",
+          referenceLoaded: true,
+          telemetry: {
+            ...liveSample,
+            sampleTimestamp: 101,
+            cameraTracking: "limited:excessiveMotion",
+            objectAnchors: 1,
+            allObjectAnchors: 1,
+          },
+        })
+      )
+    );
+    expect(node("ar-engine-state").props.children).toBe("1 found / 0 tracked");
+    expect(node("ar-camera-state").props.children).toBe("Move slowly · 60 FPS");
+    await act(() =>
+      receive(
+        JSON.stringify({
+          state: "paused",
+          message: "AR paused.",
+          referenceLoaded: true,
+        })
+      )
+    );
+    expect(node("ar-camera-state").props.children).toBe("Paused");
+    expect(renderer.root.findAllByProps({ testID: "ar-elapsed" })).toHaveLength(
+      0
+    );
+  });
+
+  test("does not invent measurements from missing or malformed telemetry", async () => {
+    expect(node("ar-camera-state").props.children).toBe("Waiting");
+    await act(() =>
+      native().props.onTrackingStateChanged(
+        JSON.stringify({
+          state: "searching",
+          message: "Point at the engine.",
+          referenceLoaded: true,
+          telemetry: {
+            ...liveSample,
+            trackedObjectAnchors: 1,
+            objectAnchors: 0,
+          },
+        })
+      )
+    );
+    expect(node("ar-engine-state").props.children).toBe("Waiting for camera");
+    expect(renderer.root.findAllByProps({ testID: "ar-elapsed" })).toHaveLength(
+      0
+    );
+    expect(node("ar-status").props.children).toBe("Looking for your engine");
   });
 });

@@ -18,6 +18,8 @@ namespace margelo::nitro::splat {
       prototype.registerHybridSetter("referencePath", &HybridARGuideViewSpec::setReferencePath);
       prototype.registerHybridGetter("landmarksPath", &HybridARGuideViewSpec::getLandmarksPath);
       prototype.registerHybridSetter("landmarksPath", &HybridARGuideViewSpec::setLandmarksPath);
+      prototype.registerHybridGetter("torchEnabled", &HybridARGuideViewSpec::getTorchEnabled);
+      prototype.registerHybridSetter("torchEnabled", &HybridARGuideViewSpec::setTorchEnabled);
       prototype.registerHybridGetter("onTrackingStateChanged", &HybridARGuideViewSpec::getOnTrackingStateChanged);
       prototype.registerHybridSetter("onTrackingStateChanged", &HybridARGuideViewSpec::setOnTrackingStateChanged);
     });

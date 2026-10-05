@@ -1,33 +1,24 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
 import { ARGuideView } from 'react-native-splat';
-import landmarks from '../../../../assets/ar/landmarks.json';
 import { findReadyGuide } from '../../../modules/catalog/catalog';
 import { useCatalog } from '../../../modules/catalog/CatalogContext';
 import { Route, type ScreenProps } from '../../../shared/navigation/routes';
 import {
   Button,
-  ButtonVariant,
   IconButton,
   IconButtonVariant,
 } from '../../../shared/ui/kit/Button';
 import { IconName } from '../../../shared/ui/kit/Icon';
-import { Label } from '../../../shared/ui/kit/Label';
 import { Color, Radius, Space, Type } from '../../../shared/ui/theme';
 
 import {
+  CAMERA_STATUS,
+  elapsedTime,
   INITIAL_EVENT,
   parseEvent,
-  pinColor,
   STATUS,
   type TrackingEvent,
 } from '../model/tracking';
@@ -39,11 +30,18 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
   const insets = useSafeAreaInsets();
   const [event, setEvent] = useState<TrackingEvent>(INITIAL_EVENT);
   const [attempt, setAttempt] = useState(0);
+  const [torchRequested, setTorchRequested] = useState(false);
   const receive = useCallback((json: string) => {
     const next = parseEvent(json);
     if (next !== null) {
       setEvent(current =>
-        current.state === next.state && current.message === next.message
+        current.state === next.state &&
+        current.message === next.message &&
+        current.torchAvailable === next.torchAvailable &&
+        current.torchEnabled === next.torchEnabled &&
+        current.torchError === next.torchError &&
+        current.referenceLoaded === next.referenceLoaded &&
+        current.telemetry?.sampleTimestamp === next.telemetry?.sampleTimestamp
           ? current
           : next,
       );
@@ -52,6 +50,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
   const trackingCallback = useMemo(() => callback(receive), [receive]);
   const retry = () => {
     setEvent(INITIAL_EVENT);
+    setTorchRequested(false);
     setAttempt(current => current + 1);
   };
   const supportedPlatform = Platform.OS === 'ios';
@@ -62,6 +61,14 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
     : !supportedPlatform
     ? 'Use an iPhone with iOS 27 or later for this check.'
     : event.message;
+  const live = event.telemetry;
+  const cameraStatus = live
+    ? CAMERA_STATUS[live.cameraTracking]
+    : state === 'paused'
+    ? 'Paused'
+    : ['unsupported', 'permission-denied', 'error'].includes(state)
+    ? 'Not running'
+    : 'Waiting';
 
   return (
     <View testID="ar-screen" style={styles.root}>
@@ -72,6 +79,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
           style={StyleSheet.absoluteFill}
           referencePath={`${AR_RESOURCE_BASE}engine-bay.referenceobject`}
           landmarksPath={`${AR_RESOURCE_BASE}landmarks.json`}
+          torchEnabled={torchRequested}
           onTrackingStateChanged={trackingCallback}
         />
       )}
@@ -87,16 +95,34 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
           onPress={() => navigation.goBack()}
         />
         <View style={styles.heading}>
-          <Label color={Color.accent}>AR alignment check</Label>
-          <Text style={styles.title}>
+          <Text style={styles.mode}>AR / ENGINE ALIGNMENT</Text>
+          <Text style={styles.title} numberOfLines={1}>
             {guide?.title ?? 'Guide unavailable'}
           </Text>
         </View>
+        <IconButton
+          testID="ar-flash"
+          icon={IconName.flash}
+          variant={
+            event.torchEnabled
+              ? IconButtonVariant.active
+              : IconButtonVariant.overlay
+          }
+          accessibilityLabel={
+            event.torchEnabled ? 'Turn flash off' : 'Turn flash on'
+          }
+          accessibilityState={{
+            disabled: !event.torchAvailable,
+            selected: !!event.torchEnabled,
+          }}
+          disabled={!event.torchAvailable}
+          onPress={() => setTorchRequested(current => !current)}
+        />
       </View>
       <View
         style={[styles.bottom, { paddingBottom: insets.bottom + Space.md }]}
       >
-        <ScrollView contentContainerStyle={styles.panel}>
+        <View style={styles.panel}>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -114,32 +140,66 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
             >
               {readyGuide ? STATUS[state] : 'AR reference unavailable'}
             </Text>
+            {live && (
+              <Text testID="ar-elapsed" style={styles.elapsed}>
+                {elapsedTime(live.sessionSeconds)}
+              </Text>
+            )}
+            {supportedPlatform &&
+              readyGuide &&
+              ['error', 'limited'].includes(state) && (
+                <IconButton
+                  testID="ar-retry"
+                  icon={IconName.repeat}
+                  variant={IconButtonVariant.overlay}
+                  accessibilityLabel="Find the engine again"
+                  onPress={retry}
+                />
+              )}
           </View>
           <Text testID="ar-message" style={styles.message}>
             {message}
           </Text>
-          {readyGuide && (
-            <>
-              <View style={styles.legend}>
-                {landmarks.landmarks.map((landmark, index) => (
-                  <View key={landmark.id} style={styles.legendRow}>
-                    <View
-                      style={[
-                        styles.pin,
-                        { backgroundColor: pinColor(landmark.color) },
-                      ]}
-                    />
-                    <Text style={styles.legendText}>
-                      {`${index + 1}. ${landmark.label}`}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={styles.hint}>
-                Move around the engine. Each marker should stay on its matching
-                feature.
+          <View style={styles.readouts}>
+            <View style={styles.readoutRow}>
+              <Text style={styles.readoutLabel}>REFERENCE</Text>
+              <Text testID="ar-reference-state" style={styles.readoutValue}>
+                {event.referenceLoaded === true
+                  ? 'Loaded'
+                  : event.referenceLoaded === false
+                  ? 'Not loaded'
+                  : 'Waiting'}
               </Text>
-            </>
+            </View>
+            <View style={styles.readoutRow}>
+              <Text style={styles.readoutLabel}>CAMERA</Text>
+              <Text testID="ar-camera-state" style={styles.readoutValue}>
+                {live
+                  ? `${cameraStatus} · ${Math.round(
+                      live.cameraFramesPerSecond,
+                    )} FPS`
+                  : cameraStatus}
+              </Text>
+            </View>
+            <View style={styles.readoutRow}>
+              <Text style={styles.readoutLabel}>ENGINE</Text>
+              <Text testID="ar-engine-state" style={styles.readoutValue}>
+                {live
+                  ? `${live.objectAnchors} found / ${live.trackedObjectAnchors} tracked`
+                  : 'Waiting for camera'}
+              </Text>
+            </View>
+            {live && live.allObjectAnchors > live.objectAnchors && (
+              <Text testID="ar-other-objects" style={styles.flashError}>
+                ARKit objects: {live.allObjectAnchors}; engine matches:{' '}
+                {live.objectAnchors}
+              </Text>
+            )}
+          </View>
+          {event.torchError && (
+            <Text testID="ar-flash-error" style={styles.flashError}>
+              {event.torchError}
+            </Text>
           )}
           {state === 'permission-denied' && (
             <Button
@@ -156,17 +216,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
               }}
             />
           )}
-          {supportedPlatform &&
-            readyGuide &&
-            ['error', 'limited'].includes(state) && (
-              <Button
-                testID="ar-retry"
-                label="Find the engine again"
-                variant={ButtonVariant.secondary}
-                onPress={retry}
-              />
-            )}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -174,37 +224,50 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
-  top: { paddingHorizontal: Space.lg, gap: Space.lg },
+  top: {
+    paddingHorizontal: Space.lg,
+    gap: Space.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   heading: {
     gap: Space.xs,
-    alignSelf: 'flex-start',
+    flex: 1,
     backgroundColor: Color.overlay,
-    padding: Space.md,
-    borderRadius: Radius.md,
+    paddingHorizontal: Space.sm,
+    paddingVertical: Space.sm,
+    borderRadius: Radius.sm,
   },
-  title: { ...Type.headline, color: Color.text },
+  mode: { ...Type.data, fontSize: 10, color: Color.muted, letterSpacing: 0.6 },
+  title: { ...Type.data, color: Color.text },
   bottom: {
     position: 'absolute',
     left: Space.lg,
     right: Space.lg,
     bottom: 0,
-    maxHeight: '55%',
   },
   panel: {
-    gap: Space.md,
-    padding: Space.lg,
+    gap: Space.xs,
+    padding: Space.md,
     backgroundColor: Color.overlay,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Color.lineStrong,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  status: { ...Type.headline, flex: 1, color: Color.text },
-  message: { ...Type.callout, color: Color.secondaryText },
-  legend: { gap: Space.sm },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  pin: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { ...Type.footnote, flex: 1, color: Color.text },
-  hint: { ...Type.footnote, color: Color.muted },
+  statusDot: { width: 4, height: 12 },
+  status: { ...Type.data, flex: 1, color: Color.text },
+  message: { ...Type.footnote, color: Color.secondaryText },
+  flashError: { ...Type.footnote, color: Color.caution },
+  elapsed: { ...Type.data, color: Color.muted, fontVariant: ['tabular-nums'] },
+  readouts: {
+    marginTop: Space.sm,
+    paddingTop: Space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Color.lineStrong,
+    gap: Space.xs,
+  },
+  readoutRow: { flexDirection: 'row', alignItems: 'baseline', gap: Space.sm },
+  readoutLabel: { ...Type.data, color: Color.muted, fontSize: 10, width: 76 },
+  readoutValue: { ...Type.data, color: Color.secondaryText, flex: 1 },
 });

@@ -110,6 +110,12 @@ using namespace margelo::nitro::splat::views;
           : !newViewProps.landmarksPath.hasSameValue(oldViewProps->landmarksPath)) {
       swiftPart.setLandmarksPath(newViewProps.landmarksPath.get());
     }
+    // torchEnabled: boolean
+    if (oldViewProps == nullptr
+          ? newViewProps.torchEnabled.isProvided()
+          : !newViewProps.torchEnabled.hasSameValue(oldViewProps->torchEnabled)) {
+      swiftPart.setTorchEnabled(newViewProps.torchEnabled.get());
+    }
     // onTrackingStateChanged: function
     if (oldViewProps == nullptr
           ? newViewProps.onTrackingStateChanged.isProvided()

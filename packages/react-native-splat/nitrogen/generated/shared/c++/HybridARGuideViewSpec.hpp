@@ -49,6 +49,8 @@ namespace margelo::nitro::splat {
       virtual void setReferencePath(const std::string& referencePath) = 0;
       virtual std::string getLandmarksPath() = 0;
       virtual void setLandmarksPath(const std::string& landmarksPath) = 0;
+      virtual bool getTorchEnabled() = 0;
+      virtual void setTorchEnabled(bool torchEnabled) = 0;
       virtual std::function<void(const std::string& /* eventJson */)> getOnTrackingStateChanged() = 0;
       virtual void setOnTrackingStateChanged(const std::function<void(const std::string& /* eventJson */)>& onTrackingStateChanged) = 0;
 

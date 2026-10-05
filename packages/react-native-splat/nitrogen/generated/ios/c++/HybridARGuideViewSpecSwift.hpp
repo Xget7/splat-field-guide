@@ -77,6 +77,12 @@ namespace margelo::nitro::splat {
     inline void setLandmarksPath(const std::string& landmarksPath) noexcept override {
       _swiftPart.setLandmarksPath(landmarksPath);
     }
+    inline bool getTorchEnabled() noexcept override {
+      return _swiftPart.getTorchEnabled();
+    }
+    inline void setTorchEnabled(bool torchEnabled) noexcept override {
+      _swiftPart.setTorchEnabled(std::forward<decltype(torchEnabled)>(torchEnabled));
+    }
     inline std::function<void(const std::string& /* eventJson */)> getOnTrackingStateChanged() noexcept override {
       auto __result = _swiftPart.getOnTrackingStateChanged();
       return __result;

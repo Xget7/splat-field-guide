@@ -24,6 +24,7 @@ export const IconName = {
   stop: 'stop',
   explore: 'explore',
   frame: 'frame',
+  flash: 'flash',
 } as const;
 export type IconName = (typeof IconName)[keyof typeof IconName];
 
@@ -92,6 +93,7 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
   frame: () => (
     <Path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" />
   ),
+  flash: () => <Path d="M13.5 2.5L5 13h6l-.5 8.5L19 11h-6z" />,
   stop: color => (
     <Rect
       x={6}

@@ -9,7 +9,9 @@ export interface ARGuideViewProps extends HybridViewProps {
   referencePath: string;
   /** Local JSON with referenceFromPack and four landmarks in the pack's coordinates. */
   landmarksPath: string;
-  /** JSON {state,message}, optionally including referenceCenter/Extent/Scale diagnostics. */
+  /** Continuous rear-camera light. Changing this does not restart recognition. */
+  torchEnabled: boolean;
+  /** JSON state/message, torch status, referenceLoaded and on-device telemetry sampled at 1 Hz. */
   onTrackingStateChanged: (eventJson: string) => void;
 }
 

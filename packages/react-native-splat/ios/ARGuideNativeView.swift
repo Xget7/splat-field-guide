@@ -60,12 +60,28 @@ private struct ARGuideAssets {
   let referenceFromPack: simd_float4x4
 }
 
+private struct ARGuideTelemetry: Encodable {
+  let sampleTimestamp: TimeInterval
+  let cameraTracking: String
+  let cameraFramesPerSecond: Double
+  let objectAnchors: Int
+  let trackedObjectAnchors: Int
+  let allObjectAnchors: Int
+  let sessionSeconds: TimeInterval
+  let pinsEnabled: Bool
+}
+
 private struct ARGuideStateEvent: Encodable {
   let state: String
   let message: String
   let referenceCenter: [Float]?
   let referenceExtent: [Float]?
   let referenceScale: [Float]?
+  let torchAvailable: Bool
+  let torchEnabled: Bool
+  let torchError: String?
+  let referenceLoaded: Bool
+  let telemetry: ARGuideTelemetry?
 }
 
 /// Owns a single AR session. All state, UIKit and delegate work stays on the main queue.
@@ -87,10 +103,25 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
   private var anchorEntity: AnchorEntity?
   private var eventHandler: (String) -> Void = { _ in }
   private var lastEvent: String?
+  private var currentState = "loading"
+  private var currentMessage = "Preparing camera."
+  private var torchRequested = false
+  private var captureDevice: AVCaptureDevice?
+  private var torchObservers: [NSKeyValueObservation] = []
+  private var torchError: String?
+  // Opt-in diagnostics stream metadata only, never camera images or audio.
+  private let diagnosticsEnabled =
+    ProcessInfo.processInfo.environment["FIELD_GUIDE_AR_DIAGNOSTICS"] == "1"
+  private var diagnosticSessionStart: TimeInterval?
+  private var diagnosticWindowStart: TimeInterval?
+  private var diagnosticFrameCount = 0
+  private var diagnosticFirstDetection: TimeInterval?
+  private var telemetry: ARGuideTelemetry?
 
   override init(frame: CGRect) {
     super.init(frame: frame)
     backgroundColor = .black
+    trace("ready", ["samplingHz": 1, "modelConfidenceAvailable": false])
     let center = NotificationCenter.default
     observers = [
       center.addObserver(
@@ -127,7 +158,7 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     if let lastEvent { handler(lastEvent) }
   }
 
-  func configure(referencePath: String, landmarksPath: String) {
+  func configure(referencePath: String, landmarksPath: String, torchEnabled: Bool) {
     guard !dropped else { return }
     if self.referencePath != referencePath || self.landmarksPath != landmarksPath {
       pause()
@@ -140,11 +171,16 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
       self.referencePath = referencePath
       self.landmarksPath = landmarksPath
     }
+    if torchRequested != torchEnabled {
+      torchRequested = torchEnabled
+      torchError = nil
+    }
     reconcile()
   }
 
   func shutdown() {
     guard !dropped else { return }
+    trace("closed")
     dropped = true
     loadGeneration += 1
     pause()
@@ -153,6 +189,8 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     arView?.removeFromSuperview()
     arView = nil
     assets = nil
+    torchObservers.removeAll()
+    captureDevice = nil
     observers.forEach(NotificationCenter.default.removeObserver)
     observers.removeAll()
     eventHandler = { _ in }
@@ -231,6 +269,7 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
         case .success(let assets): self.assets = assets
         case .failure(let error):
           NSLog("ARGuideView: asset loading failed: %@", String(describing: error))
+          self.trace("error", ["operation": "load", "detail": String(describing: error)])
           self.loadFailure = (error as? ARGuideAssetError)?.errorDescription
             ?? "The engine guide files could not be loaded."
         }
@@ -269,7 +308,11 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
   }
 
   private func start(using assets: ARGuideAssets) {
-    guard !running else { return }
+    guard !running else {
+      applyTorch()
+      emit(currentState, currentMessage)
+      return
+    }
     let view: ARView
     if let arView {
       view = arView
@@ -282,18 +325,68 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     clearAnchor()
     let config = ARWorldTrackingConfiguration()
     config.detectionObjects = [assets.reference]
+    torchObservers.removeAll()
+    captureDevice = AVCaptureDevice.default(
+      config.videoFormat.captureDeviceType, for: .video,
+      position: config.videoFormat.captureDevicePosition)
+    if let device = captureDevice {
+      torchObservers = [
+        device.observe(\.isTorchAvailable, options: [.new]) { [weak self] _, _ in
+          DispatchQueue.main.async {
+            self?.applyTorch()
+            self?.publishTorch()
+          }
+        },
+        device.observe(\.isTorchActive, options: [.new]) { [weak self] _, _ in
+          DispatchQueue.main.async { self?.publishTorch() }
+        },
+      ]
+    }
     view.session.delegate = self
     view.session.delegateQueue = .main
     interrupted = false
     running = true
+    diagnosticSessionStart = CACurrentMediaTime()
+    diagnosticWindowStart = nil
+    diagnosticFrameCount = 0
+    diagnosticFirstDetection = nil
+    telemetry = nil
     view.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+    applyTorch()
+    trace("sessionStarted", ["detectionReferences": config.detectionObjects.count,
+      "referenceName": assets.reference.name ?? "", "recognitionMode": "detectionObjects"])
     emit("searching", "Point at the engine and move the phone slowly to recognize it.")
   }
 
   private func pause() {
-    arView?.session.pause()
+    if running { trace("paused") }
     running = false
+    telemetry = nil
+    applyTorch()
+    arView?.session.pause()
     anchorEntity?.isEnabled = false
+  }
+
+  private func applyTorch() {
+    guard let device = captureDevice, device.hasTorch else { return }
+    let turnOn = running && !interrupted && torchRequested && device.isTorchAvailable
+    let mode: AVCaptureDevice.TorchMode = turnOn ? .on : .off
+    guard device.isTorchModeSupported(mode), device.torchMode != mode else { return }
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+      if turnOn { try device.setTorchModeOn(level: 0.5) }
+      else { device.torchMode = .off }
+      torchError = nil
+    } catch {
+      torchError = "The flash could not be changed. Try again."
+      trace("torchError", ["detail": error.localizedDescription])
+    }
+  }
+
+  private func publishTorch() {
+    guard !dropped else { return }
+    emit(currentState, currentMessage)
   }
 
   private func clearAnchor() {
@@ -307,6 +400,9 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     guard running, !interrupted, let assets, let arView else { return }
     guard anchor.referenceObject.name == assets.reference.name else { return }
     if anchorID == nil {
+      if diagnosticFirstDetection == nil, let diagnosticSessionStart {
+        diagnosticFirstDetection = CACurrentMediaTime() - diagnosticSessionStart
+      }
       let root = AnchorEntity(anchor: anchor)
       let pack = Entity()
       pack.transform = Transform(matrix: assets.referenceFromPack)
@@ -341,6 +437,9 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
   func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
     guard running, #available(iOS 27.0, *) else { return }
     for case let anchor as ARObjectAnchor in anchors {
+      trace("objectAnchorAdded", ["referenceName": anchor.referenceObject.name ?? "",
+        "matchesReference": anchor.referenceObject.name == assets?.reference.name,
+        "isTracked": anchor.isTracked])
       update(anchor, camera: session.currentFrame?.camera)
     }
   }
@@ -369,6 +468,7 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
       anchorEntity?.isEnabled = false
       emit("limited", "AR tracking is temporarily unavailable.")
     }
+    sample(frame)
   }
 
   func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
@@ -380,6 +480,8 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
   func sessionWasInterrupted(_ session: ARSession) {
     guard running else { return }
     interrupted = true
+    telemetry = nil
+    applyTorch()
     anchorEntity?.isEnabled = false
     emit("limited", "AR tracking was interrupted.")
   }
@@ -393,12 +495,15 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     guard running else { return }
     pause()
     NSLog("ARGuideView: session failed: %@", error.localizedDescription)
+    trace("error", ["operation": "session", "detail": error.localizedDescription])
     let message = "AR tracking could not continue. Reopen the guide to try again."
     loadFailure = message
     emit("error", message)
   }
 
   private func emit(_ state: String, _ message: String) {
+    currentState = state
+    currentMessage = message
     let reference = assets?.reference
     func vector(_ value: SIMD3<Float>?) -> [Float]? {
       guard let value, value.x.isFinite, value.y.isFinite, value.z.isFinite else { return nil }
@@ -406,12 +511,96 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
     }
     let event = ARGuideStateEvent(
       state: state, message: message, referenceCenter: vector(reference?.center),
-      referenceExtent: vector(reference?.extent), referenceScale: vector(reference?.scale))
+      referenceExtent: vector(reference?.extent), referenceScale: vector(reference?.scale),
+      torchAvailable: running && !interrupted && (captureDevice?.hasTorch ?? false)
+        && (captureDevice?.isTorchAvailable ?? false),
+      torchEnabled: captureDevice?.isTorchActive ?? false, torchError: torchError,
+      referenceLoaded: assets != nil, telemetry: telemetry)
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
     guard let data = try? encoder.encode(event),
       let json = String(data: data, encoding: .utf8), json != lastEvent else { return }
     lastEvent = json
+    if diagnosticsEnabled,
+      let fields = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    { trace("state", fields) }
     eventHandler(json)
+  }
+
+  private func trace(_ event: String, _ fields: [String: Any] = [:]) {
+    guard diagnosticsEnabled else { return }
+    var record = fields
+    record["event"] = event
+    record["timestamp"] = Date().timeIntervalSince1970
+    record["referenceLoaded"] = assets != nil
+    guard let data = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]),
+      let json = String(data: data, encoding: .utf8),
+      let line = "[ARGuide] \(json)\n".data(using: .utf8)
+    else { return }
+    try? FileHandle.standardError.write(contentsOf: line)
+  }
+
+  @available(iOS 27.0, *)
+  private func sample(_ frame: ARFrame) {
+    // The HUD samples metadata on-device even when console diagnostics are disabled.
+    // Keep camera FPS separate from model inference rate/confidence.
+    guard let windowStart = diagnosticWindowStart else {
+      diagnosticWindowStart = frame.timestamp
+      diagnosticFrameCount = 0
+      return
+    }
+    diagnosticFrameCount += 1
+    let interval = frame.timestamp - windowStart
+    guard interval >= 1 else { return }
+    let allObjects = frame.anchors.compactMap { $0 as? ARObjectAnchor }
+    let objects = allObjects.filter {
+      $0.referenceObject.name == assets?.reference.name
+    }
+    let cameraState: String
+    switch frame.camera.trackingState {
+    case .normal: cameraState = "normal"
+    case .notAvailable: cameraState = "notAvailable"
+    case .limited(let reason):
+      switch reason {
+      case .initializing: cameraState = "limited:initializing"
+      case .excessiveMotion: cameraState = "limited:excessiveMotion"
+      case .insufficientFeatures: cameraState = "limited:insufficientFeatures"
+      case .relocalizing: cameraState = "limited:relocalizing"
+      @unknown default: cameraState = "limited"
+      }
+    }
+    let fps = (Double(diagnosticFrameCount) / interval * 10).rounded() / 10
+    let sessionSeconds = diagnosticSessionStart.map { CACurrentMediaTime() - $0 } ?? 0
+    telemetry = ARGuideTelemetry(
+      sampleTimestamp: frame.timestamp, cameraTracking: cameraState,
+      cameraFramesPerSecond: fps, objectAnchors: objects.count,
+      trackedObjectAnchors: objects.filter(\.isTracked).count,
+      allObjectAnchors: allObjects.count, sessionSeconds: sessionSeconds,
+      pinsEnabled: anchorEntity?.isEnabled ?? false)
+    emit(currentState, currentMessage)
+    var fields: [String: Any] = [
+      "cameraTracking": cameraState,
+      "cameraFramesPerSecond": fps,
+      "objectAnchors": objects.count,
+      "allObjectAnchors": allObjects.count,
+      "objectReferenceNames": allObjects.map { $0.referenceObject.name ?? "" },
+      "trackedObjectAnchors": objects.filter(\.isTracked).count,
+      "rawFeaturePoints": frame.rawFeaturePoints?.points.count ?? 0,
+      "pinsEnabled": anchorEntity?.isEnabled ?? false,
+    ]
+    if let diagnosticSessionStart {
+      fields["sessionSeconds"] = CACurrentMediaTime() - diagnosticSessionStart
+    }
+    if let diagnosticFirstDetection { fields["firstDetectionSeconds"] = diagnosticFirstDetection }
+    if let anchor = objects.first(where: { $0.identifier == anchorID }) ?? objects.first {
+      let matrix = anchor.transform
+      fields["anchorIsTracked"] = anchor.isTracked
+      fields["worldFromObject"] = (0..<4).map { row in
+        (0..<4).map { column in matrix[column][row] }
+      }
+    }
+    trace("frame", fields)
+    diagnosticWindowStart = frame.timestamp
+    diagnosticFrameCount = 0
   }
 }

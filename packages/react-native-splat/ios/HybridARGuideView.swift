@@ -9,12 +9,13 @@ final class HybridARGuideView: HybridARGuideViewSpec {
   var view: UIView { nativeView }
   var referencePath = ""
   var landmarksPath = ""
+  var torchEnabled = false
   var onTrackingStateChanged: (String) -> Void = { _ in } {
     didSet { nativeView.setEventHandler(onTrackingStateChanged) }
   }
 
   func afterUpdate() {
-    nativeView.configure(referencePath: referencePath, landmarksPath: landmarksPath)
+    nativeView.configure(referencePath: referencePath, landmarksPath: landmarksPath, torchEnabled: torchEnabled)
   }
 
   func onDropView() {

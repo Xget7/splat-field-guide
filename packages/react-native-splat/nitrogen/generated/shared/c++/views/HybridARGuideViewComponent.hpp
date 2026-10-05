@@ -45,6 +45,7 @@ namespace margelo::nitro::splat::views {
   public:
     nitro::ReactProp<std::string> referencePath;
     nitro::ReactProp<std::string> landmarksPath;
+    nitro::ReactProp<bool> torchEnabled;
     nitro::ReactProp<std::function<void(const std::string& /* eventJson */)>> onTrackingStateChanged;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridARGuideViewSpec>& /* ref */)>>> hybridRef;
 
@@ -52,6 +53,7 @@ namespace margelo::nitro::splat::views {
     bool hasSameProps(const HybridARGuideViewProps& other) const noexcept {
       return referencePath.hasSameValue(other.referencePath) &&
              landmarksPath.hasSameValue(other.landmarksPath) &&
+             torchEnabled.hasSameValue(other.torchEnabled) &&
              onTrackingStateChanged.hasSameValue(other.onTrackingStateChanged) &&
              hybridRef.hasSameValue(other.hybridRef);
     }
@@ -60,6 +62,7 @@ namespace margelo::nitro::splat::views {
     bool hasAnyProvidedProps() const noexcept {
       return referencePath.isProvided() ||
              landmarksPath.isProvided() ||
+             torchEnabled.isProvided() ||
              onTrackingStateChanged.isProvided() ||
              hybridRef.isProvided();
     }
