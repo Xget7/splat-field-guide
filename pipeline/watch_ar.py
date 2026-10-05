@@ -49,7 +49,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", help="Connected iPhone name or identifier, required for a live capture.")
     parser.add_argument("--duration", type=int, default=900, help="Capture seconds (default: 15 minutes).")
-    parser.add_argument("--output", type=Path, default=ROOT / "data/pack/ar-diagnostics/ar-live.jsonl")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/diagnostics/ar-live.jsonl")
     parser.add_argument("--expect", choices=("detected", "absent"), help="Exit 1 when ARKit's result does not match.")
     parser.add_argument("--check-capture", type=Path, help="Evaluate an existing JSONL without launching the phone app.")
     args = parser.parse_args()
