@@ -88,6 +88,23 @@ _Avoid_: assistant, chatbot, agent, copilot
 A recognised request such as "next" or "show me the battery", with a defined session action.
 _Avoid_: intent, hotword, shortcut
 
+**Turn**:
+The handling of one instructor request, from its arrival through an accepted answer or cancellation.
+An unfinished turn can show provisional words and a part before its answer is accepted.
+_Avoid_: exchange, session, message
+
+**Authored evidence**:
+The guide's written knowledge, procedure steps and cautions relevant to an instructor question.
+_Avoid_: model knowledge, generated facts, retrieval result
+
+**Spoken turn**:
+One stretch of speech ending with an acoustic pause and settlement of its recognised words.
+_Avoid_: utterance (spoken output), instructor turn, session
+
+**Native conversation**:
+Continuous microphone listening that can contain several spoken turns.
+_Avoid_: procedure session, thread, instructor turn
+
 **Exchange**:
 One question and the instructor's reply, including any accompanying caution.
 _Avoid_: message, turn, conversation
@@ -119,6 +136,18 @@ _Avoid_: category (a library grouping), tag, heading
 **Capture**:
 The photographs, and optionally depth, taken of the equipment.
 _Avoid_: scan, recording, dataset
+
+**Capture identity**:
+The identity of a capture's ordered photographs, including their names and exact bytes.
+_Avoid_: capture name, folder, photo count
+
+**Source identity**:
+The identity of the exact inputs used to produce an artifact, so a changed input can be distinguished from its predecessor.
+_Avoid_: filename, version, timestamp
+
+**Saved-mask revision**:
+One complete accepted set of a part's prompts and masks, retained when a replacement is accepted.
+_Avoid_: browser draft, individual click, tracking result
 
 **Pipeline**:
 The preparation stages that turn a capture and authored content into a pack.
