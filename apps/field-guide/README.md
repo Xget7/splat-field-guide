@@ -8,7 +8,7 @@ The iPad is the main demo layout; the iPhone stays portrait.
 | Requirement | What to prepare |
 | --- | --- |
 | Build machine | Apple silicon Mac, Xcode 27 and selected command-line tools |
-| Tools | Node.js 26+, npm, CMake, Python 3, Ruby and Bundler; CocoaPods from the Gemfile |
+| Tools | Node.js 26+, npm, CMake, Python 3.12+, Ruby and Bundler; CocoaPods from the Gemfile |
 | Viewer | iOS/iPadOS 26+, Metal on an A14-class GPU or later |
 | Pack | Local demo archive or `FIELD_GUIDE_PACK_URL` until the public release exists |
 | English speech output | About 100 MiB of pinned Kokoro, voice and frontend resources fetched during preparation |

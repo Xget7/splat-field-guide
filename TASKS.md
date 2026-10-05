@@ -32,6 +32,7 @@ Checked items record implementation or the stated experiment, not physical accep
 - [ ] Validate latest-reference recognition on the real engine, then measure landmark alignment, drift, recovery and torch behaviour.
 - [ ] Decide the semantic camera-overlay renderer after AR alignment passes.
 - [ ] Fill the release repository constant, upload the archive/checksum and verify the published clean-clone quickstart (R21).
+- [ ] Copy only published runtime pack files into the app, excluding `.sources` and release archives.
 - [ ] Bundle engine/SPZ/zstd and Geist license notices in the distributed app.
 - [ ] Record the video and deliver TestFlight (R19, R20).
 

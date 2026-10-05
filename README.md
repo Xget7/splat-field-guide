@@ -30,7 +30,7 @@ flowchart TD
 
 ## Quickstart
 
-On an Apple silicon Mac, install Xcode 27, an iOS 26+ simulator, Node.js 26+, CMake, Python 3, Ruby and Bundler.
+On an Apple silicon Mac, install Xcode 27, an iOS 26+ simulator, Node.js 26+, CMake, Python 3.12+, Ruby and Bundler.
 From a clean clone, at the repository root:
 
 ```sh
