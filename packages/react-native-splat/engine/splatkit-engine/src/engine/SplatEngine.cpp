@@ -75,10 +75,11 @@ SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loa
     : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
   if (!loadFile_) {
     loadFile_ = [](const std::string& spzPath, const std::string& labelsPath,
-                   splat::CoordinateFrame frame, int degree) -> splat::Result<LoadedWorld> {
+                   splat::CoordinateFrame frame, int degree,
+                   const splat::SourceIdentity* identity) -> splat::Result<LoadedWorld> {
       splat::SplatWorldLoader loader;
       loader.setMaxShDegree(degree);
-      const auto result = loader.loadWorldFile(spzPath, labelsPath, frame);
+      const auto result = loader.loadWorldFile(spzPath, labelsPath, frame, identity);
       if (!result) return result.error();
       return LoadedWorld{loader.takeWorld(), result.value()};
     };
@@ -121,12 +122,13 @@ bool SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& l
 }
 
 bool SplatEngine::loadWorldFile(uint64_t request, const std::string& spzPath,
-                                const std::string& labelsPath, splat::CoordinateFrame sourceFrame) {
+                                const std::string& labelsPath, splat::CoordinateFrame sourceFrame,
+                                const splat::SourceIdentity* identity) {
   {
     const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
     if (request == 0 || request != currentLoad_) return false;
   }
-  return finishLoad(request, loadFile_(spzPath, labelsPath, sourceFrame, maxShDegree_.load()));
+  return finishLoad(request, loadFile_(spzPath, labelsPath, sourceFrame, maxShDegree_.load(), identity));
 }
 
 bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result) {
@@ -153,6 +155,8 @@ bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldRepor
     return false;
   }
   const auto& r = report.value();
+  if (r.verified) LOGI("verified pack SHA-256 in %.2f ms, source splats %zu",
+                       r.verificationMillis, r.sourceSplatCount);
   LOGI("decoded %zu %s splats in %.0f ms (%zu removed as haze, %zu as floaters), sh degree "
        "%d, bounds y [%.2f, %.2f], reordered in %.0f ms",
        r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.hazeRemoved,
@@ -194,6 +198,7 @@ void SplatEngine::reportShown() {
   }
   if (showing_ != Showing::awaitingGpu || !renderer_->hasCompletedWorldFrame()) return;
   showing_ = Showing::nothing;
+  LOGI("cloud ready: %u splats", sourceCount_);
   emit(Event::worldReady, {}, sourceCount_);
 }
 

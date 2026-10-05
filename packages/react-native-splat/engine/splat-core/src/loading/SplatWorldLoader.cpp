@@ -1,10 +1,18 @@
 #include "splat/loading/SplatWorldLoader.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
+
+#if defined(__APPLE__)
+#include <CommonCrypto/CommonDigest.h>
+#else
+#include <openssl/evp.h>
+#endif
 
 #include "splat/filtering/Haze.h"
 #include "splat/filtering/Sparse.h"
@@ -17,6 +25,46 @@ namespace splat {
 namespace {
 
 using Clock = std::chrono::steady_clock;
+constexpr std::size_t kSha256Bytes = 32;
+constexpr char kHexDigits[] = "0123456789abcdef";
+constexpr char kInvalidIdentity[] = "Pack source identity is invalid";
+constexpr char kDigestFailed[] = "SHA-256 computation failed";
+constexpr char kSplatDigestMismatch[] = "Cloud SHA-256 does not match the pack manifest";
+constexpr char kLabelsDigestMismatch[] = "Part labels SHA-256 does not match the pack manifest";
+constexpr char kSplatCountMismatch[] = "Cloud splat count does not match the pack manifest";
+
+bool validDigest(const std::string& digest) {
+  return digest.size() == kSha256Bytes * 2 && std::all_of(digest.begin(), digest.end(), [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+  });
+}
+
+Result<std::string> sha256(ByteView bytes) {
+  std::array<unsigned char, kSha256Bytes> digest;
+#if defined(__APPLE__)
+  CC_SHA256_CTX context;
+  if (CC_SHA256_Init(&context) != 1) return Error{ErrorCode::corrupt, kDigestFailed};
+  for (std::size_t offset = 0; offset < bytes.size;) {
+    const auto count = std::min(bytes.size - offset,
+                                static_cast<std::size_t>(std::numeric_limits<CC_LONG>::max()));
+    if (CC_SHA256_Update(&context, bytes.data + offset, static_cast<CC_LONG>(count)) != 1)
+      return Error{ErrorCode::corrupt, kDigestFailed};
+    offset += count;
+  }
+  if (CC_SHA256_Final(digest.data(), &context) != 1) return Error{ErrorCode::corrupt, kDigestFailed};
+#else
+  unsigned int size = 0;
+  if (EVP_Digest(bytes.data, bytes.size, digest.data(), &size, EVP_sha256(), nullptr) != 1 ||
+      size != kSha256Bytes) return Error{ErrorCode::corrupt, kDigestFailed};
+#endif
+  std::string hex;
+  hex.reserve(kSha256Bytes * 2);
+  for (const auto byte : digest) {
+    hex.push_back(kHexDigits[byte >> 4]);
+    hex.push_back(kHexDigits[byte & 0xf]);
+  }
+  return hex;
+}
 
 double millisSince(Clock::time_point start) {
   return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
@@ -29,9 +77,25 @@ void SplatWorldLoader::setMaxShDegree(int degree) {
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView spz, ByteView labels,
-                                                                  CoordinateFrame sourceFrame) {
+                                                                  CoordinateFrame sourceFrame,
+                                                                  const SourceIdentity* identity) {
   WorldReport report;
   auto start = Clock::now();
+  if (identity) {
+    if (!validDigest(identity->splatSha256) || !validDigest(identity->labelsSha256) ||
+        identity->expectedSplatCount == 0) return Error{ErrorCode::corrupt, kInvalidIdentity};
+    const auto labelsDigest = sha256(labels);
+    if (!labelsDigest) return labelsDigest.error();
+    if (labelsDigest.value() != identity->labelsSha256)
+      return Error{ErrorCode::labelsMismatch, kLabelsDigestMismatch};
+    const auto splatDigest = sha256(spz);
+    if (!splatDigest) return splatDigest.error();
+    if (splatDigest.value() != identity->splatSha256)
+      return Error{ErrorCode::corrupt, kSplatDigestMismatch};
+    report.verificationMillis = millisSince(start);
+    report.verified = true;
+  }
+  start = Clock::now();
   // The labels are checked first: they are a small fraction of the bytes.
   std::vector<std::uint8_t> partLabels;
   if (!labels.empty()) {
@@ -45,6 +109,9 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView spz, 
   auto decoded = decodeSpz(spz.data, spz.size, options);
   if (!decoded) return decoded.error();
   auto cloud = std::make_unique<SplatCloud>(std::move(decoded.value()));
+  report.sourceSplatCount = cloud->count();
+  if (identity && report.sourceSplatCount != identity->expectedSplatCount)
+    return Error{ErrorCode::corrupt, kSplatCountMismatch};
   if (!labels.empty() && partLabels.size() != cloud->count()) {
     return Error{ErrorCode::labelsMismatch,
                  std::to_string(partLabels.size()) + " part labels for " +
@@ -69,7 +136,8 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView spz, 
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(
-    const std::string& spzPath, const std::string& labelsPath, CoordinateFrame sourceFrame) {
+    const std::string& spzPath, const std::string& labelsPath, CoordinateFrame sourceFrame,
+    const SourceIdentity* identity) {
   auto spz = MappedFile::open(spzPath);
   if (!spz) return spz.error();
   std::optional<MappedFile> labels;
@@ -79,7 +147,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(
     labels.emplace(std::move(mapped.value()));
   }
   return loadWorld({spz.value().data(), spz.value().size()},
-                   labels ? ByteView{labels->data(), labels->size()} : ByteView{}, sourceFrame);
+                   labels ? ByteView{labels->data(), labels->size()} : ByteView{}, sourceFrame, identity);
 }
 
 std::unique_ptr<SplatCloud> SplatWorldLoader::takeWorld() {

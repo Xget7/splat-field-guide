@@ -27,6 +27,9 @@ using test::solidPairBytes;
 
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
+// SHA-256 of the fixture files, calculated independently with Python hashlib.
+constexpr char kSolidPairSha256[] = "6c0cb0b4f32b7af8c2852d3a7728e0db0558edaeddf8690090e2be217c09d29e";
+constexpr char kPairLabelsSha256[] = "4349096d3451d685e805cdd983de84c250b63d722e7dae5d3cfba17e6ab79316";
 
 std::string writeFile(const std::string& name, const std::vector<uint8_t>& bytes) {
   const std::string path = ::testing::TempDir() + name;
@@ -85,17 +88,53 @@ TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
   EXPECT_FALSE(sfg_needs_frame(engine));
 }
 
+TEST_F(SfgTest, RejectsUnrelatedLabelsWithTheSameSplatCount) {
+  const std::string spz = writeFile("solid.spz", solidPairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
+  const sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
+  ASSERT_TRUE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), labels.c_str(), &identity));
+  ASSERT_TRUE(draw());
+  events.clear();
+  const std::string otherLabels = writeFile("other.labels.bin", labelBytes({3, 4}));
+  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), otherLabels.c_str(), &identity));
+  draw();
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(events[0].kind, SFG_EVENT_LABELS_MISMATCH);
+  EXPECT_EQ(events[0].message, "Part labels SHA-256 does not match the pack manifest");
+  float at[4];
+  ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
+  EXPECT_EQ(sfg_pick(engine, at[0], at[1]), 1);
+  EXPECT_EQ(sfg_pick(engine, at[2], at[3]), 2);
+}
+
+TEST_F(SfgTest, RejectsACloudWhoseDigestOrSourceCountDisagreesWithTheManifest) {
+  const std::string spz = writeFile("solid.spz", solidPairBytes());
+  const std::string other = writeFile("other.spz", pairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
+  sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
+  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), other.c_str(), labels.c_str(), &identity));
+  identity.expected_splat_count = 3;
+  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), labels.c_str(), &identity));
+  draw();
+  EXPECT_FALSE(renderer->world().has_value());
+  ASSERT_EQ(events.size(), 2u);
+  EXPECT_EQ(events[0].kind, SFG_EVENT_LOAD_FAILED);
+  EXPECT_EQ(events[0].message, "Cloud SHA-256 does not match the pack manifest");
+  EXPECT_EQ(events[1].kind, SFG_EVENT_LOAD_FAILED);
+  EXPECT_EQ(events[1].message, "Cloud splat count does not match the pack manifest");
+}
+
 TEST_F(SfgTest, SupersededLoadsCannotReplaceTheCloudOrReportAnOutcome) {
   const std::string spz = writeFile("solid.spz", solidPairBytes());
   const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
   const uint64_t old = sfg_begin_load(engine);
   const uint64_t current = sfg_begin_load(engine);
-  EXPECT_FALSE(sfg_load_request(engine, old, spz.c_str(), labels.c_str()));
-  EXPECT_FALSE(sfg_load_request(engine, old, "missing.spz", nullptr));
+  EXPECT_FALSE(sfg_load_request(engine, old, spz.c_str(), labels.c_str(), nullptr));
+  EXPECT_FALSE(sfg_load_request(engine, old, "missing.spz", nullptr, nullptr));
   draw();
   EXPECT_FALSE(renderer->world().has_value());
   EXPECT_TRUE(events.empty());
-  ASSERT_TRUE(sfg_load_request(engine, current, spz.c_str(), labels.c_str()));
+  ASSERT_TRUE(sfg_load_request(engine, current, spz.c_str(), labels.c_str(), nullptr));
   ASSERT_TRUE(draw());
   ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
@@ -114,10 +153,10 @@ TEST_F(SfgTest, AReplacementWinsWhileAnOlderSuccessOrFailureIsStillDecoding) {
     bool decoding = false;
     bool released = false;
     auto loader = [&](const std::string& spzPath, const std::string& labelsPath,
-                       splat::CoordinateFrame frame, int degree) -> splat::Result<SplatEngine::LoadedWorld> {
+                       splat::CoordinateFrame frame, int degree, const splat::SourceIdentity* identity) -> splat::Result<SplatEngine::LoadedWorld> {
       splat::SplatWorldLoader files;
       files.setMaxShDegree(degree);
-      const auto result = files.loadWorldFile(spzPath, labelsPath, frame);
+      const auto result = files.loadWorldFile(spzPath, labelsPath, frame, identity);
       if (spzPath == oldSpz) {
         std::unique_lock<std::mutex> lock(mutex);
         decoding = true;
