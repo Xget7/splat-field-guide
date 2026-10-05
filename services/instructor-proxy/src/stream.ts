@@ -7,6 +7,7 @@ const SseEvent = {
   error: "error",
 } as const;
 const TEXT_DELTA = "text_delta";
+const COMPLETE_STOP_REASONS = new Set(["end_turn", "stop_sequence"]);
 
 const SseField = { event: "event", data: "data" } as const;
 
@@ -15,6 +16,7 @@ export const StreamError = {
   invalidEvent: "invalid upstream event",
   noStop: "upstream ended without message_stop",
   readFailed: "upstream read failed",
+  incomplete: "upstream answer incomplete",
 } as const;
 
 type OutputLine =
@@ -41,6 +43,9 @@ export function sseToNdjson(
   let finished = false;
 
   function doneLine(): OutputLine {
+    if (!stopReason || !COMPLETE_STOP_REASONS.has(stopReason)) {
+      return { error: StreamError.incomplete };
+    }
     return {
       done: true,
       ...(stopReason ? { stop: stopReason } : {}),
@@ -49,7 +54,7 @@ export function sseToNdjson(
     };
   }
 
-  function readDiagnostics(payload: string) {
+  function readDiagnostics(payload: string): OutputLine | undefined {
     try {
       const event = JSON.parse(payload) as {
         delta?: { stop_reason?: unknown };
@@ -58,7 +63,7 @@ export function sseToNdjson(
       if (typeof event?.delta?.stop_reason === "string") stopReason = event.delta.stop_reason;
       if (typeof event?.content_block?.type === "string") blocks.add(event.content_block.type);
     } catch {
-      // Only diagnostics; the answer itself does not depend on these events.
+      return { error: StreamError.invalidEvent };
     }
   }
 
@@ -69,7 +74,7 @@ export function sseToNdjson(
       } | null;
       if (event?.delta?.type !== TEXT_DELTA) return;
       if (typeof event.delta.text !== "string") return { error: StreamError.invalidEvent };
-      wroteText = true;
+      wroteText ||= event.delta.text.length > 0;
       return { text: event.delta.text };
     } catch {
       return { error: StreamError.invalidEvent };
@@ -92,8 +97,7 @@ export function sseToNdjson(
           return { error: StreamError.upstream };
         case SseEvent.messageDelta:
         case SseEvent.blockStart:
-          readDiagnostics(payload);
-          return;
+          return readDiagnostics(payload);
         case SseEvent.blockDelta:
           return readDelta(payload);
         default:
