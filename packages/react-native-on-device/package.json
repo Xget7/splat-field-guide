@@ -11,7 +11,9 @@
     "LICENSES",
     "nitrogen",
     "nitro.json",
-    "ReactNativeOnDevice.podspec"
+    "ReactNativeOnDevice.podspec",
+    "android",
+    "react-native.config.js"
   ],
   "scripts": {
     "codegen": "nitrogen",
