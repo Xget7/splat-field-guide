@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 26
+
+jobs:
+  app:
+    name: App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install
+        run: |
+          npm ci --prefix packages/react-native-splat
+          npm ci --prefix packages/react-native-on-device
+          npm ci --prefix apps/field-guide
+      - name: Lint
+        working-directory: apps/field-guide
+        run: npm run lint
+      - name: Types
+        working-directory: apps/field-guide
+        run: npm run typecheck
+      - name: Tests
+        working-directory: apps/field-guide
+        run: npm test -- --runInBand
+
+  native-package:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [react-native-splat, react-native-on-device]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  engine:
+    name: Engine C interface (${{ matrix.sha256 }} SHA-256)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sha256: OpenSSL
+            portable: OFF
+          - sha256: portable
+            portable: ON
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev libssl-dev
+      - name: Configure
+        run: >
+          cmake -S packages/react-native-splat/engine/splatkit-engine -B build/tests -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
+          -DSPLAT_CORE_PORTABLE_SHA256=${{ matrix.portable }}
+      - name: Build
+        run: cmake --build build/tests
+      - name: Test
+        run: ctest --test-dir build/tests --output-on-failure
+
+  pipeline:
+    name: Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app parser
+        run: npm ci --ignore-scripts --prefix apps/field-guide
+      - name: Tests
+        run: uv run --project pipeline python -m pytest pipeline/tests -q
+      - name: Marking page
+        run: node --test pipeline/tests/test_mark_page.cjs
+      - name: Lint
+        run: uvx ruff check --select F,E9 pipeline scripts
+
+  proxy:
+    name: Instructor proxy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/instructor-proxy
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit -p .
