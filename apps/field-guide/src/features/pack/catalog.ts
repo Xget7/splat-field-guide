@@ -33,7 +33,6 @@ interface GuideBase {
   readonly image: number;
 }
 
-/** Captured and labelled: opens a pack. */
 export interface ReadyGuide extends GuideBase {
   readonly status: typeof GuideStatus.ready;
   /** Model details, e.g. "2010, 1.6 8V petrol". */
@@ -43,14 +42,13 @@ export interface ReadyGuide extends GuideBase {
   readonly pack: Pack;
 }
 
-/** Shown so the library reads as a library; it has no pack and never opens. */
+/** Coming-soon guides have no pack and cannot be opened. */
 export interface ComingSoonGuide extends GuideBase {
   readonly status: typeof GuideStatus.comingSoon;
 }
 
 export type Guide = ReadyGuide | ComingSoonGuide;
 
-// Coming-soon art identifies guides awaiting a capture.
 const COMING_SOON: readonly ComingSoonGuide[] = [
   {
     id: 'tactical-truck-engine-bay',
@@ -86,7 +84,7 @@ const COMING_SOON: readonly ComingSoonGuide[] = [
   },
 ];
 
-/** The library: the bundled pack's guide first, then the ones still to capture. */
+/** Put the bundled guide before guides awaiting capture. */
 export function catalogFor(golTrend: Pack): readonly Guide[] {
   return [
     {
@@ -116,7 +114,6 @@ export function findReadyGuide(
 const SPLATS_PER_MILLION = 1_000_000;
 
 export interface PackFacts {
-  /** "2.5M" */
   readonly splats: string;
 }
 

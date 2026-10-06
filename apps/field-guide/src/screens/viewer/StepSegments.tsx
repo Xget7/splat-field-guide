@@ -3,7 +3,6 @@ import { Color, Space } from '../../ui/theme';
 
 const BAR_HEIGHT = 2;
 
-/** One bar per step: earlier, current, still to come. */
 export function StepSegments({
   count,
   current,

@@ -1,12 +1,6 @@
 #!/bin/sh
-# Archive a Release build and upload it to App Store Connect for TestFlight.
-#
-#   scripts/testflight.sh            archive and upload
-#   scripts/testflight.sh --no-upload  archive and export an .ipa only
-#
-# Set FIELD_GUIDE_TEAM_ID to your Apple developer team; Xcode must be signed in to it.
-# The build number is the UTC date and time, so every upload is newer than the last without
-# a commit to bump it.
+# Use --no-upload to export locally; uploads require a signed-in Xcode account.
+# UTC timestamps make build numbers increase without editing source.
 set -eu
 
 team_id_error="FIELD_GUIDE_TEAM_ID must be 10 uppercase letters or digits"

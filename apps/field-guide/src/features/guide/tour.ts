@@ -6,10 +6,7 @@ export const TOUR_TITLE = 'Parts tour';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
-/**
- * Every part once, ordered left to right as the home camera sees them, so
- * stepping through slides the view one way across the equipment.
- */
+/** Order parts left to right in the home view so the tour moves one way across the equipment. */
 export function tourOf(pack: Pick<Pack, 'parts' | 'camera'>): Procedure {
   const azimuth = pack.camera.home.azimuth * RADIANS_PER_DEGREE;
   // The home camera's right: +X turned about +Y by its azimuth.

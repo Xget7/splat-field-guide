@@ -40,7 +40,7 @@ import {
 } from './instructor/InstructorMotion';
 import { useViewerSession } from './useViewerSession';
 
-/** Metro end-to-end checks drive the live viewer through this, in development only. */
+/** Development-only interface for Metro checks of the live viewer. */
 export interface FieldGuideDebug {
   dispatch: (event: SessionEvent) => void;
   ask: (question: string) => void;
@@ -50,7 +50,7 @@ export interface FieldGuideDebug {
 
 const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
-// Wide enough for a step to read in two lines, narrow enough to leave the splat the screen.
+// Leave room for the splat while allowing a step to wrap in two lines.
 const SIDEBAR_WIDTH = 400;
 
 export function ViewerScreen({
@@ -133,7 +133,6 @@ function Viewer({
   // Over the keyboard the home indicator is hidden, so the panel needs no room for it.
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
 
-  // Beside a sidebar the splat also resizes when full view folds it away.
   const animatedResize = (instructorOpen || wide) && !reducedMotion;
   useEffect(() => {
     sessionRef.current = session;
@@ -179,7 +178,6 @@ function Viewer({
       dispatch({ type: SessionEventType.select, partId }),
     [dispatch],
   );
-  // With no guide set aside, the guide to follow has to be chosen first.
   const onGuide = useCallback(() => {
     setFullView(false);
     if (!exploring) {
@@ -202,7 +200,6 @@ function Viewer({
       onExplore={onExplore}
       layout={layout}
       fullView={fullView}
-      // A phone has no sidebar to fold away.
       onFullView={wide ? () => setFullView(full => !full) : undefined}
     />
   );
@@ -291,7 +288,7 @@ function Viewer({
         }}
       />
       {wide ? (
-        // The sidebar is there from the start; it only slides when full view gives it back.
+        // Skip initial entry animation because the sidebar is present from mount.
         <LayoutAnimationConfig skipEntering>
           <View style={styles.split}>
             {viewportView}
@@ -363,7 +360,6 @@ function MissingGuide({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
   split: { flex: 1, flexDirection: 'row' },
-  // The steps on top, then the panel, which sits at the foot as it does under the splat.
   sidebar: {
     width: SIDEBAR_WIDTH,
     borderLeftWidth: HAIRLINE,
@@ -371,14 +367,12 @@ const styles = StyleSheet.create({
     backgroundColor: Color.black,
   },
   toolsTop: { position: 'absolute', top: Space.md, left: Space.md },
-  // Folded out of the sidebar, the tools float at the foot of the splat.
   toolsBottom: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
   },
-  // The steps take the height the panel under them leaves.
   steps: { flex: 1 },
   missing: {
     flex: 1,

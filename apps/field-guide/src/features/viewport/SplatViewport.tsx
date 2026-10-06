@@ -57,7 +57,6 @@ interface Props {
   children?: ReactNode;
 }
 
-/** The native capture, its interaction and its projected marks, behind one session input. */
 export function SplatViewport(props: Props) {
   // A different pack gets a fresh native lifetime, including readiness and pending picks.
   return (

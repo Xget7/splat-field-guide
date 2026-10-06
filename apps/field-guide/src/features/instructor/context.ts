@@ -13,14 +13,11 @@ import {
 } from '../guide/session';
 import { focusPart, namedPart, procedureForQuestion } from './instructor';
 
-/**
- * The notes a question gets, at about four characters a token: room for two or three
- * notes while instructions, question, history and answer stay well inside 4096 tokens.
- */
+/** Reserve room for at most two notes plus instructions, history and an answer in 4096 tokens. */
 export const MAX_NOTES_CHARS = 1200;
 export const MAX_NOTES = 2;
 
-// Words that say which kind of note a question wants, checked in this order.
+// Check note topics in priority order.
 const TOPIC_WORDS: readonly (readonly [NoteTopic, ReadonlySet<string>])[] = [
   [
     NoteTopic.safety,
@@ -129,13 +126,12 @@ const TOPIC_WORDS: readonly (readonly [NoteTopic, ReadonlySet<string>])[] = [
     ]),
   ],
 ];
-// What a part is and does answers most questions that ask for nothing more specific.
+// Default to identity and purpose when no more specific topic is requested.
 const DEFAULT_TOPICS: readonly NoteTopic[] = [
   NoteTopic.identity,
   NoteTopic.purpose,
 ];
 
-// Words that point at what is on screen rather than naming a part.
 const POINTING_WORDS: ReadonlySet<string> = new Set([
   'it',
   'its',
@@ -196,12 +192,11 @@ function askedTopics(question: string): NoteTopic[] {
   ).map(([topic]) => topic);
 }
 
-/** The kinds of note `question` asks for, most specific first. */
+/** Return note topics in priority order. */
 export function topicsFor(question: string): NoteTopic[] {
   return [...new Set([...askedTopics(question), ...DEFAULT_TOPICS])];
 }
 
-/** The part whose notes share the most words with `question`, if one clearly does. */
 function partByNotes(question: string, pack: Pack): Part | undefined {
   const asked = new Set(
     wordsOf(question)
@@ -229,7 +224,7 @@ function partByNotes(question: string, pack: Pack): Part | undefined {
   return tied ? undefined : best;
 }
 
-/** What the question is about: the part it names, the one on screen it points at, or the one its words fit. */
+/** Prefer a named part, then the part pointed at, then a unique match in the notes. */
 export function subjectOf(
   question: string,
   state: SessionState,
@@ -243,8 +238,7 @@ export function subjectOf(
   if (onScreen && pointsAtScreen(question)) {
     return onScreen;
   }
-  // "What's the purpose?" asks about something without naming it: the part on screen,
-  // unless another part's notes answer it. "What's the weather like?" asks about no part.
+  // Use the visible part for unnamed topic questions, while leaving unrelated questions ungrounded.
   return (
     partByNotes(question, pack) ??
     (onScreen && askedTopics(question).length > 0 ? onScreen : null)

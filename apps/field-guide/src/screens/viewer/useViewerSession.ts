@@ -66,7 +66,6 @@ export function useViewerSession({
     },
     [cancelAnswer],
   );
-  /** Leaves the guide's flow to look around, and comes back to it. */
   const changeMode = useCallback(
     (type: typeof ViewerActionType.explore | typeof ViewerActionType.guide) => {
       cancelAnswer();
@@ -107,8 +106,7 @@ export function useViewerSession({
   const thinking =
     exchange?.phase === ExchangePhase.pending ||
     exchange?.phase === ExchangePhase.streaming;
-  // The instructor reads each step or part it shows, not only its answers, so the tour
-  // and the step buttons talk. Repeat asks for the same step again.
+  // Repeat needs a new utterance id so the same step is spoken again.
   const utterance = useMemo((): Utterance | null => {
     if (exchange !== null) {
       return exchange.phase === ExchangePhase.done
@@ -148,13 +146,13 @@ export function useViewerSession({
 
   useEffect(() => () => cancelAnswer(), [cancelAnswer, pack]);
 
-  // Explore sets the procedure aside; Stop and Finish remove both continuation positions.
+  // Preserve continuation while exploring, and clear it on Stop or Finish.
   const progressSession =
     state.session.procedureId === null ? state.resume : state.session;
   const progressProcedure = progressSession?.procedureId ?? null;
   const progressStep = progressSession?.stepIndex ?? 0;
   useEffect(() => {
-    // The first step is where a fresh start lands anyway, so there is nothing to continue.
+    // The first step needs no saved continuation because a fresh start already opens it.
     const saved =
       progressProcedure === null || progressStep === 0
         ? clearProgress()

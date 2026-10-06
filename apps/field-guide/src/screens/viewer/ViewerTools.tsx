@@ -52,9 +52,7 @@ function Segment({
 }
 
 export const ToolsLayout = {
-  /** Atop the sidebar, as wide as it. */
   sidebar: 'sidebar',
-  /** Over the splat, placed by the screen. */
   floating: 'floating',
 } as const;
 export type ToolsLayout = (typeof ToolsLayout)[keyof typeof ToolsLayout];
@@ -64,13 +62,11 @@ interface Props {
   onGuide: () => void;
   onExplore: () => void;
   layout: ToolsLayout;
-  /** The splat has the screen, with the sidebar folded into buttons over it. */
   fullView?: boolean;
   /** Absent where there is no sidebar to fold away. */
   onFullView?: () => void;
 }
 
-/** How to work the capture: follow the guide step by step, or look around it freely. */
 export function ViewerTools({
   exploring,
   onGuide,
@@ -143,7 +139,6 @@ const styles = StyleSheet.create({
     borderColor: Color.line,
     backgroundColor: Color.surface,
   },
-  // Over the splat it is as wide as its labels, and dark enough to read on the capture.
   floatingSegments: { flex: 0, backgroundColor: Color.overlay },
   segment: {
     alignItems: 'center',
@@ -151,7 +146,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.lg,
     borderRadius: Radius.sm,
   },
-  // In the sidebar the two halves split its width; over the splat each is as wide as its label.
   shared: { flex: 1 },
   selected: { backgroundColor: Color.pressed },
   label: { ...Type.calloutStrong, color: Color.muted },

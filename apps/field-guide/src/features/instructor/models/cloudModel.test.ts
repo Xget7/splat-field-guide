@@ -50,7 +50,6 @@ class FakeRequest {
   abort() {
     this.aborted = true;
   }
-  /** Delivers `chunk` as the next bytes of a 200 response. */
   receive(chunk: string) {
     this.status = 200;
     this.responseText += chunk;

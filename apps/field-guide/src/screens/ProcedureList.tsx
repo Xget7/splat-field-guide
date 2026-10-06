@@ -8,15 +8,12 @@ const TRAILING_ICON = 20;
 
 interface Props {
   rows: readonly ProcedureRow[];
-  /** The running procedure, ticked. Left out where every row opens one, so each gets a chevron. */
+  /** Omit current when each row opens a procedure and needs a chevron. */
   current?: ProcedureId | null;
   onChoose: (procedureId: ProcedureId) => void;
 }
 
-/**
- * The procedures, each with its step count. Safety notes are left to the steps that carry
- * them and to screen readers: a badge on nearly every row would only say "careful" in amber.
- */
+/** Keep safety notes with their steps because a caution badge on every row conveys little. */
 export function ProcedureList({ rows, current, onChoose }: Props) {
   const choosing = current !== undefined;
   return (

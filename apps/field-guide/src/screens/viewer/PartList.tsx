@@ -3,11 +3,7 @@ import { SectionHeader } from '../../ui/SectionHeader';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../ui/theme';
 import type { Part, PartId } from '../../features/pack/pack';
 
-/**
- * Every named part of the capture, to look at one directly while exploring.
- * A part inside another sits under it, indented. Names only: the instructor below describes
- * the part picked, so its summary is not said twice.
- */
+/** Show names only because the instructor already describes the picked part. */
 export function PartList({
   parts,
   selected,
@@ -50,7 +46,6 @@ export function PartList({
 }
 
 const styles = StyleSheet.create({
-  // As tall as its parts, up to what the sidebar gives it, like the step list it stands in for.
   list: { flexShrink: 1, gap: Space.md, paddingTop: Space.lg },
   header: { paddingHorizontal: Space.lg },
   scroll: { flexGrow: 0, flexShrink: 1 },

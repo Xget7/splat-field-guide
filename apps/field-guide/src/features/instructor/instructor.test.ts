@@ -64,7 +64,6 @@ describe('specifications', () => {
       'coolant-reservoir',
       'coolant-reservoir',
     ],
-    // The fluid decides, not the part holding it: water in the motor is the coolant.
     [
       'how many liters can have the motor of water in? destiled',
       'coolant-reservoir',

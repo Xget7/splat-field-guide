@@ -6,7 +6,6 @@ import { Color, Radius, Space, Type } from '../../../ui/theme';
 const ICON_SIZE = 16;
 const RULE = 2;
 
-/** A step's safety note: amber, the only place amber appears. */
 export function CautionNote({
   text,
   children,

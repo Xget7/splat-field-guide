@@ -18,7 +18,6 @@ import {
 import { normalize, routeCommand, RouteKind } from './router';
 import { contentWordsOf, isAsked } from './utterance';
 
-/** What the instructor says, and what it does to the session. */
 export interface InstructorAnswer {
   readonly reply: string;
   /** The safety note that goes with the reply, or ''. */
@@ -29,8 +28,7 @@ export interface InstructorAnswer {
   readonly event: SessionEvent | null;
 }
 
-// Words that make a phrase about a procedure rather than a part. "How" is not one: "how
-// many liters of coolant" asks for a quantity, not the coolant check.
+// Exclude "how" because quantity questions such as "how many liters" do not request procedures.
 const PROCEDURE_INTENT: ReadonlySet<string> = new Set([
   'check',
   'checking',
@@ -39,7 +37,6 @@ const PROCEDURE_INTENT: ReadonlySet<string> = new Set([
   'top',
   'refill',
 ]);
-// Words that ask what a part is for rather than what it is.
 const DETAILS_INTENT: ReadonlySet<string> = new Set([
   'do',
   'does',
@@ -50,15 +47,12 @@ const DETAILS_INTENT: ReadonlySet<string> = new Set([
   'works',
   'purpose',
 ]);
-// Words that point at the part already on screen.
 const CURRENT_PART: ReadonlySet<string> = new Set(['it', 'this', 'here']);
 
-// Words for the whole vehicle ("this car") never point at one part, even when an alias
-// like "car battery" holds them.
+// Whole-vehicle words must not select a part through an alias such as "car battery".
 const VEHICLE_WORDS: ReadonlySet<string> = new Set(['car', 'vehicle', 'truck']);
 
-// Joining words name nothing: "and" in "fuse and relay box" must not make "And how many
-// liters of coolant?" half about the fuse box.
+// Ignore joining words so "and" cannot select the fuse and relay box.
 const JOINING_WORDS: ReadonlySet<string> = new Set([
   'a',
   'an',
@@ -73,18 +67,15 @@ const JOINING_WORDS: ReadonlySet<string> = new Set([
   'with',
 ]);
 
-// A key named in full outranks one that only shares a word with the question.
 const FULL_KEY_BONUS = 0.5;
 
-/** Said instead of a specification the pack leaves out, so nothing is ever guessed. */
 export const NOT_COVERED_REPLY =
   'No data on that. Refer to the technical manual.';
 
 // An oil grade like "5W30" asks about the oil even when the word is missing.
 const VISCOSITY_GRADE = /\b\d+w\d*\b/;
 
-// A capacity or grade belongs to the fluid, not to the part holding it: "how much oil does
-// the motor take" asks about the oil. Each fluid is named by the words its part is known by.
+// Resolve fluid specifications before container names, as in "how much oil does the motor take".
 const COOLANT = 'coolant';
 const FLUID_SUBJECTS: readonly (readonly [RegExp, string])[] = [
   [/\b(coolant|antifreeze)\b/, COOLANT],
@@ -96,8 +87,7 @@ const FLUID_SUBJECTS: readonly (readonly [RegExp, string])[] = [
 const WATER = /\bwater\b/;
 const ENGINE_WORDS: ReadonlySet<string> = new Set(['engine', 'motor']);
 
-// Grades, capacities, intervals and ratings: answered only from a part's verified
-// specifications, never by a model.
+// Specification answers must come from authored facts rather than a model.
 const SPECIFICATION_PATTERNS: readonly RegExp[] = [
   /\b(what|which) (type |kind |grade |brand )?(of )?(oil|coolant|antifreeze|brake fluid|steering fluid|fluid|fuse)s?\b/,
   /\b(how much|how many|how often|capacity|quantity|interval|intervals)\b/,
@@ -119,7 +109,7 @@ function partKeys(part: Part): string[] {
   return [part.name, part.id, ...part.aliases].map(normalize);
 }
 
-/** The one candidate with the best positive score, or undefined on a tie. */
+/** Require one positive maximum; ties yield no candidate. */
 function best<T>(
   candidates: readonly T[],
   score: (candidate: T) => number,
@@ -140,8 +130,7 @@ function best<T>(
   return tied ? undefined : top;
 }
 
-// A word shared by several parts ("tank", "fluid") cannot tell them apart, so only words
-// one part owns count towards a partial match.
+// Only words unique to one part contribute to partial matches.
 function mentionedPart(
   words: ReadonlySet<string>,
   pack: Pack,
@@ -184,13 +173,11 @@ function mentionedProcedure(
   );
 }
 
-/** The part the screen is about: the selection, else the step's first part. */
 export function focusPart(state: SessionState, pack: Pack): Part | undefined {
   const id = state.selectedPart ?? currentStep(state, pack)?.parts[0];
   return id === undefined ? undefined : findPart(pack, id);
 }
 
-/** The step the session shows after `event`, said as the instructor would. */
 function stepAnswer(
   state: SessionState,
   event: SessionEvent,
@@ -209,7 +196,6 @@ function stepAnswer(
   };
 }
 
-/** A procedure told rather than started, so the one on screen keeps its place. */
 function procedureAnswer(procedure: Procedure): InstructorAnswer {
   return {
     reply: procedure.steps.map(step => step.text).join(' '),
@@ -260,7 +246,6 @@ export function commandAnswer(
   }
 }
 
-/** Whether `question` asks for a specification that must come from authored facts. */
 export function asksForSpecification(question: string): boolean {
   const phrase = normalize(question);
   return SPECIFICATION_PATTERNS.some(pattern => pattern.test(phrase));
@@ -276,8 +261,7 @@ const NOT_COVERED: InstructorAnswer = {
 const specificationsOf = (part: Part): string | undefined =>
   part.notes.find(note => note.topic === NoteTopic.specifications)?.text;
 
-// What a specification question asks for, and the word a sentence that answers it carries:
-// "what oil" wants the grade, not the capacity or the service intervals beside it.
+// Match the requested specification aspect so an oil-grade question does not return capacity.
 const SPECIFICATION_ASPECTS: readonly (readonly [RegExp, RegExp])[] = [
   [
     /\b(how much|how many|capacity|quantity|liters?|litres?|quarts?|gallons?|ml)\b/,
@@ -297,7 +281,6 @@ const SPECIFICATION_ASPECTS: readonly (readonly [RegExp, RegExp])[] = [
 
 const SENTENCE_END = /(?<=\.)\s+(?=[A-Z])/;
 
-/** The sentences of `specifications` that answer what `question` asks for, or all of them. */
 function relevantSpecifications(
   question: string,
   specifications: string,
@@ -312,12 +295,7 @@ function relevantSpecifications(
   return answering.length > 0 ? answering.join(' ') : specifications;
 }
 
-/**
- * Answers a specification question with the verified specifications of the part it names,
- * or of that part's nearest ancestor that has them, word for word, keeping only the sentences
- * that answer what it asks for when some do. A question that names no
- * part with specifications gets NOT_COVERED, so nothing is ever guessed.
- */
+/** Use exact authored specifications from the part or its nearest ancestor, declining when absent. */
 function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
   const named = specificationSubject(question, pack);
   let part = named === null ? undefined : findPart(pack, named);
@@ -336,7 +314,6 @@ function specificationAnswer(question: string, pack: Pack): InstructorAnswer {
   };
 }
 
-/** The part whose specifications answer `question`: the fluid's, before its container's. */
 function specificationSubject(question: string, pack: Pack): PartId | null {
   const phrase = normalize(question);
   const fluids = FLUID_SUBJECTS.filter(([pattern]) => pattern.test(phrase));
@@ -356,7 +333,6 @@ function specificationSubject(question: string, pack: Pack): PartId | null {
   return inEngine ? namedPart(COOLANT, pack) : named;
 }
 
-/** The part `question` names, whatever is on screen. */
 // "When the engine is hot" says when, not what: the question is about the other part it names.
 const ENGINE_CONDITION =
   /\b(?:(?:with|while|when|if|after) (?:the |my )?engine (?:is |was )?(?:hot|warm|cold|running|on|off|stopped|idling)|(?:start|stop|run|turn on|turn off|switch off) (?:the |my )?engine)\b/g;
@@ -375,7 +351,6 @@ export function namedPart(question: string, pack: Pack): PartId | null {
   return part?.id ?? null;
 }
 
-/** The procedure `question` is about, if it names one. */
 function requestedProcedure(
   words: ReadonlySet<string>,
   pack: Pack,
@@ -386,7 +361,6 @@ function requestedProcedure(
     : undefined;
 }
 
-/** The authored procedure a question asks about, without starting it. */
 export function procedureForQuestion(
   question: string,
   pack: Pack,
@@ -396,10 +370,7 @@ export function procedureForQuestion(
   );
 }
 
-/**
- * Whether the script alone answers `question`: a command, a specification it must not guess
- * or a procedure to start. The model would only blur those, so it never sees them.
- */
+/** Keep commands, procedure starts and specifications scripted to preserve deterministic behaviour. */
 export function isScripted(question: string, pack: Pack): boolean {
   return (
     routeCommand(question, pack).kind === RouteKind.command ||
@@ -422,13 +393,9 @@ const ONE_WORD_QUESTIONS: ReadonlySet<string> = new Set([
   'why',
   'explain',
 ]);
-// Fewer content words than this, and no part named, is a stray word, not a question.
 const MIN_QUESTION_WORDS = 2;
 
-/**
- * Whether `question` asks something a model could answer, so a stray "yes", "thanks" or
- * misheard noise gets the script's hint instead of a paid request.
- */
+/** Reject stray words and recognition noise before they can trigger a paid request. */
 export function isQuestion(question: string, pack: Pack): boolean {
   const words = contentWordsOf(question);
   return (
@@ -448,10 +415,7 @@ function fallback(pack: Pack): InstructorAnswer {
   };
 }
 
-/**
- * Answers from the pack's own text: a command the router knows, else the part or procedure
- * the question names. Nothing is invented, so an unknown question gets a hint, not a guess.
- */
+/** Unknown questions get a hint because scripted answers use only authored pack text. */
 export function answerFor(
   question: string,
   state: SessionState,
@@ -470,8 +434,7 @@ export function answerFor(
   const part = mentionedPart(words, pack);
   const procedure = mentionedProcedure(words, pack);
   const requested = requestedProcedure(words, pack);
-  // Asking for the procedure already running keeps its place rather than starting it over.
-  // Asking how one goes only tells it.
+  // Keep the current position when the user requests the procedure already running.
   const startProcedure = (found: Procedure) =>
     isAsked(question)
       ? procedureAnswer(found)

@@ -8,11 +8,9 @@ import type { Bounds, CameraHome, CameraLimits, Vec3 } from '../pack/pack';
 const RADIANS_PER_DEGREE = Math.PI / 180;
 export const FRAME_SECONDS = 0.45;
 export const INITIAL_FRAME_SECONDS = 0;
-// A part framed edge to edge hides where it sits; framed at this scale it fills about half the
-// view, with the engine bay around it.
+// Leave the surrounding equipment visible so the part retains its context.
 export const CONTEXT_SCALE = 2;
-// While the instructor talks about one part, the camera moves in until it fills most of the
-// view, slowly enough to read as a push-in rather than a cut.
+// A slow push-in keeps spoken explanations visually continuous.
 export const CLOSE_UP_SCALE = 1.4;
 export const CLOSE_UP_SECONDS = 0.9;
 
@@ -41,7 +39,6 @@ export function boundsForView(bounds: Bounds): SplatBounds {
   };
 }
 
-/** `bounds` grown about its centre by `scale`. */
 export function inContext(bounds: Bounds, scale = CONTEXT_SCALE): Bounds {
   const scaled = (toward: Vec3, from: Vec3): Vec3 =>
     toward.map(

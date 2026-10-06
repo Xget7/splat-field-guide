@@ -94,7 +94,6 @@ describe('Guide detail screen', () => {
 
   test('a procedure and Start open step zero in Instructor by default', async () => {
     await mount();
-    // The tour has the Start button, so the list holds only the authored procedures.
     expect(
       renderer.root.findAllByProps({ testID: `procedure-row-${TOUR_ID}` }),
     ).toHaveLength(0);

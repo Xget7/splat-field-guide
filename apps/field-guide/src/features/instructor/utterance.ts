@@ -1,6 +1,5 @@
 import { normalize } from './router';
 
-// Sounds a recogniser writes down for a hesitation or a noise; they say nothing.
 const HESITATIONS: ReadonlySet<string> = new Set([
   'ah',
   'eh',
@@ -17,9 +16,7 @@ const HESITATIONS: ReadonlySet<string> = new Set([
   'umm',
 ]);
 
-// A phrase ending on one of these is still being said: "where is the", "and what about my".
-// Words a whole question can end on ("where the fuse box is", "what is it for") are left out,
-// since holding those would keep the speaker waiting on every such question.
+// Exclude words that can end complete questions to avoid delaying them.
 const OPEN_ENDINGS: ReadonlySet<string> = new Set([
   ...HESITATIONS,
   'a',
@@ -41,8 +38,7 @@ const OPEN_ENDINGS: ReadonlySet<string> = new Set([
   'your',
 ]);
 
-// Words a question opens with. "Can" and "could" are left out: "can you check the coolant"
-// asks the instructor to do it.
+// Exclude "can" and "could" because they can introduce requests to start a procedure.
 const QUESTION_OPENERS: ReadonlySet<string> = new Set([
   'are',
   'do',
@@ -58,7 +54,6 @@ const QUESTION_OPENERS: ReadonlySet<string> = new Set([
   'why',
 ]);
 
-// Words that ask to be taken through something, however the sentence opens.
 const REQUEST_WORDS: ReadonlySet<string> = new Set([
   'begin',
   'guide',
@@ -67,7 +62,6 @@ const REQUEST_WORDS: ReadonlySet<string> = new Set([
   'walk',
 ]);
 
-// The fewest letters a word needs to be speech rather than a stray sound.
 const MIN_WORD_LETTERS = 2;
 
 const LETTERS = /\p{L}/gu;
@@ -87,10 +81,7 @@ export function contentWordsOf(text: string): string[] {
     : phrase.split(' ').filter(word => !HESITATIONS.has(word));
 }
 
-/**
- * Whether `heard` holds a spoken word at all. A recogniser hearing noise writes "." or "uh",
- * which must neither cut the instructor short nor reach the model.
- */
+/** Recognition noise such as "." or "uh" must not interrupt speech or reach the model. */
 export function hasSpokenWord(heard: string): boolean {
   return lowerWordsOf(heard).some(
     word =>
@@ -99,10 +90,7 @@ export function hasSpokenWord(heard: string): boolean {
   );
 }
 
-/**
- * Whether `text` asks about something rather than asking for it: "how do I check the
- * coolant" wants it explained, "check the coolant" or "walk me through it" wants it done.
- */
+/** Distinguish requests for an explanation from requests to perform a procedure. */
 export function isAsked(text: string): boolean {
   const words = lowerWordsOf(text.replace(/['’]/g, ''));
   return (
@@ -111,7 +99,7 @@ export function isAsked(text: string): boolean {
   );
 }
 
-/** Whether `heard` stops mid-phrase, so a pause there is the speaker thinking, not done. */
+/** Treat a pause after an unfinished phrase as thought, not completion. */
 export function isUnfinished(heard: string): boolean {
   const words = lowerWordsOf(heard.replace(/['’]/g, ''));
   const last = words[words.length - 1];

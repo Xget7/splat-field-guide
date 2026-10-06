@@ -30,7 +30,6 @@ const FLOATS_PER_BOX = 5;
 const BOX_PADDING = Space.sm;
 // A box at least this big, so a tiny part's tag sits clear of it.
 const MIN_BOX = 32;
-// The accent edge of a tag.
 const THICKNESS = 2;
 // Moves below half a point are invisible; skipping them keeps a still camera free.
 const SETTLE_POINTS = 0.5;
@@ -53,11 +52,7 @@ interface Props {
   enterAfter: number;
 }
 
-/**
- * A name tag beside each part, following the camera every frame. The part's box corners
- * are projected on the UI thread, where the renderer's last frame is read synchronously, so
- * the marks track an orbit without a React render per frame.
- */
+/** Project on the UI thread from the renderer's last frame to track orbiting without React renders. */
 export function PartMarkers({ view, parts, size, enterAfter }: Props) {
   const corners = useSharedValue<number[]>([]);
   const viewport = useSharedValue<Size>(size);
@@ -180,7 +175,6 @@ function Marker({ index, name, boxes, viewport }: MarkerProps) {
     const [left, top, , bottom] = box.slice(at, at + 4);
     const above = top - TAG_GAP - tag.value.height;
     const below = bottom + TAG_GAP;
-    // Above the box, else below it, else inside its top edge.
     const y =
       above >= 0
         ? above
@@ -209,7 +203,6 @@ function Marker({ index, name, boxes, viewport }: MarkerProps) {
 }
 
 const styles = StyleSheet.create({
-  // The part's name on a strip edged in the accent.
   tag: {
     position: 'absolute',
     left: 0,

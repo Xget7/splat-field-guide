@@ -1,4 +1,3 @@
-// Anthropic Messages API stream events and delta types this translator reads.
 const SseEvent = {
   messageStop: "message_stop",
   messageDelta: "message_delta",
@@ -33,8 +32,7 @@ export function sseToNdjson(
   let buffer = "";
   let eventName = "";
   let data: string[] = [];
-  // Why the answer ended and what it held, so an empty reply can be told apart from a
-  // refusal or a budget spent on thinking.
+  // Retain diagnostics to distinguish empty answers from refusals or exhausted thinking budgets.
   let stopReason: string | undefined;
   const blocks = new Set<string>();
   const events = new Set<string>();
@@ -121,7 +119,7 @@ export function sseToNdjson(
     if (!("text" in line)) {
       finished = true;
       controller.close();
-      // Stop consuming upstream once a terminal event makes later data irrelevant.
+      // Cancel upstream to release resources after a terminal event.
       void reader.cancel().catch(() => {});
     }
   }

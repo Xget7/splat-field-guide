@@ -40,13 +40,12 @@ import { CautionNote } from './CautionNote';
 import { InstructorAnswer } from './InstructorAnswer';
 import { FADE_IN, KaraokeText } from './InstructorMotion';
 
-// Within this of the end, the thread follows new words; further up, the reader is looking back.
+// Follow new words only near the end so reading older entries is not interrupted.
 const FOLLOW_SLOP = Space.xl;
 const DOT_SIZE = 6;
 const DOT_COUNT = 3;
 const DOT_DIM = 0.25;
 
-/** How a listed step marks where a question was asked: its place in the procedure. */
 function entryLabel(card: CardContent): string {
   if (card.selected || card.stepCount === 0) {
     return card.title;
@@ -80,7 +79,6 @@ function Dot({ index, still }: { index: number; still: boolean }) {
   return <Animated.View style={[styles.dot, style]} />;
 }
 
-/** The answer has no words yet. */
 function Thinking({ still }: { still: boolean }) {
   return (
     <Animated.View
@@ -100,7 +98,7 @@ function Thinking({ still }: { still: boolean }) {
 interface SaidProps {
   reply: string;
   caution: string;
-  /** The last thing said: read aloud, and in full color. */
+  /** Read the live entry aloud and show it in full color. */
   live: boolean;
   index: number;
   voice: InstructorVoice;
@@ -151,20 +149,14 @@ function Said({
 
 interface Props {
   thread: readonly ThreadEntry[];
-  /** The question being answered, or answered last, while nothing else has happened since. */
   exchange: Exchange | null;
-  /** Words heard so far for the next question. */
   transcript: string;
   voice: InstructorVoice;
   reducedMotion: boolean;
-  /**
-   * Beside a step list that shows the current step in full: steps here only mark where a
-   * question was asked.
-   */
+  /** In compact mode, the step list shows the full step, so thread steps only mark questions. */
   compact?: boolean;
 }
 
-/** The conversation so far: each step as it was shown, each question and its answer. */
 export function InstructorThread({
   thread,
   exchange,
@@ -185,16 +177,14 @@ export function InstructorThread({
     entry.kind === EntryKind.step &&
     entry.card.stepCount > 0 &&
     !entry.card.selected;
-  // A listed step only marks the questions asked during it.
   const shown = entries.filter(
     (entry, index) =>
       !listed(entry) || entries[index + 1]?.kind === EntryKind.exchange,
   );
-  // Something new said always comes into view, even when the reader had scrolled back.
+  // Bring a new entry into view even when the reader has scrolled back.
   const said = `${entries.length}:${transcript === ''}`;
   const seen = useRef(said);
 
-  // Nothing said yet takes no room between the header and the field.
   if (shown.length === 0 && transcript === '') {
     return null;
   }
@@ -304,7 +294,6 @@ export function InstructorThread({
 }
 
 const styles = StyleSheet.create({
-  // Only as tall as what has been said, up to what the panel gives it.
   fitted: { flexGrow: 0, flexShrink: 1 },
   content: {
     gap: Space.lg,

@@ -26,11 +26,7 @@ interface FramedInputs {
   settlement: number;
 }
 
-/**
- * Frames what the step shows whenever it changes, when asked again (`frameRequest`), and when
- * the viewport changes shape, since a framing only fits the aspect it was made for. While the
- * instructor talks about it (`closeUp`), the camera moves in from wherever it is looking.
- */
+/** Reframe after aspect changes because framing depends on the viewport shape. */
 export function useGuideFraming(
   view: SplatViewSpec | null,
   state: SessionState,

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Called by Xcode after copying packs. Training runs on the Mac; only its result ships.
+# Only the trained reference ships; training runs on the Mac.
 set -eu
 
 REFERENCE_ROOT="$SRCROOT/../../../data/ar-reference/gol-trend-engine-bay"

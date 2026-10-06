@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Keyboard } from 'react-native';
 
-/** Whether the software keyboard is up; the will* events keep a panel in step with it. */
+/** The will* events keep panel movement in step with the keyboard. */
 export function useKeyboardVisible(): boolean {
   const [visible, setVisible] = useState(false);
   useEffect(() => {

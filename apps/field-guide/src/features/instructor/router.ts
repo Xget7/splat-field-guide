@@ -13,7 +13,6 @@ export type RouteResult =
 
 const NOT_A_COMMAND: RouteResult = { kind: RouteKind.notCommand };
 
-// Dropped from utterances and from names before comparing.
 const FILLER_WORDS: ReadonlySet<string> = new Set([
   'the',
   'a',
@@ -88,8 +87,7 @@ function matchPart(target: string, pack: Pack): Part | undefined {
   return pack.parts.find(part => partKeys(part).includes(target));
 }
 
-// An exact title or id wins; otherwise a spoken prefix of a title
-// ("check the coolant") may pick a procedure if it picks only one.
+// Accept title prefixes only when they identify one procedure uniquely.
 function matchProcedure(target: string, pack: Pack): Procedure | undefined {
   const keys = (procedure: Procedure) => [
     normalize(procedure.title),

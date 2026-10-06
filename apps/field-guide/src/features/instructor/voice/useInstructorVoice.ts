@@ -40,18 +40,15 @@ export const VoiceHint = {
   lost: 'Voice stopped listening. Turn it on to try again.',
 } as const;
 const SpeechPermission = { granted: 'granted' } as const;
-// Words of the user's own it takes to cut the instructor short or drop a pending answer, so a
-// cough or one misheard word does neither. A command ("stop") is enough on its own.
+// Require multiple user words to filter noise, while allowing a single command to interrupt.
 const BARGE_IN_WORDS = 2;
-// How long a turn that stops mid-phrase ("where is the") waits, once the voice pauses, for the
-// rest of it.
+// Allow time for the rest of an unfinished phrase after an acoustic pause.
 const UNFINISHED_HOLD_MS = 1500;
 
 const joined = (...parts: string[]) =>
   parts.filter(part => part !== '').join(' ');
 const SpeechAvailability = { available: 'available' } as const;
 
-/** Something the instructor says once: an answer, or the step or part on screen. */
 export interface Utterance {
   /** A new id is said again even when its text has not changed. */
   readonly id: string;
@@ -67,7 +64,6 @@ interface Options {
   thinking: boolean;
   onAsk: (question: string) => void;
   onCancel: () => void;
-  /** Starts in voice mode rather than reading. */
   startInVoice?: boolean;
 }
 
@@ -96,11 +92,7 @@ function cancelInput(): void {
   }
 }
 
-/**
- * The instructor is read by default, since reading is faster than listening. Voice is all or
- * nothing: it reads every step and answer aloud and keeps the microphone open with echo
- * cancellation, so the user can ask, give commands and talk over an answer to cut it short.
- */
+/** Voice mode combines output and continuous input so the user can interrupt spoken answers. */
 export function useInstructorVoice({
   pack,
   enabled,
@@ -123,10 +115,10 @@ export function useInstructorVoice({
   const spoken = useRef<string | null>(null);
   const hints = useMemo(() => recognitionHintsFor(pack), [pack]);
   const voiced = enabled && on;
-  // The listening in progress, 0 when the microphone is closed.
+  // Zero means no active microphone conversation.
   const conversation = useRef(0);
   const conversations = useRef(0);
-  // What the instructor is saying now, so its own echo is never taken for the user.
+  // Retain spoken text to filter the instructor's echo from user speech.
   const saying = useRef('');
   const latest = useRef({ onAsk, onCancel, thinking });
   useEffect(() => {
@@ -210,7 +202,7 @@ export function useInstructorVoice({
       if (reason === '') {
         setCanListen(true);
       } else {
-        // Voice without a microphone would be the half mode this replaces.
+        // Voice mode requires both speech output and microphone input.
         setOn(false);
         setHint(reason);
       }
@@ -308,8 +300,7 @@ export function useInstructorVoice({
         setHint(VoiceHint.lost);
       }
     };
-    // A turn that stops mid-phrase is held until the rest of it is heard, or the speaker stays
-    // quiet a while. It is never asked while they are still talking.
+    // Hold unfinished phrases through speech until continuation or sustained silence.
     let held = '';
     let holding: ReturnType<typeof setTimeout> | null = null;
     const stopHolding = () => {
@@ -332,8 +323,7 @@ export function useInstructorVoice({
         hold();
       }
     };
-    // Only a command or a real question goes on: noise, a stray word or a hesitation costs
-    // the user an answer to nothing and the app a request.
+    // Filter noise before it can trigger an answer or a paid request.
     const ask = (question: string) => {
       stopHolding();
       held = '';
@@ -342,7 +332,6 @@ export function useInstructorVoice({
         latest.current.onAsk(question);
       }
     };
-    // The user talking over an answer cuts it short, and over a pending one cancels it.
     const heard = (partial: string) => {
       if (!open() || !hasSpokenWord(partial)) {
         return;
@@ -360,7 +349,7 @@ export function useInstructorVoice({
         stopOutput();
         quiet();
       }
-      // The rest of a held turn is a new question too.
+      // A continuation invalidates a pending answer even before it forms a complete question.
       if (latest.current.thinking && (cuts || held !== '')) {
         latest.current.onCancel();
       }
@@ -396,7 +385,7 @@ export function useInstructorVoice({
         heard,
         turn,
         amplitude => {
-          // While the instructor talks, the meter follows its words instead.
+          // Use output timing for the meter while the instructor speaks.
           if (open() && saying.current === '') {
             level.value = withTiming(normalizedLevel(amplitude), {
               duration: Motion.levelSmoothing,
@@ -422,7 +411,7 @@ export function useInstructorVoice({
     interrupt();
     setHint('');
     if (!on) {
-      // Turning voice on reads out what is on screen.
+      // Clear the spoken id so enabling voice reads the current step.
       spoken.current = null;
       outputUsed.current = true;
       warmOutput();
@@ -432,7 +421,6 @@ export function useInstructorVoice({
 
   const toggleMuted = useCallback(() => setMuted(value => !value), []);
 
-  // The user moved on, by typing a question or changing step: a notice about voice is stale.
   const moveOn = useCallback(() => {
     interrupt();
     setHint('');
@@ -443,7 +431,6 @@ export function useInstructorVoice({
     onCancel();
   }, [interrupt, onCancel]);
 
-  // The user is heard once their words appear, even over an answer.
   const state =
     listening && transcript !== ''
       ? VoiceState.listening

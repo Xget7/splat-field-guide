@@ -57,7 +57,7 @@ export function parsePack(value: unknown): ParsePackResult {
   }
 }
 
-// Internal only: lets the readers stay flat; parsePack turns it into a result.
+// Throw internally to keep readers flat, then return a result at the parser boundary.
 class PackFailure extends Error {
   constructor(readonly error: PackError) {
     super(error.message);

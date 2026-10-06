@@ -75,7 +75,6 @@ export function buildUpstreamBody(input: AnswerInput, env: Env) {
       { type: "text", text: input.system, cache_control: { type: "ephemeral" } },
     ],
     messages: [{ role: "user", content: input.prompt }],
-    // Recent models always decide for themselves how much to think; effort sets how much.
     thinking: { type: "adaptive" },
     output_config: { effort: env.EFFORT },
   };

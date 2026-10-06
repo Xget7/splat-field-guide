@@ -9,7 +9,6 @@ export const ExchangePhase = {
 } as const;
 export type ExchangePhase = (typeof ExchangePhase)[keyof typeof ExchangePhase];
 
-/** A question and what the instructor said back, with a provisional part while streaming. */
 export interface Exchange {
   readonly question: string;
   readonly reply: string;

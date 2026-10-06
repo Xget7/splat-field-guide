@@ -1,7 +1,6 @@
 import type { GuideId } from '../pack/catalog';
 import type { ProcedureId } from '../pack/pack';
 
-/** Where the viewer last was, so the library can offer to continue. */
 export interface Progress {
   readonly guideId: GuideId;
   readonly procedureId: ProcedureId;

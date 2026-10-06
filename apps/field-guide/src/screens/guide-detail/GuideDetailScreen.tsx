@@ -37,7 +37,6 @@ import { useWideLayout } from '../../ui/useWideLayout';
 
 const Layout = {
   heroHeight: 220,
-  // A tablet held upright keeps the stacked layout with more of the photo.
   wideHeroHeight: 420,
   titleOverlap: 44,
   segmentHeight: 44,
@@ -47,7 +46,6 @@ const Layout = {
   toggleHeight: 26,
   knob: 20,
   fadeHeight: '60%',
-  // Wide, the photo takes the left and the choices a column on the right.
   wideColumn: 440,
   wideFadeHeight: '50%',
 } as const;
@@ -120,8 +118,7 @@ export function GuideDetailScreen({
       </Text>
     </View>
   );
-  // Most important first: how to be guided, then what to do. The AR check needs the real
-  // engine at hand, so it comes last.
+  // Place AR last because it requires access to the physical engine.
   const choices = (
     <>
       <View style={styles.section}>
@@ -172,8 +169,7 @@ export function GuideDetailScreen({
               color={voice ? Color.accent : Color.secondaryText}
             />
             <Text style={styles.voiceTitle}>{VOICE_TITLE}</Text>
-            {/* Drawn rather than native: the row is the switch, and the iOS 26 switch
-                outgrows the frame React Native gives it. */}
+            {/* The custom switch avoids the iOS 26 switch exceeding its React Native frame. */}
             <View style={[styles.toggle, voice && styles.toggleOn]}>
               <Animated.View layout={TOGGLE_MOTION} style={styles.knob} />
             </View>
@@ -310,7 +306,7 @@ const styles = StyleSheet.create({
   back: { position: 'absolute', left: Space.lg },
   hero: { height: Layout.heroHeight, overflow: 'hidden' },
   tallHero: { height: Layout.wideHeroHeight },
-  // Sized explicitly: an Image from a bundled asset otherwise keeps the asset's height.
+  // Bundled images retain their asset height unless explicitly sized.
   heroImage: { width: '100%', height: '100%' },
   fade: {
     position: 'absolute',

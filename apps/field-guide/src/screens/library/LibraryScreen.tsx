@@ -22,7 +22,6 @@ const Layout = {
   wideColumns: 4,
 } as const;
 
-/** `items` in rows of `columns`. */
 function rowsOf<T>(items: readonly T[], columns: number): T[][] {
   return Array.from({ length: Math.ceil(items.length / columns) }, (_, row) =>
     items.slice(row * columns, (row + 1) * columns),

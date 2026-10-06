@@ -1,7 +1,6 @@
 import { Bounds, Pack, Part, PartLabel, partsWithin, Vec3 } from '../pack/pack';
 import { currentStep, SessionState } from './session';
 
-/** The parts to show: the selection if any, else the step's, each with the parts inside. */
 function partsToShow(state: SessionState, pack: Pack): readonly Part[] {
   const roots =
     state.selectedPart !== null
@@ -24,7 +23,6 @@ export function highlightFor(
 }
 
 export function framingFor(state: SessionState, pack: Pack): Bounds | null {
-  // With no procedure and nothing picked, the whole capture is what is being looked at.
   const overview = state.procedureId === null && state.selectedPart === null;
   const parts = overview ? pack.parts : partsToShow(state, pack);
   if (parts.length === 0) {

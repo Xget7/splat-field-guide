@@ -109,7 +109,6 @@ describe('AR alignment screen', () => {
     expect(native()).toBe(camera);
     expect(native().props.onTrackingStateChanged).toBe(receive);
     expect(native().props.torchEnabled).toBe(true);
-    // A request alone must not make the UI claim the hardware light is on.
     expect(node('ar-flash').props.accessibilityState.selected).toBe(false);
     await act(() =>
       receive({
@@ -188,7 +187,6 @@ describe('AR alignment screen', () => {
     expect(node('ar-camera-state').props.children).toBe('Stable, 60 FPS');
     expect(node('ar-engine-state').props.children).toBe('0 found / 0 tracked');
     expect(node('ar-elapsed').props.children).toBe('00:12');
-    // The state and message are unchanged; fresh frame metadata must still reach the HUD.
     await act(() =>
       receive({
         state: 'searching',

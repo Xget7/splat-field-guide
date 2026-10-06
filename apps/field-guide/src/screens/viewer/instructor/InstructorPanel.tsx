@@ -60,8 +60,7 @@ import {
   type InstructorVoice,
 } from '../../../features/instructor/voice/useInstructorVoice';
 
-// Open under the splat, the panel is as tall as what it says, up to half the screen; past
-// that the thread scrolls, so the splat above keeps the rest.
+// Cap the conversation height to keep the splat visible above it.
 const CHAT_SHARE = '50%';
 const DOCKED_SHARE = '60%';
 const SIDE_SIZE = MIN_TOUCH;
@@ -71,8 +70,7 @@ const GRABBER_SLOP = (MIN_TOUCH - Space.lg) / 2;
 const STEP_EXCHANGE_KEY = 'step';
 const VOICE_ICON = 18;
 
-// In voice mode there is no button to discover, so the panel says what can be said. Quoted
-// words are the commands the router knows; they read brighter than the rest.
+// Expose spoken commands because voice mode has no navigation buttons.
 const VoiceCue = {
   step: [
     'Say ',
@@ -116,11 +114,10 @@ interface Props {
   onModeChange: (mode: PanelMode) => void;
   onBack: () => void;
   onNext: () => void;
-  /** In a sidebar beside the splat: always open, with the steps listed above it. */
+  /** Docked panels remain open because they share the sidebar with the step list. */
   docked?: boolean;
 }
 
-/** Answers grounded in the pack, with the current subject in view. */
 export function InstructorPanel({
   thread,
   exchange,
@@ -138,7 +135,6 @@ export function InstructorPanel({
   const [typing, setTyping] = useState(false);
   const listening = voice.state === VoiceState.listening;
   const transcript = listening ? voice.transcript : '';
-  // Without a live exchange, the last entry is the step on screen.
   const last = thread[thread.length - 1];
   const said =
     exchange ??
@@ -168,7 +164,6 @@ export function InstructorPanel({
     },
     [onModeChange],
   );
-  // Open under the splat, the header says where in the procedure the thread below is.
   const heading = !minimized && !docked && step !== null ? step : 'Instructor';
   const toggle = () => changeMode(togglePanel(mode));
   const toggleLabel = minimized ? 'Expand instructor' : 'Minimize instructor';
@@ -224,7 +219,7 @@ export function InstructorPanel({
     }
     onAsk(draft);
     setDraft('');
-    // Down goes the keyboard so the part it shows is in view.
+    // Dismiss the keyboard so the selected part remains visible.
     Keyboard.dismiss();
   }, [draft, onAsk]);
   const previous = hasStep ? (
@@ -270,7 +265,7 @@ export function InstructorPanel({
       ]}
     >
       <InstructorScan
-        // Open, the thread's dots already say it is thinking.
+        // Avoid repeating the thinking indication already shown by the thread.
         active={minimized && voice.state === VoiceState.thinking}
         reducedMotion={reducedMotion}
       />
@@ -292,7 +287,7 @@ export function InstructorPanel({
           <View style={styles.headerRow}>
             <Pressable
               testID="instructor-header"
-              // Docked, the header only reads out: there is nothing to minimize.
+              // A docked header cannot be minimized.
               accessible={!docked}
               accessibilityRole={docked ? undefined : 'button'}
               accessibilityLabel={docked ? undefined : toggleLabel}
@@ -310,7 +305,7 @@ export function InstructorPanel({
                 </Text>
                 <InstructorStatus
                   voice={voice}
-                  // Open, the thread names each step itself.
+                  // Avoid repeating the step name already shown in the open thread.
                   step={minimized ? step : null}
                   live={voice.on && minimized}
                 />
@@ -424,7 +419,6 @@ export function InstructorPanel({
                 style={styles.input}
               />
               {draft.trim() === '' ? (
-                // Named, not just drawn: a waveform alone was easy to miss.
                 <Pressable
                   testID="instructor-voice"
                   accessibilityRole="button"
@@ -484,8 +478,7 @@ const styles = StyleSheet.create({
     borderTopColor: Color.line,
   },
   minimized: { gap: Space.xs },
-  // No grabber above the header, so the top edge takes its own margin. Beside the splat
-  // the panel grows with the conversation, and the steps above it give way.
+  // Without a grabber, the docked header needs its own top margin.
   docked: {
     maxHeight: DOCKED_SHARE,
     flexShrink: 1,

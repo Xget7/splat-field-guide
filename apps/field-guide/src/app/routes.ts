@@ -8,7 +8,6 @@ export const Route = {
 } as const;
 export type Route = (typeof Route)[keyof typeof Route];
 
-/** How the viewer opens: with the instructor panel up, or the step card alone. */
 export const LearnMode = {
   instructor: 'instructor',
   selfGuided: 'selfGuided',
@@ -24,7 +23,6 @@ export type RootStackParamList = {
     procedureId: string;
     stepIndex: number;
     mode: LearnMode;
-    /** The instructor starts in voice: it reads aloud and listens from the first step. */
     voice?: boolean;
   };
 };

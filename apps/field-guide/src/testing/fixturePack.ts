@@ -1,4 +1,3 @@
-// Test data only; the real pack comes from content/.
 import { Pack } from '../features/pack/pack';
 import { parsePack } from '../features/pack/parsePack';
 

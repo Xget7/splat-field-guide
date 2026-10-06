@@ -1,6 +1,5 @@
 /* global __r, globalThis */
 // Evaluate this file in the app's Metro debugger console in a Debug build.
-// It exercises the public native interface and publishes __kokoroSmokeResults when done.
 (async () => {
   const entry = Array.from(__r.getModules().entries()).find(([, module]) =>
     (module.verboseName || '').includes('react-native-on-device/src/index'),
@@ -68,8 +67,7 @@
   check(unknownWords.includes('turbosprocket'), 'Unknown word lost its original range');
   results.push({ test: 'bundled neural G2P', passed: true });
 
-  // The unknown word exceeds the small G2P model's safe limit, forcing Apple fallback after
-  // sentence one. Its words must keep original offsets and sentence one must be heard once.
+  // The oversized unknown word forces Apple fallback after sentence one, which must play once with original offsets.
   const first = 'Check the coolant reservoir. ';
   const fallbackText = first + 'Z' + 'x'.repeat(62) + '. Check the battery.';
   const fallbackWords = [];

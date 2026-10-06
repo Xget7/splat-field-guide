@@ -10,18 +10,12 @@ import {
 import { AnswerKind, formatBlock, parseAnswer } from './answerFormat';
 import { NOT_COVERED_REPLY, type InstructorAnswer } from './instructor';
 
-/**
- * What every model is told and checked against, so an answer online and one offline
- * follow the same rules: the pack's notes, short spoken replies, no guessed numbers.
- */
 
-// With the notes, instructions and answer, these keep an on-device request near 1000 of
-// its 4096 tokens.
+// Bound prompt size to leave room for the answer within the on-device token window.
 export const MAX_QUESTION_CHARS = 300;
 export const MAX_HISTORY_CHARS = 300;
 export const MAX_PROMPT_CHARS = 6000;
 const EVIDENCE_TOO_LARGE = 'Authored evidence exceeds the model prompt budget';
-// Spoken answers stay short even when a model starts reading the notes out.
 export const MAX_REPLY_SENTENCES = 3;
 
 export interface PreviousExchange {
@@ -29,7 +23,7 @@ export interface PreviousExchange {
   readonly reply: string;
 }
 
-/** How much of the pack a prompt carries: the subject's notes, or none when the model already has them all. */
+/** Omit subject notes when the model already has the whole pack. */
 export const PromptNotes = { subject: 'subject', none: 'none' } as const;
 export type PromptNotes = (typeof PromptNotes)[keyof typeof PromptNotes];
 
@@ -64,7 +58,7 @@ export function rulesFor(
   ];
 }
 
-/** Plain lines, not JSON: keys, quotes and braces would spend tokens and say nothing. */
+/** Plain lines avoid spending prompt tokens on JSON syntax. */
 export function promptFor(
   question: string,
   state: SessionState,
@@ -211,10 +205,7 @@ export function inventsNumbers(
 // A full stop inside a number ("1.6 litre") does not end a sentence.
 const SENTENCE = /.+?(?:[.!?]+(?=\s|$)|$)/g;
 
-/**
- * What a model's text, so far or in full, shows: supported structure, at most
- * MAX_REPLY_SENTENCES sentences and never a guessed number.
- */
+/** Bound reply length and reject numerical tokens absent from the authored evidence. */
 export function replyFrom(
   text: string,
   evidence: AuthoredEvidence,

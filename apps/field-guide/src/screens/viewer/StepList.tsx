@@ -15,7 +15,7 @@ import type { StepRow } from './guideContent';
 const BADGE_SIZE = 28;
 const TEXT_LINES = 2;
 
-// Earlier, not done: a step jumped over was never carried out.
+// Earlier steps may have been skipped, so they do not imply completion.
 const StepState = {
   earlier: 'earlier',
   current: 'current',
@@ -63,10 +63,6 @@ function Badge({ index, state }: { index: number; state: StepState }) {
   );
 }
 
-/**
- * Every step of the procedure at once: those before, the current one and those still to come.
- * Any step can be opened directly; the current one is kept in view.
- */
 export function StepList({
   rows,
   current,
@@ -77,7 +73,7 @@ export function StepList({
   /** Zero based. */
   current: number;
   onSelect: (index: number) => void;
-  /** The current step in full, with its safety note: nothing else on screen shows it. */
+  /** Expanded rows include the safety note because no other panel shows the full step. */
   expanded?: boolean;
 }) {
   const scroll = useRef<ScrollViewInstance>(null);
@@ -169,7 +165,6 @@ export function StepList({
 }
 
 const styles = StyleSheet.create({
-  // As tall as its steps, up to what the sidebar gives it; the conversation takes the rest.
   list: { flexShrink: 1, gap: Space.md, paddingTop: Space.lg },
   header: { paddingHorizontal: Space.lg },
   scroll: { flexGrow: 0, flexShrink: 1 },
@@ -203,7 +198,7 @@ const styles = StyleSheet.create({
   badgeCurrent: { backgroundColor: Color.accent, borderColor: Color.accent },
   number: { ...Type.data, color: Color.faint },
   numberFilled: { color: Color.accentText },
-  // Several lines read from the top, with the first one level with the badge.
+  // Align the first line of wrapped text with the badge.
   rowWhole: { alignItems: 'flex-start' },
   words: { flex: 1, gap: Space.sm },
   wordsWhole: { paddingTop: (BADGE_SIZE - Type.callout.lineHeight) / 2 },

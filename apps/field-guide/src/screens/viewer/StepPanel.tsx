@@ -12,7 +12,7 @@ import { stepLabel } from '../../ui/readout';
 const SWIPE_ACTIVATION_POINTS = 24;
 const SWIPE_DISTANCE_POINTS = 64;
 const SWIPE_VERTICAL_TOLERANCE_POINTS = 16;
-// The splat keeps most of the screen even for a long step.
+// Limit panel height to keep the splat visible even for long steps.
 const MAX_PANEL_SHARE = '55%';
 
 interface Props {
@@ -21,11 +21,10 @@ interface Props {
   onBack: () => void;
   onNext: () => void;
   onRepeat: () => void;
-  /** In a sidebar under the step list, which already shows the progress. */
+  /** The sidebar step list already shows progress. */
   docked?: boolean;
 }
 
-/** The step on its own: where it is in the procedure, what to do, and the way on. */
 export function StepPanel({
   content,
   bottomInset,
@@ -143,7 +142,6 @@ const styles = StyleSheet.create({
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },
-  // Under the steps in a sidebar, the space between goes above the panel.
   docked: { marginTop: 'auto' },
   header: {
     flexDirection: 'row',

@@ -59,11 +59,7 @@ export function isLastStep(state: SessionState, pack: Pack): boolean {
   return !!procedure && state.stepIndex === procedure.steps.length - 1;
 }
 
-/**
- * Invalid events (an unknown id, next with no procedure) return the same
- * state object. Next on the last step and back on the first stay put, so the
- * player can show "done" without the session ending behind its back.
- */
+/** Invalid events preserve object identity, and boundary steps stay active until explicitly ended. */
 export function reduce(
   state: SessionState,
   event: SessionEvent,
@@ -84,7 +80,6 @@ export function reduce(
         ? { ...state, stepIndex: state.stepIndex - 1, selectedPart: null }
         : state;
     case SessionEventType.repeat:
-      // Repeating re-presents the step's own parts, dropping any override.
       return procedure && state.selectedPart !== null
         ? { ...state, selectedPart: null }
         : state;

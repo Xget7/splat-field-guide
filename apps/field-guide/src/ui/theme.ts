@@ -1,8 +1,6 @@
 import type { TextStyle } from 'react-native';
 
-// OLED black: a black pixel is off. Surfaces stay near black and neutral, and the one accent is
-// the tint the renderer paints selected parts with (Highlight::kTint in the engine), so it only
-// ever means "this one". The accent reads at 4.5:1 on black and under white text alike.
+// Match the renderer's selection tint (Highlight::kTint) so the accent consistently identifies selection.
 export const Color = {
   black: '#000000',
   surface: '#0B0C0E',
@@ -20,14 +18,13 @@ export const Color = {
   accentText: '#FFFFFF',
   accentWash: 'rgba(10, 108, 255, 0.16)',
   completed: 'rgba(10, 108, 255, 0.6)',
-  // The primary action is white on black, like an instrument's, so the accent only ever
-  // marks what is selected.
+  // Reserve the accent for selection by using a neutral primary action.
   action: '#F4F6F8',
   actionPressed: '#C3C9D0',
   actionText: '#000000',
   caution: '#F5B731',
   cautionWash: 'rgba(245, 183, 49, 0.10)',
-  // Controls that float over the splat: dark enough to read on a bright capture.
+  // Keep overlaid controls legible on bright captures.
   overlay: 'rgba(8, 9, 11, 0.78)',
 } as const;
 
@@ -41,7 +38,6 @@ export const Space = {
   xxl: 32,
 } as const;
 
-// Plain, nearly square corners: controls 2, cards 4, sheets 12.
 export const Radius = { sm: 2, md: 4, lg: 6, sheet: 12 } as const;
 
 export const MIN_TOUCH = 44;
@@ -53,7 +49,6 @@ export const Motion = {
   base: 220,
   slow: 320,
   scanPeriod: 1600,
-  // A loaded capture sweeping in from the bottom up, as a scanner would read it.
   reveal: 1400,
   levelSmoothing: 80,
   wordAttack: 30,
@@ -61,17 +56,13 @@ export const Motion = {
   spring: { mass: 1, damping: 30, stiffness: 280, overshootClamping: true },
 } as const;
 
-// Geist, the open (OFL) face closest to TT Interphases, Schemata's typeface. Bundled in
-// ios/FieldGuide (UIAppFonts), see assets/fonts. Each weight is named by its PostScript name, so
-// no style needs fontWeight to find it.
+// Geist weights use PostScript names so styles do not need fontWeight.
 export const Font = {
   regular: 'Geist-Regular',
   semiBold: 'Geist-SemiBold',
   bold: 'Geist-Bold',
 } as const;
 
-// iOS text style sizes (Body 17), in sentence case throughout: plain type, bold headings, and
-// figures of equal width wherever numbers sit in a column.
 export const Type = {
   largeTitle: {
     fontFamily: Font.bold,

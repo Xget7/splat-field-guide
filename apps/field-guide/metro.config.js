@@ -13,13 +13,7 @@ const bundledPack = path.resolve(
 );
 
 /**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * The library is linked with `file:`, so Metro follows it outside the app root.
- * Its own node_modules (installed for typecheck and lint) must not shadow the
- * app's copies of react, react-native and the Nitro runtime.
- *
+ * Linked packages must not shadow the app's React, React Native or Nitro runtimes.
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const config = {

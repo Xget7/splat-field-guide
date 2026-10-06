@@ -4,19 +4,14 @@ import { promptFor, PromptNotes, rulesFor } from '../grounding';
 import type { InstructorModel } from './InstructorModel';
 
 const AVAILABLE = 'available';
-// One earlier exchange is all a follow-up needs, and all the 4096 tokens leave room for.
+// Limit history to leave room in the on-device model's 4096-token window.
 const ON_DEVICE_HISTORY_TURNS = 1;
 
-/**
- * The same text for every question of a pack, so a prewarmed session and its cache stay
- * valid; everything that varies goes in the prompt with only the notes it needs, since
- * Apple's on-device model holds 4096 tokens.
- */
+/** Keep instructions stable for prewarming and caching; put question-specific evidence in the prompt. */
 export function onDeviceInstructions(pack: Pack): string {
   return rulesFor(pack).join('\n');
 }
 
-/** Apple Foundation Models: offline, private, and small enough to need the notes picked for it. */
 export const onDeviceModel: InstructorModel = {
   isReady() {
     try {
@@ -32,7 +27,7 @@ export const onDeviceModel: InstructorModel = {
         model.prewarm(onDeviceInstructions(pack));
       }
     } catch {
-      // Another model or the script answers without it.
+      // Fall back when prewarming is unavailable.
     }
   },
   respond({ question, state, pack, history, evidence }, onText) {

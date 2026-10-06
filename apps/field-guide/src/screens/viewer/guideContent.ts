@@ -63,7 +63,6 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
   };
 }
 
-/** A step as the step list names it. */
 export interface StepRow {
   readonly id: string;
   readonly text: string;
@@ -72,13 +71,9 @@ export interface StepRow {
   readonly caution: string;
 }
 
-// The end of a step's first sentence: a stop, then a space before the next.
 const SENTENCE_END = /(?<=[.!?])\s+/;
 
-/**
- * The current procedure's steps, as a list to scan: a tour step is named by its part and
- * explained by its summary, the rest by the first sentence of what to do, then the others.
- */
+/** Use part names for tour rows and the first instruction sentence for authored steps. */
 export function stepRowsFor(
   state: SessionState,
   pack: Pack,

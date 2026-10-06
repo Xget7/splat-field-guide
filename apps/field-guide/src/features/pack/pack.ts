@@ -21,7 +21,6 @@ export interface PackFile {
   readonly sha256: string;
 }
 
-/** The source artifacts and label mapping accepted by publication. */
 export interface PackSources {
   readonly captureSha256: string;
   readonly reconstructionSha256: string;
@@ -56,7 +55,6 @@ export interface CameraLimits {
   readonly maxRadius: number;
 }
 
-/** What a note in a part's knowledge is about; the instructor retrieves notes by topic. */
 export const NoteTopic = {
   identity: 'identity',
   purpose: 'purpose',

@@ -66,14 +66,13 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-// Tests never reach the network: the shared cloud model has no proxy, and cloud tests
-// build their own with a fake request.
+// The shared cloud model is disabled; cloud tests inject fake requests.
 jest.mock('../features/instructor/models/cloudModel', () => {
   const actual = jest.requireActual('../features/instructor/models/cloudModel');
   return { ...actual, cloudModel: actual.createCloudModel({ url: null }) };
 });
 
-// Native capabilities are opt-in in tests; callbacks and promises can be controlled per case.
+// Native capabilities are opt-in so each test controls readiness and callbacks.
 jest.mock('react-native-on-device', () => {
   const model = {
     availability: jest.fn(() => 'unavailable'),
@@ -111,8 +110,7 @@ jest.mock('react-native-on-device', () => {
   };
 });
 
-// React Native's test window is 750 points wide, an iPad's width class; screens are tested as
-// on an iPhone unless a test opens a wider window.
+// Default to a phone window because React Native tests otherwise start at tablet width.
 const PHONE_WINDOW = { width: 393, height: 852, scale: 3, fontScale: 1 };
 require('react-native').Dimensions.set({
   window: PHONE_WINDOW,

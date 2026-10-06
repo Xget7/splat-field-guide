@@ -56,8 +56,6 @@ export const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(
 export const FADE_OUT = FadeOut.duration(Motion.fast).reduceMotion(
   ReduceMotion.Never,
 );
-// Full view: the sidebar slides off to the right as the splat widens into its place, and the
-// tools rise from the foot of the splat. Reduced motion, by default, skips the slides.
 export const SIDEBAR_IN = SlideInRight.springify()
   .mass(Motion.spring.mass)
   .damping(Motion.spring.damping)
@@ -74,8 +72,7 @@ const SCAN_WIDTH = '33.333333%';
 const SCAN_HEIGHT = 2;
 const LOOP_FOREVER = -1;
 
-// One frame holds the question field or, in voice mode, the voice's readout, with its buttons
-// set inside it. It stands as tall as Next below it, so the two rows share their edges.
+// Match the Next button's height so composer and navigation rows align.
 export const Composer = {
   height: BUTTON_HEIGHT,
   button: 36,
@@ -88,14 +85,11 @@ const STATUS: Readonly<Record<VoiceState, string>> = {
   thinking: 'Thinking',
   speaking: 'Speaking',
 };
-// Quiet in voice mode, the status says whether the microphone is open yet.
 const MicStatus = {
   open: 'Listening',
   muted: 'Muted',
   starting: 'Starting',
 } as const;
-// An open microphone reads in the accent, a muted one as a caution and the instructor's own
-// speech as plain text; the rest stay quiet.
 function statusColor(status: string | null) {
   if (status === MicStatus.muted) {
     return Color.caution;
@@ -148,10 +142,6 @@ export function LevelMeter({ level }: MeterProps) {
   );
 }
 
-/**
- * The header readout: what the voice is doing when `live`, otherwise the step, except while
- * an answer is on its way.
- */
 export function InstructorStatus({
   voice,
   step,
@@ -180,7 +170,6 @@ export function InstructorStatus({
   );
 }
 
-/** In the question field's frame: the voice's state and level, between ending voice and muting it. */
 export function VoiceBar({ voice }: { voice: InstructorVoice }) {
   const status = voiceStatus(voice);
   return (
@@ -229,7 +218,7 @@ export function MuteButton({
   inset = false,
 }: {
   voice: InstructorVoice;
-  /** Inside the composer's frame, which already draws the muted outline. */
+  /** The composer already provides the outline when this control is inset. */
   inset?: boolean;
 }) {
   return (
@@ -433,10 +422,9 @@ export const composerStyles = StyleSheet.create({
     backgroundColor: Color.raised,
   },
   voiceFrame: { paddingLeft: Composer.inset },
-  // The outline says the microphone is open, so the readout never passes for a text field.
+  // Distinguish an open microphone from an editable text field.
   open: { borderColor: Color.accent },
   mutedFrame: { borderColor: Color.caution },
-  // Inner corners follow the frame's, less the inset.
   insetButton: { borderRadius: Radius.sm },
   quietButton: {
     borderRadius: Radius.sm,

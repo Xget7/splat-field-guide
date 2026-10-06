@@ -2,23 +2,18 @@ import type { Pack } from '../../pack/pack';
 import { promptFor, PromptNotes, ReplyFormat, rulesFor } from '../grounding';
 import type { InstructorModel } from './InstructorModel';
 
-/** The instructor proxy (services/instructor-proxy); null keeps the instructor offline. */
+/** A null proxy URL disables cloud generation. */
 export const INSTRUCTOR_PROXY_URL: string | null =
   'https://field-guide-instructor.field-guide-instructor-proxy.workers.dev';
 
-// A spoken answer that has not started by then is better left to the on-device model.
+// Fall back to on-device generation if the cloud takes too long to begin answering.
 export const FIRST_TEXT_MS = 6000;
 export const TOTAL_MS = 25000;
-// After a failure the network is likely still down, so the next questions skip the cloud
-// for a while instead of each waiting for it to fail again.
+// Cool down after failure so subsequent questions do not each wait for another failed request.
 export const COOL_OFF_MS = 30000;
-// Enough of the conversation for a follow-up to lean on, while the prompt stays small.
 export const CLOUD_HISTORY_TURNS = 4;
 
-/**
- * Everything the pack knows: an upstream ephemeral cache hint can reuse these instructions,
- * while a large model can reason across parts rather than seeing only the notes picked for one.
- */
+/** Cache the full pack instructions upstream so the model can reason across parts. */
 export function cloudInstructions(pack: Pack): string {
   const parts = pack.parts.map(part =>
     [
@@ -78,7 +73,7 @@ export interface CloudModelOptions {
   readonly Request?: typeof XMLHttpRequest;
 }
 
-/** Claude through the proxy, which holds the API key and streams one JSON object per line. */
+/** The proxy retains the API key and streams one JSON object per line. */
 export function createCloudModel({
   url,
   now = Date.now,

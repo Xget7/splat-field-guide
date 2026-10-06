@@ -1,16 +1,16 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
+# Resolve through Node so hoisted React Native installations work.
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-# The on-device instructor uses Apple Foundation Models.
+# Apple Foundation Models require iOS 26 or later.
 IOS_DEPLOYMENT_TARGET = '26.0'
 platform :ios, IOS_DEPLOYMENT_TARGET
 prepare_react_native_project!
 
-# Build-time only: pinned and hash-checked resources must exist before CocoaPods enumerates them.
+# Verify pinned resources before CocoaPods enumerates them.
 unless system('python3', File.expand_path('../scripts/fetch-kokoro-models.py', __dir__))
   raise 'Kokoro resources could not be verified; see scripts/fetch-kokoro-models.py'
 end
@@ -26,7 +26,6 @@ target 'FieldGuide' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -35,12 +34,9 @@ target 'FieldGuide' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
 
-    # Swift pods add the toolchain's Swift libraries, which back-deployed Swift before iOS 12.2,
-    # to the app's search paths; Xcode 27 resolves the toolchain to the Metal one, which has no
-    # such folder, so ld warned about it on every link.
+    # Xcode 27's Metal toolchain lacks the back-deployment Swift library path added by CocoaPods.
     toolchain_swift = '"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}"'
     installer.aggregate_targets.each do |target|
       target.xcconfigs.each do |name, xcconfig|
@@ -51,17 +47,15 @@ target 'FieldGuide' do
       end
     end
 
-    # Hermes' replace script picks the engine for the configuration, so it has to run on every
-    # build; saying so keeps Xcode from warning that it declares no outputs.
+    # Hermes selects its engine per configuration, so the replacement phase must run on every build.
     installer.pods_project.targets.each do |target|
       target.shell_script_build_phases.each do |phase|
         phase.always_out_of_date = '1' if phase.name&.include?('Replace Hermes')
       end
     end
 
-    # Third party pods warn about their own code; our native pods keep their warnings visible.
-    # Codegen and Nitro archive generated files that are empty in the new architecture,
-    # which libtool would report on every build.
+    # Codegen and Nitro produce empty objects, which trigger libtool warnings.
+    # Keep warnings visible for owned native pods while suppressing third-party warnings.
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build|
         build.build_settings['OTHER_LIBTOOLFLAGS'] = '$(inherited) -no_warning_for_no_symbols'
@@ -70,8 +64,7 @@ target 'FieldGuide' do
       end
     end
 
-    # AsyncStorage's resource bundle target asks for iOS 13, below what Xcode 27 can build for;
-    # no pod needs less than the app itself.
+    # Raise legacy pod targets such as AsyncStorage's iOS 13 bundle to the app's supported minimum.
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build|
         deployment = build.build_settings['IPHONEOS_DEPLOYMENT_TARGET']

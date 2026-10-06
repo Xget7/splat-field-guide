@@ -22,7 +22,6 @@ export function ReadyCard({
   onPress,
 }: {
   guide: ReadyGuide;
-  /** Photo and details side by side, so the card is not a screen-wide photo. */
   wide?: boolean;
   onPress: () => void;
 }) {
@@ -131,7 +130,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   pressed: { backgroundColor: Color.pressed },
-  // The frame sets the shape: an Image sized by a bundled asset keeps the asset's height.
+  // Bundled images retain their asset height unless the frame constrains it.
   readyFrame: { aspectRatio: Layout.readyAspect },
   soonFrame: { aspectRatio: Layout.soonAspect },
   image: { width: '100%', height: '100%' },

@@ -22,7 +22,6 @@ export async function saveProgress(progress: Progress): Promise<void> {
   );
 }
 
-/** A finished or stopped procedure leaves nothing to continue. */
 export async function clearProgress(): Promise<void> {
   await writeInOrder(() => AsyncStorage.removeItem(PROGRESS_KEY));
 }

@@ -60,13 +60,9 @@ export function Button({
 }
 
 export const IconButtonVariant = {
-  /** Floats over the splat. */
   overlay: 'overlay',
-  /** Sits on a panel. */
   raised: 'raised',
-  /** On: the instructor is listening, a mode is active. */
   active: 'active',
-  /** The way forward, filled like the primary button. */
   primary: 'primary',
 } as const;
 export type IconButtonVariant =
@@ -121,7 +117,6 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
-  // Squarer than the cards around them: an action reads as a control, not a tile.
   button: {
     height: BUTTON_HEIGHT,
     borderRadius: Radius.sm,
@@ -133,7 +128,7 @@ const styles = StyleSheet.create({
   },
   primary: { backgroundColor: Color.action },
   primaryPressed: { backgroundColor: Color.actionPressed },
-  // Outlined only, so the one filled button on screen is the way forward.
+  // Keep secondary actions outlined so the filled action identifies the way forward.
   secondary: {
     borderWidth: HAIRLINE,
     borderColor: Color.lineStrong,

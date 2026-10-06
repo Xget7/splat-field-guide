@@ -1,7 +1,6 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { Color, Type } from './theme';
 
-/** A short label: a status or a line of facts. */
 export function Label({
   color = Color.muted,
   style,

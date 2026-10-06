@@ -12,23 +12,16 @@ export interface ModelRequest {
   readonly history: readonly PreviousExchange[];
 }
 
-/**
- * A model that can write the instructor's reply. Each one builds its own prompt from the
- * shared grounding, sized to what it can hold; the caller checks and shapes the text.
- */
+/** Each model sizes its prompt from shared grounding; the caller validates and shapes its output. */
 export interface InstructorModel {
   /** Whether a request is worth trying now. Synchronous, so routing never waits. */
   isReady(): boolean;
-  /** Gets ready for questions about `pack`, if the model benefits from it. */
   prewarm(pack: Pack): void;
-  /**
-   * Resolves with the whole reply text. `onText` gets the text so far each time it grows.
-   * Rejects when the model fails, times out or is cancelled.
-   */
+  /** Stream cumulative text through onText, then resolve the full reply or reject on failure or cancellation. */
   respond(
     request: ModelRequest,
     onText: (text: string) => void,
   ): Promise<string>;
-  /** Stops the reply in progress, which then rejects. Safe to call when idle. */
+  /** Cancellation rejects an active reply and is safe when idle. */
   cancel(): void;
 }

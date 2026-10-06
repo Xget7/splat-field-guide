@@ -17,18 +17,17 @@ import { cardContentFor, type CardContent } from './guideContent';
 
 export { ExchangePhase, type Exchange } from '../../features/instructor/turn';
 
-// A long session scrolls back this far; older entries drop off the top.
 export const MAX_THREAD_ENTRIES = 60;
 
 export const EntryKind = { step: 'step', exchange: 'exchange' } as const;
 export type EntryKind = (typeof EntryKind)[keyof typeof EntryKind];
 
-/** What the conversation shows, oldest first: steps as they were shown, and answered questions. */
+/** Keep steps and answered questions in chronological order. */
 export type ThreadEntry =
   | {
       readonly kind: typeof EntryKind.step;
       readonly id: number;
-      /** Which step, and which part on it, so the same one is not shown twice in a row. */
+      /** Deduplicate consecutive entries for the same step and part. */
       readonly key: string;
       readonly card: CardContent;
     }
@@ -38,16 +37,11 @@ export interface ViewerState {
   readonly session: SessionState;
   /** Cleared by anything but a question, so it never describes a step that has moved on. */
   readonly exchange: Exchange | null;
-  /**
-   * Everything said before the live exchange. Without one, the last entry is the step on
-   * screen.
-   */
+  /** Exclude the live exchange; without one, the last entry is the step on screen. */
   readonly thread: readonly ThreadEntry[];
-  /** How many steps the thread has shown, which numbers the next one. */
   readonly stepsShown: number;
   /** Bumped to frame the step again even when the session itself did not change. */
   readonly frameRequest: number;
-  /** Where the guide left off while exploring, to pick it up again. */
   readonly resume: SessionState | null;
 }
 
@@ -91,7 +85,6 @@ const append = (thread: readonly ThreadEntry[], entry: ThreadEntry) =>
 const stepKey = (session: SessionState) =>
   `${session.procedureId}:${session.stepIndex}:${session.selectedPart}`;
 
-/** An answered question moves up into the thread; one still on its way is dropped. */
 function settle(state: ViewerState): ViewerState {
   return state.exchange?.phase === ExchangePhase.done
     ? {
@@ -105,7 +98,6 @@ function settle(state: ViewerState): ViewerState {
     : { ...state, exchange: null };
 }
 
-/** The step on screen joins the thread, unless it is already the last thing said. */
 function showStep(state: ViewerState, pack: Pack): ViewerState {
   const key = stepKey(state.session);
   const last = state.thread[state.thread.length - 1];
@@ -124,7 +116,7 @@ function showStep(state: ViewerState, pack: Pack): ViewerState {
   };
 }
 
-/** Every answered question so far, oldest first, for a model to read a follow-up by. */
+/** Return answered exchanges in chronological order for model follow-ups. */
 export function answeredExchanges(state: ViewerState): Exchange[] {
   const earlier = state.thread.flatMap(entry =>
     entry.kind === EntryKind.exchange ? [entry.exchange] : [],

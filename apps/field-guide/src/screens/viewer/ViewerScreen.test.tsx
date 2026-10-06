@@ -47,7 +47,6 @@ import {
 } from '../../features/instructor/voice/useInstructorVoice';
 import { recognitionHintsFor } from '../../features/instructor/voice/recognitionHints';
 
-// Native hosts are replaced while the screen, reducer and callbacks run together.
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
   usePanGesture: jest.fn(config => ({ kind: 'pan', config })),
@@ -232,7 +231,6 @@ describe('viewer screen', () => {
       expect(node('step-row-3').props.accessibilityState).toEqual({
         selected: true,
       });
-      // The current step is whole in the list, so the conversation does not repeat it.
       const step = procedure('check-coolant').steps[3];
       expect(
         [text('step-current-text'), text('step-current-detail')].join(' '),
@@ -277,7 +275,6 @@ describe('viewer screen', () => {
         stepIndex: 0,
         selectedPart: 'battery',
       });
-      // Full view folds the sidebar into buttons over the splat; Guide unfolds it.
       await press('tool-full-view');
       expect(has('viewer-sidebar')).toBe(false);
       expect(has('viewer-dock')).toBe(true);
@@ -651,8 +648,6 @@ describe('viewer screen', () => {
     const ask = async (question: string) =>
       act(async () => debug().ask(question));
     const voiceOn = async () => press('instructor-voice');
-    // The callbacks of the latest listening: partial words, a finished turn, the level, the
-    // voice starting and pausing, and listening stopping.
     const heard = () => {
       const [, , partial, turn, level, voice, stopped] = jest
         .mocked(input.listen)
@@ -807,7 +802,6 @@ describe('viewer screen', () => {
         .mockReturnValueOnce(permission.promise);
       await voiceOn();
       expect(input.requestPermission).toHaveBeenCalledTimes(1);
-      // The step is said at once; the microphone waits for access.
       expect(output.speak).toHaveBeenCalledTimes(1);
       expect(text('instructor-voice-status')).toBe('Starting');
       expect(input.listen).not.toHaveBeenCalled();
@@ -966,7 +960,6 @@ describe('viewer screen', () => {
       expect(
         StyleSheet.flatten(node('instructor-meter-bar-0').props.style),
       ).toMatchObject({ width: 2, height: 4, borderRadius: 0 });
-      // While the instructor talks, the meter follows its words, not the microphone.
       await act(async () => voiceEvents.emitLevel(0.8));
       expect(voice.level.value).toBe(0);
       await press('instructor-stop');
@@ -1066,7 +1059,6 @@ describe('viewer screen', () => {
       expect(node('viewer-viewport').props.layout).toBeUndefined();
       expect(withSpring).not.toHaveBeenCalled();
       await ask('Explain the battery');
-      // Open, the dots alone say it is thinking; minimized, the line does.
       expect(has('instructor-thinking')).toBe(true);
       expect(has('instructor-scan-static')).toBe(false);
       await press('instructor-header');
@@ -1129,7 +1121,6 @@ describe('viewer screen', () => {
         VOICE_LOCALE,
         expect.any(Function),
       );
-      // Its own words leaking past echo cancellation do not interrupt it.
       const stops = jest.mocked(output.stop).mock.calls.length;
       await act(async () => partial(summary.split(' ').slice(0, 3).join(' ')));
       expect(output.stop).toHaveBeenCalledTimes(stops);
@@ -1150,7 +1141,6 @@ describe('viewer screen', () => {
       await act(async () => heard().turn('.'));
       await act(async () => heard().turn('Uh'));
       await act(async () => heard().turn('Where is the'));
-      // Still talking past the hold: the half question is not asked.
       await act(async () => heard().voice(true));
       await act(async () => jest.advanceTimersByTime(PAST_HOLD_MS));
       expect(has('instructor-question')).toBe(false);
@@ -1236,7 +1226,6 @@ describe('viewer screen', () => {
       expect(input.listen).not.toHaveBeenCalled();
       expect(text('instructor-hint')).toBe(VoiceHint.unavailable);
       expect(has('instructor-input')).toBe(true);
-      // Typing a question moves on, so the notice about voice goes.
       await type('Where is the battery?');
       expect(has('instructor-hint')).toBe(false);
     });
@@ -1546,7 +1535,6 @@ describe('viewer screen', () => {
       const answer = deferred<string>();
       jest.mocked(model.respond).mockReturnValueOnce(answer.promise);
       await mount({ mode: LearnMode.instructor });
-      // Its words fit the steering notes, but the script names no part for it.
       await ask('What gets hot when I drive?');
       await act(async () =>
         jest.mocked(model.respond).mock.calls[0][2](modelReply('Provisional')),
@@ -1637,7 +1625,6 @@ describe('viewer screen', () => {
     test('speech output errors leave the written reply visible', async () => {
       await mount({ mode: LearnMode.instructor });
       await voiceOn();
-      // The step read on turning voice on is fine; the answer to "next" fails.
       jest
         .mocked(output.speak)
         .mockRejectedValueOnce(new Error('voice unavailable'));
