@@ -33,7 +33,7 @@ flowchart LR
     app --> ondevice["react-native-on-device<br/>speech, Apple model"]
   end
   prepare --> app
-  app -- "open questions, online" --> worker["Cloudflare Worker"]
+  app -->|"open questions, online"| worker["Cloudflare Worker"]
   worker --> claude["Claude API"]
 ```
 
@@ -73,11 +73,11 @@ Commands never wait on a model, and every model shares one text-reply interface 
 ```mermaid
 flowchart LR
   input["Typed or spoken text"] --> router{"Command?<br/>next, back, repeat"}
-  router -- yes --> action["Session action"]
-  router -- no --> evidence["Authored evidence<br/>for this step and part"]
+  router -->|yes| action["Session action"]
+  router -->|no| evidence["Authored evidence<br/>for this step and part"]
   evidence --> cloud["Claude through the Worker"]
-  cloud -- "offline or failed" --> apple["Apple Foundation Models<br/>on device"]
-  apple -- "unavailable or failed" --> scripted["Scripted pack guidance"]
+  cloud -->|"offline or failed"| apple["Apple Foundation Models<br/>on device"]
+  apple -->|"unavailable or failed"| scripted["Scripted pack guidance"]
   cloud --> commit["Validate the complete reply<br/>then commit and speak"]
   apple --> commit
   scripted --> commit
