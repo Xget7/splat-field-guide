@@ -30,6 +30,7 @@ add_library(splat_core STATIC
   src/formats/PartLabels.cpp
   src/formats/SpzDecoder.cpp
   src/io/MappedFile.cpp
+  src/loading/Sha256.cpp
   src/loading/SplatWorldLoader.cpp
   src/sorting/SpatialOrder.cpp
 )
@@ -39,6 +40,14 @@ target_link_libraries(splat_core PRIVATE spz ZLIB::ZLIB PUBLIC Threads::Threads)
 if(SPLAT_CORE_PORTABLE_SHA256)
   target_compile_definitions(splat_core PRIVATE SPLAT_CORE_PORTABLE_SHA256)
   target_include_directories(splat_core SYSTEM PRIVATE vendor/picosha2)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    set(SPLAT_CORE_ARM_SHA256 ON)
+    target_sources(splat_core PRIVATE src/loading/Sha256Arm.cpp)
+    target_compile_definitions(splat_core PRIVATE SPLAT_CORE_ARM_SHA256)
+    # The baseline code must run on CPUs without crypto instructions.
+    set_source_files_properties(src/loading/Sha256Arm.cpp PROPERTIES
+      COMPILE_OPTIONS "-march=armv8-a+crypto")
+  endif()
 elseif(NOT APPLE)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   target_link_libraries(splat_core PRIVATE OpenSSL::Crypto)
