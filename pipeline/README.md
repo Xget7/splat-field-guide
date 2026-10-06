@@ -21,16 +21,16 @@ Captured LiDAR depth is preserved; exported scale uses an approximate 0.242 m ba
 
 | Stage | Command | Accepted output |
 | --- | --- | --- |
-| Ingest | `nice -n 19 uv run pipeline/ingest.py --source data/input-polycam --out data/capture` | Originals, metadata-preserving JPEGs and `capture.json`; matching inputs/output reused, changed inputs require a new directory |
-| Recover poses | `nice -n 19 uv run pipeline/poses.py` | Fresh COLMAP database, complete reconstruction and `poses.json`; split/partial reconstructions rejected |
-| Tracker cameras | `nice -n 19 uv run pipeline/cameras.py` | `pipeline/cameras.json`, bound to exact photo bytes and three COLMAP binaries |
-| Inspect training | `nice -n 19 uv run pipeline/training.py --plan` | Input/tool identities and invocation; starts no training |
-| Train | `pipeline/train_local.sh` | `data/splat/engine_30000.ply`, log and `training.json`; existing output rejected |
-| Mark | `modal deploy pipeline/sam_live.py` | Reviewed per-part prompts/masks in accepted revisions |
-| Track | `modal run pipeline/sam_track.py` | All eight parts under `data/segment/tracks/<part>`, with scores and source/checkpoint identities |
+| Ingest | `nice -n 19 uv run --project pipeline python -m pipeline.pack.ingest --source data/input-polycam --out data/capture` | Originals, metadata-preserving JPEGs and `capture.json`; matching inputs/output reused, changed inputs require a new directory |
+| Recover poses | `nice -n 19 uv run --project pipeline python -m pipeline.pack.poses` | Fresh COLMAP database, complete reconstruction and `poses.json`; split/partial reconstructions rejected |
+| Tracker cameras | `nice -n 19 uv run --project pipeline python -m pipeline.pack.cameras` | `pipeline/pack/cameras.json`, bound to exact photo bytes and three COLMAP binaries |
+| Inspect training | `nice -n 19 uv run --project pipeline python -m pipeline.pack.training --plan` | Input/tool identities and invocation; starts no training |
+| Train | `pipeline/pack/train_local.sh` | `data/splat/engine_30000.ply`, log and `training.json`; existing output rejected |
+| Mark | `modal deploy --module pipeline.pack.sam_live` | Reviewed per-part prompts/masks in accepted revisions |
+| Track | `modal run --module pipeline.pack.sam_track` | All eight parts under `data/segment/tracks/<part>`, with scores and source/checkpoint identities |
 | Download marks | `modal volume get sfg-spike-frames /marks data/segment` | `data/segment/marks/<part>/current.json` and its complete `sets/` tree |
-| Lift new annotations | `nice -n 19 uv run pipeline/lift_all.py` | PLY-order `labels.npy`, previews and source-bound `report.json` |
-| Publish new version | `nice -n 19 uv run pipeline/export.py --pack-version 2` | Verified candidate promoted to `data/pack/gol-trend-engine-bay/2` |
+| Lift new annotations | `nice -n 19 uv run --project pipeline python -m pipeline.pack.lift_all` | PLY-order `labels.npy`, previews and source-bound `report.json` |
+| Publish new version | `nice -n 19 uv run --project pipeline python -m pipeline.pack.export --pack-version 2` | Verified candidate promoted to `data/pack/gol-trend-engine-bay/2` |
 
 Pose recovery records CPU SIFT/exhaustive matching with one OPENCV camera, 16384 features, 3200-pixel extraction limit, no guided matching and mapper seed 0.
 Training records 30000 steps, resolution 2832, seed 42, 10M splat ceiling, SH degree 3 and exports every 2000 steps; the ceiling is not a target count.
@@ -41,7 +41,7 @@ Before marking, authenticate with `modal setup`, configure the secret in Modal's
 ```sh
 modal volume create sfg-spike-frames
 modal volume put sfg-spike-frames data/capture/jpg /jpg
-nice -n 19 uv run pipeline/preflight.py
+nice -n 19 uv run --project pipeline python -m pipeline.pack.preflight
 ```
 
 Open the deployment's URL, mark the frames selected by `mask_tools.PARTS`, review each mask and save; stop the marking app with `modal app stop sfg-sam-live` when done.
@@ -66,15 +66,15 @@ Historical masks/tracks predate these identities and need an explicit retrospect
 For the shipped capture:
 
 ```sh
-nice -n 19 uv run pipeline/import_annotations.py \
+nice -n 19 uv run --project pipeline python -m pipeline.pack.import_annotations \
   --marks data/segment/marks --tracks data/segment/tracks \
   --confirm-capture 7baafdfa4989ed599629887d69701a400e35d6e005801c1cbe7f711b0cd9af74 \
   --out data/pack/.sources/annotations
-nice -n 19 uv run pipeline/lift_all.py \
+nice -n 19 uv run --project pipeline python -m pipeline.pack.lift_all \
   --marks data/pack/.sources/annotations/marks --tracks data/pack/.sources/annotations/tracks \
   --out data/pack/.sources/lift
-nice -n 19 uv run pipeline/export.py --labels data/pack/.sources/lift/labels.npy --replace
-nice -n 19 uv run pipeline/export_checks.py --labels data/pack/.sources/lift/labels.npy
+nice -n 19 uv run --project pipeline python -m pipeline.pack.export --labels data/pack/.sources/lift/labels.npy --replace
+nice -n 19 uv run --project pipeline python -m pipeline.pack.export_checks --labels data/pack/.sources/lift/labels.npy
 ```
 
 ## Publication and distribution
@@ -85,7 +85,7 @@ nice -n 19 uv run pipeline/export_checks.py --labels data/pack/.sources/lift/lab
 | Binary | SPZ gzip version 3 in RUB coordinates; unchanged SFGL header and byte-per-splat labels |
 | Manifest | Schema 1, optional `sources` extension: capture/reconstruction digests, `ply`, `labels`, `liftingReport`, `content`, `knowledge` file identities and exact `partLabels` mapping |
 | Source paths | Portable provenance references, not pack-relative shipped files; source artifacts excluded from the release archive |
-| Verification | Actual [app parser](../apps/field-guide/src/domain/parsePack.ts), file digests/counts, independent SPZ decoding, transformed source/labels and part bounds before promotion |
+| Verification | Actual [app parser](../apps/field-guide/src/pack/parsePack.ts), file digests/counts, independent SPZ decoding, transformed source/labels and part bounds before promotion |
 | Replacement | Existing versions rejected unless `--replace`; temporary candidate and rollback preserve the old pack on failure, without simultaneous-reader atomic exchange |
 | Diagnostics | `publication.json` inside the pack directory holds placement/geometric checks; retained locally, excluded from the archive |
 | Distribution check | `node scripts/validate-pack.cjs <pack-directory>` validates app schema and shipped bytes without replaying the capture |
@@ -125,8 +125,8 @@ Create the output directory before redirecting the monitor's human-readable stdo
 
 ```sh
 mkdir -p data/diagnostics
-uv run pipeline/watch_ar.py --device '<connected iPhone identifier>' --expect detected > data/diagnostics/ar-monitor.log
-uv run pipeline/watch_ar.py --check-capture data/diagnostics/ar-live.jsonl --expect detected
+uv run --project pipeline python -m pipeline.ar.watch_ar --device '<connected iPhone identifier>' --expect detected > data/diagnostics/ar-monitor.log
+uv run --project pipeline python -m pipeline.ar.watch_ar --check-capture data/diagnostics/ar-live.jsonl --expect detected
 ```
 
 Reaching the 512 KiB limit retains an incomplete-capture error that also fails replay; a positive recognition verdict still requires separate alignment measurement.
