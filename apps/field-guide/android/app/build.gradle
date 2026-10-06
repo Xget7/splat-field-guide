@@ -117,3 +117,19 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Copy only runtime pack records, checking their identity before they enter the APK.
+def runtimeAssets = layout.buildDirectory.dir('generated/fieldGuideAssets')
+def prepareFieldGuideAssets = tasks.register('prepareFieldGuideAssets', Exec) {
+    inputs.files(fileTree('../../../../data/pack') {
+        include '**/manifest.json', '**/*.spz', '**/labels.bin'
+        exclude '.sources/**', 'releases/**'
+    })
+    inputs.dir('../../assets/fonts')
+    inputs.file('../../scripts/prepare-android-assets.cjs')
+    inputs.dir('../../../../packages/react-native-splat/engine/splatkit-android/licenses')
+    outputs.dir(runtimeAssets)
+    commandLine 'node', file('../../scripts/prepare-android-assets.cjs'), runtimeAssets.get().asFile
+}
+android.sourceSets.main.assets.srcDir(runtimeAssets.get().asFile)
+tasks.named('preBuild').configure { dependsOn prepareFieldGuideAssets }
