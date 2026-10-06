@@ -1,0 +1,25 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+layout(local_size_x=128) in;
+layout(set=0,binding=0,std430) readonly buffer KeysIn { uint keysIn[]; };
+layout(set=0,binding=1,std430) readonly buffer ValuesIn { uint valuesIn[]; };
+layout(set=0,binding=2,std430) writeonly buffer KeysOut { uint keysOut[]; };
+layout(set=0,binding=3,std430) writeonly buffer ValuesOut { uint valuesOut[]; };
+layout(set=0,binding=4,std430) readonly buffer CountIn { uint countIn; };
+layout(set=0,binding=5,std430) buffer Histogram { uint histogram[]; };
+layout(set=0,binding=6,std430) buffer Totals { uint totals[]; };
+layout(set=0,binding=7,std430) buffer State { uint groupsX, groupsY, groupsZ, blocks; };
+layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
+layout(set=0,binding=9,std430) buffer Status { uint status; };
+layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
+void main() {
+  if (gl_LocalInvocationIndex != 0) return;
+  status = countIn > pc.capacity ? 1u : 0u;
+  countOut = status == 0u ? countIn : 0u;
+  blocks = max((countOut + 2047u)/2048u, 1u);
+  groupsX = min(blocks, pc.maxGroupsX);
+  groupsY = (blocks + groupsX - 1u)/groupsX;
+  groupsZ = 1u;
+}

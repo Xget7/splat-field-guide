@@ -1,7 +1,10 @@
 # Third-party notices
 
-The app bundles [ThirdPartyNotices.txt](apps/field-guide/ios/FieldGuide/ThirdPartyNotices.txt) with the license texts listed below.
+The iOS app bundles [ThirdPartyNotices.txt](apps/field-guide/ios/FieldGuide/ThirdPartyNotices.txt) with the license texts in its inventory below.
+The [Android asset task](apps/field-guide/scripts/prepare-android-assets.cjs) bundles shared license sections, [Android dependency texts](apps/field-guide/android/ThirdPartyNotices.txt) and [Vulkan licenses](packages/react-native-splat/engine/splatkit-android/licenses) into the APK's `assets/ThirdPartyNotices.txt`.
 Versions and resource identities remain in the app lockfiles and [provenance](docs/PROVENANCE.md).
+
+## iOS inventory
 
 | Component | License | Source |
 | --- | --- | --- |
@@ -72,4 +75,29 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 
 ONNX Runtime dependency notices are retained as one upstream document, including their individual licenses.
 The speech frontend uses Misaki/BART resources; no eSpeak or phonemizer code/data is bundled.
-Apple frameworks and system zlib are supplied by the platform; build-only CMake, GoogleTest, Nitrogen and capture/training tools are outside this app inventory.
+
+## Android inventory
+
+The APK includes the shared Geist, SplatKit, SPZ/zstd, JavaScript, React Native/Hermes and Nitro license sections from the iOS inventory.
+It excludes SocketRocket, ONNX Runtime, Kokoro, FluidAudio, Misaki and BART/CoreML resources and notices.
+Android runtime additions are listed below; platform speech recognition and TTS implementations are supplied by the device.
+
+| Component | License | Source |
+| --- | --- | --- |
+| vk-bootstrap | MIT | [Source](https://github.com/charles-lunarg/vk-bootstrap) |
+| Vulkan Memory Allocator | MIT | [Source](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) |
+| PicoSHA2 | MIT | [Source](https://github.com/okdshin/PicoSHA2) |
+| AndroidX, including bundled SQLite | Apache-2.0; SQLite public domain | [Source](https://android.googlesource.com/platform/frameworks/support/), [SQLite terms](https://sqlite.org/copyright.html) |
+| Material Components | Apache-2.0 | [Source](https://github.com/material-components/material-components-android) |
+| Kotlin, coroutines and JetBrains annotations | Apache-2.0 | [Kotlin](https://github.com/JetBrains/kotlin), [coroutines](https://github.com/Kotlin/kotlinx.coroutines), [annotations](https://github.com/JetBrains/java-annotations) |
+| fbjni and SoLoader | Apache-2.0 | [fbjni](https://github.com/facebookincubator/fbjni), [SoLoader](https://github.com/facebook/SoLoader) |
+| Fresco and Infer annotations | MIT | [Fresco](https://github.com/facebook/fresco), [Infer](https://github.com/facebook/infer/tree/infer-annotation-0.18.0) |
+| Fresco image codecs | IJG/BSD-3-Clause/Zlib, Libpng, BSD-3-Clause | [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo), [libpng](https://github.com/pnggroup/libpng), [libwebp](https://github.com/webmproject/libwebp) |
+| Bolts tasks | BSD-3-Clause | [Source](https://github.com/BoltsFramework/Bolts-Android) |
+| OkHttp and Okio | Apache-2.0 | [OkHttp](https://github.com/square/okhttp), [Okio](https://github.com/square/okio) |
+| Async Storage shared Android storage | MIT | [Source](https://github.com/react-native-async-storage/async-storage) |
+| Kermit | Apache-2.0 | [Source](https://github.com/touchlab/Kermit) |
+| JSpecify, Guava listenablefuture, Error Prone, JSR305 and javax.inject annotations | Apache-2.0 | [JSpecify](https://github.com/jspecify/jspecify), [Guava](https://github.com/google/guava), [Error Prone](https://github.com/google/error-prone), [FindBugs](https://sourceforge.net/projects/findbugs/), [javax.inject](https://github.com/javax-inject/javax-inject) |
+
+Apple/Android frameworks and system libraries are supplied by their platforms.
+Build-only CMake, GoogleTest, Nitrogen and capture/training tools are outside the shipped inventory.

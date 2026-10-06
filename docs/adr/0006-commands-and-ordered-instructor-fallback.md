@@ -7,6 +7,7 @@ Route commands locally, then try Claude through the Worker, Apple Foundation Mod
 Resolve authored evidence once per turn and commit session actions only after a complete validated reply.
 
 - The instructor owns fallback and cancellation.
+- Android reports Apple generation unavailable and falls through to scripted guidance after Claude fails.
 - Streamed words and part emphasis are provisional and clear on failure or cancellation.
 - Incomplete, empty or failed cloud answers trigger fallback.
 - Numerical grounding is heuristic and eligible Apple hardware needs a prepared model.

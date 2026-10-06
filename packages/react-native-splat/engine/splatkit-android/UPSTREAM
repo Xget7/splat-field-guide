@@ -1,0 +1,8 @@
+SplatKit Vulkan source: 56524cfbcc4aac81f71405ad8c19d4f90420ab3d
+Origin: https://github.com/Xget7/splatkit
+License: MIT, ../LICENSE
+Imported surface, buffers, visibility, radix sort and rasterization.
+Adapted to the Field Guide sfg interface, labels, highlight and reveal.
+Removed LOD, streaming, render policy and CPU sorting.
+Dependencies: vk-bootstrap v1.4.307, VulkanMemoryAllocator v3.2.1.
+Dependency notices: licenses/, also bundled in the Android APK.

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22)
+project(reactnativeondevice)
+set(CMAKE_CXX_STANDARD 20)
+add_library(reactnativeondevice SHARED src/main/cpp/JNIOnLoad.cpp)
+include(../nitrogen/generated/android/reactnativeondevice+autolinking.cmake)
+target_link_options(reactnativeondevice PRIVATE "-Wl,-z,max-page-size=16384")

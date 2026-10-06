@@ -1,6 +1,7 @@
 # Requirements
 
-Targets apply to iOS/iPadOS with an iPad-first layout and physical acceptance on iPhone 17 Pro.
+Targets apply to iOS/iPadOS and Android with tablet layouts and physical iPhone acceptance on iPhone 17 Pro.
+Android emulator checks establish functionality; physical Android performance and voice acceptance remain open.
 [Design](docs/specs/field-guide-design.md) defines behaviour and ownership; [TASKS.md](TASKS.md) lists unmet acceptance and delivery work.
 
 ## Equipment and viewer
@@ -8,7 +9,7 @@ Targets apply to iOS/iPadOS with an iPad-first layout and physical acceptance on
 - R1. Open the bundled 2010 Volkswagen Gol Trend 1.6 engine-bay guide.
 - R2. Identify six top-level parts: coolant, power steering and brake fluid reservoirs, battery, fuse box and engine.
 - R3. Identify valve cover and intake manifold as children of the engine.
-- R4. Render with Metal inside React Native on iOS/iPadOS 26+.
+- R4. Render inside React Native with Metal on iOS/iPadOS 26+ and Vulkan on Android 10+.
 - R5. Orbit with one finger and zoom with a pinch.
 - R6. Pick a part and clear selection when picking empty space.
 - R7. Highlight selected parts in marine blue (#0A6CFF), with the rest slightly dimmed.
@@ -33,11 +34,12 @@ Reading and voice must both support the guidance flow, with interruption in voic
 
 ## Offline and delivery
 
-- R18. Open the viewer and procedures and speak English offline; offline input and Apple generation require prepared system assets.
+- R18. Open the viewer and procedures and speak English offline; offline input requires prepared system assets, and Apple generation is available only on eligible iOS hardware.
 - R19. Deliver a 60-90 second iPhone video demonstrating airplane-mode use after preparation.
 - R20. Deliver a TestFlight build.
 - R21. Provide reproducible repository preparation, current documentation, decisions and provenance.
 
 Fresh-device offline transcription is unmet when system assets require downloading.
 The AR landmark check remains provisional; physical recognition, alignment and full semantic camera masks are open.
-Android contains port scaffolding; downloaded pack updates and progress sync require implementation.
+The Android emulator verifies the full-tier viewer, picking/highlight, procedure framing and scripted instructor fallback.
+AR is iOS-only; downloaded pack updates and progress sync require implementation.

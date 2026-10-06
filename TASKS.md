@@ -3,6 +3,8 @@
 These items require the inputs or hardware listed below; source and simulator checks do not establish physical acceptance.
 Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
 
+- [ ] Verify Android gestures, all picks/procedures, idle drawing, frame/load time, memory and thermal behaviour on physical Vulkan hardware (R4-R10, R12-R14).
+- [ ] Verify Android recognition readiness, installed offline TTS, commands, interruption/echo, cancellation and airplane-mode fallback on physical hardware (R14-R18).
 - [ ] Verify or correct fuse-box/battery masks using the capture, accepted annotations and the real engine (R6).
 - [ ] Review every highlight and verify metric dimensions against the physical engine (R7).
 - [ ] Review [authored content qualifications](content/gol-trend-engine-bay/SOURCES.md) against the correct manual and actual reservoir markings (R11, R12, R16).

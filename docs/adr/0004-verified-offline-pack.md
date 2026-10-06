@@ -8,5 +8,6 @@ Preparation and native loading verify manifest digests and counts before accepti
 
 - The [pack contract](../specs/field-guide-design.md#pack-contract) covers binary layout and source identities.
 - Only explicitly bundled versions and their runtime files enter the app.
+- Android copies APK assets to verified app-private files because the core maps file paths.
 - Downloaded updates need installation, authenticity and replacement rules.
 - Offline speech and generation also depend on prepared system assets.

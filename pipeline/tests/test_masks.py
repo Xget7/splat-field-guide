@@ -55,27 +55,39 @@ class MaskTests(unittest.TestCase):
         from unittest.mock import patch
         from pipeline.pack import preflight
         from pipeline import artifacts
-        source = pathlib.Path(__file__).resolve().parents[2] / 'data/segment/marks'
-        capture = artifacts.capture(preflight.PHOTOS)['sha256']
-        def run(command, **kwargs):
-            if command[2] == 'get':
-                target = pathlib.Path(command[-1]) / 'marks'
-                for part in source.iterdir():
-                    if not part.is_dir():
-                        continue
-                    revision = 'a' * 32
-                    saved = target / part.name / 'sets' / revision
-                    shutil.copytree(part, saved)
-                    marks = json.loads((saved / 'marks.json').read_text())
-                    marks['capture'] = capture
-                    (saved / 'marks.json').write_text(json.dumps(marks))
-                    (target / part.name / 'current.json').write_text(json.dumps({'revision': revision}))
-                return subprocess.CompletedProcess(command, 0, '', '')
-            return subprocess.CompletedProcess(command, 0, '.jpg\n' * 124, '')
-        with patch.object(preflight.subprocess, 'run', side_effect=run), patch.object(preflight, 'results', []):
-            preflight.check_volume()
-            self.assertEqual(len(preflight.results), 2)
-            self.assertTrue(all(ok for ok, _ in preflight.results), preflight.results)
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            photos = root / 'photos'
+            photos.mkdir()
+            for frame in range(124):
+                Image.new('RGB', (2, 2)).save(photos / f'{frame:05d}.jpg')
+            capture = artifacts.capture(photos)['sha256']
+            source = root / 'saved'
+            revision = 'a' * 32
+            for frame, part in enumerate(mask_tools.PARTS):
+                saved = source / part / 'sets' / revision
+                saved.mkdir(parents=True)
+                marks = {'part': part, 'capture': capture, 'photos': {
+                    str(frame): {'clicks': [{'x': 0.2, 'y': 0.3, 'positive': True}], 'box': None},
+                }}
+                (saved / 'marks.json').write_text(json.dumps(marks))
+                mask = Image.new('L', (2, 2))
+                mask.putpixel((0, 0), 255)
+                mask.save(saved / f'{frame:05d}.png')
+                (source / part / 'current.json').write_text(json.dumps({'revision': revision}))
+                (source / part / 'marks.json').write_text('{}')
+
+            def run(command, **kwargs):
+                if command[2] == 'get':
+                    shutil.copytree(source, pathlib.Path(command[-1]) / 'marks')
+                    return subprocess.CompletedProcess(command, 0, '', '')
+                return subprocess.CompletedProcess(command, 0, '.jpg\n' * 124, '')
+
+            with patch.object(preflight.subprocess, 'run', side_effect=run), \
+                    patch.object(preflight, 'PHOTOS', photos), patch.object(preflight, 'results', []):
+                preflight.check_volume()
+                self.assertEqual(len(preflight.results), 2)
+                self.assertTrue(all(ok for ok, _ in preflight.results), preflight.results)
 
 class StorageFailureTests(unittest.TestCase):
     def test_failed_volume_commit_preserves_the_previous_set(self):

@@ -4,6 +4,7 @@ add_executable(splat_core_tests
   formats/PartLabelsTest.cpp
   formats/SpzDecoderTest.cpp
   io/MappedFileTest.cpp
+  loading/Sha256Test.cpp
   loading/SplatWorldLoaderTest.cpp
   math/HalfTest.cpp
   math/Mat4Test.cpp
@@ -17,6 +18,12 @@ target_include_directories(splat_core_tests PRIVATE
 target_compile_definitions(splat_core_tests PRIVATE
   SPLAT_FIXTURES_DIR="${SPLAT_FIXTURES_DIR}"
 )
+if(SPLAT_CORE_PORTABLE_SHA256)
+  target_compile_definitions(splat_core_tests PRIVATE SPLAT_CORE_PORTABLE_SHA256)
+endif()
+if(SPLAT_CORE_ARM_SHA256)
+  target_compile_definitions(splat_core_tests PRIVATE SPLAT_CORE_ARM_SHA256)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(splat_core_tests)

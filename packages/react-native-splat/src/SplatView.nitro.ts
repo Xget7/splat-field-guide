@@ -102,5 +102,5 @@ export interface SplatViewMethods extends HybridViewMethods {
 export type SplatView = HybridView<
   SplatViewProps,
   SplatViewMethods,
-  { ios: 'swift' }
+  { ios: 'swift'; android: 'kotlin' }
 >;

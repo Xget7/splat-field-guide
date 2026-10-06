@@ -1,0 +1,65 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+layout(local_size_x=128) in;
+layout(set=0,binding=0,std430) readonly buffer KeysIn { uint keysIn[]; };
+layout(set=0,binding=1,std430) readonly buffer ValuesIn { uint valuesIn[]; };
+layout(set=0,binding=2,std430) writeonly buffer KeysOut { uint keysOut[]; };
+layout(set=0,binding=3,std430) writeonly buffer ValuesOut { uint valuesOut[]; };
+layout(set=0,binding=4,std430) readonly buffer CountIn { uint countIn; };
+layout(set=0,binding=5,std430) buffer Histogram { uint histogram[]; };
+layout(set=0,binding=6,std430) buffer Totals { uint totals[]; };
+layout(set=0,binding=7,std430) buffer State { uint groupsX, groupsY, groupsZ, blocks; };
+layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
+layout(set=0,binding=9,std430) buffer Status { uint status; };
+layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
+
+// Four uint words describe logical local indices, NOT hardware subgroup lanes.
+// This remains stable even when Vulkan launches partially populated subgroups.
+shared uint masks[256*4];
+shared uint digitBase[256];
+shared uint blockBase[256];
+shared uint priorRows[256];
+void main() {
+  uint block=gl_WorkGroupID.y*groupsX+gl_WorkGroupID.x;
+  if(block>=blocks) return;
+  uint t=gl_LocalInvocationIndex;
+  for(uint d=t;d<256;d+=128) {
+    digitBase[d]=totals[d];
+    blockBase[d]=histogram[d*blocks+block];
+    priorRows[d]=0;
+  }
+  barrier();
+  for(uint step=1;step<256;step*=2) {
+    uint a=t>=step ? digitBase[t-step] : 0u;
+    uint b=t+128>=step ? digitBase[t+128-step] : 0u;
+    barrier();
+    digitBase[t]+=a; digitBase[t+128]+=b;
+    barrier();
+  }
+  for(uint row=0;row<16;++row) {
+    for(uint i=t;i<1024;i+=128) masks[i]=0;
+    barrier();
+    uint e=block*2048u+row*128u+t;
+    bool valid=e<countOut;
+    uint key=valid ? keysIn[e] : 0u;
+    uint d=(key>>pc.shift)&255u;
+    // One shared atomic per key, at most 32 contenders per word for all-equal input.
+    // No global atomics; masks encode deterministic input order regardless of scheduling.
+    if(valid) atomicOr(masks[d*4+t/32],1u<<(t%32));
+    barrier();
+    if(valid) {
+      uint rank=priorRows[d];
+      for(uint word=0;word<t/32;++word) rank+=bitCount(masks[d*4+word]);
+      rank+=bitCount(masks[d*4+t/32]&((1u<<(t%32))-1u));
+      uint base=d==0 ? 0u : digitBase[d-1];
+      uint dst=base+blockBase[d]+rank;
+      keysOut[dst]=key; valuesOut[dst]=valuesIn[e];
+    }
+    barrier();
+    for(uint digit=t;digit<256;digit+=128)
+      for(uint word=0;word<4;++word) priorRows[digit]+=bitCount(masks[digit*4+word]);
+    barrier();
+  }
+}

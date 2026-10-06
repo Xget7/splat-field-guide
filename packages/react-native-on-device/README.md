@@ -1,6 +1,6 @@
 # react-native-on-device
 
-Lazy iOS Nitro modules provide speech input/output and Apple Foundation Models.
+Lazy Nitro modules provide speech input/output on iOS and Android, with Apple Foundation Models on iOS.
 [App setup](../../apps/field-guide/README.md#device-preparation) covers system assets; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has installation, checks and codegen commands.
 
 ## Interfaces
@@ -9,15 +9,28 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 
 | Interface | Contract |
 | --- | --- |
-| [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)` and continuous `listen`; SpeechTranscriber/DictationTranscriber with contextual hints |
+| [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)` and continuous `listen`; platform recognition with contextual hints |
 | Input callbacks | Partial text, settled nonempty `onTurn`, acoustic `onVoice`, smoothed 0-1 `onLevel` capped at 30 Hz, and one `onStopped` on spontaneous loss |
-| Turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
+| iOS turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
 | Input cancellation | Discard the current turn, reject stale callbacks and allow restart; concurrent listening/missing permission rejects |
 | [SpeechOutput](src/SpeechOutput.nitro.ts) | `speak` replaces output and resolves on completion/stop; `stop` cancels synthesis, playback and callbacks |
-| Output callbacks | Original UTF-16 ranges; estimated Kokoro word timing and Apple-provided timing |
+| Output callbacks | Original UTF-16 ranges from Kokoro estimates or platform speech timing |
 | [LanguageModel](src/LanguageModel.nitro.ts) | Availability, prewarm, streaming/final respond and cancel; equipment evidence/policy belongs to the app instructor |
 
-## Resources and audio
+## Android
+
+[Speech input](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechInput.kt) uses `android.speech.SpeechRecognizer`, preferring on-device recognition when available and requesting offline recognition from the system service otherwise.
+`prepare(locale)` checks installed language support where the API permits and requests model preparation; unavailable assets remain unavailable until ready.
+Recognition-service results settle turns, and listening restarts after each completed turn while preserving the shared callback and cancellation contract.
+Microphone permission is required, and a service's offline request does not guarantee offline availability.
+[Speech output](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechOutput.kt) uses `android.speech.tts.TextToSpeech` with an installed voice that requires no network, bounded text chunks and UTF-16 range callbacks.
+System TTS timing and echo depend on the installed engine and require physical acceptance.
+Android generation reports unavailable, so the instructor follows the [ordered fallback](../../docs/adr/0006-commands-and-ordered-instructor-fallback.md) through Claude and scripted guidance.
+
+## iOS resources and audio
+
+SpeechTranscriber/DictationTranscriber provide input with contextual hints.
+Kokoro, its resource/frontend bundle and Apple generation are iOS-only.
 
 [ADR 0008](../../docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md) records the output choice; the [frontend README](ios/KokoroFrontend/README.md) records source adaptations.
 Preparation/CocoaPods verify [pinned resources](../../apps/field-guide/scripts/kokoro-models.json) into `ios/KokoroResources`, including model, voice, pronunciation/G2P resources and notices.
@@ -30,7 +43,6 @@ Installed English output reads those bundled files.
 | Shared audio graph | Engine and interruption/configuration-loss observers; pending synthesis/playback cancels on loss |
 | Echo | Kokoro shares the voice-processed microphone graph; Apple playback requires caller-side filtering |
 | Scheduling | Conversation/playback/callbacks on main; level processing and conversion on the audio tap |
-| Android | Native input/output/model adapters, frontend and resource packaging required |
 
 Swift harnesses use controlled recognition/audio adapters for cancellation, settlement, loss and restart.
 Acoustic echo, model quality and hardware interruptions remain [device acceptance](../../TASKS.md).

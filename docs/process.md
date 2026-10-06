@@ -83,6 +83,27 @@ On 2026-10-05, the iPad simulator verified pack digests in 111.83 ms and accepte
 The host C-interface harness measured digest verification at 119.67 ms with the same files.
 App/interface tests and a Debug iPad simulator build pass; physical stress, gestures, picking and sustained performance remain unchecked.
 
+## Android
+
+The API 36 arm64 tablet emulator uses 1280 x 800 at density 160, 6 GB RAM and four virtual CPU cores on an Apple M4 Pro.
+Host-GPU Vulkan 1.2.306 through MoltenVK renders all 2438073 filtered SH3 splats; software SwiftShader stalls during upload without a reported allocation, feature or buffer-limit failure, and its cause is unresolved.
+Fresh installations on 2026-10-06 produced these stage timings with networking disabled and the worktree's builds idle.
+
+| Variant | SHA-256 ms | Decode/filter ms | Reorder ms | Upload ms | Ready ms |
+| --- | --- | --- | --- | --- | --- |
+| Debug | 74.71 | 1329 | 400 | 680 | 2693 |
+| Release | 43.71 | 1109 | 350 | 704 | 2335 |
+
+Ready includes validated asset copying and the first draw.
+The isolated hash benchmark's summed per-file medians over three passes were 40.98 ms with ARM instructions and 385.65 ms with forced portable hashing for 65539456 pack bytes; both paths matched the cloud and labels manifest digests.
+The arm64 APKs are 160587512 bytes for Debug and 111522403 bytes for Release.
+The sampled reveal windows reported 20.0 ms GPU time at 48.4 submitted fps for Debug and 18.2 ms at 44.5 submitted fps for Release; these emulator samples vary and do not establish physical performance.
+Release launched and rendered with Metro stopped and no port reverse, using its bundled JavaScript.
+The [splat package](../packages/react-native-splat/README.md#android-adapter) describes the native build policy and hashing backends.
+Emulator screenshots verify the engine bay, marine-blue part picking/dimming, procedure framing and scripted answers with networking disabled.
+Installed English recognition assets report ready, and speech interfaces start/cancel; the muted emulator does not establish acoustic input, audible output or echo acceptance.
+Physical Android performance, gestures and voice acceptance remain in [TASKS.md](../TASKS.md).
+
 ## Speech output
 
 [react-native-on-device](../packages/react-native-on-device/README.md) implements quantized Kokoro v1.0 with af_heart on ONNX Runtime 1.30.0 CPU, plus Apple speech fallback.

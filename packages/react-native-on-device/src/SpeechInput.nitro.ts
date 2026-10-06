@@ -7,7 +7,7 @@ export type SpeechPermission = 'granted' | 'denied' | 'restricted';
 export type SpeechInputAvailability = 'available' | 'unavailable';
 
 /** Open-microphone listening that recognises speech on the device only, so it works in airplane mode. */
-export interface SpeechInput extends HybridObject<{ ios: 'swift' }> {
+export interface SpeechInput extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   /** Asks for microphone and speech recognition access; once answered, later calls just report it. */
   requestPermission(): Promise<SpeechPermission>;
   /**

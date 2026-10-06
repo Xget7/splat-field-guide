@@ -1,0 +1,42 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+layout(local_size_x=128) in;
+layout(set=0,binding=0,std430) readonly buffer KeysIn { uint keysIn[]; };
+layout(set=0,binding=1,std430) readonly buffer ValuesIn { uint valuesIn[]; };
+layout(set=0,binding=2,std430) writeonly buffer KeysOut { uint keysOut[]; };
+layout(set=0,binding=3,std430) writeonly buffer ValuesOut { uint valuesOut[]; };
+layout(set=0,binding=4,std430) readonly buffer CountIn { uint countIn; };
+layout(set=0,binding=5,std430) buffer Histogram { uint histogram[]; };
+layout(set=0,binding=6,std430) buffer Totals { uint totals[]; };
+layout(set=0,binding=7,std430) buffer State { uint groupsX, groupsY, groupsZ, blocks; };
+layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
+layout(set=0,binding=9,std430) buffer Status { uint status; };
+layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
+
+shared uint scan[128];
+void main() {
+  uint t=gl_LocalInvocationIndex;
+  uint digit=gl_WorkGroupID.y*pc.maxGroupsX+gl_WorkGroupID.x;
+  if(digit>=256) return;
+  uint carry=0;
+  // Parallel workgroup scan of each bin, tiled as in MetalRadixSort. At 3M keys
+  // only 12 tiles; no invocation serially scans the global histogram.
+  for(uint start=0;start<blocks;start+=128) {
+    uint i=start+t;
+    uint v=i<blocks ? histogram[digit*blocks+i] : 0u;
+    scan[t]=v;
+    barrier();
+    for(uint step=1;step<128;step*=2) {
+      uint add=t>=step ? scan[t-step] : 0u;
+      barrier();
+      scan[t]+=add;
+      barrier();
+    }
+    if(i<blocks) histogram[digit*blocks+i]=carry+scan[t]-v;
+    carry+=scan[127];
+    barrier();
+  }
+  if(t==0) totals[digit]=carry;
+}

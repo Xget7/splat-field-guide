@@ -69,6 +69,11 @@ if (tool === 'xcrun' && args[0] === 'libtool') {
     build();
     build();
     assert.equal(count(), 1, 'a current framework must not be rebuilt');
+    const android = path.join(fixture, 'engine/splatkit-android');
+    fs.mkdirSync(android);
+    fs.writeFileSync(path.join(android, 'sfg_vulkan.cpp'), 'int android = 1;\n');
+    build();
+    assert.equal(count(), 1, 'Android sources must not stale the iOS artifact');
     build('--force');
     assert.equal(count(), 2);
     fs.writeFileSync(source, 'int version = 2;\n');

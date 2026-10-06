@@ -1,18 +1,12 @@
 #include "splat/loading/SplatWorldLoader.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
-#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
 
-#if defined(__APPLE__)
-#include <CommonCrypto/CommonDigest.h>
-#else
-#include <openssl/evp.h>
-#endif
+#include "Sha256.h"
 
 #include "splat/filtering/Haze.h"
 #include "splat/filtering/Sparse.h"
@@ -26,9 +20,7 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 constexpr std::size_t kSha256Bytes = 32;
-constexpr char kHexDigits[] = "0123456789abcdef";
 constexpr char kInvalidIdentity[] = "Pack source identity is invalid";
-constexpr char kDigestFailed[] = "SHA-256 computation failed";
 constexpr char kSplatDigestMismatch[] = "Cloud SHA-256 does not match the pack manifest";
 constexpr char kLabelsDigestMismatch[] = "Part labels SHA-256 does not match the pack manifest";
 constexpr char kSplatCountMismatch[] = "Cloud splat count does not match the pack manifest";
@@ -37,33 +29,6 @@ bool validDigest(const std::string& digest) {
   return digest.size() == kSha256Bytes * 2 && std::all_of(digest.begin(), digest.end(), [](char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
   });
-}
-
-Result<std::string> sha256(ByteView bytes) {
-  std::array<unsigned char, kSha256Bytes> digest;
-#if defined(__APPLE__)
-  CC_SHA256_CTX context;
-  if (CC_SHA256_Init(&context) != 1) return Error{ErrorCode::corrupt, kDigestFailed};
-  for (std::size_t offset = 0; offset < bytes.size;) {
-    const auto count = std::min(bytes.size - offset,
-                                static_cast<std::size_t>(std::numeric_limits<CC_LONG>::max()));
-    if (CC_SHA256_Update(&context, bytes.data + offset, static_cast<CC_LONG>(count)) != 1)
-      return Error{ErrorCode::corrupt, kDigestFailed};
-    offset += count;
-  }
-  if (CC_SHA256_Final(digest.data(), &context) != 1) return Error{ErrorCode::corrupt, kDigestFailed};
-#else
-  unsigned int size = 0;
-  if (EVP_Digest(bytes.data, bytes.size, digest.data(), &size, EVP_sha256(), nullptr) != 1 ||
-      size != kSha256Bytes) return Error{ErrorCode::corrupt, kDigestFailed};
-#endif
-  std::string hex;
-  hex.reserve(kSha256Bytes * 2);
-  for (const auto byte : digest) {
-    hex.push_back(kHexDigits[byte >> 4]);
-    hex.push_back(kHexDigits[byte & 0xf]);
-  }
-  return hex;
 }
 
 double millisSince(Clock::time_point start) {
@@ -84,11 +49,11 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView spz, 
   if (identity) {
     if (!validDigest(identity->splatSha256) || !validDigest(identity->labelsSha256) ||
         identity->expectedSplatCount == 0) return Error{ErrorCode::corrupt, kInvalidIdentity};
-    const auto labelsDigest = sha256(labels);
+    const auto labelsDigest = detail::sha256(labels);
     if (!labelsDigest) return labelsDigest.error();
     if (labelsDigest.value() != identity->labelsSha256)
       return Error{ErrorCode::labelsMismatch, kLabelsDigestMismatch};
-    const auto splatDigest = sha256(spz);
+    const auto splatDigest = detail::sha256(spz);
     if (!splatDigest) return splatDigest.error();
     if (splatDigest.value() != identity->splatSha256)
       return Error{ErrorCode::corrupt, kSplatDigestMismatch};

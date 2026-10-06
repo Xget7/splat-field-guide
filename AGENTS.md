@@ -39,7 +39,8 @@ Run from the stated directory with `nice -n 19`, using fakes for paid services.
 Preparation installs all three app/native development dependency sets and the locked app Gemfile before Pods.
 Use locked Bundler 2.4.22 with CocoaPods 1.16.2 and xcodeproj 1.27.0 when changing Pods.
 After an engine source change, prepare before installing Pods; use `build-ios-engine.sh --force` for an explicit rebuild.
-App/package tools need Node 22.11+; the proxy needs Node 26+; pipeline tools need Python 3.12+, uv and Node for the consumer parser.
+App/package tools need Node 22.11+; the proxy needs Node 26+; pipeline checks use Python 3.12, uv and Node for the consumer parser.
+Set `UV_PYTHON=3.12` when the default interpreter lacks wheels for the pinned NumPy version.
 `pipeline/pyproject.toml` and `uv.lock` own local Python dependencies; invoke Python stages as modules from root.
 Source-backed export checks require every corresponding source artifact and the publication receipt; report missing inputs as blockers.
 On-device tests compile Swift harnesses on macOS 26+ and skip those harnesses on other hosts.
@@ -71,6 +72,32 @@ nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
 
 Keep xcodebuild DerivedData under `apps/field-guide/ios/build/`, disable compilation caching and delete the temporary build directory afterward.
 Verification completes when affected interface tests, lint/types and the relevant build pass, with unresolved hardware/source prerequisites recorded.
+
+## Android
+
+Use JDK 17 and the SDK/NDK versions in [app setup](apps/field-guide/README.md#android).
+Keep Gradle's user home, build outputs and any AVD under the worktree; build arm64-v8a with at most three workers.
+From root:
+
+```sh
+JAVA_HOME=$(/usr/libexec/java_home -v 17) GRADLE_USER_HOME="$PWD/.work/gradle" nice -n 19 apps/field-guide/android/gradlew -p apps/field-guide/android :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --max-workers=3
+```
+
+The shared C++ tests and all app/package checks above cover the common interfaces; add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the CMake configure command to exercise Android hashing on the host.
+Pipeline tests use the locked project environment and self-contained capture fixtures; they do not establish source-backed export acceptance.
+Gradle's asset task validates manifest-referenced pack bytes and copies fonts/notices without speech-model resources.
+Keep Kotlin incremental compilation disabled for the linked packages so their internal declarations resolve in one compilation.
+
+Create a tablet AVD under `.work/avd` using the API 36 arm64 image and 6 GB RAM, then run headless with the [host GPU](apps/field-guide/README.md#android):
+
+```sh
+ANDROID_AVD_HOME="$PWD/.work/avd" ANDROID_USER_HOME="$PWD/.work/android-user" nice -n 19 "$ANDROID_HOME/emulator/emulator" -avd FieldGuide -no-window -no-audio -no-snapshot -gpu host
+```
+
+Use Argent to install, launch and inspect the viewer; keep paid instructor requests disabled with fakes or device networking off.
+For Debug, start an owned Metro port and reverse it with `adb -s <serial> reverse tcp:<port> tcp:<port>`; leave other sessions' servers untouched.
+Record screenshots and the APK before deleting temporary builds and the private Gradle cache.
+Stop scoped device servers, shut down the owned emulator with `adb -s <serial> emu kill` and stop the owned Metro process when verification finishes.
 
 ## Capture and reference operations
 
