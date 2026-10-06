@@ -120,7 +120,7 @@ The versioned content for one piece of equipment, including its cloud, part labe
 _Avoid_: bundle, asset, download, guide
 
 **Tier**:
-A representation of a pack sized for a class of device, such as a smaller cloud for older phones.
+A representation of a pack sized for a class of device.
 _Avoid_: version, quality, LOD, variant
 
 **Part note**:

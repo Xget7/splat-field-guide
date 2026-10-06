@@ -1,73 +1,56 @@
 # Provenance
 
-Original Field Guide work is [MIT licensed](../LICENSE), with holder `Xget7` from git author history.
-Inherited source and third-party resources keep the licenses below.
+Field Guide is [MIT licensed](../LICENSE) to Xget7.
+Shipped dependency terms and full license texts are indexed in [third-party notices](../THIRD_PARTY_NOTICES.md) and bundled in the app.
 
-## Shipped code and resources
+## Source and resource identities
 
-| Dependency | Origin and identity | License and retained notice |
-| --- | --- | --- |
-| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), imported `62cee54d884bd20c7dd450e8e6525e3d4c0e1652`, synced through `a28c8cc4e89fb0b40d98691f40fc8472870dda4c` | MIT, [engine license](../packages/react-native-splat/engine/LICENSE) |
-| SPZ reader | [nianticlabs/spz](https://github.com/nianticlabs/spz/tree/affd0ecea7fbb4c265ee119475af7ee5b2997482), pinned by CMake and merged into the engine archive | [MIT](https://github.com/nianticlabs/spz/blob/affd0ecea7fbb4c265ee119475af7ee5b2997482/LICENSE) |
-| zstd | SPZ's [1.5.6 dependency](https://github.com/nianticlabs/spz/blob/affd0ecea7fbb4c265ee119475af7ee5b2997482/CMakeLists.txt), merged into the engine archive | [BSD-3-Clause](https://github.com/facebook/zstd/blob/v1.5.6/LICENSE), alternatively GPL-2.0; use BSD terms |
-| zlib | System library linked as `z` by the iOS pod | [zlib license](https://zlib.net/zlib_license.html) |
-| React, React Native and Hermes | JS app/runtime, versions in the [app lockfile](../apps/field-guide/package-lock.json) and [pod lockfile](../apps/field-guide/ios/Podfile.lock) | MIT, [React](https://github.com/facebook/react/blob/main/LICENSE), [RN](https://github.com/facebook/react-native/blob/main/LICENSE), [Hermes](https://github.com/facebook/hermes/blob/main/LICENSE) |
-| Navigation and storage | React Navigation native/native-stack and React Native AsyncStorage | MIT, [navigation](https://github.com/react-navigation/react-navigation/blob/main/LICENSE), [storage](https://github.com/react-native-async-storage/async-storage/blob/main/LICENSE) |
-| UI/native bridge dependencies | Gesture Handler, Nitro Modules, Reanimated, Worklets, Safe Area Context, Screens and SVG, resolved in the app lockfile | MIT, notices in the installed packages and pod distributions |
-| ONNX Runtime | Microsoft `onnxruntime-c` 1.30.0, CPU inference | MIT, [license and third-party notices](../packages/react-native-on-device/LICENSES/) bundled with speech resources |
-| Kokoro model and voice | [ONNX conversion](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231), quantized v1.0 and `af_heart` | Apache-2.0, [model/voice notice](../packages/react-native-on-device/LICENSES/Kokoro-Notice.txt) |
-| Kokoro phoneme configuration | [Original hexgrad model](https://huggingface.co/hexgrad/Kokoro-82M/tree/04393022a04dcb701fd2061b8d5dbe23ac7be751), `config.json` | Apache-2.0, same model notice |
-| FluidAudio Swift frontend | Five adapted files from [revision 2a2e382](https://github.com/FluidInference/FluidAudio/tree/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS) | Apache-2.0, [license](../packages/react-native-on-device/LICENSES/FluidAudio.txt) and [local adaptations](../packages/react-native-on-device/ios/KokoroFrontend/README.md) |
-| Misaki pronunciation data | [hexgrad/Misaki](https://github.com/hexgrad/misaki), English lexicon converted by FluidInference | [Apache-2.0](https://github.com/hexgrad/misaki/blob/main/LICENSE), model/voice notice |
-| English BART G2P resources | [PeterReid weights](https://huggingface.co/PeterReid/graphemes_to_phonemes_en_us/tree/a5631b285d18d59483c32c0c3379cb9fac924f4b), lexicon/vocabulary and compiled encoder/decoder from [FluidInference revision 006395f](https://huggingface.co/FluidInference/kokoro-82m-coreml/tree/006395f65025af251858b1ab0a7178a6a1e73f9f) | Apache-2.0, model/voice notice and bundled Apache text |
-| Geist fonts | [vercel/geist-font](https://github.com/vercel/geist-font), bundled font binaries | SIL OFL-1.1, [retained font notice](../apps/field-guide/assets/fonts/Geist-OFL.txt) |
-| Apple frameworks | Metal, ARKit, RealityKit, Speech, Foundation Models, AVFoundation, Core ML and platform frameworks | Apple SDK/platform terms; system implementations, not vendored source |
-
-Speech files and hashes are enumerated in [kokoro-models.json](../apps/field-guide/scripts/kokoro-models.json); preparation copies their notices into the resource bundle.
-ONNX Runtime's own third-party notices remain distinct from its top-level MIT license.
-The app bundles one [third-party notices file](../THIRD_PARTY_NOTICES.md), including engine/dependency and font texts; its inventory identifies unavailable local texts.
-
-## Preparation and test tools, not shipped in the app
-
-| Tool | Use | License or terms |
-| --- | --- | --- |
-| Polycam | Capture/export of photos and LiDAR depth | Proprietary service/application terms |
-| COLMAP 4.2 | Camera poses from photos | [BSD-3-Clause](https://github.com/colmap/colmap/blob/4.2.0/COPYING.txt), with its own dependency notices |
-| Brush 0.3.0 | Local training; recorded binary SHA-256 `8380ed40cce870025393e1ea0257e0752351c67a409d827b76dc75ec3a999a71` | [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE) |
-| SAM 3.1 | Modal masks/tracking; source `2345a4a`, Torch 2.8.0, torchvision 0.23.0; new tracking reports record cached checkpoint digests | Meta [SAM License](https://huggingface.co/facebook/sam3.1/blob/main/LICENSE), covering code and weights |
-| PyTorch / torchvision | SAM execution | BSD-3-Clause, [Torch](https://github.com/pytorch/pytorch/blob/main/LICENSE), [vision](https://github.com/pytorch/vision/blob/main/LICENSE) |
-| SAM support packages | einops, hydra-core, setuptools, pycocotools, scikit-image and psutil, as listed in the Modal image | MIT / MIT / MIT / BSD-2-Clause / BSD-3-Clause / BSD-3-Clause |
-| NumPy / SciPy | Lifting and geometry | BSD-3-Clause |
-| OpenCV / Pillow / PyYAML | Images, projection and content parsing | Apache-2.0 / HPND / MIT |
-| FastAPI / httpx2 / uvicorn | Marking interface and local preflight | MIT / BSD-3-Clause / BSD-3-Clause |
-| OpenUSD `usd-core` | AR reference preparation/cleanup | Apache-2.0, [OpenUSD license](https://github.com/PixarAnimationStudios/OpenUSD/blob/release/LICENSE.txt) |
-| Modal / Hugging Face | GPU execution and model acquisition | Hosted service terms; Modal client Apache-2.0, model licenses separate |
-| Object Capture / Create ML / Xcode | AR reconstruction/training and native builds | Apple SDK/tool terms |
-| CMake / GoogleTest | Native builds and interface tests | BSD-3-Clause, with GoogleTest pinned to 1.15.2 |
-| Node/npm, TypeScript, Babel, ESLint, Jest, Nitrogen | JS build, checks and generated Nitro glue | Tool-specific permissive licenses; versions/notices in package lockfiles and distributions |
-| Ruby/Bundler / CocoaPods | Pod resolution and installation | Ruby/BSD terms or MIT, according to the tool |
-| Wrangler / Workers / Claude | Proxy build, hosting and online model | Wrangler Apache-2.0/MIT; hosted services under provider terms |
-
-SAM is used only during preparation; no SAM code or weights are bundled in Field Guide.
-Its license includes end-use restrictions, including military/warfare uses, so it must be reviewed before reusing this pipeline for defence training.
-
-## Capture and authored content
-
-| Material | Ownership and evidence |
+| Material | Source identity |
 | --- | --- |
-| Original capture | Author's 124 Polycam photos and captured depth of their 2010 VW Gol Trend; raw export excluded from git/release, permission needed from the author |
-| Ingested capture | Ordered names/bytes/digests in [tracker cameras](../pipeline/pack/cameras.json); original/conversion receipt in local `capture.json` |
-| Authored guide | Original part descriptions, procedures and knowledge under the root MIT license; [sources/qualifications](../content/gol-trend-engine-bay/SOURCES.md) distinguish external evidence from owner-confirmed oil guidance |
-| Hand-marked masks | Author-reviewed eight-part prompts/keyframes; new revisions retain capture binding, historical imports explicitly record retrospective binding |
-| Historical training | Original COLMAP/Brush settings and SAM checkpoint identities not fully recoverable; imported byte identities do not establish the historical execution environment |
-| Exported pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) schema-1 `sources` records capture/reconstruction, PLY/lifting/labels/content identities and exact part mapping; cloud/labels digests remain byte-compatible |
-| AR reference | Author-supplied Object Capture/Create ML output and reviewed landmark picks; separate candidate registration, physical acceptance pending |
+| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `62cee54d884bd20c7dd450e8e6525e3d4c0e1652`, integrated revision `a28c8cc4e89fb0b40d98691f40fc8472870dda4c`; [retained license](../packages/react-native-splat/engine/LICENSE) |
+| SPZ | [nianticlabs/spz](https://github.com/nianticlabs/spz/tree/affd0ecea7fbb4c265ee119475af7ee5b2997482), pinned by CMake |
+| zstd | SPZ's 1.5.6 dependency, using BSD-3-Clause terms from its dual-license distribution |
+| App/native dependencies | Exact JS/pod versions in [package-lock.json](../apps/field-guide/package-lock.json) and [Podfile.lock](../apps/field-guide/ios/Podfile.lock) |
+| Kokoro ONNX/voice | [onnx-community revision 1939ad2](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231), quantized model and af_heart |
+| Phoneme configuration | [hexgrad revision 0439302](https://huggingface.co/hexgrad/Kokoro-82M/tree/04393022a04dcb701fd2061b8d5dbe23ac7be751), config.json |
+| FluidAudio frontend | Five adapted Swift files from [revision 2a2e382](https://github.com/FluidInference/FluidAudio/tree/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS), with [adaptations](../packages/react-native-on-device/ios/KokoroFrontend/README.md) |
+| Misaki/BART resources | [FluidInference revision 006395f](https://huggingface.co/FluidInference/kokoro-82m-coreml/tree/006395f65025af251858b1ab0a7178a6a1e73f9f), derived from [PeterReid revision a5631b2](https://huggingface.co/PeterReid/graphemes_to_phonemes_en_us/tree/a5631b285d18d59483c32c0c3379cb9fac924f4b) |
+| Geist | Bundled font binaries and [OFL text](../apps/field-guide/assets/fonts/Geist-OFL.txt) |
+| Apple frameworks/system zlib | Platform-provided implementations under their SDK/system terms |
 
-The [pipeline recipe](../pipeline/README.md) explains new receipts, retrospective import and which files enter the release archive.
+[kokoro-models.json](../apps/field-guide/scripts/kokoro-models.json) records immutable download URLs and individual hashes.
+ONNX Runtime's dependency notices remain bundled alongside its MIT license.
+The selected speech frontend links no eSpeak code or data.
 
-## Inherited modifications
+## Preparation tools
 
-SplatKit was copied into `engine/splat-core`, `engine/splatkit-engine` and `engine/splatkit-ios`, then pruned of LOD, tiles/streaming, walking/colliders, CPU-sort fallback, GLB tools, benchmark policy and its old Swift/Objective-C hosts.
-The guide adds label-aware filtering/reordering, picking, highlight, orbit/framing and the Nitro host; the Vulkan backend, upstream release tooling and example apps were not imported.
-FluidAudio adaptations remove network/cache and optional NeMo paths, confine work to the speech worker, load bundled G2P, use local logging and reject unsupported pronunciations/lengths.
-No eSpeak code or data is linked by the chosen speech path.
+| Tool | Use and terms |
+| --- | --- |
+| Polycam | Capture/export under proprietary application/service terms |
+| COLMAP 4.2 | Photo poses, [BSD-3-Clause](https://github.com/colmap/colmap/blob/4.2.0/COPYING.txt) |
+| Brush 0.3.0 | Local training, [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE); recorded binary SHA-256 `8380ed40cce870025393e1ea0257e0752351c67a409d827b76dc75ec3a999a71` |
+| SAM 3.1 | Modal masks/tracking under the [Meta SAM license](https://github.com/facebookresearch/sam3/blob/2345a4a/LICENSE); source `2345a4a`, Torch 2.8.0 and torchvision 0.23.0 |
+| PyTorch/torchvision | BSD-3-Clause; their distributions retain dependency notices |
+| Python dependencies | [pyproject.toml](../pipeline/pyproject.toml) and [uv.lock](../pipeline/uv.lock) pin geometry, image, marking and OpenUSD dependencies under their upstream terms |
+| Modal/Hugging Face | Hosted service terms and separate model licenses |
+| Object Capture/Create ML/Xcode | Apple SDK/tool terms for reference preparation and native builds |
+| CMake/GoogleTest | BSD-3-Clause; GoogleTest is pinned to 1.15.2 |
+| JS/Ruby build tools | Versions in package/Gem lockfiles with upstream distribution notices |
+| Wrangler/Workers/Claude | Wrangler Apache-2.0/MIT and hosted provider terms |
+
+SAM code and weights are preparation inputs and are excluded from the app.
+The SAM license restricts military, warfare and ITAR-related uses; review those restrictions before reusing this pipeline for defence training.
+
+## Capture and authored material
+
+| Material | Ownership and verification |
+| --- | --- |
+| Photos/depth | Author's 124 Polycam photos of the 2010 Gol Trend; raw material is excluded from git/releases and requires author permission |
+| Capture identity | Ordered photograph names/bytes/digests in [tracker cameras](../pipeline/pack/cameras.json), with the local ingest receipt |
+| Guide content | Authored under the root license, with [source qualifications](../content/gol-trend-engine-bay/SOURCES.md) and owner review requirements |
+| Masks | Eight-part reviewed prompts/keyframes; accepted revisions bind captures and imported byte identities have explicit receipt limits |
+| Pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) binds cloud/labels and source identities to the part mapping |
+| AR | Author-supplied Object Capture/Create ML output and reviewed landmark picks, with physical alignment acceptance pending |
+
+Exact producing COLMAP/Brush settings and SAM checkpoint identities are required for deterministic reproduction; byte identity alone does not recover execution settings.
+The retained engine contains guide-specific label-aware loading/filtering, picking, highlight and camera behaviour; its imported-source identity and license must accompany redistribution.

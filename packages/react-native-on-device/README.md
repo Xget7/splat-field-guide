@@ -1,7 +1,7 @@
 # react-native-on-device
 
-Lazy iOS Nitro modules for speech input, speech output and Apple Foundation Models.
-Read [app setup](../../apps/field-guide/README.md) for device preparation and [AGENTS.md](../../AGENTS.md#prepare-and-verify) for dependency installation, tests, lint, types and codegen.
+Lazy iOS Nitro modules provide speech input/output and Apple Foundation Models.
+[App setup](../../apps/field-guide/README.md#device-preparation) covers system assets; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has installation, checks and codegen commands.
 
 ## Interfaces
 
@@ -9,36 +9,28 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 
 | Interface | Contract |
 | --- | --- |
-| [SpeechInput](src/SpeechInput.nitro.ts) | Request permission, await `prepare(locale)`, then `listen`; on-device SpeechTranscriber or DictationTranscriber, contextual hints and continuous turns |
+| [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)` and continuous `listen`; SpeechTranscriber/DictationTranscriber with contextual hints |
 | Input callbacks | Partial text, settled nonempty `onTurn`, acoustic `onVoice`, smoothed 0-1 `onLevel` capped at 30 Hz, and one `onStopped` on spontaneous loss |
-| Turn boundary | At least 0.7 seconds of acoustic quiet, then recognition settlement: 0.15 seconds for queued results, bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
-| Input cancellation | `cancel` discards the current turn, rejects stale callbacks and permits restart; concurrent listening or missing permission rejects |
-| [SpeechOutput](src/SpeechOutput.nitro.ts) | `speak` replaces previous output and resolves on completion/stop; `stop` cancels synthesis, playback and queued callbacks |
-| Output callbacks | Original UTF-16 word ranges; Kokoro starts estimated from word length and sentence duration, Apple supplies its own timing |
-| [LanguageModel](src/LanguageModel.nitro.ts) | `availability`, `prewarm`, streaming `respond` with final answer, and `cancel`; equipment evidence/policy owned by the app instructor |
-
-First-use recognition preparation may download system assets; Apple generation needs eligible hardware and ready Apple Intelligence resources.
-See [ADR 0015](../../docs/adr/0015-kokoro-with-vendored-english-frontend.md) for Kokoro and the [frontend README](ios/KokoroFrontend/README.md) for adaptations/licenses.
+| Turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
+| Input cancellation | Discard the current turn, reject stale callbacks and allow restart; concurrent listening/missing permission rejects |
+| [SpeechOutput](src/SpeechOutput.nitro.ts) | `speak` replaces output and resolves on completion/stop; `stop` cancels synthesis, playback and callbacks |
+| Output callbacks | Original UTF-16 ranges; estimated Kokoro word timing and Apple-provided timing |
+| [LanguageModel](src/LanguageModel.nitro.ts) | Availability, prewarm, streaming/final respond and cancel; equipment evidence/policy belongs to the app instructor |
 
 ## Resources and audio
 
-From `apps/field-guide`, the pinned fetch used by preparation/CocoaPods is:
-
-```sh
-python3 scripts/fetch-kokoro-models.py
-python3 scripts/fetch-kokoro-models.py --verify-only
-```
-
-Generated `ios/KokoroResources` holds verified model, voice, pronunciation/G2P resources and notices; installed English output uses those bundled files with CPU ONNX Runtime.
+[ADR 0008](../../docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md) records the output choice; the [frontend README](ios/KokoroFrontend/README.md) records source adaptations.
+Preparation/CocoaPods verify [pinned resources](../../apps/field-guide/scripts/kokoro-models.json) into `ios/KokoroResources`, including model, voice, pronunciation/G2P resources and notices.
+Installed English output reads those bundled files.
 
 | Area | Behaviour |
 | --- | --- |
 | Kokoro | Serial sentence synthesis, retaining the playing sentence and one following sentence |
-| Apple fallback | Other locales or Kokoro synthesis/playback failure; rejects when no suitable installed voice exists |
-| Shared audio graph | Owns engine and interruption/configuration-loss observers; cancels pending synthesis/playback on loss |
-| Echo | Kokoro playback shares the voice-processed microphone graph; Apple playback requires caller-side echo filtering |
-| Scheduling | Conversation, playback and callbacks on main; level processing and buffer conversion on the audio tap |
+| Apple fallback | Other locales or Kokoro synthesis/playback failure; rejects without a suitable installed voice |
+| Shared audio graph | Engine and interruption/configuration-loss observers; pending synthesis/playback cancels on loss |
+| Echo | Kokoro shares the voice-processed microphone graph; Apple playback requires caller-side filtering |
+| Scheduling | Conversation/playback/callbacks on main; level processing and conversion on the audio tap |
 | Android | Native input/output/model adapters, frontend and resource packaging required |
 
-On macOS 26+, Jest compiles Swift harnesses with controlled recognition/audio adapters to check sustained speech, cancellation, settlement, audio loss and restart.
-These checks skip on other hosts and leave acoustic echo, model quality and hardware interruption handling to [device acceptance](../../TASKS.md).
+Swift harnesses use controlled recognition/audio adapters for cancellation, settlement, loss and restart.
+Acoustic echo, model quality and hardware interruptions remain [device acceptance](../../TASKS.md).
