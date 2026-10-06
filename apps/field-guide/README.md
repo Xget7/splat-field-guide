@@ -35,6 +35,7 @@ Platform capabilities are documented with the [viewer and AR interfaces](../../p
 Choose a development team and provisionable bundle identifier in Xcode's Signing & Capabilities.
 Debug needs reachable Metro; Release embeds JavaScript.
 The [distribution helper](scripts/testflight.sh) requires `FIELD_GUIDE_TEAM_ID` and a signed-in Xcode account; use `--no-upload` to export locally.
+Android Release signs with an upload key when `FIELD_GUIDE_UPLOAD_STORE_FILE`, `FIELD_GUIDE_UPLOAD_STORE_PASSWORD`, `FIELD_GUIDE_UPLOAD_KEY_ALIAS` and `FIELD_GUIDE_UPLOAD_KEY_PASSWORD` are set in `~/.gradle/gradle.properties` or as `ORG_GRADLE_PROJECT_` environment variables; without them it uses the debug key, which is fit only for local installs.
 
 Before airplane-mode voice testing, enable voice while connected, grant permissions and complete system asset preparation.
 Enable Apple Intelligence on an [eligible device](https://support.apple.com/en-us/121115) and wait for readiness.

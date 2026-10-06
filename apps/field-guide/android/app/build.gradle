@@ -10,6 +10,8 @@ def enableProguardInReleaseBuilds = false
 
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def uploadStoreFile = project.findProperty('FIELD_GUIDE_UPLOAD_STORE_FILE')
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -30,14 +32,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (uploadStoreFile) {
+            release {
+                storeFile file(uploadStoreFile)
+                storePassword project.findProperty('FIELD_GUIDE_UPLOAD_STORE_PASSWORD')
+                keyAlias project.findProperty('FIELD_GUIDE_UPLOAD_KEY_ALIAS')
+                keyPassword project.findProperty('FIELD_GUIDE_UPLOAD_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Production distribution requires a private signing key.
-            signingConfig signingConfigs.debug
+            // Without an upload key, Release is debug-signed and only fit for local installs.
+            signingConfig uploadStoreFile ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
