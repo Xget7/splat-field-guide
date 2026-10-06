@@ -1,6 +1,6 @@
 require "digest"
 
-# One identity calculation for preparation and CocoaPods, independent of git state.
+# Preparation and CocoaPods share a fingerprint independent of git state.
 module EngineArtifact
   FINGERPRINT_FILE = "source-fingerprint.sha256"
   FRAMEWORK = "ios/Frameworks/SplatKitCore.xcframework"

@@ -9,7 +9,6 @@
 namespace splat {
 namespace {
 
-// A file under the test's temp dir with `content`, removed when the test ends.
 class TempFile {
  public:
   explicit TempFile(const std::string& content) {
@@ -63,5 +62,5 @@ TEST(MappedFile, MoveHandsOverTheMapping) {
   EXPECT_EQ(assigned.data()[2], 'c');
 }
 
-}  // namespace
-}  // namespace splat
+}
+}

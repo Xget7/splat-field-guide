@@ -9,10 +9,8 @@
 
 namespace splatkit {
 
-// The record every renderer's vertex stage reads (32 bytes, the same on both APIs).
-// Vertex fetch is the floor of the frame on Adreno 640 (8 ms for 500k splats at 48
-// bytes), so the record is as small as the source data allows: SPZ stores colour and
-// alpha as 8 bits, and the covariance keeps 11 bits of mantissa as half floats.
+// The shared 32-byte record minimizes vertex bandwidth using source colour precision and half-float
+// covariances.
 struct GpuSplat {
   float position[3];
   uint32_t rgba8;     // colour and alpha, a real uint: never routed through a float, whose
@@ -22,8 +20,6 @@ struct GpuSplat {
 };
 static_assert(sizeof(GpuSplat) == 32, "GpuSplat must match the shader struct");
 
-// How the splats of one part label are drawn: their colour mixed towards `tint` by
-// `tintAmount` and then scaled by `brightness`, their opacity scaled by `opacity`.
 struct LabelStyle {
   float tint[3] = {0, 0, 0};
   float tintAmount = 0;
@@ -33,26 +29,21 @@ struct LabelStyle {
 };
 static_assert(sizeof(LabelStyle) == 32, "LabelStyle must match the shader struct");
 
-// One style per possible part label, indexed by the label.
 constexpr std::size_t kLabelCount = 256;
 using LabelStyles = std::array<LabelStyle, kLabelCount>;
 
-// Uints per splat of the harmonics buffer at a degree: the halves of bands 1 to
-// `degree`, channel fastest, two per uint, each splat starting on a uint.
+// SH bands 1 to degree pack channel-first halves, two per uint, with each splat uint-aligned.
 std::size_t shStride(int degree);
 
-// True when the cloud carries harmonics up to `degree` for every splat.
 bool carriesSh(const splat::SplatCloud& cloud, int degree);
 
-// Bands 1 to `degree` of every splat, `shStride(degree)` uints each. The cloud must
-// carry at least that degree.
+// The cloud must carry the requested SH degree; each splat uses shStride(degree) uints.
 std::vector<uint32_t> packSh(const splat::SplatCloud& cloud, int degree);
 
-// Every splat of the cloud in the GPU layout.
 std::vector<GpuSplat> packSplats(const splat::SplatCloud& cloud);
-// Bounded staging for large resident worlds. Caller validates the range and capacity.
+// Callers validate range and capacity for bounded staging.
 void packSplatRange(const splat::SplatCloud& cloud, size_t offset, size_t count, GpuSplat* out);
 void packShRange(const splat::SplatCloud& cloud, int degree, size_t offset, size_t count,
                  uint32_t* out);
 
-}  // namespace splatkit
+}

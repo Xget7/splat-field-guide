@@ -14,8 +14,7 @@
 
 namespace splatkit {
 
-// The capability gate for the first Vulkan visibility seam.  The implementation deliberately
-// requires subgroup arithmetic in the compute stage: a device without it keeps the CPU path.
+// GPU visibility requires subgroup arithmetic in the compute stage.
 struct VisibilityCapabilities {
   bool supported = false;
   uint32_t subgroupSize = 0;
@@ -29,9 +28,9 @@ struct VisibilityCapabilities {
   std::string reason;
 };
 
-// GPU visibility/compaction; sorting must consume its output before rasterization.
-// Render-thread only. Context and inputs outlive submitted work. Reserve/destroy while all
-// consumers are idle; fence before reusing a descriptor slot. No implicit submit/count readback.
+// Sort compacted output before rasterization; render-thread callers retain context and inputs,
+// fence slots before reuse and idle all consumers before reserve/destruction.
+// Encoding neither submits work nor reads GPU counts back.
 class VisibilityPass {
  public:
   static VisibilityCapabilities queryCapabilities(const VulkanContext& ctx);
@@ -42,11 +41,11 @@ class VisibilityPass {
   VisibilityPass(const VisibilityPass&) = delete;
   VisibilityPass& operator=(const VisibilityPass&) = delete;
 
-  // Transactional output allocation, 1..kMaxCapacity. Independent of resident source count.
+  // Output allocation is transactional and independent of resident source count.
   bool reserve(uint32_t capacity);
   uint32_t capacity() const { return capacity_; }
   float minPixelRadius() const { return minPixelRadius_; }
-  // Per-instance policy; render thread while the pass is idle. Finite and >= 0 or false.
+  // Change policy on the render thread while idle; reject non-finite or negative radii.
   bool setMinPixelRadius(float radius);
   const VisibilityCapabilities& capabilities() const { return capabilities_; }
 
@@ -63,7 +62,7 @@ class VisibilityPass {
     VkBuffer splats = VK_NULL_HANDLE;  // resident GpuSplat records, 32 bytes each
     VkDeviceSize splatsOffset = 0;
     uint32_t sourceCount = 0;
-    // Actual total buffer sizes, including offsets. Caller owns truthful sizes and uploads.
+    // Callers supply full buffer sizes including offsets and own uploads.
     VkDeviceSize cameraBytes = 8384;
     VkDeviceSize splatsBytes = 0;
     CandidateMode mode = CandidateMode::prefix;
@@ -73,8 +72,8 @@ class VisibilityPass {
     VkBuffer candidateCount = VK_NULL_HANDLE;  // indices mode only: GPU uint count (LOD offset0)
     VkDeviceSize candidateCountOffset = 0;
     VkDeviceSize candidateCountBytes = 0;
-    // Dispatch upper bound, independent of output capacity. Prefix zero means sourceCount;
-    // otherwise selects first N records. Indices zero means empty bound, not resident count.
+    // Dispatch capacity is independent of output capacity; zero means all source records in prefix
+    // mode and no records in indices mode.
     uint32_t candidateCapacity = 0;
     // Host validates sorted nonoverlap, positive counts and cumulative prefixEnd == bound.
     uint32_t rangeCount = 0;
@@ -83,7 +82,7 @@ class VisibilityPass {
   };
 
   struct Output {
-    // Borrowed handles. Valid until successful reserve or destruction, never CPU-mapped.
+    // Borrowed GPU-only handles expire on successful reserve or destruction.
     VkBuffer indices = VK_NULL_HANDLE;    // compacted original source indices
     VkBuffer depthKeys = VK_NULL_HANDLE;  // camera-depth key, configured precision/direction
     VkBuffer count = VK_NULL_HANDLE;      // GPU survivor count
@@ -91,13 +90,13 @@ class VisibilityPass {
     VkBuffer status = VK_NULL_HANDLE;     // bit 0 means output-capacity overflow
   };
 
-  // Rejects malformed/undersized/misaligned descriptors before recording. Inactive bindings
-  // use valid owned dummy ranges. Indexed/range source lookup is bounded on the GPU.
-  // Any GPU failure zeros BOTH count and draw instanceCount; status preserves diagnostic bits.
-  // Upload/host flush dependencies are caller-owned; outputs publish to compute/vertex/transfer
-  // and indirect consumers. Readback requires completion and noncoherent invalidation.
-  // Low16 near/far quantization is approximate. Equal keys have nondeterministic compaction
-  // order; stable radix alone cannot make their input order deterministic across frames.
+  // Malformed descriptors fail before recording, inactive bindings use owned dummy ranges, and GPU
+  // source lookup is bounded.
+  // Shader validation failures zero survivor and draw counts while preserving diagnostic status.
+  // Callers own upload and host-flush dependencies; outputs publish to compute, vertex, transfer
+  // and indirect consumers, with fenced/invalidate readback.
+  // Low16 depth quantization is approximate, and stable radix sorting cannot remove
+  // nondeterministic order among equal compacted keys.
   bool encode(VkCommandBuffer cmd, uint32_t slot, const Input& input) const;
   Output output(uint32_t slot) const;
 
@@ -145,4 +144,4 @@ class VisibilityPass {
   std::array<std::unique_ptr<GpuBuffer>, kSlots> status_{};
 };
 
-}  // namespace splatkit
+}

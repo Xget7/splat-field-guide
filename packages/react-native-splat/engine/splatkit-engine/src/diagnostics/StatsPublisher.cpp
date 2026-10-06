@@ -14,7 +14,7 @@ constexpr int64_t kIdleGapNanos = 1'000'000'000LL;
 constexpr uint32_t kWindowsPerLog = 4;
 constexpr auto kRelaxed = std::memory_order_relaxed;
 
-}  // namespace
+}
 
 void StatsPublisher::onPresented(const std::vector<int64_t>& times, uint32_t dropped) {
   presentTiming_ = true;
@@ -104,4 +104,4 @@ Stats StatsPublisher::stats() const {
   return s;
 }
 
-}  // namespace splatkit
+}

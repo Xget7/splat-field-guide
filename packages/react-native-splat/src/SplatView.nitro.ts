@@ -25,11 +25,7 @@ export interface ViewDirection {
   elevation: number;
 }
 
-/**
- * The angles and distances the camera may take, radians and metres. An azimuth range of a
- * full turn turns freely; a narrower one, which may cross pi, keeps the camera on the side
- * that was captured.
- */
+/** Limits use radians and metres; full-turn azimuth is free, narrower ranges may cross pi. */
 export interface CameraLimits {
   minAzimuth: number;
   maxAzimuth: number;
@@ -66,10 +62,7 @@ export interface SplatViewProps extends HybridViewProps {
   highlight: PartLabel[];
   /** Unset turns freely. */
   cameraLimits?: CameraLimits;
-  /**
-   * Seconds each cloud loaded takes to sweep in from the bottom up, a line in the accent at
-   * its front. Unset shows it at once.
-   */
+  /** Cloud reveal duration in seconds, from bottom to top; unset shows it at once. */
   revealSeconds?: number;
   /** A loaded cloud is on screen. */
   onReady: () => void;
@@ -77,10 +70,7 @@ export interface SplatViewProps extends HybridViewProps {
   onError: (error: SplatError) => void;
 }
 
-/**
- * Mutations only enqueue work for the view's render thread, so a gesture worklet may call
- * them. Pick runs on a worker; project and drawnDirection synchronously read the frame last drawn.
- */
+/** Worklets enqueue mutations; pick uses a worker, while project/drawnDirection read the last frame. */
 export interface SplatViewMethods extends HybridViewMethods {
   /** Radians, stopping at the limits; stops a framing. */
   orbit(dAzimuth: number, dElevation: number): void;
@@ -90,10 +80,7 @@ export interface SplatViewMethods extends HybridViewMethods {
   frame(bounds: Bounds, seconds: number, from?: ViewDirection): void;
   /** The part under (x, y), each in [0, 1] from the view's top left. */
   pick(x: number, y: number): Promise<PartLabel>;
-  /**
-   * Where each point of `points` (float32 x, y, z) shows, written to `out` as float32 x, y in
-   * [0, 1] from the top left, NaN behind the camera. Returns how many are in front.
-   */
+  /** Projects float32 xyz into float32 xy from the top left in [0, 1], with NaN behind the camera, returning the count in front. */
   project(points: ArrayBuffer, out: ArrayBuffer): number;
   /** Where the frame last drawn looks from; undefined before the first. */
   drawnDirection(): ViewDirection | undefined;

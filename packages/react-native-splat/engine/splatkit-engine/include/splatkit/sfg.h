@@ -1,12 +1,8 @@
 #pragma once
 
-// The engine as C, for the platform views: one engine per view, made by the platform's own
-// create function (sfg_metal.h on iOS). Angles are radians and distances metres; a point on
-// the view is (x, y) in [0, 1] from its top left.
-//
-// Threads: an engine belongs to its view's render thread, which makes every call not marked
-// otherwise. sfg_load runs on any thread, and sfg_pick and sfg_project on any thread against
-// the frame last drawn. Destroy it once no other thread is in a call.
+// One engine per view uses radians, metres and view xy in [0, 1] from the top left.
+// Calls use the render thread unless marked otherwise; destruction waits until no other thread is
+// in a call.
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -39,8 +35,7 @@ typedef struct {
   sfg_vec3 max;
 } sfg_bounds;
 
-// The camera `radius` from `target`, turned `azimuth` about +Y from +Z and raised
-// `elevation` above the horizontal, looking at the target.
+// Orbit uses radius from target, azimuth about +Y from +Z and elevation above horizontal.
 typedef struct {
   sfg_vec3 target;
   float radius;
@@ -54,8 +49,7 @@ typedef struct {
   float elevation;
 } sfg_view_direction;
 
-// The angles and distances the camera may take. An azimuth range of a full turn turns freely;
-// a narrower one, which may cross pi, keeps the camera on the side that was captured.
+// Full-turn azimuth limits permit free orbit; narrower ranges may cross pi.
 typedef struct {
   float min_azimuth;
   float max_azimuth;
@@ -81,18 +75,17 @@ typedef void (*sfg_event_callback)(void* SFG_NULLABLE context, sfg_event event, 
 
 void sfg_destroy(sfg_engine* engine);
 
-// Where events go: ready from the render thread, failures from the thread that found them.
-// Set it before the first load.
+// Install events before loading; ready reports on the render thread and failures on the thread that
+// detects them.
 void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback SFG_NULLABLE callback,
                             void* SFG_NULLABLE context);
 
-// Any thread, blocking while it decodes: a pack's cloud, SPZ in its own +Y up frame, and its
-// part labels, or NULL for none. The next frame after it uploads the world and draws it from
-// then on. False when it failed, which is also an event; the current world stays.
+// Any thread may decode SPZ RUB files with optional labels; failure reports an event and preserves
+// the current world until a successful replacement draws.
 bool sfg_load(sfg_engine* engine, const char* spz_path, const char* SFG_NULLABLE labels_path);
 
-// Any thread: reserves a replacement before its decoding is scheduled. A newer reservation
-// supersedes every older request, including its pending upload and completion events.
+// Any thread may reserve a replacement that supersedes older decoding, pending uploads and
+// completion events.
 uint64_t sfg_begin_load(sfg_engine* engine);
 // Identity from the pack manifest, checked before a decoded cloud can be accepted.
 typedef struct {
@@ -100,17 +93,16 @@ typedef struct {
   const char* labels_sha256;
   uint32_t expected_splat_count;
 } sfg_source_identity;
-// Any thread, blocking: decodes only for this reservation. False for a superseded request,
-// without a failure event. The engine must outlive both the reservation and the call.
+// Any thread may decode for a reservation while retaining the engine; superseded requests return
+// false without failure events.
 bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path,
                       const char* SFG_NULLABLE labels_path,
                       const sfg_source_identity* SFG_NULLABLE identity);
 
-// One vsync: steps the camera and the highlight and draws if anything visible changed. True
-// when a frame was drawn.
+// One vsync advances animations and draws changed content, returning whether a frame was drawn.
 bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos);
-// Whether the next vsync has anything to do. While it is false the view may stop its display
-// link; any call here, a finished load or a new surface is a reason to start it again.
+// Hosts may stop their display link while false and wake it on input, load completion or a new
+// surface.
 bool sfg_needs_frame(const sfg_engine* engine);
 
 // Turns the camera, stopping at its limits and stopping any framing.
@@ -119,30 +111,26 @@ bool sfg_orbit(sfg_engine* engine, float d_azimuth, float d_elevation);
 bool sfg_dolly(sfg_engine* engine, float factor);
 bool sfg_set_camera_pose(sfg_engine* engine, const sfg_orbit_pose* pose);
 sfg_orbit_pose sfg_camera_pose(const sfg_engine* engine);
-// False, changing nothing, for limits that are not finite, inverted, wider than a full turn
-// or past a pole. NULL turns freely again, as a new engine does.
+// Reject non-finite, inverted, over-full-turn or pole-crossing limits without changes; NULL
+// restores free orbit.
 bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* SFG_NULLABLE limits);
-// Eases the camera over `seconds` until `bounds` fills the view, looking from `from` or, when
-// NULL, from where it looks now. The framing holds through a change of the view's shape until
-// a pinch or a pose replaces it.
+// Framing uses from or the current direction when NULL, refits on size changes and holds until a
+// pinch or pose replaces it.
 bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
                const sfg_view_direction* SFG_NULLABLE from);
 
-// Emphasises the parts with these labels and dims the rest, fading from the last highlight.
-// None shows every splat as captured.
+// Highlights fade between label sets and dim the rest; no labels restore captured styles.
 void sfg_set_highlight(sfg_engine* engine, const uint8_t* SFG_NULLABLE labels, size_t count);
-// Seconds each world loaded from now on takes to sweep in from the bottom up, a line in the
-// accent at its front. Zero, as a new engine has, shows it at once.
+// Reveal duration uses seconds for a bottom-up sweep; zero shows the world immediately.
 void sfg_set_reveal(sfg_engine* engine, float seconds);
 
-// Any thread: the part label under (x, y) in the frame last drawn, 0 for none. Milliseconds of
-// work, so not for the render thread.
+// Any worker thread may pick normalized xy in the last drawn frame, returning zero for no part; the
+// work may take milliseconds.
 uint8_t sfg_pick(const sfg_engine* engine, float x, float y);
-// Any thread: where each of `count` world points (x, y, z) shows in the frame last drawn,
-// written to `out_xy` as (x, y), NaN for one behind the camera. Returns how many are in front.
+// Any thread may project count world xyz points into last-frame xy, with NaN behind the camera and
+// the in-front count returned.
 size_t sfg_project(const sfg_engine* engine, const float* points, size_t count, float* out_xy);
-// Any thread: where the frame last drawn looks from. False, leaving `out` as it was, before
-// the first frame.
+// Any thread may read the last drawn direction; before the first frame, false leaves out unchanged.
 bool sfg_drawn_direction(const sfg_engine* engine, sfg_view_direction* out);
 
 #if defined(__clang__)

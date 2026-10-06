@@ -13,4 +13,4 @@ Sha256Digest sha256Portable(ByteView bytes);
 bool armSha256Available();
 Sha256Digest sha256Arm(ByteView bytes);
 
-}  // namespace splat::detail
+}

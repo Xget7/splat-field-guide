@@ -1,4 +1,3 @@
-# Google style at 100 columns, which is how the code was written by hand.
 BasedOnStyle: Google
 ColumnLimit: 100
 IndentWidth: 2

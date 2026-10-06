@@ -50,5 +50,5 @@ TEST(Reveal, ShowsAtOnceWithNoTimeOrNoHeight) {
   EXPECT_TRUE(std::isinf(reveal.level()));
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

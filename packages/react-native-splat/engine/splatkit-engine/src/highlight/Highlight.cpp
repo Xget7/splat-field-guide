@@ -27,7 +27,7 @@ LabelStyle dimmed() {
   return style;
 }
 
-}  // namespace
+}
 
 void Highlight::set(const std::uint8_t* labels, std::size_t count) {
   std::bitset<kLabelCount> parts;
@@ -63,4 +63,4 @@ bool Highlight::update(float dtSeconds) {
   return true;
 }
 
-}  // namespace splatkit
+}

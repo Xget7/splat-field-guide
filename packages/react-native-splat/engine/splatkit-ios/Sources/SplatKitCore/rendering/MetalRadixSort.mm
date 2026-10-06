@@ -91,4 +91,4 @@ void MetalRadixSort::encode(id<MTLCommandBuffer> cmd, id<MTLBuffer> count) {
   [enc endEncoding];
 }
 
-}  // namespace splatkit
+}

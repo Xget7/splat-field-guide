@@ -2,12 +2,9 @@ import Foundation
 import QuartzCore
 import SplatKitCore
 
-/// The thread that draws one view. Its run loop runs the view's commands in the order they
-/// were sent, and a display link draws while the engine has something to do, stopping when it
-/// rests. Every method may be called from any thread. Commands enqueue work; a load
-/// reservation briefly serializes with cloud publication and upload inside the engine.
+/// Methods accept any thread, queue commands in order, and serialize load reservations with engine
+/// publication and upload.
 final class SplatRenderLoop {
-  /// ProMotion screens draw at up to 120 Hz while the camera or a fade moves.
   private static let frameRates = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
   private static let nanosPerSecond = 1e9
 
@@ -40,12 +37,11 @@ final class SplatRenderLoop {
     running.wait()
   }
 
-  /// The engine the view's pick and project read, nil until `start` made one or after `stop`.
+  /// Pick and project callers retain this engine until their calls finish.
   var currentEngine: SplatEngine? {
     locked { sharedEngine }
   }
 
-  /// Makes the engine and starts drawing on the layer; a GPU that cannot is an error event.
   func start() {
     perform { [self] in
       guard let engine = SplatEngine(events: events) else {
@@ -67,8 +63,7 @@ final class SplatRenderLoop {
     }
   }
 
-  /// Runs `command` with the engine on the render thread, then draws if it changed anything.
-  /// Dropped while there is no engine.
+  /// Commands run on the render thread and are dropped without an engine.
   func post(_ command: @escaping (SplatEngine) -> Void) {
     perform { [self] in
       guard let engine else { return }
@@ -77,8 +72,7 @@ final class SplatRenderLoop {
     }
   }
 
-  /// Decodes on a background queue and shows the cloud on the frame after, keeping the current
-  /// one until then. The engine owns replacement, including loads still being decoded.
+  /// Decoding runs off-thread while the engine retains the current cloud and owns load replacement.
   func load(source: SplatSource) {
     if let engine = currentEngine {
       scheduleLoad(engine, source: source)
@@ -135,7 +129,6 @@ final class SplatRenderLoop {
         engine = nil
         CFRunLoopStop(CFRunLoopGetCurrent())
       }
-      // Nothing runs after the stop.
       self.runLoop = nil
       if let sharedEngine { _ = sfg_begin_load(sharedEngine.handle) }
       sharedEngine = nil
@@ -177,7 +170,6 @@ final class SplatRenderLoop {
     sfg_metal_set_drawable_size(engine.handle, drawableSize.width, drawableSize.height)
   }
 
-  /// Starts the display link when the engine has something to draw.
   private func wake() {
     guard let engine, let displayLink, !paused, sfg_needs_frame(engine.handle) else { return }
     displayLink.isPaused = false

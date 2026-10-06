@@ -47,11 +47,11 @@ TEST(GpuLayout, HarmonicsArePackedTwoHalvesPerUintPerSplat) {
   const auto cloud = twoSplats(2);
   EXPECT_TRUE(carriesSh(cloud, 2));
   EXPECT_FALSE(carriesSh(cloud, 3));
-  const auto sh = packSh(cloud, 1);  // a lower degree than the cloud carries
+  const auto sh = packSh(cloud, 1);
   ASSERT_EQ(sh.size(), 2 * shStride(1));
   EXPECT_EQ(sh[0] & 0xffffu, splat::toHalf(0.25f));
   EXPECT_EQ(sh[4] >> 16, 0u);  // the odd half of the last uint is padding
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

@@ -39,5 +39,5 @@ TEST(Sha256, ArmAndPortableAgreeAcrossPaddingBoundariesAndUnalignedInput) {
 }
 #endif
 
-}  // namespace
-}  // namespace splat
+}
+}

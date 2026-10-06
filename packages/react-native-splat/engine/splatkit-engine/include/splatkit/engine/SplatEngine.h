@@ -23,17 +23,10 @@
 
 namespace splatkit {
 
-// The native engine behind one view. It owns the loader, the orbit camera, the highlight
-// and the platform's renderer and runs them once per vsync: a frame steps the camera and
-// the highlight's fade and draws only when something visible changed, so a still scene
-// costs no GPU time.
-//
-// Rendering, input and settings run on the render thread. Loading may run on any
-// thread: it decodes there and leaves the result for the render thread to upload.
-// The surface belongs to the renderer: the engine survives losing and regaining it.
+// Rendering, input and settings use the render thread; loading decodes on any thread for later
+// upload, and the engine survives surface detachment.
 class SplatEngine {
  public:
-  // Local file decoding is substitutable without exposing it through the platform C API.
   struct LoadedWorld {
     std::unique_ptr<splat::SplatCloud> cloud;
     splat::SplatWorldLoader::WorldReport report;
@@ -47,100 +40,82 @@ class SplatEngine {
   SplatEngine(const SplatEngine&) = delete;
   SplatEngine& operator=(const SplatEngine&) = delete;
 
-  // The platform's renderer, for the calls only its view makes: attaching a surface.
   SplatRenderer& renderer() { return *renderer_; }
 
-  // Steps the camera and draws if anything visible changed. True when a frame was drawn.
-  // Time stands still while the engine rests: what starts after it ran out of work starts
-  // on the next frame, however long the host waited.
+  // Idle time does not advance animations; newly scheduled work begins on the next frame.
   bool render(int64_t frameTimeNanos);
-  // Render thread: whether the next vsync has anything to do. False while the scene is still
-  // and while there is no surface to draw on, so a host can stop its display link; any call
-  // into the engine, a finished load or a new surface is a reason to start it again. Stats
-  // stop ageing while it is stopped.
+  // Render-thread hosts may sleep while idle or detached, freezing stats until input, load
+  // completion or a new surface wakes them.
   bool needsFrame() const;
 
-  // Decodes an SPZ world whose positions are in `sourceFrame`, with the labels.bin of its
-  // part labels (empty for none). Thread safe. False when it failed, which is reported too
-  // and leaves the current world.
+  // Thread-safe decoding reports errors without replacing the current world; empty labels mean no
+  // parts.
   bool loadWorld(splat::ByteView spz, splat::ByteView labels, splat::CoordinateFrame sourceFrame);
-  // The same from files, mapped rather than copied through the host's heap.
   bool loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
                      splat::CoordinateFrame sourceFrame);
 
-  // Reserves a replacement before a host schedules decoding. Only this request can publish
-  // a cloud or report its outcome until another reservation replaces it. Any thread.
+  // Any thread may reserve a replacement; only the newest reservation can publish a cloud or report
+  // an outcome.
   uint64_t beginLoad();
   bool loadWorldFile(uint64_t request, const std::string& spzPath, const std::string& labelsPath,
                      splat::CoordinateFrame sourceFrame,
                      const splat::SourceIdentity* identity = nullptr);
 
-  // What the host needs to know about loading and the GPU. Ready fires on the render thread
-  // once a frame of the new world has finished on the GPU, so it is on screen; failures fire
-  // on whichever thread found them. Labels that do not fit the cloud are their own failure:
-  // the capture is fine, the pack is not. A GPU failure is final for this engine.
+  // Ready reports from the render thread after GPU completion, failures report from their detecting
+  // thread, and GPU failure is final.
   enum class Event { worldReady = 0, worldFailed = 1, labelsMismatch = 2, gpuFailed = 3 };
   using EventSink = std::function<void(Event, const std::string& message, uint32_t splatCount)>;
   void setEventSink(EventSink sink) { events_ = std::move(sink); }
 
-  // Camera, on the render thread. Until the host places the camera, each world loaded is
-  // framed whole from the current direction.
+  // Camera mutations use the render thread; unpositioned cameras frame each new world from the
+  // current direction.
   bool setCameraPose(const OrbitPose& pose);
   bool setCameraLimits(const OrbitLimits& limits);
   // Radians; a drag stops any framing animation.
   bool orbit(float deltaAzimuth, float deltaElevation);
   // A pinch's scale: above one moves closer.
   bool dolly(float factor);
-  // Where a framing looks from, in radians as an OrbitPose turns.
+  // Framing directions use OrbitPose radians.
   struct ViewDirection {
     float azimuth = 0;
     float elevation = 0;
   };
-  // Eases the camera over `seconds` until `bounds` fills the view, looking from `from` or
-  // else from where it looks now. Until the view has a size it goes there at once. A framing
-  // holds until a pinch or a pose replaces it: when the view changes shape it is fitted again.
+  // Framing holds through size changes until a pinch or pose replaces it, with immediate placement
+  // if the view has no size.
   bool frame(const splat::Bounds& bounds, float seconds,
              std::optional<ViewDirection> from = std::nullopt);
   const OrbitPose& cameraPose() const { return camera_.pose(); }
 
-  // Emphasises the parts with these labels and dims the rest, fading from the previous
-  // highlight; no labels shows every splat as captured. Render thread.
+  // Render-thread highlights fade between label sets; empty labels show the cloud as captured.
   void setHighlight(const std::uint8_t* labels, std::size_t count);
-  // Seconds each world uploaded from now on takes to sweep in from the bottom up (see
-  // Reveal); zero, as a new engine has, shows it at once. Render thread.
+  // Render-thread reveal duration uses seconds for a bottom-up sweep; zero shows the world
+  // immediately.
   void setRevealSeconds(float seconds) { revealSeconds_ = seconds; }
 
-  // Any thread: the label of the part at (x, y), in [0, 1] from the top left of the view,
-  // in the frame last drawn; 0 for none. It casts against the whole cloud, milliseconds of
-  // work, so it belongs on a worker thread rather than the render thread.
+  // Worker-thread picking reads the last drawn frame at normalized top-left xy, returns zero for no
+  // part and may take milliseconds.
   std::uint8_t pick(float x, float y) const;
-  // Any thread: where each world point (x, y, z) of `points` shows in the frame last drawn,
-  // written to `out` as (x, y) in [0, 1] from the top left, NaN for a point behind the
-  // camera. Returns how many are in front.
+  // Any thread may project last-frame world xyz into normalized top-left xy, with NaN behind the
+  // camera and the in-front count returned.
   std::size_t project(const float* points, std::size_t count, float* out) const;
   // Any thread: where the frame last drawn looks from, radians; false before the first.
   bool drawnDirection(float& azimuth, float& elevation) const;
 
-  // Fraction of the surface resolution the splats are drawn at, [0.1, 2]. Below one is
-  // cheaper, which is what thermal pressure trades first. Render thread.
+  // Render scale is [0.1, 2] on the render thread; thermal pressure reduces resolution first.
   void setRenderScale(float scale) { renderer_->setRenderScale(scale); }
   float renderScale() const { return renderer_->renderScale(); }
 
-  // Highest spherical harmonics degree decoded and uploaded with the next world, 0 to 3.
-  // Any thread.
+  // Any thread may set the maximum SH degree for the next decode/upload, from 0 to 3.
   void setMaxShDegree(int degree) { maxShDegree_.store(degree); }
-  // Spherical harmonics degree drawn, 0 to 3, capped by what the loaded world carries.
-  // Takes effect on the next frame. Render thread.
+  // Render-thread SH degree changes apply next frame and clamp to the loaded degree.
   void setShDegree(int degree);
 
-  // Draws the next frame even when nothing changed, for a renderer that has something
-  // to do with it, such as a capture.
+  // Force a frame for renderer work such as capture even when the scene is unchanged.
   void requestRedraw() { redrawNeeded_ = true; }
 
-  // Readable from any thread. Refreshed twice a second by the render loop, and by
-  // publishStats.
+  // Any thread may read stats refreshed at 2 Hz or by publishStats.
   Stats stats() const { return stats_.stats(); }
-  // Render thread: publishes the newest finished frame's counts and times now.
+  // Render-thread publication exposes the newest completed frame.
   void publishStats();
   const std::string& gpuDescription() const { return renderer_->deviceDescription(); }
 
@@ -166,7 +141,7 @@ class SplatEngine {
   StatsPublisher::Sample sample() const;
   void publishView(const SplatRenderer::Frame& frame);
 
-  // What pick and project read from any thread: the last drawn frame's camera and world.
+  // Pick and project share an immutable snapshot of the last drawn camera and world.
   struct View {
     splat::Mat4 view = splat::Mat4::identity();
     splat::Mat4 cameraToWorld = splat::Mat4::identity();
@@ -182,8 +157,8 @@ class SplatEngine {
   std::unique_ptr<SplatRenderer> renderer_;
   FileLoader loadFile_;
   std::atomic<int> maxShDegree_{kMaxShDegree};
-  // Decoding happens outside this lock. Publication, upload and events share it with
-  // reservations so a replacement cannot slip between a check and its consequence.
+  // Reservations share the publication, upload and event lock to prevent replacement between
+  // validation and its consequence.
   mutable std::recursive_mutex loadMutex_;
   uint64_t currentLoad_ = 0;
   uint64_t uploadedLoad_ = 0;
@@ -192,8 +167,7 @@ class SplatEngine {
   Highlight highlight_;
   Reveal reveal_;
   float revealSeconds_ = 0;
-  // The bounds the framing fits and the view shape it was fitted to, empty once a pinch or a
-  // pose replaces it. Until the host places the camera, each world is framed whole.
+  // Framing bounds survive size changes until a pinch or pose replaces them.
   bool poseSet_ = false;
   std::optional<splat::Bounds> framedBounds_;
   Extent framedExtent_;
@@ -204,7 +178,7 @@ class SplatEngine {
   mutable std::mutex viewMutex_;
   std::optional<View> view_;
 
-  // A world is on screen once drawn and then finished by the GPU; ready waits for both.
+  // Ready requires both a draw of the new world and GPU completion.
   enum class Showing { nothing, awaitingDraw, awaitingGpu };
   Showing showing_ = Showing::nothing;
   bool gpuFailureReported_ = false;
@@ -216,4 +190,4 @@ class SplatEngine {
   uint32_t lastDrawnGeneration_ = 0;
 };
 
-}  // namespace splatkit
+}

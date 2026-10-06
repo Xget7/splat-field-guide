@@ -8,17 +8,14 @@
 
 namespace splatkit {
 
-// The highlight as the GPU draws it: a style for every part label, eased from the
-// previous highlight to the newest so a change reads as a transition rather than a cut.
-// Not thread safe.
+// Per-label styles ease between highlights; callers must serialize access.
 class Highlight {
  public:
-  // Emphasises the parts with `labels`, lifted and faintly blue, and dims every other splat,
-  // the unlabelled ones included. No labels draws every splat as captured. The parts it already
-  // shows or heads for change nothing, so a caller may send them again.
+  // Empty labels restore captured styles, unselected labels dim, and repeated targets preserve the
+  // current fade.
   void set(const std::uint8_t* labels, std::size_t count);
 
-  // Advances the fade by `dtSeconds`. True when the styles changed.
+  // Returns whether styles changed.
   bool update(float dtSeconds);
   bool fading() const { return elapsed_ < kFadeSeconds; }
 
@@ -27,11 +24,11 @@ class Highlight {
   static constexpr float kFadeSeconds = 0.25f;
   // #0A6CFF, the app's accent.
   static constexpr float kTint[3] = {0x0A / 255.0f, 0x6C / 255.0f, 0xFF / 255.0f};
-  // Faint, so a part keeps its true colours: the marker around it says which one it is.
+  // A faint tint preserves the part's captured colours.
   static constexpr float kTintAmount = 0.12f;
-  // A capture in the shade of a bonnet reads dark; the part shown is lifted a little.
+  // Lift brightness so parts captured under a bonnet remain visible.
   static constexpr float kEmphasisBrightness = 1.15f;
-  // Dim enough for the part to stand out, bright enough that the bay around it still reads.
+  // Keep dimmed surroundings visible for context.
   static constexpr float kDimBrightness = 0.55f;
 
  private:
@@ -42,4 +39,4 @@ class Highlight {
   float elapsed_ = kFadeSeconds;
 };
 
-}  // namespace splatkit
+}

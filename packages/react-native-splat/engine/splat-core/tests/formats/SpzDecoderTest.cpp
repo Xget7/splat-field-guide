@@ -20,8 +20,7 @@ float logit(float p) {
   return std::log(p / (1 - p));
 }
 
-// One splat with a known pose, written through the reference encoder.
-// Frame is RDF, like World Labs, so the decoder must flip Y and Z.
+// The RDF fixture requires the decoder to flip Y and Z.
 spz::GaussianCloud oneSplatCloud() {
   spz::GaussianCloud cloud;
   cloud.numPoints = 1;
@@ -51,8 +50,7 @@ TEST(SpzDecoder, RejectsBytesThatAreNotAContainer) {
   EXPECT_EQ(result.error().code, ErrorCode::unsupportedFormat);
 }
 
-// A gzip whose trailer claims a small size while the stream inflates far past the
-// ceiling: the trailer is written by whoever made the file and proves nothing.
+// A forged gzip trailer must not bypass the inflation ceiling.
 TEST(SpzDecoder, StopsInflatingAGzipAtTheCeilingWhateverTheTrailerSays) {
   const std::vector<std::uint8_t> zeros(8u << 20, 0);
   std::vector<std::uint8_t> gz(compressBound(static_cast<uLong>(zeros.size())) + 64);
@@ -66,7 +64,6 @@ TEST(SpzDecoder, StopsInflatingAGzipAtTheCeilingWhateverTheTrailerSays) {
   ASSERT_EQ(deflate(&stream, Z_FINISH), Z_STREAM_END);
   gz.resize(gz.size() - stream.avail_out);
   deflateEnd(&stream);
-  // Forge ISIZE to 100 bytes.
   gz[gz.size() - 4] = 100;
   gz[gz.size() - 3] = 0;
   gz[gz.size() - 2] = 0;
@@ -86,7 +83,6 @@ TEST(SpzDecoder, RejectsAnNgspHeaderWithoutAPayload) {
   EXPECT_EQ(result.error().code, ErrorCode::corrupt);
 }
 
-// Version 4 (Niantic, 2026) wraps zstd streams in an NGSP header instead of gzip.
 TEST(SpzDecoder, DecodesVersion4Containers) {
   auto bytes = encodeOneSplat(4);
   ASSERT_EQ(bytes[0], 'N');
@@ -117,17 +113,16 @@ TEST(SpzDecoder, DecodesAndConvertsWorldLabsFrameToInternal) {
   ASSERT_EQ(cloud.count(), 1u);
   EXPECT_EQ(cloud.shDegree, 0);
 
-  // RDF to RUB flips Y and Z. Positions are 24-bit fixed point with 12 fractional bits,
-  // so they round trip exactly for these values.
+  // RDF-to-RUB flips Y and Z; these positions round-trip exactly in 24-bit fixed point with 12
+  // fractional bits.
   EXPECT_FLOAT_EQ(cloud.positions[0], 1.0f);
   EXPECT_FLOAT_EQ(cloud.positions[1], -2.0f);
   EXPECT_FLOAT_EQ(cloud.positions[2], -3.0f);
   EXPECT_FLOAT_EQ(cloud.bounds.min[1], -2.0f);
   EXPECT_FLOAT_EQ(cloud.bounds.max[0], 1.0f);
 
-  // Identity rotation: covariance is diag(s^2). Scales are quantised to 1/16 in log space.
-  // SPZ v2 stores quaternion xyz as int8 around 127.5, so exactly 0 is not representable:
-  // the identity decodes with components of about 0.004, which leaks into the off diagonal.
+  // SPZ v2 quantizes scales in log space and cannot encode zero quaternion xyz exactly, so
+  // covariance tolerances allow off-diagonal leakage.
   const float tol = 0.05f;
   const float offDiagonal = 0.002f;
   EXPECT_NEAR(cloud.covariances[0], 0.25f, tol * 0.25f);          // xx
@@ -200,7 +195,6 @@ TEST(SpzDecoder, RejectsPayloadsBeyondTheDecodedSizeCeiling) {
   auto result = decodeSpz(bytes.data(), bytes.size(), options);
   ASSERT_FALSE(result.ok());
   EXPECT_EQ(result.error().code, ErrorCode::corrupt);
-  // The same file decodes once the ceiling has room for it.
   options.maxDecodedBytes = 64;
   EXPECT_TRUE(decodeSpz(bytes.data(), bytes.size(), options).ok());
 }
@@ -277,8 +271,7 @@ TEST(SpzDecoder, TruncatesHigherOrderShBeforeMaterializingTheCloud) {
   EXPECT_TRUE(result.value().sh.empty());
 }
 
-// Opt-in integration test against a real World Labs export.
-// Run with SPLAT_FIXTURES_DIR pointing at a folder containing kitchen_500k.spz.
+// Set SPLAT_FIXTURES_DIR to a folder containing kitchen_500k.spz to enable this integration test.
 TEST(SpzDecoder, DecodesWorldLabsKitchen) {
   const char* dir = std::getenv("SPLAT_FIXTURES_DIR");
   if (dir == nullptr) {
@@ -300,8 +293,8 @@ TEST(SpzDecoder, DecodesWorldLabsKitchen) {
   EXPECT_GT(cloud.bounds.max[1], 0.0f);
 }
 
-}  // namespace
-}  // namespace splat
+}
+}
 
 namespace splat {
 namespace {
@@ -328,5 +321,5 @@ TEST(SpzDecoder, KeepsHigherOrderShInTheInternalFrame) {
   EXPECT_NEAR(out.sh[6], -0.5f, tol);
 }
 
-}  // namespace
-}  // namespace splat
+}
+}

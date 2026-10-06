@@ -11,9 +11,7 @@ splat::Result<std::unique_ptr<Swapchain>> Swapchain::create(const VulkanContext&
                                                             bool linearBlending) {
   std::unique_ptr<Swapchain> sc(new Swapchain(ctx));
 
-  // UNORM by default: splats blend in the encoded space, which is what the reference
-  // rasterizer does and what training optimised for, and an sRGB attachment costs 40%
-  // of the frame on Adreno 640. Linear blending asks for sRGB first.
+  // UNORM blends in the encoded training space; linear blending requires an sRGB attachment.
   vkb::SwapchainBuilder builder(ctx.physicalDevice(), ctx.device(), surface, ctx.queueFamily(),
                                 ctx.queueFamily());
   const VkSurfaceFormatKHR unorm[] = {
@@ -72,8 +70,8 @@ VkSwapchainKHR Swapchain::release() {
   return handle;
 }
 
-// Ready for presentation at the end. The acquire semaphore is waited at the color output stage,
-// so the pass must not write the image before that stage: the dependency says exactly that.
+// The acquire semaphore waits at colour output, so the pass dependency prevents earlier image
+// writes.
 splat::Result<splat::Ok> Swapchain::createRenderPass() {
   renderPass_ = createColorRenderPass(ctx_.device(), format(), VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0);
@@ -100,4 +98,4 @@ splat::Result<splat::Ok> Swapchain::createFramebuffers() {
   return splat::Ok{};
 }
 
-}  // namespace splatkit
+}

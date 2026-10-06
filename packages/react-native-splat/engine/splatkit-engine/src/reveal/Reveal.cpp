@@ -6,12 +6,11 @@
 namespace splatkit {
 namespace {
 
-// Eases in and out, so the sweep starts and lands softly.
 float smootherstep(float t) {
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-}  // namespace
+}
 
 void Reveal::start(const splat::Bounds& bounds, float seconds) {
   const float height = bounds.max[1] - bounds.min[1];
@@ -22,8 +21,8 @@ void Reveal::start(const splat::Bounds& bounds, float seconds) {
   }
   seconds_ = seconds;
   band_ = height * kBandShare;
-  // The band starts wholly below the world and ends wholly above it, so the first frame
-  // draws nothing and the last draws every splat as captured.
+  // Start and end the band outside the bounds so the first frame hides everything and the last
+  // restores captured styles.
   bottom_ = bounds.min[1] - band_;
   top_ = bounds.max[1] + band_;
 }
@@ -39,4 +38,4 @@ float Reveal::level() const {
   return bottom_ + (top_ - bottom_) * smootherstep(elapsed_ / seconds_);
 }
 
-}  // namespace splatkit
+}

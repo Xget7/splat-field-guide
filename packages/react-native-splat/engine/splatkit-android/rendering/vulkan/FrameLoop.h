@@ -10,19 +10,13 @@
 
 namespace splatkit {
 
-// The per-frame synchronisation: command buffers, fences and semaphores.
-//
-// Two frames in flight: while the GPU draws frame N, the CPU records frame N+1.
-// Per frame: a command pool (reset wholesale, cheaper than resetting buffers), the
-// fence the CPU waits on before reusing it, and the semaphore signalled when the
-// swapchain image is ready. Per swapchain image: the semaphore the present waits on,
-// because presentation may still be reading it when the frame slot comes around again.
+// Each of two frame slots owns a pool, fence and acquire semaphore; present semaphores belong to
+// swapchain images because presentation can outlive slot reuse.
 class FrameLoop {
  public:
   static constexpr uint32_t kFramesInFlight = 2;
 
-  // `swapchainSuboptimal`: the frame was presented, but the surface reports the swapchain
-  // no longer matches it. The owner decides whether that needs a rebuild.
+  // The owner decides whether a presented SUBOPTIMAL frame requires a swapchain rebuild.
   enum class Status { ok, swapchainSuboptimal, swapchainOutOfDate, error };
 
   explicit FrameLoop(const VulkanContext& ctx);
@@ -39,20 +33,16 @@ class FrameLoop {
   // Call after a swapchain is created or recreated.
   bool onSwapchainCreated(const Swapchain& swapchain);
 
-  // Waits for this frame slot, acquires an image and begins recording.
   Status beginFrame(const Swapchain& swapchain, uint32_t& imageIndex, VkCommandBuffer& cmd);
-  // Ends recording, submits and presents.
   Status endFrame(const Swapchain& swapchain, uint32_t imageIndex);
 
   uint64_t lastSubmission() const { return lastSubmission_; }
-  // Nonblocking fence queries of the frames still in flight, including when the engine has
-  // no new frame to draw; a finished frame's GPU time is read then too.
-  // Zero after a fence/device error: failed GPU work must never announce readiness.
+  // Poll fences even while idle to read completed timings; failed GPU work must never announce
+  // readiness.
   uint64_t completedSubmission();
 
-  // GPU time of the most recently completed frame, from timestamp queries at both ends
-  // of its command buffer. Zero until the first frame completes or if unsupported.
-  // Unlike wall time, this is not quantised by vsync, so it is the number to optimise.
+  // GPU timestamp duration is zero until completion or when unsupported and is independent of
+  // vsync.
   double lastGpuMillis() const { return lastGpuMillis_; }
 
  private:
@@ -81,4 +71,4 @@ class FrameLoop {
   bool completionFailed_ = false;
 };
 
-}  // namespace splatkit
+}

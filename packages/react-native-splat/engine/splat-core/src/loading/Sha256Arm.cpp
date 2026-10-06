@@ -44,7 +44,7 @@ void processBlocks(std::uint32_t* state, const std::uint8_t* bytes, std::size_t 
   vst1q_u32(state + 4, efgh);
 }
 
-}  // namespace
+}
 
 Sha256Digest sha256Arm(ByteView bytes) {
   std::uint32_t state[8];
@@ -66,4 +66,4 @@ Sha256Digest sha256Arm(ByteView bytes) {
   return digest;
 }
 
-}  // namespace splat::detail
+}

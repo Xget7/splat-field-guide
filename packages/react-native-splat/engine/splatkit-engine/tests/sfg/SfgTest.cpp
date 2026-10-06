@@ -45,7 +45,6 @@ struct Event {
   uint32_t count;
 };
 
-// The C interface over a fake renderer, as a platform view holds it.
 class SfgTest : public ::testing::Test {
  protected:
   SfgTest() {
@@ -319,5 +318,5 @@ TEST_F(SfgTest, HighlightsAndClearsParts) {
   EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, 0.0f);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

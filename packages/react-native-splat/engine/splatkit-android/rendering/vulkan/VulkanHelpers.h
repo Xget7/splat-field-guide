@@ -17,8 +17,7 @@ inline void memoryBarrier(VkCommandBuffer cmd, VkPipelineStageFlags srcStage,
   vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
-// A shader module that lives for one pipeline build and is destroyed on every exit from it.
-// `size` is in bytes, as the generated shaders::*_size constants are. False on failure.
+// Shader modules live through one pipeline build; byte sizes match generated shader constants.
 class ShaderModule {
  public:
   ShaderModule(VkDevice device, const uint32_t* code, size_t size) : device_(device) {
@@ -42,9 +41,8 @@ class ShaderModule {
   VkShaderModule module_ = VK_NULL_HANDLE;
 };
 
-// A render pass with one color attachment, cleared at the start and left in `finalLayout`. No
-// depth: splats are blended in sorted order, never depth tested. The pass waits on `priorStage`
-// and `priorAccess`, what the image's previous user must finish before the clear. Null on failure.
+// Sorted splats need no depth test; wait on prior image access before clearing colour and finishing
+// in finalLayout.
 inline VkRenderPass createColorRenderPass(VkDevice device, VkFormat format,
                                           VkImageLayout finalLayout,
                                           VkPipelineStageFlags priorStage,
@@ -85,4 +83,4 @@ inline VkRenderPass createColorRenderPass(VkDevice device, VkFormat format,
   return pass;
 }
 
-}  // namespace splatkit
+}

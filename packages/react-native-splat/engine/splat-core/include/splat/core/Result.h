@@ -8,7 +8,6 @@
 
 namespace splat {
 
-// What went wrong, for the view to map to the error codes JavaScript sees.
 enum class ErrorCode {
   unsupportedFormat,
   corrupt,
@@ -22,11 +21,9 @@ struct Error {
   std::string message;
 };
 
-// For operations that succeed with nothing to return.
 struct Ok {};
 
-// A value or an error. Exceptions do not cross JNI or Swift boundaries well,
-// so the core never throws on bad input.
+// Bad input returns errors because exceptions cannot safely cross JNI or Swift boundaries.
 template <typename T>
 class Result {
   static_assert(!std::is_same_v<T, Error>, "Result<Error> is meaningless");
@@ -58,4 +55,4 @@ class Result {
   std::variant<T, Error> storage_;
 };
 
-}  // namespace splat
+}

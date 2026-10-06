@@ -10,11 +10,8 @@
 
 namespace splatkit {
 
-// An offscreen colour image the splats are drawn into when the render scale is below
-// one, then blitted up to the swapchain. Splat rendering is bound by blended fragments,
-// so pixels are the one lever that scales the cost directly; the blit is nearly free.
-// The render pass has the swapchain's format, so the pipelines built against the
-// swapchain pass are compatible with it.
+// Offscreen scaling reduces blended fragment cost and uses the swapchain format to preserve
+// render-pass pipeline compatibility.
 class RenderTarget {
  public:
   static splat::Result<std::unique_ptr<RenderTarget>> create(const VulkanContext& ctx,
@@ -29,8 +26,8 @@ class RenderTarget {
   VkFormat format() const { return format_; }
   VkFramebuffer framebuffer() const { return framebuffer_; }
 
-  // Records the upscale into `swapchainImage`, which is left ready for presentation.
-  // Call after the render pass ended; the pass leaves the image as a transfer source.
+  // After the pass leaves a transfer source, record the upscale and transition the swapchain image
+  // for presentation.
   void blitTo(VkCommandBuffer cmd, VkImage swapchainImage, VkExtent2D swapchainExtent) const;
 
  private:
@@ -46,4 +43,4 @@ class RenderTarget {
   VkFramebuffer framebuffer_ = VK_NULL_HANDLE;
 };
 
-}  // namespace splatkit
+}

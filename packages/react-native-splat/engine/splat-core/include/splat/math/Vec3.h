@@ -43,4 +43,4 @@ inline Vec3 max(Vec3 a, Vec3 b) {
   return {std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)};
 }
 
-}  // namespace splat
+}

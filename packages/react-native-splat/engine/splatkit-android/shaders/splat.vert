@@ -1,6 +1,5 @@
 #version 450
 
-// One instance per splat, four vertices per instance (triangle strip quad).
 // Ported from MetalSplatter's SplatProcessing.metal, which follows the reference
 // rasterizer of Kerbl et al. 2023 and Zwicker's EWA projection.
 
@@ -19,11 +18,10 @@ layout(set = 0, binding = 0) uniform Camera {
   LabelStyle styles[256];
 } cam;
 
-// Spherical harmonics degree of the world, 0 to 3: one pipeline per degree.
-// With degree 0 the SH buffer is never read.
+// Degree-zero pipelines never read the SH buffer.
 layout(constant_id = 0) const uint SH_DEGREE = 0;
 const uint SH_COEFFICIENTS = (SH_DEGREE + 1) * (SH_DEGREE + 1) - 1;
-// Coefficients are rgb halves, channel fastest, two halves per uint, no padding.
+// SH uses channel-first half pairs with each splat aligned to a uint.
 const uint SH_STRIDE = (SH_COEFFICIENTS * 3 + 1) / 2;
 
 struct Splat {
@@ -84,7 +82,6 @@ void ellipseAxes(vec3 cov2D, out vec2 axis1, out vec2 axis2) {
   axis2 = e2 * sqrt(max(lambda2, 0.0));
 }
 
-// Half number h of splat `base` in the SH buffer.
 float shHalf(uint base, uint h) {
   vec2 pair = unpackHalf2x16(shData[base + h / 2u]);
   return (h & 1u) == 0u ? pair.x : pair.y;
@@ -94,9 +91,8 @@ vec3 shCoefficient(uint base, uint k) {
   return vec3(shHalf(base, k * 3u), shHalf(base, k * 3u + 1u), shHalf(base, k * 3u + 2u));
 }
 
-// Colour change along the unit direction `d` from the camera to the splat, from the
-// real spherical harmonics bands 1 to 3 in the 3DGS reference convention. The base
-// colour already contains the band 0 term (0.5 + C0 * dc).
+// Real SH bands 1-3 follow the 3DGS convention along the camera-to-splat direction; base colour
+// includes band 0 as 0.5 + C0 * dc.
 vec3 shColor(uint index, vec3 d) {
   const float C1 = 0.4886025119;
   const float C2[5] = float[](1.0925484306, -1.0925484306, 0.3153915653, -1.0925484306, 0.5462742153);
@@ -132,7 +128,6 @@ void main() {
 
   vec4 viewPos4 = cam.view * vec4(s.px, s.py, s.pz, 1.0);
   vec3 viewPos = viewPos4.xyz;
-  // Behind the camera: emit a vertex outside clip space so the quad is discarded.
   if (viewPos.z >= 0.0) {
     gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
     return;
@@ -153,12 +148,9 @@ void main() {
   vec2 axis1, axis2;
   ellipseAxes(cov2D, axis1, axis2);
 
-  // Draw only out to where this splat's contribution drops below 1/255, which is
-  // where the fragment stage would discard anyway: exp(-r^2 / 2) * alpha = 1 / 255.
-  // Faint splats, the majority, get a much smaller quad; opaque ones keep 3 sigma.
+  // Bound the quad where exp(-r^2 / 2) * alpha reaches 1/255, capped at three sigma.
   vec4 rgba = unpackUnorm4x8(s.rgba8);
-  // A level of detail node stands in for many overlapping splats: its opacity exceeds
-  // one and its solid core reaches further out before the falloff takes it under 1/255.
+  // Aggregated opacity above one extends the solid core before Gaussian falloff reaches 1/255.
   float alpha = rgba.a * cam.styles[s.partLabel & 255u].material.y;
   float radius = min(kBoundsRadius,
                      sqrt(2.0 * log(max(alpha * 255.0, 1.0))));

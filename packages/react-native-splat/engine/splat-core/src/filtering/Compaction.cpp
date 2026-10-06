@@ -5,7 +5,6 @@
 namespace splat {
 namespace {
 
-// Moves the kept splats' values to the front, `stride` values each, and drops the rest.
 template <typename T>
 void keepOnly(std::vector<T>& values, std::size_t stride, const std::vector<bool>& keep) {
   if (values.empty()) return;
@@ -20,7 +19,7 @@ void keepOnly(std::vector<T>& values, std::size_t stride, const std::vector<bool
   values.resize(kept * stride);
 }
 
-}  // namespace
+}
 
 void keepSplats(SplatCloud& cloud, const std::vector<bool>& keep) {
   const std::size_t n = cloud.count();
@@ -34,4 +33,4 @@ void keepSplats(SplatCloud& cloud, const std::vector<bool>& keep) {
   keepOnly(cloud.labels, 1, keep);
 }
 
-}  // namespace splat
+}

@@ -1,8 +1,7 @@
 #include "SplatTypes.metalh"
 #include "SplatProjection.metalh"
 
-// One thread per splat: projects it, and appends the visible ones to the sort input keyed
-// by squared distance to the camera. Positive IEEE floats sort in numeric order as uints.
+// Positive IEEE squared-distance floats sort numerically when reinterpreted as uint keys.
 kernel void visibility(uint t [[thread_position_in_grid]],
                        uint lane [[thread_index_in_simdgroup]],
                        constant Camera& cam [[buffer(0)]],

@@ -41,7 +41,7 @@ bool rayDistanceSquared(const float* c, splat::Vec3 v, splat::Vec3 d, float* out
   return true;
 }
 
-}  // namespace
+}
 
 std::shared_ptr<const PickIndex> PickIndex::take(splat::SplatCloud& cloud) {
   std::shared_ptr<PickIndex> index(new PickIndex());
@@ -89,4 +89,4 @@ std::uint8_t PickIndex::pick(const Ray& ray) const {
                                    weights.begin());
 }
 
-}  // namespace splatkit
+}

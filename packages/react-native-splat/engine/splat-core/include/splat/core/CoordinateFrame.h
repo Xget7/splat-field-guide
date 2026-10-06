@@ -2,8 +2,7 @@
 
 namespace splat {
 
-// Frame of the input data. Named by the direction of +X, +Y, +Z.
-// The core converts every input to `rub` (right, up, back) once at decode time.
+// Input frames name the directions of +X, +Y and +Z; decoding converts once to RUB.
 enum class CoordinateFrame {
   // World Labs Marble exports and OpenCV: +X right, +Y down, +Z forward.
   rdf,
@@ -14,4 +13,4 @@ enum class CoordinateFrame {
 constexpr CoordinateFrame kWorldLabsFrame = CoordinateFrame::rdf;
 constexpr CoordinateFrame kInternalFrame = CoordinateFrame::rub;
 
-}  // namespace splat
+}

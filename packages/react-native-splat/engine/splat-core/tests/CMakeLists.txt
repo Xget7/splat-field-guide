@@ -10,8 +10,7 @@ add_executable(splat_core_tests
   math/Mat4Test.cpp
   sorting/SpatialOrderTest.cpp
 )
-# spz already reaches the link line through the static splat_core; only its headers are added
-# here, so Apple's linker does not warn about the duplicate archive.
+# Only add spz headers because splat_core already links its archive, avoiding Apple's duplicate-archive warning.
 target_link_libraries(splat_core_tests PRIVATE splat_core ZLIB::ZLIB GTest::gtest_main)
 target_include_directories(splat_core_tests PRIVATE
   $<TARGET_PROPERTY:spz,INTERFACE_INCLUDE_DIRECTORIES>)

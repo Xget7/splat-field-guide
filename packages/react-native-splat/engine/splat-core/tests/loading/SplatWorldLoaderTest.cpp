@@ -76,7 +76,7 @@ TEST(SplatWorldLoader, TheCloudWaitsForTheRenderer) {
   ASSERT_NE(world, nullptr);
   EXPECT_EQ(world->count(), 50u);
   EXPECT_FALSE(loader.hasWorld());
-  EXPECT_EQ(loader.takeWorld(), nullptr);  // taken once
+  EXPECT_EQ(loader.takeWorld(), nullptr);
 }
 
 TEST(SplatWorldLoader, BadBytesFailAndLeaveTheWaitingWorld) {
@@ -117,7 +117,7 @@ TEST(SplatWorldLoader, TheSourceFrameReachesTheDecoder) {
 }
 
 TEST(SplatWorldLoader, EachSplatKeepsItsLabelThroughTheReorder) {
-  // The label of splat i is i, so after the reorder the labels name where each splat was.
+  // Labels encode source indices so they can verify attribute alignment after reordering.
   const auto bytes = encodeSpz(200);
   const auto labels = encodeLabels(200);
   SplatWorldLoader plain;
@@ -130,7 +130,6 @@ TEST(SplatWorldLoader, EachSplatKeepsItsLabelThroughTheReorder) {
   const auto with = labelled.takeWorld();
   EXPECT_TRUE(without->labels.empty());
   ASSERT_EQ(with->labels.size(), 200u);
-  // Decode the same bytes without the reorder to know where each splat started.
   const auto decoded = decodeSpz(bytes.data(), bytes.size(), SpzDecodeOptions{kFrame, 3});
   ASSERT_TRUE(decoded.ok());
   for (std::size_t i = 0; i < with->count(); ++i) {
@@ -152,7 +151,7 @@ TEST(SplatWorldLoader, LabelsForAnotherCloudFailAndLeaveTheWaitingWorld) {
   EXPECT_EQ(failed.error().message, "11 part labels for 10 splats");
   auto world = loader.takeWorld();
   ASSERT_NE(world, nullptr);
-  EXPECT_TRUE(world->labels.empty());  // the earlier, unlabelled world
+  EXPECT_TRUE(world->labels.empty());
 }
 
 TEST(SplatWorldLoader, LoadsAWorldAndItsLabelsFromFiles) {
@@ -181,5 +180,5 @@ TEST(SplatWorldLoader, LoadsAWorldAndItsLabelsFromFiles) {
   std::remove(labels.c_str());
 }
 
-}  // namespace
-}  // namespace splat
+}
+}

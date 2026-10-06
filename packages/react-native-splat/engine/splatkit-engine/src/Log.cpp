@@ -14,7 +14,7 @@ void stderrSink(LogLevel level, const char* message) {
 
 std::atomic<LogSink> gSink{&stderrSink};
 
-}  // namespace
+}
 
 void setLogSink(LogSink newSink) {
   gSink.store(newSink != nullptr ? newSink : &stderrSink);
@@ -29,4 +29,4 @@ void logf(LogLevel level, const char* format, ...) {
   gSink.load()(level, line);
 }
 
-}  // namespace splatkit
+}

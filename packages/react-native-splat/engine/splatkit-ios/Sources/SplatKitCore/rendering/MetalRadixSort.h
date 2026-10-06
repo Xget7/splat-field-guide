@@ -7,10 +7,9 @@
 
 namespace splatkit {
 
-// Stable ascending sort of uint32 key/value pairs. No camera or splat knowledge.
-// Call reserve while idle, fill keys()/values(), then encode on the render queue.
-// The GPU-written count must not exceed capacity(). Results are in the same buffers.
-// Scratch is shared across frames: all encodes and their consumers use one queue.
+// Stable ascending key/value sort returns results in its input buffers.
+// Reserve while idle and keep the GPU count within capacity; shared scratch and its consumers use
+// one render queue.
 class MetalRadixSort {
  public:
   bool create(id<MTLDevice> device, id<MTLLibrary> library);
@@ -44,4 +43,4 @@ class MetalRadixSort {
   id<MTLBuffer> dispatch_ = nil;
 };
 
-}  // namespace splatkit
+}

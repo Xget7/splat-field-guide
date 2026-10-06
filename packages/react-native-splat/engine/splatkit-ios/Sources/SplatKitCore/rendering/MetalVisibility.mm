@@ -78,4 +78,4 @@ bool MetalVisibility::encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuff
   return true;
 }
 
-}  // namespace splatkit
+}

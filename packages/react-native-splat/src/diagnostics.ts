@@ -5,7 +5,7 @@ export type { SplatDiagnosticsSnapshot } from './SplatDiagnostics.nitro';
 
 const DEBUG_ONLY = 'Splat diagnostics require a Debug build';
 
-/** Explicit spike tooling, separate from the production package entry point. */
+/** Requires a Debug build. */
 export function getSplatDiagnostics(): SplatDiagnostics {
   if (!__DEV__) {
     throw new Error(DEBUG_ONLY);

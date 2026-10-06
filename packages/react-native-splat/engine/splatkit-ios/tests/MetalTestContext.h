@@ -21,4 +21,4 @@ struct Gpu {
   }
 };
 
-}  // namespace splatkit::test
+}

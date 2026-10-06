@@ -12,8 +12,7 @@ namespace {
 constexpr std::uint8_t kPart = 3;
 constexpr std::uint8_t kBackground = 0;
 constexpr std::size_t kHarmonics = 9;
-// The block is a cube of this many splats a side, a centimetre apart: several to a cell,
-// so even its corners are dense.
+// Centimetre spacing keeps the block's corners dense enough to survive filtering.
 constexpr int kBlockSide = 10;
 constexpr float kBlockSpacing = 0.01f;
 constexpr float kFaint = 0.3f;
@@ -31,7 +30,6 @@ void addSplat(SplatCloud& cloud, std::array<float, 3> position, float alpha, std
   cloud.labels.push_back(label);
 }
 
-// An opaque block of kBlockSide^3 splats, then one faint floater `distance` along x.
 SplatCloud blockWithFloater(float distance, std::uint8_t floaterLabel) {
   SplatCloud cloud;
   for (int ix = 0; ix < kBlockSide; ++ix) {
@@ -46,7 +44,7 @@ SplatCloud blockWithFloater(float distance, std::uint8_t floaterLabel) {
   return cloud;
 }
 
-}  // namespace
+}
 
 TEST(Sparse, RemovesAFaintFloaterAndKeepsTheBlockWithEveryArrayInStep) {
   SplatCloud cloud = blockWithFloater(kFloaterDistance, kBackground);

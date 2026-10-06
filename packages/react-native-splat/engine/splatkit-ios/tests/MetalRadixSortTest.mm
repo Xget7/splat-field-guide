@@ -17,7 +17,6 @@ struct Pair {
   bool operator==(const Pair& o) const { return key == o.key && value == o.value; }
 };
 
-// Fills the key and value buffers with `pairs`, sorts on the GPU, returns what came out.
 std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs) {
   Gpu& gpu = Gpu::get();
   auto* keys = static_cast<uint32_t*>(v.keys().contents);
@@ -96,7 +95,6 @@ TEST_F(MetalRadixSortTest, SortsExactlyOneBlock) {
   EXPECT_EQ(sortOnGpu(sort, pairs), sortOnCpu(pairs));
 }
 
-// Block and SIMD group tails, with the extreme keys at the ends.
 TEST_F(MetalRadixSortTest, SortsEveryTailLengthLikeAStableCpuSort) {
   ASSERT_TRUE(sort.reserve(1000003));
   for (uint32_t n : {0u, 1u, 31u, 32u, 33u, 4095u, 4096u, 4097u, 1000003u}) {
@@ -110,7 +108,6 @@ TEST_F(MetalRadixSortTest, SortsEveryTailLengthLikeAStableCpuSort) {
   }
 }
 
-// Not a check, a number: the GPU time of a sort at the scale a phone draws.
 TEST_F(MetalRadixSortTest, ReportsTheSortTimeOfFiveMillionKeys) {
   const size_t n = 5000000;
   ASSERT_TRUE(sort.reserve(n));
@@ -139,5 +136,5 @@ TEST_F(MetalRadixSortTest, ReportsTheSortTimeOfFiveMillionKeys) {
   printf("[ sort     ] %zu keys: %.2f ms on %s\n", n, best, Gpu::get().device.name.UTF8String);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

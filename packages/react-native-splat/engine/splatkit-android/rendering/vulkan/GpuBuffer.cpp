@@ -37,7 +37,7 @@ bool create(const VulkanContext& ctx, VkDeviceSize size, VkBufferUsageFlags usag
   return true;
 }
 
-}  // namespace
+}
 
 std::unique_ptr<GpuBuffer> GpuBuffer::deviceLocal(const VulkanContext& ctx, VkDeviceSize size,
                                                   VkBufferUsageFlags usage) {
@@ -73,8 +73,8 @@ bool GpuBuffer::upload(VkDeviceSize offset, const void* data, VkDeviceSize size)
   if (offset > size_ || size > size_ - offset) return false;
   if (size == 0) return true;
   if (!data || size > SIZE_MAX) return false;
-  // Bound transient mapped memory independently of the world size. Reuse the
-  // staging bytes only after each copy's fence, including the final partial window.
+  // Bound staging memory and fence each copy before reusing its bytes, including the final partial
+  // window.
   constexpr VkDeviceSize kStagingBytes = 2 * 1024 * 1024;
   auto staging = hostVisible(ctx_, std::min(size, kStagingBytes), VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
   if (!staging) return false;
@@ -98,7 +98,6 @@ bool GpuBuffer::upload(VkDeviceSize offset, const void* data, VkDeviceSize size)
   VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
   submit.commandBufferCount = 1;
   submit.pCommandBuffers = &cmd;
-  // Each step can fail under memory pressure, which is when a 2M splat upload runs.
   bool ok = vkAllocateCommandBuffers(device, &cmdInfo, &cmd) == VK_SUCCESS &&
             vkCreateFence(device, &fenceInfo, nullptr, &fence) == VK_SUCCESS;
   for (VkDeviceSize copied = 0; ok && copied < size;) {
@@ -138,4 +137,4 @@ bool GpuBuffer::upload(VkDeviceSize offset, const void* data, VkDeviceSize size)
   return ok;
 }
 
-}  // namespace splatkit
+}

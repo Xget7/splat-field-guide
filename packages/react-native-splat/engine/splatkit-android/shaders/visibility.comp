@@ -3,9 +3,8 @@
 #extension GL_KHR_shader_subgroup_ballot : require
 #extension GL_KHR_shader_subgroup_arithmetic : require
 
-// This pass is deliberately independent of the radix sort.  It emits only original source
-// indices and positive camera-depth keys, which the sort orders before the draw. Workgroups
-// have 128 invocations; subgroup width is device-reported, not 32.
+// Emit source indices and positive camera-depth keys in 128-invocation workgroups using
+// device-reported subgroup width.
 struct LabelStyle { vec4 tint; vec4 material; };
 
 layout(local_size_x = 128) in;
@@ -107,9 +106,8 @@ bool visible(Splat s, out uint key) {
 
   vec4 viewPos4 = cam.view * vec4(s.px, s.py, s.pz, 1.0);
   vec3 viewPos = viewPos4.xyz;
-  // The current vertex path has no meaningful projection behind the eye.  Near-plane
-  // intersections remain eligible below: only a Gaussian wholly in front of the near plane
-  // may be rejected by the depth interval test.
+  // Reject behind-eye centres conservatively, retaining near-plane intersections unless the depth
+  // interval permits rejection.
   if (!finiteFloat(viewPos.x) || !finiteFloat(viewPos.y) || !finiteFloat(viewPos.z) ||
       viewPos.z >= 0.0)
     return false;
@@ -143,8 +141,8 @@ bool visible(Splat s, out uint key) {
   vec2 margin = (extentPixels + 0.5) * 2.0 * clip.w / cam.screenSize;
   if (!finiteVec2(margin) || any(greaterThan(abs(clip.xy), vec2(clip.w) + margin))) return false;
 
-  // A covariance-derived view-space depth interval makes near-plane handling conservative.
-  // Invalid/non-perspective projection coefficients disable only this depth rejection.
+  // Covariance depth intervals make near-plane rejection conservative; invalid projection
+  // coefficients disable only that rejection.
   float nearPlane = cam.proj[3][2] / cam.proj[2][2];
   float farPlane = cam.proj[3][2] / (cam.proj[2][2] + 1.0);
   mat3 source = mat3(covarianceSource.x, covarianceSource.y, covarianceSource.z,
@@ -170,8 +168,8 @@ bool visible(Splat s, out uint key) {
   return true;
 }
 
-// Validate each range once, including records a malformed prefix ordering might make the
-// binary search skip. Range count <= dispatch bound, so every record gets an invocation.
+// Validate every range, including those binary search could skip, with range count bounded by
+// dispatch capacity.
 bool validRange(uint r) {
   uint offset = candidates[4u*r], length = candidates[4u*r+1u], end = candidates[4u*r+2u];
   uint start = r == 0u ? 0u : candidates[4u*(r-1u)+2u];
@@ -185,7 +183,6 @@ bool validRange(uint r) {
   return true;
 }
 
-// Resolve logical candidates without touching source records until their index is checked.
 bool resolveCandidate(uint logical, out uint source, inout uint errors) {
   source = 0u;
   uint total = constants.candidateCapacity;
@@ -230,8 +227,8 @@ bool resolveCandidate(uint logical, out uint source, inout uint errors) {
 void main() {
   uint groupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * constants.dispatchGroupsX;
   uint logical = groupIndex * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
-  // Uniform workgroup exit: indexed LOD usually fills only a fraction of its capacity.
-  // Keep group zero for empty-input/projection diagnostics, and never hide invalid counts.
+  // Skip unused workgroups uniformly but preserve group zero for empty-input diagnostics and
+  // invalid counts.
   if (constants.mode == 1u && groupIndex > 0u &&
       candidateCount <= constants.candidateCapacity &&
       groupIndex * gl_WorkGroupSize.x >= candidateCount) return;
@@ -248,8 +245,8 @@ void main() {
   bool keep = false;
   if (candidate) keep = visible(splats[sourceIndex], key);
 
-  // All tail lanes participate. Only the elected lane performs global atomics, including
-  // failure publication. Invalid indices/counts and overflow fail the whole frame closed.
+  // All tail lanes participate; one elected lane publishes atomics, and invalid indices/counts or
+  // overflow reject the whole frame.
   uint rank = subgroupExclusiveAdd(keep ? 1u : 0u);
   uint survivors = subgroupAdd(keep ? 1u : 0u);
   uint failures = subgroupOr(errors);

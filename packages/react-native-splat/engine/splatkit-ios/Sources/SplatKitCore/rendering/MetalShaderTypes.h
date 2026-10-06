@@ -7,8 +7,7 @@
 
 namespace splatkit {
 
-// Host layouts for shaders/SplatTypes.metalh. Private to the Metal renderer.
-// World records remain in the platform-independent GpuLayout.h.
+// These private host layouts match SplatTypes.metalh; world records use GpuLayout.h.
 struct alignas(16) CameraUniform {
   splat::Mat4 view;
   splat::Mat4 proj;
@@ -37,4 +36,4 @@ static_assert(offsetof(ProjectedSplat, index) == 28);
 // Index of the shaders' [[function_constant(n)]] declaration for the SH degree.
 inline constexpr size_t kFnShDegree = 0;
 
-}  // namespace splatkit
+}

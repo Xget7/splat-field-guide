@@ -15,8 +15,6 @@ TEST(Mat4, TranslationMovesPoints) {
 }
 
 TEST(Mat4, RotationAboutYTurnsForwardToLeft) {
-  // Looking down -Z and yawing 90 degrees to the left (counter clockwise seen from above)
-  // must turn -Z into -X.
   auto v =
       Mat4::rotation(static_cast<float>(M_PI / 2), {0, 1, 0}) * std::array<float, 4>{0, 0, -1, 0};
   EXPECT_NEAR(v[0], -1, 1e-6);
@@ -38,5 +36,5 @@ TEST(Mat4, RigidInverseUndoesRotationAndTranslation) {
     for (int c = 0; c < 4; ++c) EXPECT_NEAR(id.at(r, c), r == c ? 1 : 0, 1e-5);
 }
 
-}  // namespace
-}  // namespace splat
+}
+}

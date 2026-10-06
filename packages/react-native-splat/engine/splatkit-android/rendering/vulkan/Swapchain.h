@@ -12,13 +12,12 @@
 
 namespace splatkit {
 
-// The images that go to the screen, plus the render pass and one framebuffer per image.
-// Recreated whenever the surface changes size; destroyed whenever the surface goes away.
-// FIFO (vsync) is the default: the one mode Vulkan guarantees and the one that saves battery.
+// Recreate images when the surface resizes and destroy them on detach; FIFO is the guaranteed vsync
+// mode.
 class Swapchain {
  public:
-  // `vsync` false asks for an uncapped present mode (immediate, else mailbox) so that
-  // frame times reflect GPU cost instead of vsync multiples; benchmarks use it.
+  // Disabling vsync requests immediate or mailbox presentation to measure GPU cost without vsync
+  // quantization.
   static splat::Result<std::unique_ptr<Swapchain>> create(const VulkanContext& ctx,
                                                           VkSurfaceKHR surface,
                                                           VkSwapchainKHR previous, bool vsync,
@@ -52,4 +51,4 @@ class Swapchain {
   std::vector<VkFramebuffer> framebuffers_;
 };
 
-}  // namespace splatkit
+}

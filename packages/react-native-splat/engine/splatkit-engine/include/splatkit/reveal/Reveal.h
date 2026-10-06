@@ -6,16 +6,13 @@
 
 namespace splatkit {
 
-// A new world materialises rather than appearing at once: a level rises through it from the
-// bottom up, nothing above the level is drawn yet, and a thin band just under it glows in
-// the accent, like a scanner passing over the capture. Not thread safe.
+// The sweep clips above a rising level and glows just below it; callers must serialize access.
 class Reveal {
  public:
-  // Sweeps over `bounds` in `seconds`, from just below them to just above. +Y is up. No
-  // time, or no height, shows the world at once.
+  // The sweep rises along +Y; zero duration or height shows the world immediately.
   void start(const splat::Bounds& bounds, float seconds);
 
-  // Advances the sweep by `dtSeconds`. True when the level moved.
+  // Returns whether the reveal level moved.
   bool update(float dtSeconds);
   bool active() const { return elapsed_ < seconds_; }
 
@@ -24,7 +21,6 @@ class Reveal {
   // Height of the glowing band under the level; zero once the sweep is over.
   float band() const { return active() ? band_ : 0.0f; }
 
-  // The band's share of the world's height: a line, not a wash.
   static constexpr float kBandShare = 0.08f;
 
  private:
@@ -35,4 +31,4 @@ class Reveal {
   float elapsed_ = 0;
 };
 
-}  // namespace splatkit
+}

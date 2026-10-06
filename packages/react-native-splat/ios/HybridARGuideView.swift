@@ -1,7 +1,6 @@
 import NitroModules
 import UIKit
 
-/// The registration experiment: React Native supplies local files and receives typed tracking events.
 /// Nitro applies view props in a batch on the main thread.
 final class HybridARGuideView: HybridARGuideViewSpec {
   private let nativeView = ARGuideNativeView()

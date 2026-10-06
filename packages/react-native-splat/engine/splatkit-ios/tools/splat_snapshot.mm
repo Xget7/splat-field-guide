@@ -1,14 +1,4 @@
-// Draws a cloud through the engine and the Metal renderer, exactly as the app does, and
-// writes the frame as a PNG: a part's review render, or a check that labels still sit on
-// their splats.
-//
-//   splat_snapshot --spz high/cloud.spz --labels high/labels.bin --highlight 6 \
-//       --pose 12.8,5,6.1 --out engine.png
-//
-// --pose is azimuth and elevation in degrees, then the radius, then optionally the
-// target; --bounds frames six numbers (min then max) instead. Without either the whole
-// cloud is framed from the front. --pick taps points given as x,y pairs in [0, 1] from the
-// top left: each prints the label it picks and is marked on the image.
+// CLI pose angles use degrees; bounds are min/max and pick xy is normalized from the top left.
 
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
@@ -105,7 +95,6 @@ std::optional<Options> parse(int argc, char** argv) {
   return o;
 }
 
-// A cross centred on (x, y) in [0, 1], so a review shows where a pick landed.
 void markPoint(std::vector<uint8_t>& bgra, uint32_t width, uint32_t height, float x, float y) {
   const int cx = static_cast<int>(x * width);
   const int cy = static_cast<int>(y * height);
@@ -143,7 +132,7 @@ bool writePng(const std::vector<uint8_t>& bgra, uint32_t width, uint32_t height,
   return ok;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   @autoreleasepool {
@@ -196,8 +185,6 @@ int main(int argc, char** argv) {
     }
     engine.setHighlight(o.highlight.data(), o.highlight.size());
 
-    // Let the world upload and any framing or fade finish, as a still phone would, until the
-    // engine says the world is on screen and it has nothing left to do.
     int64_t now = 0;
     for (int frame = 0; frame < kMaxSettleFrames && engine.needsFrame(); ++frame) {
       now += kVsyncNanos;

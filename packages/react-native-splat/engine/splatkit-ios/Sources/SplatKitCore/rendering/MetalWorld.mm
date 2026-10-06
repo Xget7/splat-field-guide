@@ -23,7 +23,7 @@ id<MTLBuffer> privateBuffer(id<MTLDevice> device, size_t bytes) {
                              options:MTLResourceStorageModePrivate];
 }
 
-}  // namespace
+}
 
 std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLCommandQueue> queue,
                                                const splat::SplatCloud& cloud, int maxShDegree) {
@@ -45,7 +45,7 @@ std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLComma
   if (world->splats_ == nil || world->sh_ == nil || stagingSplats == nil || stagingSh == nil) {
     return nullptr;
   }
-  // Pack directly into a bounded staging window, not full-size packed + staging copies.
+  // Bound staging memory to avoid duplicating a full packed cloud during upload.
   for (size_t offset = 0; offset < std::max(size_t{1}, cloud.count()); offset += chunk) {
     const size_t count = std::min(chunk, cloud.count() - offset);
     packSplatRange(cloud, offset, count, static_cast<GpuSplat*>(stagingSplats.contents));
@@ -83,4 +83,4 @@ std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLComma
   return world;
 }
 
-}  // namespace splatkit
+}

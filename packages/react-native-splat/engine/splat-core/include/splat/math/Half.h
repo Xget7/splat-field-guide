@@ -7,8 +7,8 @@
 
 namespace splat {
 
-// IEEE 754 binary16 with round to nearest even. Values beyond the half range saturate to
-// the largest finite half instead of becoming infinity, and NaN stays NaN.
+// Round binary16 to nearest even, saturating overflow to the largest finite half and preserving
+// NaN.
 inline std::uint16_t toHalf(float value) {
   std::uint32_t bits = 0;
   std::memcpy(&bits, &value, sizeof(bits));
@@ -64,4 +64,4 @@ inline float fromHalf(std::uint16_t half) {
   return value;
 }
 
-}  // namespace splat
+}

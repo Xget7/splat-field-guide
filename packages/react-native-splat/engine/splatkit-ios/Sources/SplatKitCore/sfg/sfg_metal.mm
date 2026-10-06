@@ -11,7 +11,6 @@
 
 namespace {
 
-// The engine's lines in the unified log, readable in Console and `log stream`.
 void osLogSink(splatkit::LogLevel level, const char* message) {
   static os_log_t log = os_log_create("com.fieldguide.splat", "engine");
   const os_log_type_t type = level == splatkit::LogLevel::error  ? OS_LOG_TYPE_ERROR
@@ -24,7 +23,7 @@ splatkit::MetalSplatRenderer& metalOf(sfg_engine* engine) {
   return static_cast<splatkit::MetalSplatRenderer&>(splatkit::engineOf(engine).renderer());
 }
 
-}  // namespace
+}
 
 extern "C" {
 
@@ -43,4 +42,4 @@ void sfg_metal_set_drawable_size(sfg_engine* engine, uint32_t width, uint32_t he
   metalOf(engine).setDrawableSize(width, height);
 }
 
-}  // extern "C"
+}

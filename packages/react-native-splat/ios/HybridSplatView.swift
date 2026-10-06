@@ -2,8 +2,7 @@ import NitroModules
 import SplatKitCore
 import UIKit
 
-/// The splat view React Native mounts: props and methods become commands for its render loop.
-/// Props arrive on the main thread; methods on whichever thread calls them.
+/// Props arrive on the main thread; methods arrive on their calling thread.
 final class HybridSplatView: HybridSplatViewSpec {
   private enum Prop {
     case source, highlight, cameraLimits, revealSeconds
@@ -78,8 +77,7 @@ final class HybridSplatView: HybridSplatViewSpec {
     updatePaused()
   }
 
-  /// A batch of props is in: the first starts the engine, after the callbacks that report
-  /// whether it could, and each changed prop becomes a command.
+  /// Callbacks must be installed before the first prop batch starts the engine.
   func afterUpdate() {
     if !started {
       started = true
@@ -184,7 +182,6 @@ final class HybridSplatView: HybridSplatViewSpec {
     loop.setPaused(!(inWindow && appActive))
   }
 
-  /// A relative path is inside the app bundle's resources, where an app ships its packs.
   private static func resolved(_ path: String) -> String {
     guard !path.isEmpty, !path.hasPrefix("/"), let resources = Bundle.main.resourceURL else {
       return path
@@ -192,8 +189,6 @@ final class HybridSplatView: HybridSplatViewSpec {
     return resources.appendingPathComponent(path).path
   }
 
-  /// The highlight's part labels as the engine takes them; anything that is not one is
-  /// dropped.
   private func partLabels(_ highlight: [Double]) -> [UInt8] {
     let valid = highlight.filter { Self.partLabels.contains($0) && $0.rounded() == $0 }
     if valid.count != highlight.count {

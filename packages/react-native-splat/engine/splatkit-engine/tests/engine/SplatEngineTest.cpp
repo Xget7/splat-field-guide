@@ -62,7 +62,6 @@ class SplatEngineTest : public ::testing::Test {
     engine = std::make_unique<SplatEngine>(std::move(owned));
   }
 
-  // Renders the next vsync.
   bool tick() { return engine->render(++vsync * kVsyncNanos); }
 
   void load(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& labels = {}) {
@@ -109,7 +108,7 @@ TEST_F(SplatEngineTest, DrawsNothingWithoutASurface) {
   renderer->isReady = false;
   load(pairBytes());
   EXPECT_FALSE(tick());
-  EXPECT_EQ(renderer->world(), std::nullopt);  // the upload waits for the surface too
+  EXPECT_EQ(renderer->world(), std::nullopt);
   renderer->isReady = true;
   EXPECT_TRUE(tick());
   EXPECT_NE(renderer->world(), std::nullopt);
@@ -120,13 +119,13 @@ TEST_F(SplatEngineTest, ReportsAWorldReadyOnceItIsOnScreen) {
   engine->setEventSink(events.sink());
   renderer->gpuFinished = false;
   load(pairBytes());
-  EXPECT_TRUE(events.kinds.empty());  // decoded, not yet drawn from
+  EXPECT_TRUE(events.kinds.empty());
   EXPECT_TRUE(tick());
-  EXPECT_TRUE(events.kinds.empty());  // drawn, but the GPU is still at it
-  EXPECT_TRUE(engine->needsFrame());  // so the host keeps asking
+  EXPECT_TRUE(events.kinds.empty());
+  EXPECT_TRUE(engine->needsFrame());
   EXPECT_FALSE(tick());
   renderer->gpuFinished = true;
-  EXPECT_FALSE(tick());  // nothing to draw, only to say
+  EXPECT_FALSE(tick());
   ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady});
   EXPECT_EQ(events.counts[0], 2u);
   EXPECT_FALSE(engine->needsFrame());
@@ -148,13 +147,13 @@ TEST_F(SplatEngineTest, NeedsFramesOnlyWhileThereIsSomethingToDo) {
   engine->setHighlight(&part, 1);
   int frames = 0;
   while (engine->needsFrame()) {
-    ASSERT_TRUE(tick());  // every frame of the fade draws
+    ASSERT_TRUE(tick());
     ++frames;
   }
   EXPECT_GT(frames, 1);
   ++renderer->surfaceGeneration;
   EXPECT_TRUE(engine->needsFrame());
-  renderer->isReady = false;  // but not without a surface to draw on
+  renderer->isReady = false;
   EXPECT_FALSE(engine->needsFrame());
 }
 
@@ -165,7 +164,7 @@ TEST_F(SplatEngineTest, ReportsAGpuFailureOnceThenRestsForGood) {
   tick();
   renderer->gpuFailed = true;
   ASSERT_TRUE(engine->orbit(0.1f, 0));
-  EXPECT_TRUE(engine->needsFrame());  // to say so
+  EXPECT_TRUE(engine->needsFrame());
   EXPECT_FALSE(tick());
   ASSERT_EQ(events.kinds.back(), SplatEngine::Event::gpuFailed);
   EXPECT_FALSE(engine->needsFrame());
@@ -216,12 +215,9 @@ TEST_F(SplatEngineTest, FramesAWorldWholeFromTheCurrentDirection) {
   // The pair spans two metres across the view, with no depth offset.
   const float expected = kFramingMargin / std::tan(SplatEngine::kFieldOfViewRadians / 2);
   EXPECT_NEAR(pose.radius, expected, kTolerance);
-  // What the frame draws is where the camera is.
   EXPECT_NEAR(renderer->last.cameraPosition.z, 2 + expected, kTolerance);
 }
 
-// A phone that turns to portrait while a world loads must end up where one held in
-// portrait all along does.
 TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
   const auto radiusFor = [](Extent atLoad, Extent after) {
     auto owned = std::make_unique<FakeRenderer>();
@@ -236,7 +232,6 @@ TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
     return engine.cameraPose().radius;
   };
   EXPECT_NEAR(radiusFor(kLandscape, kPortrait), radiusFor(kPortrait, kPortrait), kTolerance);
-  // Narrower is further away.
   EXPECT_GT(radiusFor(kPortrait, kPortrait), radiusFor({1000, 1000}, {1000, 1000}));
 }
 
@@ -262,7 +257,6 @@ TEST_F(SplatEngineTest, FramingAPartAnimatesThereThenIdles) {
   ASSERT_TRUE(engine->frame(part, 0.1f));
   int drawn = 0;
   while (tick()) ++drawn;
-  // Its first frame where it starts, then six vsyncs of 16.7 ms, the last reaching the end.
   EXPECT_GE(drawn, 6);
   EXPECT_LE(drawn, 8);
   EXPECT_NEAR(engine->cameraPose().target.x, 1, kTolerance);
@@ -285,7 +279,6 @@ TEST_F(SplatEngineTest, FramesAPartFromTheDirectionAsked) {
   EXPECT_NEAR(engine->cameraPose().target.x, 1, kTolerance);
 }
 
-// The radius that fits these bounds in this view shape and direction, framed there directly.
 float fittedRadius(Extent extent, const splat::Bounds& bounds,
                    SplatEngine::ViewDirection from = {}) {
   auto owned = std::make_unique<FakeRenderer>();
@@ -477,12 +470,11 @@ TEST_F(SplatEngineTest, AHighlightFadesInThenTheEngineIdles) {
   load(pairBytes(), labelBytes({4, 0}));
   tick();
   ASSERT_NE(renderer->last.labelStyles, nullptr);
-  EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);  // as captured until asked
+  EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);
   const uint8_t part = 4;
   engine->setHighlight(&part, 1);
   int drawn = 0;
   while (tick()) ++drawn;
-  // Its first frame, then a quarter second of 16.7 ms vsyncs.
   EXPECT_GE(drawn, 15);
   EXPECT_LE(drawn, 17);
   EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, Highlight::kTintAmount);
@@ -501,7 +493,7 @@ TEST_F(SplatEngineTest, TheProjectionFollowsTheDrawExtent) {
 
 TEST_F(SplatEngineTest, PicksThePartWhereAPointShowsInTheLastFrame) {
   load(solidPairBytes(), labelBytes({1, 2}));
-  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);  // nothing drawn yet
+  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);
   ASSERT_TRUE(tick());
   // Framed whole from +Z: the splat at -x shows left of the centre, both on the horizon.
   float at[4];
@@ -510,7 +502,6 @@ TEST_F(SplatEngineTest, PicksThePartWhereAPointShowsInTheLastFrame) {
   EXPECT_GT(at[2], 0.5f);
   EXPECT_NEAR(at[1], 0.5f, kTolerance);
   EXPECT_NEAR(at[0] + at[2], 1, kTolerance);
-  // The labels were reordered with their splats, so each point picks its own part.
   EXPECT_EQ(engine->pick(at[0], at[1]), 1);
   EXPECT_EQ(engine->pick(at[2], at[3]), 2);
   EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);  // the gap between them
@@ -524,7 +515,7 @@ TEST_F(SplatEngineTest, ProjectsTheTargetToTheCentreAndNothingBehindTheCamera) {
   load(pairBytes());
   const float target[] = {0, 0, 2};
   float at[2];
-  EXPECT_EQ(engine->project(target, 1, at), 0u);  // nothing drawn yet
+  EXPECT_EQ(engine->project(target, 1, at), 0u);
   EXPECT_TRUE(std::isnan(at[0]) && std::isnan(at[1]));
   ASSERT_TRUE(tick());
   const OrbitPose pose = engine->cameraPose();
@@ -540,7 +531,7 @@ TEST_F(SplatEngineTest, ReportsTheDirectionOfTheFrameLastDrawn) {
   load(pairBytes());
   float azimuth = 0;
   float elevation = 0;
-  EXPECT_FALSE(engine->drawnDirection(azimuth, elevation));  // nothing drawn yet
+  EXPECT_FALSE(engine->drawnDirection(azimuth, elevation));
   ASSERT_TRUE(tick());
   ASSERT_TRUE(engine->orbit(0.3f, 0.2f));
   const OrbitPose orbited = engine->cameraPose();
@@ -563,8 +554,8 @@ TEST_F(SplatEngineTest, PickSeesANewWorldOnlyOnceItIsDrawn) {
   EXPECT_EQ(engine->pick(at[0], at[1]), 3);
   load(solidPairBytes());
   ASSERT_TRUE(tick());
-  EXPECT_EQ(engine->pick(at[0], at[1]), 0);  // an unlabelled world picks nothing
+  EXPECT_EQ(engine->pick(at[0], at[1]), 0);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

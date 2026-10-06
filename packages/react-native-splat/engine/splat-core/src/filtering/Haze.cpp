@@ -52,4 +52,4 @@ std::size_t removeHaze(SplatCloud& cloud) {
   return removed;
 }
 
-}  // namespace splat
+}

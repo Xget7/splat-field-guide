@@ -11,9 +11,7 @@
 
 namespace splatkit {
 
-// A VkBuffer with its VMA allocation. Two flavours:
-// - deviceLocal: lives in GPU memory, filled through a staging copy. Splat data.
-// - hostVisible: mapped for CPU writes, read by the GPU. Uniforms and sort output.
+// Device-local buffers require staging; host-visible buffers allow mapped CPU writes.
 class GpuBuffer {
  public:
   static std::unique_ptr<GpuBuffer> deviceLocal(const VulkanContext& ctx, VkDeviceSize size,
@@ -29,19 +27,16 @@ class GpuBuffer {
   VkDeviceSize size() const { return size_; }
   // Only for hostVisible buffers.
   void* mapped() const { return mapped_; }
-  // Required after every CPU write to a hostVisible buffer: VMA only prefers coherent
-  // memory, it does not guarantee it. A no-op when the memory is coherent.
+  // Flush CPU writes because VMA prefers but cannot guarantee coherent memory.
   void flush(VkDeviceSize offset, VkDeviceSize size) const;
   // After a GPU-write fence, before reading a hostVisible buffer on the CPU.
   void invalidate(VkDeviceSize offset, VkDeviceSize size) const;
 
-  // Blocking upload through <=2 MiB of staging memory, fenced before each reuse.
-  // Fine for a world load or a tile; not for per-frame data.
+  // Blocking uploads use at most 2 MiB of fenced staging memory, suitable for loads rather than
+  // frames.
   bool upload(const void* data, VkDeviceSize size) { return upload(0, data, size); }
-  // The same into [offset, offset + size) of the buffer, for a tile landing in a slab.
-  // Nonempty copies require nonnull data.
-  // Empty copies accept null data at any offset through size(). Invalid ranges fail.
-  // A failed nonempty upload may have copied a prefix; the caller must discard it.
+  // Nonempty uploads require data; empty uploads accept null through size(), invalid ranges fail,
+  // and failed copies may leave a prefix that callers must discard.
   bool upload(VkDeviceSize offset, const void* data, VkDeviceSize size);
 
  private:
@@ -54,4 +49,4 @@ class GpuBuffer {
   void* mapped_ = nullptr;
 };
 
-}  // namespace splatkit
+}

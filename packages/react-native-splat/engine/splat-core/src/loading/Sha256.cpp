@@ -32,7 +32,7 @@ constexpr char kArmSha256Feature[] = "hw.optional.arm.FEAT_SHA256";
 constexpr char kDigestFailed[] = "SHA-256 computation failed";
 #endif
 
-}  // namespace
+}
 
 #if defined(SPLAT_CORE_PORTABLE_SHA256)
 Sha256Digest sha256Portable(ByteView bytes) {
@@ -102,4 +102,4 @@ Result<std::string> sha256(ByteView bytes, [[maybe_unused]] bool allowHardware) 
   return hex;
 }
 
-}  // namespace splat::detail
+}

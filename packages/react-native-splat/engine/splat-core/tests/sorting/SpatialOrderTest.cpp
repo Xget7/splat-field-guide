@@ -26,7 +26,7 @@ SplatCloud randomCloud(std::size_t n, unsigned seed) {
   return c;
 }
 
-}  // namespace
+}
 
 TEST(SpatialOrder, MortonCodeInterleavesAxes) {
   Bounds b;

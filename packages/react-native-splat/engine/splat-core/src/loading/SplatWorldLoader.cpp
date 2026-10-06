@@ -35,7 +35,7 @@ double millisSince(Clock::time_point start) {
   return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
 }
 
-}  // namespace
+}
 
 void SplatWorldLoader::setMaxShDegree(int degree) {
   maxShDegree_.store(std::clamp(degree, 0, 3));
@@ -125,4 +125,4 @@ bool SplatWorldLoader::hasWorld() const {
   return pendingWorld_ != nullptr;
 }
 
-}  // namespace splat
+}

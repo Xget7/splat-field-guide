@@ -12,7 +12,6 @@ namespace {
 
 using Cells = std::array<std::size_t, 3>;
 
-// A grid of cells over the splats' bounding box.
 struct Grid {
   std::array<float, 3> origin{0, 0, 0};
   float cell = kSparseCell;
@@ -32,8 +31,7 @@ struct Grid {
   }
 };
 
-// Fits `grid` over `cloud`, or returns false when its positions are not finite. A flat or
-// single point cloud gets one cell along each axis it does not spread over.
+// Flat axes use one cell so degenerate bounds remain filterable.
 bool fitGrid(const SplatCloud& cloud, Grid& grid) {
   std::array<float, 3> low = {cloud.positions[0], cloud.positions[1], cloud.positions[2]};
   std::array<float, 3> high = low;
@@ -48,8 +46,7 @@ bool fitGrid(const SplatCloud& cloud, Grid& grid) {
     if (!std::isfinite(extent[k])) return false;
   }
   grid.origin = low;
-  // Grow the cells by a tenth at a time until the grid fits. The count is worked out in
-  // double so that an enormous extent cannot overflow it.
+  // Compute grid size in double to avoid overflow while growing cells to fit the memory limit.
   grid.cell = kSparseCell;
   for (;;) {
     double cellCount = 1;
@@ -65,8 +62,7 @@ bool fitGrid(const SplatCloud& cloud, Grid& grid) {
   return true;
 }
 
-// Replaces every value with the sum of itself and its neighbours along one axis, `stride`
-// values apart, with `length` values per line. One pass per axis gives the 3x3x3 sum.
+// One neighbour-sum pass per axis produces the 3x3x3 opacity sum.
 void sumAlongAxis(std::vector<float>& cells, std::size_t length, std::size_t stride,
                   std::vector<float>& line) {
   if (length < 2) return;
@@ -86,7 +82,7 @@ void sumAlongAxis(std::vector<float>& cells, std::size_t length, std::size_t str
   }
 }
 
-}  // namespace
+}
 
 std::size_t removeSparse(SplatCloud& cloud) {
   const std::size_t n = cloud.count();
@@ -116,4 +112,4 @@ std::size_t removeSparse(SplatCloud& cloud) {
   return removed;
 }
 
-}  // namespace splat
+}

@@ -1,8 +1,4 @@
-# Compiles GLSL to SPIR-V with the NDK's glslc and embeds each module as a uint32_t array
-# in a generated header, so shaders ship inside the native library and need no asset loading.
-#
-# Usage: splatkit_compile_shaders(<interface target> <shader files...>)
-# Each shaders/foo.vert becomes `splatkit::shaders::foo_vert` (std::vector-like span).
+# Embed NDK-compiled SPIR-V in the native library so runtime shader asset loading is unnecessary.
 
 function(splatkit_compile_shaders target)
   if(NOT DEFINED ANDROID_NDK OR NOT DEFINED ANDROID_HOST_TAG)

@@ -14,7 +14,6 @@
 namespace splatkit {
 namespace {
 
-// The bindings of set 0 in splat.vert.
 constexpr uint32_t kCameraBinding = 0;
 constexpr uint32_t kSplatsBinding = 1;
 constexpr uint32_t kOrderBinding = 2;
@@ -22,10 +21,9 @@ constexpr uint32_t kShBinding = 3;
 constexpr uint32_t kBindings = 4;
 constexpr uint32_t kStorageBindings = kBindings - 1;
 
-// How many bytes of splats one packing and upload window covers.
 constexpr size_t kUploadWindowBytes = 2 * 1024 * 1024;
 
-}  // namespace
+}
 
 splat::Result<std::unique_ptr<SplatPipeline>> SplatPipeline::create(const VulkanContext& ctx,
                                                                     VkRenderPass renderPass,
@@ -51,8 +49,7 @@ SplatPipeline::~SplatPipeline() {
   if (setLayout_) vkDestroyDescriptorSetLayout(device, setLayout_, nullptr);
 }
 
-// Set 0: binding 0 camera (uniform), 1 splats, 2 draw order, 3 spherical harmonics
-// (storage). One set per frame in flight so a uniform update never races the GPU.
+// Each in-flight frame has its own descriptors so camera writes do not race GPU reads.
 bool SplatPipeline::createDescriptors() {
   VkDevice device = ctx_.device();
 
@@ -221,7 +218,7 @@ std::unique_ptr<GpuWorld> SplatPipeline::uploadWorld(const splat::SplatCloud& cl
   world->order = GpuBuffer::deviceLocal(ctx_, orderBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
   world->sh = GpuBuffer::deviceLocal(ctx_, shBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
   if (!world->splats || !world->order || !world->sh) return nullptr;
-  // Bounded packing/upload windows: do not retain full packed + mapped copies of a 10M cloud.
+  // Bound packing and staging windows to avoid full-cloud transient copies.
   const size_t chunk = kUploadWindowBytes / std::max(sizeof(GpuSplat), stride * sizeof(uint32_t));
   std::vector<GpuSplat> packed(std::min(n, chunk));
   std::vector<uint32_t> sh(std::min(n, chunk) * stride);
@@ -317,4 +314,4 @@ void SplatPipeline::drawIndirect(VkCommandBuffer cmd, uint32_t frameSlot, const 
   vkCmdDrawIndirect(cmd, arguments, 0, 1, sizeof(VkDrawIndirectCommand));
 }
 
-}  // namespace splatkit
+}

@@ -2,9 +2,8 @@ import Foundation
 import NitroModules
 import SplatKitCore
 
-/// One view's engine over Metal, through the C interface in sfg.h. It belongs to the view's
-/// render thread, except for `sfg_load`, `sfg_pick` and `sfg_project`, which any thread may
-/// call; the last reference destroys it, so each of those callers holds one through the call.
+/// Render-thread ownership allows concurrent load, pick and project calls only while their callers
+/// retain the engine.
 final class SplatEngine {
   let handle: OpaquePointer
   // The C callback's context: unretained there, so kept alive here.
@@ -30,8 +29,7 @@ final class SplatEngine {
   }
 }
 
-/// Hands the engine's events to the view's current callbacks, from whichever thread reports
-/// them. Nitro takes each call on to the JS thread.
+/// Events arrive on the reporting thread; Nitro forwards callbacks to the JS thread.
 final class SplatEvents {
   private let lock = NSLock()
   private var onReady: () -> Void = {}
@@ -45,7 +43,6 @@ final class SplatEvents {
     locked { self.onError = onError }
   }
 
-  /// The view is gone: nothing more reaches its callbacks.
   func detach() {
     locked {
       onReady = {}
@@ -108,7 +105,6 @@ extension sfg_camera_limits {
   }
 }
 
-/// Calls `body` with a pointer to `value`, or with nil, for the C interface's optional inputs.
 func withOptionalPointer<T, Result>(to value: T?, _ body: (UnsafePointer<T>?) -> Result) -> Result {
   guard let value else { return body(nil) }
   return withUnsafePointer(to: value) { body($0) }

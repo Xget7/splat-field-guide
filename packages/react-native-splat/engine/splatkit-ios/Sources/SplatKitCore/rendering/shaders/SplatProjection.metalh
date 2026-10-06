@@ -74,11 +74,8 @@ inline float3 shColor(const device uint* shData, uint index, float3 d) {
   return c;
 }
 
-// False for a splat that would draw nothing: behind the camera, outside the view, smaller
-// than a pixel or made transparent by its part label's style.
 inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device uint* shData,
                          constant LabelStyle* styles, thread Projected& out) {
-  // Above the sweep's level, not materialised yet.
   float underLevel = cam.reveal.x - s.py;
   if (!(underLevel >= 0.0)) return false;
   float4 rgba = unpackUnorm4x8(s.rgba8);
@@ -90,8 +87,7 @@ inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device
   if (viewPos.z >= 0.0) return false;
   float4 clip = cam.proj * viewPos4;
   float bounds = kLooseCullExtent * clip.w;
-  // Metal's perspective clip depth is [0,w], not OpenGL's [-w,w]. The centre is culled
-  // with a 20% margin, so splats reaching in from just outside the view still draw.
+  // Metal clip depth is [0,w]; a 20% culling margin keeps splats that reach into the view.
   if (clip.z < 0.0 || clip.z > clip.w || clip.x < -bounds || clip.x > bounds ||
       clip.y < -bounds || clip.y > bounds) {
     return false;

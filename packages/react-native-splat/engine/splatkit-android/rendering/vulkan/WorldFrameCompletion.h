@@ -20,4 +20,4 @@ class WorldFrameCompletion {
   uint64_t firstSubmission_ = 0;
 };
 
-}  // namespace splatkit
+}

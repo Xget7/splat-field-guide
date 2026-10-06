@@ -28,7 +28,6 @@ std::string writeFile(const std::string& name, const std::vector<uint8_t>& bytes
   return path;
 }
 
-// The C interface over the real Metal renderer, driven as the iOS view drives it.
 class SfgMetalTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -51,7 +50,6 @@ class SfgMetalTest : public testing::Test {
     sfg_destroy(engine);
   }
 
-  // Vsyncs until the engine rests, waiting on the GPU between the ones that draw nothing.
   void settle() {
     for (int i = 0; i < kMaxVsyncs && sfg_needs_frame(engine); ++i) {
       if (!sfg_draw(engine, ++vsync * kVsyncNanos)) std::this_thread::sleep_for(kGpuPoll);
@@ -88,5 +86,5 @@ TEST_F(SfgMetalTest, WithoutALayerThereIsNothingToDo) {
   EXPECT_EQ(events, std::vector<sfg_event>{SFG_EVENT_WORLD_READY});
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

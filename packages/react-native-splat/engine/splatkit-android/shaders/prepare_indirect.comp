@@ -6,8 +6,8 @@ layout(set = 0, binding = 1, std430) writeonly buffer Indirect { uint command[4]
 layout(set = 0, binding = 2, std430) readonly buffer Status { uint status; } failure;
 
 void main() {
-  // The Vulkan topology is a four-vertex triangle-strip quad, instanced once per
-  // compacted survivor.  Overflow is explicit and never turns into a truncated draw.
+  // Each survivor draws a four-vertex triangle strip; overflow must reject the draw rather than
+  // truncate it.
   if (failure.status != 0u) survivors.count = 0u;
   draw.command[0] = 4u;
   draw.command[1] = failure.status == 0u ? survivors.count : 0u;

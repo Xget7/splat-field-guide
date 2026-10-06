@@ -13,16 +13,14 @@
 
 #include "load-spz.h"
 
-// spz exposes only loadSpz, which inflates without a ceiling; these two are what it
-// runs after the inflate and are plain functions of its namespace (pinned version).
+// Use spz's post-inflate functions because loadSpz has no decompression ceiling.
 namespace spz {
 PackedGaussians deserializePackedGaussians(std::istream& in);
 GaussianCloud unpackGaussians(const PackedGaussians& packed, const UnpackOptions& o);
-}  // namespace spz
+}
 
-// spz's unpack applies convertCoordinates(RUB, options.to) unconditionally in this build.
-// With extensions enabled it would instead read a per-file tag and convert for real, and
-// the explicit conversion below would then flip twice. Revisit this file before enabling.
+// Extensions must stay disabled because tagged coordinate conversion would duplicate the explicit
+// conversion below.
 #ifdef SPZ_BUILD_EXTENSIONS
 #error "SpzDecoder assumes spz without extensions; see the frame conversion below"
 #endif
@@ -32,9 +30,7 @@ namespace {
 
 constexpr float kShC0 = 0.282095f;
 
-// Packed SPZ stores each splat's SH values contiguously, with RGB as the fastest axis.
-// Drop whole high-degree bands in place before the reference decoder allocates its float cloud.
-// The source file remains unchanged; this is only a runtime memory-quality setting.
+// Drop whole packed SH bands before unpacking allocates float coefficients to bound runtime memory.
 void truncatePackedSh(spz::PackedGaussians& packed, int requestedDegree) {
   const int target = std::clamp(requestedDegree, 0, packed.shDegree);
   if (target >= packed.shDegree) return;
@@ -59,8 +55,7 @@ bool looksLikeGzip(const std::uint8_t* data, std::size_t size) {
   return size >= 2 && data[0] == 0x1f && data[1] == 0x8b;
 }
 
-// SPZ version 4 (Niantic, 2026) wraps zstd streams in a 32 byte "NGSP" header:
-// magic, version, numPoints (uint32 each), shDegree (uint8), then layout fields.
+// SPZ v4 stores point count and SH degree in a 32-byte NGSP header before its zstd streams.
 constexpr std::size_t kNgspHeaderBytes = 32;
 
 bool looksLikeNgsp(const std::uint8_t* data, std::size_t size) {
@@ -72,12 +67,8 @@ std::uint32_t readU32(const std::uint8_t* p) {
          (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
 }
 
-// Decompressed size an NGSP container declares, or nullopt otherwise. NGSP declares the
-// point count and SH degree, so the unpacked float size follows directly: position,
-// scale, rotation, alpha and colour are 14 floats, plus 3 floats per SH coefficient.
-// Its streams inflate into buffers sized from that header, so the check is enough.
-// A gzip trailer also declares a size, but nothing ties it to what the stream inflates
-// to, so gzip is inflated here with a ceiling instead of trusted.
+// NGSP bounds allocation from its header, but untrusted gzip trailer sizes require bounded
+// inflation.
 std::optional<std::uint64_t> declaredDecodedSize(const std::uint8_t* data, std::size_t size) {
   if (looksLikeNgsp(data, size) && size >= kNgspHeaderBytes) {
     const std::uint64_t points = readU32(data + 8);
@@ -88,8 +79,6 @@ std::optional<std::uint64_t> declaredDecodedSize(const std::uint8_t* data, std::
   return std::nullopt;
 }
 
-// Inflates a gzip stream, stopping as soon as the output would pass `ceiling`.
-// Returns nullopt for a broken stream or one past the ceiling.
 std::optional<std::vector<std::uint8_t>> inflateGzip(const std::uint8_t* data, std::size_t size,
                                                      std::size_t ceiling) {
   z_stream stream{};
@@ -118,7 +107,6 @@ std::optional<std::vector<std::uint8_t>> inflateGzip(const std::uint8_t* data, s
   return out;
 }
 
-// A read only istream over bytes already in memory, for spz's stream based deserializer.
 class MemoryBuffer : public std::streambuf {
  public:
   MemoryBuffer(const std::uint8_t* data, std::size_t size) {
@@ -137,8 +125,7 @@ spz::CoordinateSystem toSpz(CoordinateFrame frame) {
   return spz::CoordinateSystem::UNSPECIFIED;
 }
 
-// Sigma = R * diag(s)^2 * R^T for a unit quaternion (x, y, z, w) and scales s.
-// Returns the upper triangle xx, xy, xz, yy, yz, zz.
+// Covariance is Sigma = R * diag(s)^2 * R^T, stored as xx, xy, xz, yy, yz, zz.
 std::array<float, 6> covariance(const float* quaternion, const float* scale) {
   const float x = quaternion[0];
   const float y = quaternion[1];
@@ -177,7 +164,7 @@ std::array<float, 6> covariance(const float* quaternion, const float* scale) {
   };
 }
 
-}  // namespace
+}
 
 Result<SplatCloud> decodeSpz(const std::uint8_t* data, std::size_t size,
                              const SpzDecodeOptions& options) {
@@ -218,8 +205,8 @@ Result<SplatCloud> decodeSpz(const std::uint8_t* data, std::size_t size,
   if (cloud.numPoints <= 0) {
     return Error{ErrorCode::corrupt, "SPZ container could not be decoded"};
   }
-  // spz does not read a frame tag in this build: unpack ran convertCoordinates(RUB, RUB),
-  // an identity. World Labs files carry no tag, so this is the one real conversion.
+  // The pinned spz build leaves RUB coordinates unchanged, so untagged files need this explicit
+  // conversion.
   cloud.convertCoordinates(toSpz(options.sourceFrame), toSpz(kInternalFrame));
 
   const auto n = static_cast<std::size_t>(cloud.numPoints);
@@ -267,4 +254,4 @@ Result<SplatCloud> decodeSpz(const std::uint8_t* data, std::size_t size,
   return out;
 }
 
-}  // namespace splat
+}

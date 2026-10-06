@@ -66,5 +66,5 @@ TEST(PartLabels, RefusesASizeThatDisagreesWithTheCount) {
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::corrupt);
 }
 
-}  // namespace
-}  // namespace splat
+}
+}

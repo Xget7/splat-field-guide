@@ -1,11 +1,9 @@
 import UIKit
 
-/// Hosts the CAMetalLayer. The main thread only measures it; the render thread sizes its
-/// drawables and draws.
+/// The main thread measures the layer; the render thread sizes its drawables and draws.
 final class SplatMetalView: UIView {
   /// The layer's size in pixels, after every layout.
   var onResize: ((_ width: UInt32, _ height: UInt32) -> Void)?
-  /// Whether the view is in a window, where it can be seen.
   var onWindowChange: ((_ inWindow: Bool) -> Void)?
 
   override class var layerClass: AnyClass { SplatMetalLayer.self }

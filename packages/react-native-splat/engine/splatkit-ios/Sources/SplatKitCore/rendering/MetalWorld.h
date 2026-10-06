@@ -8,8 +8,6 @@
 
 namespace splatkit {
 
-// GPU residency of one world, independent of its camera and rendering pipelines: the
-// splat records and their harmonics, uploaded once into private memory.
 class MetalWorld {
  public:
   // Blocks until the upload completes. Null when the cloud is malformed or the GPU fails.
@@ -28,4 +26,4 @@ class MetalWorld {
   int shDegree_ = 0;
 };
 
-}  // namespace splatkit
+}

@@ -20,7 +20,7 @@ std::uint32_t readU32(const std::uint8_t* p) {
          (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
 }
 
-}  // namespace
+}
 
 Result<std::vector<std::uint8_t>> decodePartLabels(const std::uint8_t* data, std::size_t size) {
   using namespace part_labels;
@@ -43,4 +43,4 @@ Result<std::vector<std::uint8_t>> decodePartLabels(const std::uint8_t* data, std
   return std::vector<std::uint8_t>(data + kHeaderBytes, data + size);
 }
 
-}  // namespace splat
+}

@@ -26,8 +26,6 @@ TEST(StatsPublisher, WindowCloseIsTheOnlyRegularRefresh) {
   EXPECT_FLOAT_EQ(stats.stats().fps, 4.0f);
 }
 
-// A host event such as a world's first finished frame must be able to promise that
-// stats read afterwards describe it, without waiting for the window to close.
 TEST(StatsPublisher, PublishRefreshesCountsWithoutClosingTheWindow) {
   StatsPublisher stats;
   stats.onFrame(kHalfSecond, true, [] { return counts(1, 1, 1); });
@@ -38,15 +36,12 @@ TEST(StatsPublisher, PublishRefreshesCountsWithoutClosingTheWindow) {
   EXPECT_FLOAT_EQ(now.gpuMillis, 3.0f);
   EXPECT_FLOAT_EQ(now.fps, 0.0f);
 
-  // The window still spans both rendered frames.
   stats.onFrame(2 * kHalfSecond, true, [] { return counts(8, 9, 4); });
   now = stats.stats();
   EXPECT_EQ(now.drawnSplatCount, 8u);
   EXPECT_FLOAT_EQ(now.fps, 4.0f);
 }
 
-// Submitting a frame is not showing it: once the renderer reports display times, the frame
-// rate counts only frames that reached the screen.
 TEST(StatsPublisher, PresentedFramesReplaceSubmittedOnesInTheFrameRate) {
   StatsPublisher stats;
   constexpr int64_t kFrame = 33'333'333LL;
@@ -69,7 +64,6 @@ TEST(StatsPublisher, PresentedFramesReplaceSubmittedOnesInTheFrameRate) {
   EXPECT_NEAR(now.lowFps, 15.0f, 0.01f);
 }
 
-// The 1% low and p95 see a single hitch among steady frames; an idle gap is not a hitch.
 TEST(StatsPublisher, TailsCatchAHitchButNotAStillScene) {
   StatsPublisher stats;
   constexpr int64_t kFrame = 16'666'667LL;
@@ -88,5 +82,5 @@ TEST(StatsPublisher, TailsCatchAHitchButNotAStillScene) {
   EXPECT_NEAR(now.lowFps, 10.0f, 0.01f);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

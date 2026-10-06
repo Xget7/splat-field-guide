@@ -6,9 +6,8 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
   float r2 = dot(relativePosition, relativePosition);
-  // The Gaussian falloff evaluated at this pixel, scaled by the splat's opacity. The
-  // vertex stage sized the quad so that nothing outside it would pass the threshold.
-  // Level of detail nodes carry an opacity above one: a solid core that fades at the edge.
+  // The vertex stage bounds Gaussian contribution at the discard threshold, including opacity above
+  // one for aggregated nodes.
   float alpha = min(exp(-0.5 * r2) * color.a, 1.0);
   if (alpha < 1.0 / 255.0) discard;
   outColor = vec4(color.rgb, alpha);

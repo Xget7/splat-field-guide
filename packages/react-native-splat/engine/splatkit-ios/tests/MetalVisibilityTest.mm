@@ -72,7 +72,6 @@ class MetalVisibilityTest : public ::testing::Test {
     ASSERT_EQ(cmd.status, MTLCommandBufferStatusCompleted);
   }
 
-  // The source indices of the sorted survivors of `slot`, nearest first.
   std::vector<uint32_t> drawn(uint32_t slot) const {
     const auto* order = static_cast<const uint32_t*>(visibility.order().contents);
     const auto* projected = static_cast<const ProjectedSplat*>(visibility.projected().contents);
@@ -81,7 +80,6 @@ class MetalVisibilityTest : public ::testing::Test {
     return indices;
   }
 
-  // Checks that the batches partition the survivors, in order.
   void expectBatchesCover(uint32_t slot, uint32_t survivors) const {
     const auto* draws = static_cast<const MTLDrawPrimitivesIndirectArguments*>(
         visibility.drawArguments(slot).contents);
@@ -128,7 +126,7 @@ TEST_F(MetalVisibilityTest, AnEmptyFrameClearsThePreviousDraws) {
 TEST_F(MetalVisibilityTest, RefusesACountAboveCapacityOrABadSlot) {
   id<MTLBuffer> splats = splatBuffer(std::vector<GpuSplat>(4, unitSplat(0, 0, -2)));
   id<MTLCommandBuffer> cmd = [Gpu::get().queue commandBuffer];
-  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, styles, splats, nil, 0, 1));  // not reserved
+  EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, styles, splats, nil, 0, 1));
   ASSERT_TRUE(visibility.reserve(4));
   EXPECT_FALSE(visibility.encode(cmd, 0, uniforms, styles, splats, nil, 0, 5));
   EXPECT_FALSE(
@@ -159,16 +157,14 @@ TEST_F(MetalVisibilityTest, DropsASubpixelGaussianBeforeSorting) {
   EXPECT_EQ(drawn(0), (std::vector<uint32_t>{0}));
 }
 
-// Each splat is drawn in its part label's style: tinted, dimmed, or culled when the
-// style makes it transparent.
 TEST_F(MetalVisibilityTest, EachSplatTakesItsLabelsStyle) {
   std::vector<GpuSplat> source(4, unitSplat(0, 0, -2));
   source[0].rgba8 = 0xff0000ffu;  // opaque red, unlabelled and as captured
   source[1].rgba8 = 0xff0000ffu;
-  source[1].partLabel = 1;  // fully tinted blue
+  source[1].partLabel = 1;
   source[2].rgba8 = 0xff0000ffu;
-  source[2].partLabel = 2;  // dimmed to a quarter
-  source[3].partLabel = 3;  // transparent
+  source[2].partLabel = 2;
+  source[3].partLabel = 3;
   LabelStyles table{};
   table[1].tint[2] = 1;
   table[1].tintAmount = 1;
@@ -200,8 +196,7 @@ TEST_F(MetalVisibilityTest, EachSplatTakesItsLabelsStyle) {
   }
 }
 
-// Survivors are ranked within SIMD groups of 32 and threadgroups of 256: every tail
-// length must compact without losing or repeating a splat.
+// SIMD and threadgroup tails must compact without losing or repeating survivors.
 TEST_F(MetalVisibilityTest, CompactsPartialSimdGroupsAndReusesSlots) {
   constexpr uint32_t capacity = 513;
   std::vector<GpuSplat> source(capacity, unitSplat(0, 0, -2));
@@ -226,5 +221,5 @@ TEST_F(MetalVisibilityTest, CompactsPartialSimdGroupsAndReusesSlots) {
   }
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

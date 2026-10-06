@@ -36,7 +36,7 @@ void permute(std::vector<T>& values, std::size_t stride, const std::vector<std::
   values.swap(out);
 }
 
-}  // namespace
+}
 
 std::uint32_t mortonCode(const float* p, const Bounds& b) {
   const std::uint32_t x = quantise(p[0], b.min[0], b.max[0]);
@@ -54,8 +54,7 @@ void reorderSpatially(SplatCloud& cloud) {
     keys[i] = mortonCode(&cloud.positions[i * 3], cloud.bounds);
     order[i] = static_cast<std::uint32_t>(i);
   }
-  // LSD radix sort on the 30 bit code, three passes of 10 bits. Each pass is a stable
-  // counting sort, so equal codes keep their decode order.
+  // Stable counting passes preserve decode order for equal Morton codes.
   std::vector<std::uint32_t> keysScratch(n);
   std::vector<std::uint32_t> orderScratch(n);
   std::uint32_t* keysIn = keys.data();
@@ -91,4 +90,4 @@ void reorderSpatially(SplatCloud& cloud) {
   permute(cloud.labels, 1, order);
 }
 
-}  // namespace splat
+}

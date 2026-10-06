@@ -69,7 +69,7 @@ bool finite(const splat::Bounds& b) {
   return true;
 }
 
-}  // namespace
+}
 
 SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile)
     : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
@@ -98,7 +98,6 @@ void SplatEngine::setShDegree(int degree) {
   redrawNeeded_ = true;
 }
 
-// Loading: decode on the calling thread, report, and leave the result for the frame.
 
 uint64_t SplatEngine::beginLoad() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
@@ -164,7 +163,6 @@ bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldRepor
   return true;
 }
 
-// Uploads what the loader left. True when a new world is drawn from now on.
 bool SplatEngine::applyPendingWorld() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
   auto cloud = std::move(pendingWorld_);
@@ -189,7 +187,6 @@ bool SplatEngine::applyPendingWorld() {
   return true;
 }
 
-// Ready once the world is on screen: a host that shows its view then shows the world.
 void SplatEngine::reportShown() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
   if (uploadedLoad_ != currentLoad_) {
@@ -202,7 +199,6 @@ void SplatEngine::reportShown() {
   emit(Event::worldReady, {}, sourceCount_);
 }
 
-// Camera.
 
 bool SplatEngine::setCameraPose(const OrbitPose& pose) {
   if (!camera_.setPose(pose)) return false;
@@ -256,9 +252,8 @@ bool SplatEngine::frame(const splat::Bounds& bounds, float seconds,
   return true;
 }
 
-// A framing made before the view's final shape, or kept through a turn of the phone, would
-// otherwise fit the wrong aspect: too close after landscape to portrait. A running animation
-// finishes first.
+// Refit after animation to preserve screen margins when a view changes aspect, especially landscape
+// to portrait.
 void SplatEngine::refit(Extent extent) {
   if (!framedBounds_ || extent.width == 0 || extent.height == 0 || camera_.animating()) return;
   if (extent.width == framedExtent_.width && extent.height == framedExtent_.height) return;
@@ -279,7 +274,6 @@ splat::Mat4 SplatEngine::projection(Extent extent) const {
   return splat::Mat4::perspective(kFieldOfViewRadians, aspect, kNearPlane, kFarPlane);
 }
 
-// Pick and project, from any thread, against the last drawn frame.
 
 void SplatEngine::publishView(const SplatRenderer::Frame& frame) {
   View view;
@@ -337,7 +331,6 @@ bool SplatEngine::drawnDirection(float& azimuth, float& elevation) const {
   return true;
 }
 
-// Stats.
 
 void SplatEngine::publishStats() {
   stats_.publish(sample());
@@ -352,7 +345,6 @@ StatsPublisher::Sample SplatEngine::sample() const {
   return s;
 }
 
-// The frame.
 
 float SplatEngine::frameSeconds(int64_t frameTimeNanos) {
   const float dt =
@@ -375,8 +367,6 @@ bool SplatEngine::render(int64_t frameTimeNanos) {
   return drawn;
 }
 
-// Every vsync steps the camera, but the GPU only draws when something visible changed:
-// a still scene costs no GPU time and almost no battery.
 bool SplatEngine::step(int64_t frameTimeNanos) {
   if (renderer_->failed()) {
     if (!gpuFailureReported_) {
@@ -430,4 +420,4 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   return true;
 }
 
-}  // namespace splatkit
+}

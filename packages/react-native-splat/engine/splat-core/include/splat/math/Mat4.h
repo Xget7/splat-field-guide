@@ -7,9 +7,8 @@
 
 namespace splat {
 
-// 4x4 float matrix, column major like GLSL, Metal and simd: m[col * 4 + row].
-// Conventions shared by every renderer: right handed, camera looks down -Z, +Y up,
-// clip depth in [0, 1] (Vulkan and Metal).
+// Column-major matrices use m[col * 4 + row], right-handed coordinates, camera -Z, +Y up and clip
+// depth [0, 1].
 struct Mat4 {
   std::array<float, 16> m{};
 
@@ -97,7 +96,6 @@ struct Mat4 {
             at(2, 0) * p.x + at(2, 1) * p.y + at(2, 2) * p.z + at(2, 3)};
   }
 
-  // Transforms a direction (w = 0).
   Vec3 transformDirection(Vec3 d) const {
     return {at(0, 0) * d.x + at(0, 1) * d.y + at(0, 2) * d.z,
             at(1, 0) * d.x + at(1, 1) * d.y + at(1, 2) * d.z,
@@ -113,4 +111,4 @@ struct Mat4 {
   }
 };
 
-}  // namespace splat
+}

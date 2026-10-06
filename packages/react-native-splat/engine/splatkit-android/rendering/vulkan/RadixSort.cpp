@@ -29,7 +29,7 @@ struct PushConstants {
 static_assert(sizeof(PushConstants) == 12, "must match the Push block of every radix shader");
 constexpr VkBufferUsageFlags kStorage =
     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-}  // namespace
+}
 
 RadixSort::Capabilities RadixSort::queryCapabilities(const VulkanContext& ctx) {
   Capabilities result;
@@ -124,7 +124,6 @@ bool RadixSort::initialize() {
   layout.pushConstantRangeCount = 1;
   layout.pPushConstantRanges = &push;
   if (vkCreatePipelineLayout(device, &layout, nullptr, &layout_) != VK_SUCCESS) return false;
-  // Indexed by Stage.
   const uint32_t* code[] = {shaders::radix_prepare_comp, shaders::radix_histogram_comp,
                             shaders::radix_scan_comp, shaders::radix_scatter_comp};
   const size_t sizes[] = {shaders::radix_prepare_comp_size, shaders::radix_histogram_comp_size,
@@ -245,9 +244,8 @@ bool RadixSort::encode(VkCommandBuffer cmd, uint32_t slot, const Input& input) c
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout_, 0, 1, &sets_[slot][set],
                             0, nullptr);
   };
-  // Bind after each pipeline transition: MoltenVK/gfxstream otherwise retained stale
-  // encoded state when a different compute layout (visibility) preceded this pass.
-  // VulkanFrameComputeTest covers the complete producer-to-sort chain.
+  // Rebind after each pipeline transition because MoltenVK/gfxstream can retain stale compute state
+  // from a different layout.
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_[kPrepare]);
   bindSet(0);
   vkCmdPushConstants(cmd, layout_, kShader, 0, sizeof(push), &push);
@@ -284,4 +282,4 @@ bool RadixSort::encode(VkCommandBuffer cmd, uint32_t slot, const Input& input) c
                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT);
   return true;
 }
-}  // namespace splatkit
+}

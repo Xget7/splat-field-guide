@@ -29,24 +29,18 @@ class VulkanSplatRenderer final : public SplatRenderer {
 
   // A new window (takes a reference) or nullptr when the surface is going away.
   void setWindow(ANativeWindow* window);
-  // The window changed size while staying attached. Rebuilds the swapchain if needed.
   void onSurfaceResized(uint32_t width, uint32_t height);
 
   void setRenderScale(float scale) override;
   float renderScale() const override { return renderScale_; }
-  // Flips the swapchain format.
-  // True when a surface with pipelines is up.
   bool ready() const override { return swapchain_ && splats_; }
-  // The target's size with a render scale, else the swapchain's.
   Extent drawExtent() const override;
-  // Counts the rebuilds of the swapchain or the target.
   uint32_t generation() const override { return generation_; }
 
   // Uploads once the GPU is done with the previous world. Needs `ready()`.
   bool uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) override;
   std::optional<GpuWorldInfo> world() const override;
 
-  // The world, or only the clear colour without one.
   bool draw(const Frame& frame) override;
   bool failed() const override {
     collectCompletedFrames();
@@ -55,8 +49,8 @@ class VulkanSplatRenderer final : public SplatRenderer {
   bool hasCompletedWorldFrame() const override {
     return worldFrameCompletion_.completed(frameLoop_.completedSubmission());
   }
-  // Reads the stats of frames the GPU finished, without waiting. Call once per vsync, drawn
-  // or not: a still scene draws no later frame whose encode would read them.
+  // Collect completed GPU stats once per vsync, including idle frames with no later encode to read
+  // them.
   void collectCompletedFrames() const;
   double lastGpuMillis() const override { return frameLoop_.lastGpuMillis(); }
   double lastSortMillis() const override { return compute_ ? compute_->stats().sortMillis : 0; }
@@ -95,4 +89,4 @@ class VulkanSplatRenderer final : public SplatRenderer {
   mutable WorldFrameCompletion worldFrameCompletion_;
 };
 
-}  // namespace splatkit
+}

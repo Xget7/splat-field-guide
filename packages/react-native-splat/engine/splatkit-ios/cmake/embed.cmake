@@ -1,6 +1,4 @@
-# splatkit_embed_text(<target> <file> <symbol>): generates embedded/<symbol>.h declaring
-# `inline constexpr const char <symbol>[]` with the file's text, as a target the library
-# depends on, so a shader edit rebuilds it.
+# The embedded shader target depends on source files so shader edits trigger regeneration.
 function(splatkit_embed_text target file symbol)
   set(out ${CMAKE_CURRENT_BINARY_DIR}/embedded/${symbol}.h)
   get_filename_component(shader_dir ${file} DIRECTORY)

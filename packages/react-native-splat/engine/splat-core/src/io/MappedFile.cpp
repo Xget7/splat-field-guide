@@ -49,4 +49,4 @@ void MappedFile::release() {
   size_ = 0;
 }
 
-}  // namespace splat
+}

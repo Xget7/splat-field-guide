@@ -23,10 +23,9 @@ constexpr MTLPixelFormat kPixelFormat = MTLPixelFormatBGRA8Unorm;
 constexpr MTLPixelFormat kTargetFormat = MTLPixelFormatRGBA16Float;
 // Black like the view before its first frame, so neither loading nor the app around it shows a seam.
 constexpr float kBackground[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-// The simulator has no framebuffer fetch, which the saturation mask reads. Without the mask
-// every batch also draws over saturated pixels: the same picture, only slower.
+// The simulator lacks framebuffer fetch, so it skips saturation masking and redraws opaque pixels.
 constexpr bool kSaturationMask = !TARGET_OS_SIMULATOR;
-}  // namespace
+}
 
 std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
   std::unique_ptr<MetalSplatRenderer> r(new MetalSplatRenderer());
@@ -35,9 +34,8 @@ std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
     LOGE("no Metal device");
     return nullptr;
   }
-  // The embedded library uses SIMD reductions; reject unsupported GPUs before compiling it.
-  // The simulator claims only Apple family 2 but runs on the Mac's GPU, which has them, so
-  // there the compile below decides.
+  // SIMD reductions require supported GPUs; simulator family reporting is unreliable, so shader
+  // compilation checks the Mac's GPU.
 #if !TARGET_OS_SIMULATOR
   if (![r->device_ supportsFamily:MTLGPUFamilyApple7]) {
     LOGE("SplatKit requires Apple GPU family 7 or newer (A14/M1+)");
@@ -75,7 +73,7 @@ MetalSplatRenderer::~MetalSplatRenderer() {
   waitIdle();
 }
 
-// Waits for every frame in flight: the order and world buffers may be released after.
+// Wait for in-flight GPU reads before releasing world and order buffers.
 void MetalSplatRenderer::waitIdle() {
   if (inFlight_ == nullptr) return;
   for (uint32_t i = 0; i < kFramesInFlight; ++i) {
@@ -119,9 +117,8 @@ Extent MetalSplatRenderer::drawExtent() const {
   return {width_, height_};
 }
 
-// Back the transient depth buffer with GPU-private memory. Large splat passes can
-// exhaust the tiler's parameter buffer; memoryless attachments prevent spilling
-// that pass and fail on iPhone with OutOfMemoryForParameterBuffer.
+// GPU-private depth allows parameter-buffer spilling; memoryless attachments can fail large iPhone
+// passes with OutOfMemoryForParameterBuffer.
 bool MetalSplatRenderer::createDepth(NSUInteger width, NSUInteger height) {
   if (depth_ != nil && depth_.width == width && depth_.height == height) return true;
   MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:kDepthFormat
@@ -156,9 +153,8 @@ bool MetalSplatRenderer::createTarget() {
 
 bool MetalSplatRenderer::createPipelines() {
   NSError* error = nil;
-  // The splats are drawn from the projections the visibility kernel wrote, front to
-  // back with "under" compositing of premultiplied colour onto a clear of zero:
-  // out = (1 - dst.a) * src + dst, for colour and coverage alike.
+  // Premultiplied front-to-back compositing uses out = (1 - dst.a) * src + dst for colour and
+  // coverage.
   MTLRenderPipelineDescriptor* under = [MTLRenderPipelineDescriptor new];
   under.vertexFunction = [library_ newFunctionWithName:@"projectedVertex"];
   under.fragmentFunction = [library_ newFunctionWithName:@"splatFragmentUnder"];
@@ -174,7 +170,6 @@ bool MetalSplatRenderer::createPipelines() {
     LOGE("projected pipeline: %s", error.localizedDescription.UTF8String);
     return false;
   }
-  // The background goes under whatever coverage is left, with the same blend.
   under.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
   under.fragmentFunction = [library_ newFunctionWithName:@"backgroundFragment"];
   backgroundPipeline_ = [device_ newRenderPipelineStateWithDescriptor:under error:&error];
@@ -182,7 +177,6 @@ bool MetalSplatRenderer::createPipelines() {
     LOGE("background pipeline: %s", error.localizedDescription.UTF8String);
     return false;
   }
-  // The saturation mask touches the depth buffer only.
   if (kSaturationMask) {
     MTLRenderPipelineDescriptor* mask = [MTLRenderPipelineDescriptor new];
     mask.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
@@ -216,7 +210,6 @@ bool MetalSplatRenderer::createPipelines() {
   return true;
 }
 
-// Worlds.
 
 bool MetalSplatRenderer::uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) {
   auto world = MetalWorld::upload(device_, queue_, cloud, maxShDegree);
@@ -232,7 +225,6 @@ std::optional<GpuWorldInfo> MetalSplatRenderer::world() const {
   return world_ ? std::optional<GpuWorldInfo>{world_->info()} : std::nullopt;
 }
 
-// The frame.
 
 uint32_t MetalSplatRenderer::takePresentTimes(std::vector<int64_t>* times) {
   times->clear();
@@ -274,8 +266,8 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
   CaptureHandler onCapture;
   id<MTLBuffer> captured = encodeCapture(cmd, drawable.texture, &onCapture);
 
-  // Submit dependencies in order on the same queue. The final completion releases
-  // the slot only after visibility, sort and rendering have finished.
+  // Submit on one queue in dependency order so the final completion releases the slot after all GPU
+  // reads.
   if (sort != nil) [sort commit];
   submitFrame(cmd, drawable, drewWorld, captured, std::move(onCapture));
   ++frame_;
@@ -335,7 +327,6 @@ void MetalSplatRenderer::encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot) {
   pass.colorAttachments[0].texture = target_;
   pass.colorAttachments[0].loadAction = MTLLoadActionClear;
   pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-  // Front to back accumulates onto nothing and puts the background under at the end.
   pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
   if (createDepth(target_.width, target_.height)) {
     pass.depthAttachment.texture = depth_;
@@ -416,8 +407,8 @@ id<MTLBuffer> MetalSplatRenderer::encodeCapture(id<MTLCommandBuffer> cmd,
 void MetalSplatRenderer::submitFrame(id<MTLCommandBuffer> cmd, id<CAMetalDrawable> drawable,
                                      bool drewWorld, id<MTLBuffer> captured,
                                      CaptureHandler onCapture) {
-  // presentedTime is when the frame reached the display, zero when it was never shown.
-  // The simulator's Metal has no presentation handler, so it reports no present timing.
+  // presentedTime is zero for unseen frames; the simulator lacks presentation handlers and reports
+  // no display timing.
 #if !TARGET_OS_SIMULATOR
   std::shared_ptr<PresentLog> presents = presents_;
   [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
@@ -466,4 +457,4 @@ void MetalSplatRenderer::captureNextFrame(CaptureHandler handler) {
   capture_ = std::move(handler);
 }
 
-}  // namespace splatkit
+}

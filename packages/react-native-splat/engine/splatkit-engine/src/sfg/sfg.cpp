@@ -45,7 +45,7 @@ sfg_vec3 toC(splat::Vec3 v) {
   return {v.x, v.y, v.z};
 }
 
-}  // namespace
+}
 
 sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile) {
   return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
@@ -59,7 +59,7 @@ const SplatEngine& engineOf(const sfg_engine* engine) {
   return *engine->engine;
 }
 
-}  // namespace splatkit
+}
 
 using splatkit::engineOf;
 
@@ -169,4 +169,4 @@ bool sfg_drawn_direction(const sfg_engine* engine, sfg_view_direction* out) {
   return engineOf(engine).drawnDirection(out->azimuth, out->elevation);
 }
 
-}  // extern "C"
+}

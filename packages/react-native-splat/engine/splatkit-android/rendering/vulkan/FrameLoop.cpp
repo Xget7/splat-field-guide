@@ -83,7 +83,6 @@ FrameLoop::Status FrameLoop::beginFrame(const Swapchain& swapchain, uint32_t& im
   // Bounded waits: a wedged driver must surface as an error, never as a hung UI thread.
   constexpr uint64_t kTimeoutNanos = 2'000'000'000ULL;
 
-  // 1. Wait until the GPU finished the frame that last used this slot.
   if (vkWaitForFences(device, 1, &frame.inFlight, VK_TRUE, kTimeoutNanos) != VK_SUCCESS) {
     completionFailed_ = true;
     LOGE("frame fence timed out: GPU stalled or device lost");
@@ -91,7 +90,6 @@ FrameLoop::Status FrameLoop::beginFrame(const Swapchain& swapchain, uint32_t& im
   }
   finish(frame);
 
-  // 2. Ask the swapchain for an image. The semaphore fires when it is really free.
   const VkResult acquired = vkAcquireNextImageKHR(
       device, swapchain.handle(), kTimeoutNanos, frame.imageAvailable, VK_NULL_HANDLE, &imageIndex);
   if (acquired == VK_ERROR_OUT_OF_DATE_KHR) return Status::swapchainOutOfDate;
@@ -103,7 +101,6 @@ FrameLoop::Status FrameLoop::beginFrame(const Swapchain& swapchain, uint32_t& im
   // Only reset the fence once we know we will submit, or the next wait would hang.
   vkResetFences(device, 1, &frame.inFlight);
 
-  // 3. Start recording into a fresh command buffer.
   vkResetCommandPool(device, frame.pool, 0);
   VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -123,7 +120,6 @@ FrameLoop::Status FrameLoop::endFrame(const Swapchain& swapchain, uint32_t image
   }
   if (vkEndCommandBuffer(frame.cmd) != VK_SUCCESS) return Status::error;
 
-  // 4. Submit: wait for the image before writing color, signal when the render is done.
   const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
   submit.waitSemaphoreCount = 1;
@@ -140,7 +136,6 @@ FrameLoop::Status FrameLoop::endFrame(const Swapchain& swapchain, uint32_t image
   }
   frame.submission = ++lastSubmission_;
 
-  // 5. Present once the render is done.
   VkSwapchainKHR handle = swapchain.handle();
   VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
   present.waitSemaphoreCount = 1;
@@ -153,10 +148,8 @@ FrameLoop::Status FrameLoop::endFrame(const Swapchain& swapchain, uint32_t image
   current_ = (current_ + 1) % kFramesInFlight;
 
   if (presented == VK_ERROR_OUT_OF_DATE_KHR) return Status::swapchainOutOfDate;
-  // SUBOPTIMAL is permanent on Android whenever the swapchain pre-transform differs from
-  // the display rotation (we use identity and let the compositor rotate), but it is also
-  // all the emulator reports after a rotation that changed the surface size. The engine
-  // compares extents to tell the two apart.
+  // Android may permanently report SUBOPTIMAL for identity pre-transform, so compare surface
+  // extents to detect actual rotation resizing.
   if (presented == VK_SUBOPTIMAL_KHR) return Status::swapchainSuboptimal;
   if (presented != VK_SUCCESS) {
     completionFailed_ = true;
@@ -182,7 +175,6 @@ uint64_t FrameLoop::completedSubmission() {
   return completedSubmission_;
 }
 
-// Once per submitted frame, after its fence: marks it complete and reads its GPU time.
 void FrameLoop::finish(Frame& frame) {
   if (frame.submission == 0) return;
   completedSubmission_ = std::max(completedSubmission_, frame.submission);
@@ -198,4 +190,4 @@ void FrameLoop::finish(Frame& frame) {
   frame.submission = 0;
 }
 
-}  // namespace splatkit
+}

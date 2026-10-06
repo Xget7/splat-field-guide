@@ -10,10 +10,8 @@
 
 namespace splatkit {
 
-// Projects the first `count` splats of a world, compacts the visible ones, sorts them by
-// distance and prepares their indirect draws. Owns the GPU scratch; never commits or
-// waits on a command buffer. Call reserve only while idle. All encodes and raster
-// consumers use one command queue.
+// Reserve shared scratch while idle and encode visibility, sort and indirect draws on one queue
+// with raster consumers, without committing or waiting.
 class MetalVisibility {
  public:
   bool create(id<MTLDevice> device, id<MTLLibrary> library);
@@ -21,9 +19,8 @@ class MetalVisibility {
   bool reserve(uint32_t capacity);
   uint32_t capacity() const { return capacity_; }
 
-  // A count above the reserved capacity fails before encoding any work. The caller owns
-  // the uniforms, the label styles (a LabelStyles) and the source buffers and keeps them
-  // unchanged until this frame completes.
+  // Reject counts above capacity before encoding; callers retain unchanged uniforms, styles and
+  // source buffers until GPU completion.
   bool encode(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms,
               id<MTLBuffer> labelStyles, id<MTLBuffer> splats, id<MTLBuffer> sh, int shDegree,
               uint32_t count);
@@ -57,4 +54,4 @@ class MetalVisibility {
   std::array<id<MTLBuffer>, kSlots> drawArguments_{};
 };
 
-}  // namespace splatkit
+}

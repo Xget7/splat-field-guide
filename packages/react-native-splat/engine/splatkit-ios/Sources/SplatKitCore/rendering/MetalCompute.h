@@ -33,4 +33,4 @@ inline id<MTLBuffer> buffer(id<MTLDevice> device, size_t bytes,
   return [device newBufferWithLength:std::max<size_t>(bytes, 16) options:options];
 }
 
-}  // namespace splatkit::metal
+}

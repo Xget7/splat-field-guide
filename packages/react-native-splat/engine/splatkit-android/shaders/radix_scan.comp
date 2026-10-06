@@ -21,8 +21,7 @@ void main() {
   uint digit=gl_WorkGroupID.y*pc.maxGroupsX+gl_WorkGroupID.x;
   if(digit>=256) return;
   uint carry=0;
-  // Parallel workgroup scan of each bin, tiled as in MetalRadixSort. At 3M keys
-  // only 12 tiles; no invocation serially scans the global histogram.
+  // Tile each bin scan across the workgroup to avoid serially scanning the global histogram.
   for(uint start=0;start<blocks;start+=128) {
     uint i=start+t;
     uint v=i<blocks ? histogram[digit*blocks+i] : 0u;

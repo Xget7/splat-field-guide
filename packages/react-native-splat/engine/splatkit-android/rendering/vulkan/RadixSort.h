@@ -9,12 +9,11 @@
 
 namespace splatkit {
 
-// Stable ascending LSD radix sort. Render-thread only; never submits or reads a GPU count.
-// Context and input allocations outlive execution. Fence a slot before encode/reuse, and
-// fence ALL slots before reserve/destruction. One encode per slot per outstanding submission.
-// Inputs are read-only, separate uint32 key/value arrays; low16 ignores upper key bits.
-// Output never aliases input. Passing any owned output/scratch as input is rejected; distinct
-// VkBuffer handles must not alias the same memory. External offsets/sizes must be truthful.
+// Ascending LSD sort is stable and low16 ignores upper bits.
+// The render thread fences each slot before encode/reuse and all slots before growth or
+// destruction, retaining context and inputs until completion.
+// Input buffers are read-only and must not alias owned outputs or scratch, even through distinct
+// handles; caller offsets and sizes must be accurate.
 class RadixSort {
  public:
   enum class KeyBits : uint32_t { full32, low16 };
@@ -42,15 +41,15 @@ class RadixSort {
   ~RadixSort();
   RadixSort(const RadixSort&) = delete;
   RadixSort& operator=(const RadixSort&) = delete;
-  // Transactional growth; zero reserves one element. Failure preserves all old resources.
+  // Growth preserves old resources on failure; zero reserves one element.
   bool reserve(uint32_t capacity);
   uint32_t capacity() const { return capacity_; }
-  // Buffers require STORAGE_BUFFER usage. Input count > capacity fails closed on GPU:
-  // output count=0/status=kInvalidCount. Caller must consume output count, not input count.
-  // Input dependencies (same queue) and compute/vertex/transfer output visibility included.
-  // Queue ownership and cross-queue semaphores, host flush/invalidate remain caller-owned.
+  // Storage-buffer inputs over capacity fail on the GPU with zero count and kInvalidCount, so
+  // consumers use the checked output count.
+  // Same-queue input and compute/vertex/transfer output dependencies are included; callers own
+  // cross-queue synchronization and host flush/invalidate.
   bool encode(VkCommandBuffer cmd, uint32_t slot, const Input& input) const;
-  // Borrowed handles valid until growth/destruction. count/status are four-byte ranges.
+  // Borrowed handles expire on growth or destruction; count and status use four-byte ranges.
   Output output(uint32_t slot) const;
 
  private:
@@ -72,4 +71,4 @@ class RadixSort {
   static constexpr uint32_t kSets = 3;
   std::array<std::array<VkDescriptorSet, kSets>, kSlots> sets_{};
 };
-}  // namespace splatkit
+}

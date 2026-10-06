@@ -43,7 +43,7 @@ class MetalRasterTest : public testing::Test {
     renderer->setDrawableSize(width, height);
   }
 
-  // Draws `frame` and waits for its pixels: BGRA, rows top down.
+  // Captured pixels use BGRA with top-down rows.
   std::vector<uint8_t> drawAndCapture(const SplatRenderer::Frame& frame) {
     dispatch_semaphore_t captured = dispatch_semaphore_create(0);
     std::vector<uint8_t> pixels;
@@ -64,7 +64,7 @@ class MetalRasterTest : public testing::Test {
 TEST_F(MetalRasterTest, AWorldFrameCompletesOnlyAfterTheGpuDrawsIt) {
   attach(64, 64);
   drawAndCapture({});
-  EXPECT_FALSE(renderer->hasCompletedWorldFrame());  // a background alone does not count
+  EXPECT_FALSE(renderer->hasCompletedWorldFrame());
   SplatRenderer::Frame frame;
   frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
   for (int replacement = 0; replacement < 2; ++replacement) {
@@ -88,8 +88,6 @@ TEST_F(MetalRasterTest, ASplatReachesThePresentedPixels) {
   EXPECT_EQ(renderer->lastDrawCount(), 1u);
 }
 
-// The highlight reaches the screen: the emphasised part gains a faint blue tint, and a
-// part left out of it dims.
 TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   constexpr uint8_t kPart = 3;
   constexpr uint8_t kOtherPart = 4;
@@ -111,15 +109,14 @@ TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   highlight.update(Highlight::kFadeSeconds);
   const auto dimmed = drawAndCapture(frame);
 
-  EXPECT_LT(asCaptured[kCenter], 20);          // no blue in the capture
+  EXPECT_LT(asCaptured[kCenter], 20);
   EXPECT_GT(emphasised[kCenter], asCaptured[kCenter] + 20);
-  EXPECT_GE(emphasised[kCenter + 2], asCaptured[kCenter + 2]);  // lifted, still red
+  EXPECT_GE(emphasised[kCenter + 2], asCaptured[kCenter + 2]);
   EXPECT_LT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.7f);
-  EXPECT_GT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.4f);  // the bay stays readable
+  EXPECT_GT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.4f);
   EXPECT_LT(dimmed[kCenter], 20);
 }
 
-// A real capture at a phone's resolution, framed whole from the front.
 TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
   const char* path = std::getenv("SPLAT_SPZ_PATH");
   if (!path) GTEST_SKIP() << "Set SPLAT_SPZ_PATH to an SPZ capture";
@@ -135,7 +132,7 @@ TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
   constexpr uint32_t kWidth = 1206;
   constexpr uint32_t kHeight = 2622;
   attach(kWidth, kHeight);
-  ASSERT_TRUE(renderer->draw({}));  // The app presents a background while loading.
+  ASSERT_TRUE(renderer->draw({}));
   ASSERT_TRUE(renderer->uploadWorld(cloud, 1));
   const splat::Bounds& b = cloud.bounds;
   OrbitCamera camera;
@@ -162,5 +159,5 @@ TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
   }
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

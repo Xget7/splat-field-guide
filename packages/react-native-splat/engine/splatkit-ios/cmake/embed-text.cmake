@@ -1,5 +1,4 @@
-# Expand local shader includes at build time: a consuming app needs no source files.
-# Each local file is included once; system includes stay for the Metal compiler.
+# Expand each local shader include once at build time so consumers need no shader source files.
 function(expand_shader path result)
   get_filename_component(path "${path}" REALPATH)
   get_property(seen GLOBAL PROPERTY shader_includes)

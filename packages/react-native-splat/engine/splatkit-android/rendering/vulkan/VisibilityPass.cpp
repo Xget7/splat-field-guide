@@ -22,13 +22,9 @@ constexpr VkSubgroupFeatureFlags kRequiredSubgroupOperations = VK_SUBGROUP_FEATU
                                                                VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
                                                                VK_SUBGROUP_FEATURE_BALLOT_BIT;
 
-// visibility.comp binds the camera uniform and seven storage buffers: splats, indices, depth keys,
-// count, status, candidates and the candidate count. prepare_indirect.comp binds the count,
-// the indirect draw arguments and the status.
 constexpr uint32_t kVisibilityStorageBindings = 7;
 constexpr uint32_t kVisibilityBindings = 1 + kVisibilityStorageBindings;
 constexpr uint32_t kPrepareBindings = 3;
-// The bits of the shader's keyMode push constant.
 constexpr uint32_t kKeyLow16 = 1;
 constexpr uint32_t kKeyDescending = 2;
 
@@ -44,7 +40,6 @@ struct PushConstants {
 };
 static_assert(sizeof(PushConstants) == 32, "must match the Constants block of visibility.comp");
 
-// The number of candidates a pass reads: a prefix without a capacity reads every source.
 uint32_t candidateBound(const VisibilityPass::Input& input) {
   return input.mode == VisibilityPass::CandidateMode::prefix && input.candidateCapacity == 0
              ? input.sourceCount
@@ -55,7 +50,7 @@ static_assert(sizeof(CameraUniform) == 8384, "visibility camera layout must matc
 static_assert(sizeof(VkDrawIndirectCommand) == 16,
               "visibility indirect output must match native Vulkan draw arguments");
 
-}  // namespace
+}
 
 VisibilityCapabilities VisibilityPass::queryCapabilities(const VulkanContext& ctx) {
   VisibilityCapabilities result;
@@ -504,4 +499,4 @@ bool VisibilityPass::encode(VkCommandBuffer cmd, uint32_t slot, const Input& inp
   return true;
 }
 
-}  // namespace splatkit
+}

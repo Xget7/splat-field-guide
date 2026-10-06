@@ -15,8 +15,8 @@ layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
 layout(set=0,binding=9,std430) buffer Status { uint status; };
 layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
 
-// Four uint words describe logical local indices, NOT hardware subgroup lanes.
-// This remains stable even when Vulkan launches partially populated subgroups.
+// Masks index logical local invocations rather than hardware lanes to stay stable across partial
+// subgroups.
 shared uint masks[256*4];
 shared uint digitBase[256];
 shared uint blockBase[256];
@@ -45,8 +45,8 @@ void main() {
     bool valid=e<countOut;
     uint key=valid ? keysIn[e] : 0u;
     uint d=(key>>pc.shift)&255u;
-    // One shared atomic per key, at most 32 contenders per word for all-equal input.
-    // No global atomics; masks encode deterministic input order regardless of scheduling.
+    // Workgroup masks preserve deterministic input order without global atomics, with at most 32
+    // contenders per word.
     if(valid) atomicOr(masks[d*4+t/32],1u<<(t%32));
     barrier();
     if(valid) {

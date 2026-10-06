@@ -16,7 +16,7 @@ bool isSrgb(VkFormat format) {
   return format == VK_FORMAT_R8G8B8A8_SRGB || format == VK_FORMAT_B8G8R8A8_SRGB;
 }
 
-}  // namespace
+}
 
 std::unique_ptr<VulkanSplatRenderer> VulkanSplatRenderer::create() {
   auto context = VulkanContext::create();
@@ -61,8 +61,8 @@ void VulkanSplatRenderer::onSurfaceResized(uint32_t width, uint32_t height) {
   if (current.width == width && current.height == height) return;
   LOGI("surface resized to %ux%u, swapchain was %ux%u", width, height, current.width,
        current.height);
-  // A swapchain sets the producer's buffer size, overriding TextureView's default size.
-  // Update it before querying capabilities so the projection follows the visible view.
+  // Set producer buffer size before querying swapchain capabilities so projection follows
+  // TextureView resizing.
   if (ANativeWindow_setBuffersGeometry(window_, width, height, 0) != 0) {
     keepSurfaceIf(false);
     return;
@@ -226,10 +226,8 @@ bool VulkanSplatRenderer::recreateSwapchain() {
   if (!frameLoop_.onSwapchainCreated(*swapchain_)) return false;
   if (!createRenderTarget()) return false;
 
-  // Viewport and scissor are dynamic, so a resize or rotation does not touch the
-  // pipelines. A render pass with the same attachment format is compatible with the one
-  // they were built against (Vulkan 1.1, 8.2 "Render Pass Compatibility"). Only a format
-  // change, which also flips the sRGB output path, forces a rebuild.
+  // Dynamic viewport/scissor and render-pass compatibility preserve pipelines across resize;
+  // attachment format changes require a rebuild.
   if (splats_ && pipelineFormat_ == activeFormat()) return true;
   return createPipelines();
 }
@@ -273,9 +271,8 @@ void VulkanSplatRenderer::keepSurfaceIf(bool rebuilt) {
   destroySurface();
 }
 
-// True when the surface no longer has the swapchain's size, which is how a rotation shows
-// up when the driver only answers SUBOPTIMAL. A bare SUBOPTIMAL with the same size is the
-// identity pre-transform being second best, and is not worth a rebuild.
+// Only changed extents justify rebuilding for SUBOPTIMAL; identity pre-transform can report it
+// permanently at the same size.
 bool VulkanSplatRenderer::surfaceExtentChanged() const {
   VkSurfaceCapabilitiesKHR caps{};
   if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx_.physicalDevice(), surface_, &caps) !=
@@ -311,4 +308,4 @@ void VulkanSplatRenderer::destroySurface() {
   }
 }
 
-}  // namespace splatkit
+}

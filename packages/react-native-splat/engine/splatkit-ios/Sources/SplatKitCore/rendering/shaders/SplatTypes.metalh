@@ -2,8 +2,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// Buffer layouts shared with the host: MetalShaderTypes.h for Camera and Projected,
-// splatkit/rendering/GpuLayout.h for Splat.
+// Layouts match host Camera/Projected in MetalShaderTypes.h and Splat in GpuLayout.h.
 struct Camera {
   float4x4 view;
   float4x4 proj;
@@ -28,7 +27,7 @@ struct Splat {
   uint partLabel;    // 0 for none
 };
 
-// How the splats of one part label are drawn (the host's LabelStyle, 32 bytes).
+// LabelStyle matches the 32-byte host layout.
 struct LabelStyle {
   packed_float3 tint;
   float tintAmount;
@@ -38,7 +37,7 @@ struct LabelStyle {
 };
 constant uint kLabelMask = 0xffu;  // 256 styles, one per label
 
-// A splat after projection: the quad the raster stage expands (32 bytes).
+// Projected matches the 32-byte host layout.
 struct Projected {
   float2 center;
   uint axis1;
@@ -73,23 +72,19 @@ struct DrawArguments {
   uint vertexCount, instanceCount, vertexStart, baseInstance;
 };
 
-// Splats draw at kSplatDepth under a LessEqual test; the saturation mask writes the nearer
-// kMaskDepth, so a pixel that is already opaque rejects every later splat.
+// LessEqual depth testing lets the nearer saturation mask reject later splats at opaque pixels.
 constant float kSplatDepth = 0.5;
 constant float kMaskDepth = 0.25;
 constant float kSaturated = 254.0 / 255.0;  // coverage at which a pixel counts as opaque
 
-// Variance, in squared pixels, added to every projected covariance: the low-pass filter of
-// the reference 3DGS rasterizer, which stops a splat shrinking below about a pixel.
+// Add squared-pixel variance from the reference 3DGS low-pass filter to prevent subpixel splats.
 constant float kLowPassVariance = 0.3;
-// A splat's view-space x/y is clamped to this multiple of the half field of view before the
-// projection is linearised, which bounds the error of the linearisation near the edges.
+// Clamp view-space x/y before linearizing projection to bound approximation error near the edges.
 constant float kProjectionFovClamp = 1.3;
 // Loose culling keeps a splat whose centre is within this multiple of the clip extent.
 constant float kLooseCullExtent = 1.2;
 
-// The materialising sweep's band: toward the accent (Highlight::kTint) and lifted, most at
-// the level itself, like the line of a scanner.
+// The reveal band peaks in accent tint and brightness at the sweep level.
 constant float3 kRevealTint = float3(0x0A, 0x6C, 0xFF) / 255.0;
 constant float kRevealTintAmount = 0.85;
 constant float kRevealBoost = 0.9;

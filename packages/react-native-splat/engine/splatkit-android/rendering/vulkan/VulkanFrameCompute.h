@@ -12,14 +12,10 @@ namespace splatkit {
 
 class RadixSort;
 
-// Resident-world GPU ordering. Owns LOD, culling, sorting and delayed diagnostics.
-// Render thread only. Context/inputs outlive submissions. Create/destroy while idle;
-// encode only after the caller's slot fence, with consumers on the same queue.
-// Counts never return to CPU to decide dispatch/draw. Diagnostics lag by frame slots: a
-// slot's are read when it is encoded again, or once its submission is known finished.
+// Render-thread culling and sorting stay on the GPU; idle creation/destruction, fenced slot reuse
+// and one-queue consumers preserve input lifetimes, while diagnostics lag until slot completion.
 class VulkanFrameCompute {
  public:
-  // Most splats one frame can keep, which bounds the visibility output and the sort.
   static constexpr uint32_t kMaxVisible = VisibilityPass::kMaxCapacity;
   static splat::Result<std::unique_ptr<VulkanFrameCompute>> create(
       const VulkanContext& ctx, uint32_t sourceCount);
@@ -40,10 +36,9 @@ class VulkanFrameCompute {
   std::optional<Draw> encode(VkCommandBuffer cmd, uint32_t slot, VkBuffer camera,
                              const GpuBuffer& splats, const SplatRenderer::Frame& frame);
   const Stats& stats() const { return stats_; }
-  // The queue submission that carried the slot's last encode.
   void submitted(uint32_t slot, uint64_t submission);
-  // Reads the diagnostics of every submitted frame up to `completedSubmission`, so a still
-  // scene that encodes nothing new reports its last frame. Never moves back to an older one.
+  // Collect completed submissions even while idle without replacing newer diagnostics with older
+  // frames.
   void collectCompleted(uint64_t completedSubmission);
 
  private:
@@ -68,4 +63,4 @@ class VulkanFrameCompute {
   Stats stats_;
 };
 
-}  // namespace splatkit
+}

@@ -39,8 +39,7 @@ splat::Result<std::unique_ptr<RenderTarget>> RenderTarget::create(const VulkanCo
     return splat::Error{splat::ErrorCode::gpuUnavailable, "render target view"};
   }
 
-  // Ends as a blit source instead of presentable. The previous frame's blit read this image,
-  // so the clear must wait for that read.
+  // Wait for the previous frame's blit read before clearing this transfer-source image.
   rt->renderPass_ =
       createColorRenderPass(device, format, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
@@ -104,4 +103,4 @@ void RenderTarget::blitTo(VkCommandBuffer cmd, VkImage swapchainImage,
                        0, nullptr, 0, nullptr, 1, &toPresent);
 }
 
-}  // namespace splatkit
+}

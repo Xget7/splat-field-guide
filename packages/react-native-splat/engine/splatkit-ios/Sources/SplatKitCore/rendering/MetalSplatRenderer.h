@@ -20,11 +20,8 @@
 
 namespace splatkit {
 
-// Everything between a CAMetalLayer and a presented frame: the device and queue, the
-// pipelines, the half-float target the splats are composited into, and the world bound to
-// them. Each frame culls and sorts the world on the GPU, draws it front to back and blits
-// the result to the drawable. The layer is attached and sized by the view; the world stays
-// through a detach. Render thread only, except where noted.
+// The view attaches and sizes the layer while the renderer retains the world across detachment;
+// calls use the render thread unless marked otherwise.
 class MetalSplatRenderer final : public SplatRenderer {
  public:
   // Null when the device has no Metal or is older than Apple GPU family 7.
@@ -34,10 +31,9 @@ class MetalSplatRenderer final : public SplatRenderer {
   MetalSplatRenderer(const MetalSplatRenderer&) = delete;
   MetalSplatRenderer& operator=(const MetalSplatRenderer&) = delete;
 
-  // The layer to present to, or nil when the view is going away. The renderer sets its
-  // device and pixel format; the view sets its size through `setDrawableSize`.
+  // The view sizes the layer; the renderer sets its device and pixel format, with nil detaching it.
   void setLayer(CAMetalLayer* layer);
-  // The layer's size in pixels. Rebuilds the offscreen target if there is one.
+  // Drawable size uses pixels.
   void setDrawableSize(uint32_t width, uint32_t height);
 
   void setRenderScale(float scale) override;
@@ -52,8 +48,8 @@ class MetalSplatRenderer final : public SplatRenderer {
 
   bool draw(const Frame& frame) override;
 
-  // A successful GPU frame of the current world has finished; uploads alone and background
-  // frames do not qualify. Reset when the world is replaced.
+  // Only GPU completion of a drawn current-world frame qualifies, excluding uploads and background
+  // frames.
   bool hasCompletedWorldFrame() const override {
     return !gpuFailed_.load() && completedWorldFrame_.load();
   }
@@ -62,8 +58,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   // Pixels of a presented frame: BGRA, 8 bits each, rows top down, `width` by `height`.
   using CaptureHandler =
       std::function<void(std::vector<uint8_t> bgra, uint32_t width, uint32_t height)>;
-  // Hands the next frame's pixels to `handler`, from the GPU's completion thread. One
-  // capture at a time; a request while one is pending replaces it.
+  // GPU completion delivers the next capture; a new pending request replaces the previous one.
   void captureNextFrame(CaptureHandler handler);
   double lastGpuMillis() const override { return gpuFailed_.load() ? 0 : lastGpuMillis_.load(); }
   double lastSortMillis() const override { return gpuFailed_.load() ? 0 : lastSortMillis_.load(); }
@@ -95,8 +90,6 @@ class MetalSplatRenderer final : public SplatRenderer {
   id<MTLDevice> device_ = nil;
   id<MTLCommandQueue> queue_ = nil;
   id<MTLLibrary> library_ = nil;
-  // The splats go front to back in batches with a saturation mask between them, the
-  // background last, and a blit takes the result to the drawable.
   id<MTLRenderPipelineState> blitPipeline_ = nil;
   id<MTLRenderPipelineState> projectedPipeline_ = nil;
   id<MTLRenderPipelineState> maskPipeline_ = nil;
@@ -106,7 +99,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   id<MTLTexture> depth_ = nil;                 // GPU-private, the size of the colour target
   bool createDepth(NSUInteger width, NSUInteger height);
   std::array<id<MTLBuffer>, kFramesInFlight> uniforms_{};
-  std::array<id<MTLBuffer>, kFramesInFlight> labelStyles_{};  // a LabelStyles each
+  std::array<id<MTLBuffer>, kFramesInFlight> labelStyles_{};
   dispatch_semaphore_t inFlight_ = nullptr;
 
   CAMetalLayer* layer_ = nil;
@@ -135,4 +128,4 @@ class MetalSplatRenderer final : public SplatRenderer {
   std::string description_;
 };
 
-}  // namespace splatkit
+}

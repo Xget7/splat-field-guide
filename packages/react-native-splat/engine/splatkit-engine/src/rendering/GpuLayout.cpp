@@ -25,7 +25,7 @@ uint32_t packHalf2(float a, float b) {
   return static_cast<uint32_t>(splat::toHalf(a)) | (static_cast<uint32_t>(splat::toHalf(b)) << 16);
 }
 
-}  // namespace
+}
 
 std::size_t shStride(int degree) {
   return (shCoefficients(degree) * 3 + 1) / 2;
@@ -83,4 +83,4 @@ void packSplatRange(const splat::SplatCloud& cloud, size_t offset, size_t count,
   }
 }
 
-}  // namespace splatkit
+}

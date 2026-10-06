@@ -13,8 +13,7 @@
 
 namespace splatkit {
 
-// Instance, physical device, logical device, the single graphics+present queue,
-// and the memory allocator. Created once per engine; outlives every surface.
+// One context owns the device, graphics/present queue and allocator and outlives every surface.
 class VulkanContext {
  public:
   static splat::Result<std::unique_ptr<VulkanContext>> create();
@@ -30,12 +29,11 @@ class VulkanContext {
   uint32_t queueFamily() const { return queueFamily_; }
   VmaAllocator allocator() const { return allocator_; }
   const vkb::Device& vkbDevice() const { return device_; }
-  // "Adreno (TM) 640, Vulkan 1.1.128": what a HUD or a bug report wants to show.
   const std::string& deviceDescription() const { return deviceDescription_; }
   bool validationEnabled() const { return validationEnabled_; }
   uint32_t validationMessageCount() const { return validationMessageCount_.load(); }
 
-  // True when the queue can present to this surface. Checked every time a surface arrives.
+  // Check queue presentation support whenever a surface arrives.
   bool supportsPresent(VkSurfaceKHR surface) const;
   void waitIdle() const;
 
@@ -52,4 +50,4 @@ class VulkanContext {
   std::atomic<uint32_t> validationMessageCount_{0};
 };
 
-}  // namespace splatkit
+}

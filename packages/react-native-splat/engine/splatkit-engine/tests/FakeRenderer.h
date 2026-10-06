@@ -8,7 +8,6 @@
 
 namespace splatkit::test {
 
-// Records what the engine asks of a platform renderer.
 class FakeRenderer final : public SplatRenderer {
  public:
   void setRenderScale(float scale) override { scale_ = scale; }
@@ -35,7 +34,6 @@ class FakeRenderer final : public SplatRenderer {
 
   bool isReady = true;
   bool failUploads = false;
-  // What the GPU says of the current world's frames: finished, or failed for good.
   bool gpuFinished = true;
   bool gpuFailed = false;
   Extent extent{1000, 1000};
@@ -49,4 +47,4 @@ class FakeRenderer final : public SplatRenderer {
   std::string description_ = "fake";
 };
 
-}  // namespace splatkit::test
+}

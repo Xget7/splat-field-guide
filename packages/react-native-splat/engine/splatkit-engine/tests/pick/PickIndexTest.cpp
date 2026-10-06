@@ -24,7 +24,6 @@ void add(splat::SplatCloud& cloud, splat::Vec3 at, Covariance covariance, float 
   cloud.labels.push_back(label);
 }
 
-// Looking down -Z from the origin, through (x, y).
 Ray lookingAt(float x, float y) {
   return {{0, 0, 0}, splat::normalize({x, y, -1})};
 }
@@ -60,7 +59,6 @@ TEST(PickIndex, AFaintSplatInFrontDoesNotHideThePartBehind) {
 }
 
 TEST(PickIndex, AnUnlabelledThingInFrontPicksNothing) {
-  // A hose over the engine: tapping it must not select the engine.
   splat::SplatCloud cloud;
   add(cloud, {0, 0, -2}, round(0.1f), 0.9f, 0);
   add(cloud, {0, 0, -4}, round(0.1f), 0.99f, 6);
@@ -117,5 +115,5 @@ TEST(PickIndex, ADegenerateSplatIsSkipped) {
   EXPECT_EQ(pick(cloud, lookingAt(0, 0)), 3);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

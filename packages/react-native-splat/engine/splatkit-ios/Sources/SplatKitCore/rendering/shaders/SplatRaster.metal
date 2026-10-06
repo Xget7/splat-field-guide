@@ -1,8 +1,6 @@
 #include "SplatTypes.metalh"
 #include "SplatProjection.metalh"
 
-// Rasterization and compositing of the splats the visibility pass projected and sorted,
-// front to back.
 vertex SplatVertex projectedVertex(uint vertexId [[vertex_id]], uint instanceId [[instance_id]],
                                    constant Camera& cam [[buffer(0)]],
                                    const device Projected* projected [[buffer(1)]],
@@ -20,7 +18,6 @@ fragment float4 splatFragmentUnder(SplatVertex in [[stage_in]]) {
   return float4(float3(rgb), float(alpha));
 }
 
-// One oversized triangle covers the screen.
 vertex BlitVertex blitVertex(uint vertexId [[vertex_id]]) {
   const float2 corners[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
   BlitVertex out;

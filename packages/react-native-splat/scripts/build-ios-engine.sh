@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Builds the engine as ios/Frameworks/SplatKitCore.xcframework, which the pod vendors: one
-# static library for devices and one for the simulator, each the engine, its Metal renderer,
-# SPZ and its zstd merged, with the C interface's headers and module map. Run it before
-# `pod install`. A current artifact is reused; --force rebuilds it.
-#
-#   scripts/build-ios-engine.sh
-#
-# SPLAT_IOS_BUILD_DIR moves the CMake build trees, build/ios-engine by default; SPLAT_BUILD_JOBS
-# caps the parallel jobs.
+# Build before pod installation so CocoaPods receives a framework matching the engine sources.
 set -euo pipefail
 
 package="$(cd "$(dirname "$0")/.." && pwd)"

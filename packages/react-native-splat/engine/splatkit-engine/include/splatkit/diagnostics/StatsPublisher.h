@@ -9,10 +9,9 @@
 
 namespace splatkit {
 
-// What a HUD shows. Readable from any thread, refreshed twice a second by the render loop.
+// Snapshots are readable from any thread and refreshed at 2 Hz.
 struct Stats {
-  // Frames per second over the last half second. With presentTiming, frames the display
-  // showed; without, frames the renderer submitted, which can exceed what reached the screen.
+  // FPS uses the last half-second of display times when available, otherwise submitted frames.
   float fps = 0;
   float frameMillis = 0;  // 1000 / fps
   // The fields below are zero unless the renderer reports when frames reached the display.
@@ -26,12 +25,10 @@ struct Stats {
   uint32_t drawnSplatCount = 0;  // last completed visibility result, not source count
 };
 
-// The numbers the render loop publishes for other threads: the frame rate over a half
-// second window and what the engine reports when the window closes. A line goes to the
-// log every two seconds, once only while idle. Written by the render thread, read by any.
+// The render thread publishes snapshots for any thread to read and logs every two seconds, once
+// while idle.
 class StatsPublisher {
  public:
-  // What the engine reports when a window closes.
   struct Sample {
     double gpuMillis = 0;
     double sortMillis = 0;
@@ -39,14 +36,13 @@ class StatsPublisher {
     uint32_t sourceSplats = 0;  // splats in the file, what hosts count
   };
 
-  // Display times, in nanoseconds on any one clock, of frames the display showed since the
-  // last call, oldest first, and how many submitted frames it never showed. Calling it, even
-  // empty, switches the frame rate to presented frames. Render thread, before `onFrame`.
+  // Before onFrame, supply display timestamps in nanoseconds on one clock, oldest first, and the
+  // unseen submission count; even empty input enables presented FPS.
   void onPresented(const std::vector<int64_t>& times, uint32_t dropped);
   // Once per vsync, drawn or not. `sample` is called when the window closes.
   void onFrame(int64_t frameTimeNanos, bool rendered, const std::function<Sample()>& sample);
-  // Publishes everything but the frame rate now, leaving the window open: stats read after
-  // a host event then describe the frame that raised it.
+  // Publish completed-frame stats without closing the FPS window so host events expose matching
+  // counters.
   void publish(const Sample& sample);
 
   Stats stats() const;
@@ -78,4 +74,4 @@ class StatsPublisher {
   std::atomic<uint32_t> drawnSplats_{0};
 };
 
-}  // namespace splatkit
+}

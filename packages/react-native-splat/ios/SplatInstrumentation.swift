@@ -1,7 +1,6 @@
 import Foundation
 import os
 
-/// Live-instance and call counters, so a leak or a wrong calling thread shows up as a number.
 enum SplatInstrumentation {
   struct Counts {
     var liveViews = 0

@@ -15,20 +15,17 @@ struct Ray {
   splat::Vec3 direction;
 };
 
-// Answers which part a view ray shows. It composites the Gaussians the ray passes within
-// three sigma of, nearest centre first as the renderer does, and returns the label that
-// contributes most to that pixel: a faint splat in front does not hide the part behind it,
-// and an unlabelled one that covers it does. Immutable, so any thread may pick.
+// Immutable picks composite nearest-first within three sigma and return the strongest label,
+// allowing faint foreground and opaque unlabelled occluders.
 class PickIndex {
  public:
-  // Takes the positions, covariances, opacities and labels out of `cloud`, which keeps its
-  // colours and harmonics. A cloud without labels picks nothing.
+  // Takes positions, covariances, opacities and labels from cloud; colours and harmonics remain,
+  // and missing labels pick nothing.
   static std::shared_ptr<const PickIndex> take(splat::SplatCloud& cloud);
 
   // The label the ray shows, or 0 for an unlabelled part or less than half a covered pixel.
   std::uint8_t pick(const Ray& ray) const;
 
-  // Where the ray stops mattering, and what counts as a hit.
   static constexpr float kSigmaCutoff = 3.0f;
   static constexpr float kMinAlpha = 1.0f / 255.0f;
   static constexpr float kMinCoverage = 0.5f;
@@ -42,4 +39,4 @@ class PickIndex {
   std::vector<std::uint8_t> labels_;
 };
 
-}  // namespace splatkit
+}

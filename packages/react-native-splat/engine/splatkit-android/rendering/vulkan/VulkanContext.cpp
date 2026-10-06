@@ -22,8 +22,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL onValidationMessage(VkDebugUtilsMessageSeverityFl
   return VK_FALSE;
 }
 
-// Debug builds turn the Khronos validation layer on when the app ships it.
-// Release builds never look for it.
 bool wantValidation() {
 #ifdef NDEBUG
   return false;
@@ -33,7 +31,7 @@ bool wantValidation() {
 #endif
 }
 
-}  // namespace
+}
 
 splat::Result<std::unique_ptr<VulkanContext>> VulkanContext::create() {
   std::unique_ptr<VulkanContext> ctx(new VulkanContext());
@@ -43,9 +41,8 @@ splat::Result<std::unique_ptr<VulkanContext>> VulkanContext::create() {
   LOGI("validation layers: %s", validation ? "on" : "off");
   vkb::InstanceBuilder builder;
   builder.set_app_name("SplatKit").set_engine_name("SplatKit").require_api_version(1, 1, 0);
-  // Only ask for the debug messenger when the layer that implements it is present.
-  // Adreno exposes VK_EXT_debug_utils but fails to create a messenger without the layer,
-  // which is why a release build died here while a debug build did not.
+  // Adreno can advertise debug-utils support yet require the validation layer to create its
+  // messenger.
   if (validation) {
     builder.request_validation_layers(true)
         .set_debug_callback(onValidationMessage)
@@ -58,8 +55,8 @@ splat::Result<std::unique_ptr<VulkanContext>> VulkanContext::create() {
   }
   ctx->instance_ = instanceResult.value();
 
-  // The surface comes later (and can come and go), so the device is selected without it.
-  // Present support is verified when a surface arrives.
+  // Device selection precedes surface attachment, so present support must be checked for each
+  // surface.
   auto physicalResult = vkb::PhysicalDeviceSelector(ctx->instance_)
                             .set_minimum_version(1, 1)
                             .defer_surface_initialization()
@@ -106,9 +103,8 @@ splat::Result<std::unique_ptr<VulkanContext>> VulkanContext::create() {
 }
 
 VulkanContext::~VulkanContext() {
-  // This runs on the failure paths of create() too, where the later handles are still
-  // null. vkb::destroy_device dereferences its dispatch table without checking, so every
-  // step is guarded here.
+  // Guard partial initialization because vkb::destroy_device dereferences its dispatch table even
+  // for uninitialized handles.
   if (device_.device != VK_NULL_HANDLE) {
     vkDeviceWaitIdle(device_.device);
   }
@@ -133,4 +129,4 @@ void VulkanContext::waitIdle() const {
   vkDeviceWaitIdle(device());
 }
 
-}  // namespace splatkit
+}

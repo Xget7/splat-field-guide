@@ -33,7 +33,7 @@ constexpr VkDeviceSize wordOffset(ReadbackWord word) {
 }
 // The sort status rides above the visibility status in one combined word.
 constexpr uint32_t kSortStatusShift = 16;
-}  // namespace
+}
 
 VulkanFrameCompute::VulkanFrameCompute(const VulkanContext& ctx) : ctx_(ctx) {}
 
@@ -206,4 +206,4 @@ std::optional<VulkanFrameCompute::Draw> VulkanFrameCompute::encode(
   return Draw{radix_->output(slot).values, visible.indirect, capacity_};
 }
 
-}  // namespace splatkit
+}

@@ -15,7 +15,6 @@ constexpr std::uint8_t kPart = 3;
 constexpr std::uint8_t kBackground = 0;
 constexpr std::size_t kHarmonics = 9;
 
-// A splat as wide as `sigma` along x and narrow otherwise, tagged with `id` in its alpha.
 void addSplat(SplatCloud& cloud, float sigma, std::uint8_t label, float id) {
   const float narrow = 0.01f;
   for (float p : {id, 0.0f, 0.0f}) cloud.positions.push_back(p);
@@ -26,7 +25,7 @@ void addSplat(SplatCloud& cloud, float sigma, std::uint8_t label, float id) {
   cloud.labels.push_back(label);
 }
 
-}  // namespace
+}
 
 TEST(Haze, WidestSigmaIsTheLargestAxisOfARotatedCovariance) {
   const float axisAligned[] = {4, 0, 0, 1, 0, 9};
@@ -46,7 +45,6 @@ TEST(Haze, RemovesWideSplatsAndWideBackgroundFromACaptureKeepingTheOrder) {
   addSplat(cloud, part, kBackground, 4);                               // the same as background
   addSplat(cloud, 0.1f, kPart, 5);
   SplatCloud sample = cloud;
-  // Enough small splats to make it a capture.
   for (std::size_t i = cloud.count(); i < splat::kHazeMinSplats; ++i) {
     addSplat(cloud, 0.1f, kPart, 6);
   }

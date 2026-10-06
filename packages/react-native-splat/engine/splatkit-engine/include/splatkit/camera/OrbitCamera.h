@@ -7,9 +7,8 @@
 
 namespace splatkit {
 
-// Where an orbit camera is: `radius` metres from `target`, turned `azimuth` radians about
-// +Y from +Z and raised `elevation` radians above the horizontal, looking at the target
-// with +Y up on screen.
+// Orbit poses use metres, azimuth about +Y from +Z and elevation above horizontal in radians, with
+// +Y up on screen.
 struct OrbitPose {
   splat::Vec3 target;
   float radius = 1;
@@ -17,9 +16,8 @@ struct OrbitPose {
   float elevation = 0;
 };
 
-// The angles and distances a camera may take, radians and metres. The azimuth turns round
-// freely while its range is the full circle, the default; a narrower range, which may cross
-// pi, keeps the camera on the side that was captured.
+// Limits use radians and metres; full-turn azimuth ranges permit free orbit and narrower ranges may
+// cross pi.
 struct OrbitLimits {
   static constexpr float kFullTurn = 6.28318530717959f;
 
@@ -31,39 +29,31 @@ struct OrbitLimits {
   float maxRadius = 1000.0f;
 };
 
-// A camera that orbits a target: dragging turns it, pinching moves it closer, and framing
-// animates it to a new pose. Every pose it takes is inside its limits. Not thread safe.
+// Poses stay within limits; callers must serialize access.
 class OrbitCamera {
  public:
-  // Teleports, clamped to the limits. Stops a running animation. False, changing nothing,
-  // for a non-finite pose.
+  // Reject non-finite poses without changes; accepted poses clamp to limits and stop animation.
   bool setPose(const OrbitPose& pose);
   const OrbitPose& pose() const { return pose_; }
 
-  // Invalid limits (not finite, min above max, an azimuth range over a full turn or beyond one
-  // either side of zero, a radius not above zero or an elevation past the poles) are refused.
-  // The pose is clamped into them, and a running animation heads on to its end clamped into
-  // them from there.
+  // Reject non-finite, inverted, out-of-turn, nonpositive-radius or pole-crossing limits; accepted
+  // limits clamp the pose and animation endpoint.
   bool setLimits(const OrbitLimits& limits);
   const OrbitLimits& limits() const { return limits_; }
 
-  // Turns by radians, stopping at a limit. Stops a running animation, so a drag takes over at
-  // once.
+  // Orbit deltas use radians and stop animation at the clamped pose.
   bool orbit(float deltaAzimuth, float deltaElevation);
-  // Divides the radius by `factor`, as a pinch scales: above one moves closer. Stops a
-  // running animation.
+  // Factors above one move closer and stop animation.
   bool dolly(float factor);
 
-  // Eases to `pose`, clamped to the limits, over `seconds`; the azimuth takes the short way
-  // round, or the way inside its limits. Zero seconds teleports.
+  // Animation takes the shortest permitted azimuth path; zero seconds teleports.
   bool animateTo(const OrbitPose& pose, float seconds);
   bool animating() const { return animation_.has_value(); }
 
-  // Advances a running animation. True when the pose moved.
+  // Returns whether the pose moved.
   bool update(float dtSeconds);
 
   splat::Vec3 position() const;
-  // World to camera.
   splat::Mat4 viewMatrix() const;
 
  private:
@@ -82,4 +72,4 @@ class OrbitCamera {
   std::optional<Animation> animation_;
 };
 
-}  // namespace splatkit
+}

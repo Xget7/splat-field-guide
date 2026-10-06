@@ -1,13 +1,8 @@
-# Run with scripts/lint-cpp.sh; CI fails on any warning.
-# The style checks that would fight the way the code is deliberately written are off:
-# braces around every statement, magic numbers in shader and Vulkan setup, trailing
-# return types, the identifier length rule, enum sizing (the enums cross JNI as ints),
-# recursion (tree walks), and the optional access check, which does not understand
-# ASSERT_TRUE and flags every `if (opt) use(*opt)` in the sorter. Multiplying a
-# uint32_t splat index by the attribute stride is how every array is addressed; the
-# counts are millions, so the widening check is off too. Unused parameters stay
-# unnamed (JNI and Vulkan callbacks), and a const Vulkan handle is a const pointer on
-# purpose, which the misplaced-const check cannot tell from a mistake.
+# JNI and Vulkan handles require short names, snake-case C interfaces, unnamed callback parameters
+# and intentional const pointers.
+# Shader arithmetic and Vulkan setup need literal values and count conversions; tree walks need
+# recursion.
+# Optional-access checks misread ASSERT_TRUE and guarded dereferences.
 Checks: >
   -*,
   bugprone-*,
@@ -70,7 +65,6 @@ CheckOptions:
   readability-identifier-naming.TypedefCase: CamelCase
   readability-identifier-naming.TemplateParameterCase: CamelCase
   readability-identifier-naming.FunctionCase: camelBack
-  # The C interface the platform views call is snake case, as C is.
   readability-identifier-naming.FunctionIgnoredRegexp: '^(Java_.*|JNI_OnLoad|sfg_.*)$'
   readability-identifier-naming.StructIgnoredRegexp: '^sfg_.*$'
   readability-identifier-naming.TypedefIgnoredRegexp: '^sfg_.*$'

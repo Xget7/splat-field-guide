@@ -54,7 +54,7 @@ TEST(MetalWorldTest, UploadsAnEmptyWorldAndRefusesAMalformedOne) {
   malformed.alphas.clear();
   EXPECT_EQ(MetalWorld::upload(gpu.device, gpu.queue, malformed, 0), nullptr);
   malformed = cloud();
-  malformed.labels.push_back(1);  // one label too many
+  malformed.labels.push_back(1);
   EXPECT_EQ(MetalWorld::upload(gpu.device, gpu.queue, malformed, 0), nullptr);
 }
 
@@ -98,5 +98,5 @@ TEST(MetalWorldTest, ChunkedUploadPreservesSHAndRecordsAcrossStagingBoundary) {
       std::memcmp(static_cast<uint8_t*>(readback.contents) + bytes, harmonics.data(), shBytes), 0);
 }
 
-}  // namespace
-}  // namespace splatkit
+}
+}

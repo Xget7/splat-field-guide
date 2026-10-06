@@ -60,7 +60,7 @@ private struct ARGuideAssets {
   let referenceFromPack: simd_float4x4
 }
 
-/// Owns a single AR session. All state, UIKit and delegate work stays on the main queue.
+/// All AR session state, UIKit and delegate work stays on the main queue.
 final class ARGuideNativeView: UIView, ARSessionDelegate {
   private var arView: ARView?
   private var assets: ARGuideAssets?
@@ -523,8 +523,8 @@ final class ARGuideNativeView: UIView, ARSessionDelegate {
 
   @available(iOS 27.0, *)
   private func sample(_ frame: ARFrame) {
-    // The HUD samples metadata on-device even when console diagnostics are disabled.
-    // Keep camera FPS separate from model inference rate/confidence.
+    // The HUD samples camera metadata at 1 Hz independently of console diagnostics and model
+    // inference.
     guard let windowStart = diagnosticWindowStart else {
       diagnosticWindowStart = frame.timestamp
       diagnosticFrameCount = 0

@@ -8,8 +8,7 @@
 
 namespace splatkit {
 
-// Host ABI shared by splat.vert and visibility.comp, independent of either pass.
-// Source splat records are the platform-independent GpuSplat in GpuLayout.h.
+// splat.vert and visibility.comp share this host ABI; source splats use GpuLayout.h.
 struct alignas(16) CameraUniform {
   splat::Mat4 view;
   splat::Mat4 proj;
@@ -30,4 +29,4 @@ static_assert(offsetof(CameraUniform, screenSize) == 144);
 static_assert(offsetof(CameraUniform, outputLinear) == 152);
 static_assert(offsetof(CameraUniform, cameraPosition) == 160);
 
-}  // namespace splatkit
+}

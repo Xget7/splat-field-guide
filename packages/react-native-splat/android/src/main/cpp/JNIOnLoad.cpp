@@ -7,7 +7,6 @@
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
   return facebook::jni::initialize(vm, [] {
     margelo::nitro::splat::registerAllNatives();
-    // Keep the app's descriptors and add the view's typed props and state.
     auto previous = facebook::react::DefaultComponentsRegistry::registerComponentDescriptorsFromEntryPoint;
     facebook::react::DefaultComponentsRegistry::registerComponentDescriptorsFromEntryPoint =
         [previous](auto registry) {
