@@ -27,6 +27,13 @@ using test::solidPairBytes;
 
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
+// solidPairBytes() as written on macOS; zlib records the host OS in the gzip header, so
+// clouds generated at test time hash differently on Linux.
+const std::vector<uint8_t> kSolidPairSpz = {
+    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x13, 0xf3, 0x73, 0x0f,
+    0x0e, 0x60, 0x62, 0x60, 0x60, 0x00, 0x61, 0x06, 0x1e, 0x20, 0xfe, 0xf0, 0x1f,
+    0xc4, 0x52, 0x60, 0x60, 0x10, 0x60, 0x80, 0x30, 0xfe, 0xfe, 0x6d, 0x00, 0x83,
+    0x02, 0x30, 0x80, 0xb0, 0x01, 0xe4, 0xf1, 0xe3, 0xba, 0x36, 0x00, 0x00, 0x00};
 // SHA-256 of the fixture files, calculated independently with Python hashlib.
 constexpr char kSolidPairSha256[] = "6c0cb0b4f32b7af8c2852d3a7728e0db0558edaeddf8690090e2be217c09d29e";
 constexpr char kPairLabelsSha256[] = "4349096d3451d685e805cdd983de84c250b63d722e7dae5d3cfba17e6ab79316";
@@ -88,7 +95,7 @@ TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
 }
 
 TEST_F(SfgTest, RejectsUnrelatedLabelsWithTheSameSplatCount) {
-  const std::string spz = writeFile("solid.spz", solidPairBytes());
+  const std::string spz = writeFile("solid.spz", kSolidPairSpz);
   const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
   const sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
   ASSERT_TRUE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), labels.c_str(), &identity));
@@ -107,7 +114,7 @@ TEST_F(SfgTest, RejectsUnrelatedLabelsWithTheSameSplatCount) {
 }
 
 TEST_F(SfgTest, RejectsACloudWhoseDigestOrSourceCountDisagreesWithTheManifest) {
-  const std::string spz = writeFile("solid.spz", solidPairBytes());
+  const std::string spz = writeFile("solid.spz", kSolidPairSpz);
   const std::string other = writeFile("other.spz", pairBytes());
   const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
   sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
