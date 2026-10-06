@@ -15,4 +15,4 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
 - [ ] Enable `AR_CHECK_ENABLED`, verify the current AR reference on the real engine, then measure landmark alignment, drift, recovery, negative scenes and actual torch behaviour on an iOS 27 iPhone.
 - [ ] Choose the semantic camera-overlay renderer after reference-frame and physical alignment acceptance.
 - [ ] Supply `publication.json` and manifest source artifacts to complete capture-backed export verification.
-- [ ] Record the airplane-mode video and deliver TestFlight with author signing credentials (R19, R20).
+- [ ] Record the airplane-mode video (R19).
