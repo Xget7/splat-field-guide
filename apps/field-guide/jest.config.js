@@ -2,11 +2,10 @@ const path = require('path');
 
 module.exports = {
   preset: '@react-native/jest-preset',
-  roots: ['<rootDir>/../../tests/field-guide'],
+  roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.[jt]s?(x)'],
   modulePaths: ['<rootDir>/node_modules'],
-  setupFiles: ['<rootDir>/../../tests/field-guide/setup.js'],
-  // External tests use the app's Babel preset and native dependency versions.
+  setupFiles: ['<rootDir>/src/testing/setup.js'],
   transform: {
     '^.+\\.(js|ts|tsx)$': [
       'babel-jest',

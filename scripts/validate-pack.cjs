@@ -11,7 +11,7 @@ require.extensions['.ts'] = (module, filename) => {
   });
   module._compile(output.outputText, filename);
 };
-const { parsePack } = require(path.join(ROOT, 'apps/field-guide/src/domain/parsePack.ts'));
+const { parsePack } = require(path.join(ROOT, 'apps/field-guide/src/pack/parsePack.ts'));
 
 function parse(value) {
   const result = parsePack(value);
