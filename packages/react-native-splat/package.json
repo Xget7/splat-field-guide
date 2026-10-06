@@ -13,7 +13,9 @@
     "nitrogen",
     "nitro.json",
     "ReactNativeSplat.podspec",
-    "!ios/build"
+    "!ios/build",
+    "android",
+    "react-native.config.js"
   ],
   "scripts": {
     "codegen": "nitrogen",
