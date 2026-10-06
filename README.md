@@ -2,18 +2,17 @@
 
 Field Guide turns a 3D capture of real equipment into a mobile maintenance guide.
 You orbit a Gaussian splat of the machine, tap a part to see what it is, follow step-by-step checks with each part highlighted, and ask an instructor by text or voice.
-The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, on iPhone, iPad and Android tablets, and it works offline.
+The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
+It is tested on iPhone and iPad; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
 <p>
   <img src="docs/images/ipad-parts-tour.jpg" alt="Parts tour on iPad with the coolant reservoir highlighted" width="38%">
-  <img src="docs/images/android-explore.jpg" alt="Explore mode on an Android tablet with the valve cover selected" width="60%">
+  <img src="docs/images/android-explore.jpg" alt="Explore mode on the Android tablet emulator with the valve cover selected" width="60%">
 </p>
 
 ## Architecture
 
-### System
-
-A capture becomes a verified pack offline on the author's Mac; the app bundles that pack and only goes to the network for open-ended questions.
+A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions.
 
 ```mermaid
 flowchart LR
@@ -36,30 +35,6 @@ flowchart LR
   prepare --> app
   app -- "open questions, online" --> worker["Cloudflare Worker"]
   worker --> claude["Claude API"]
-```
-
-### App layers
-
-Screens compose features; features talk to native code only through two local Nitro packages.
-ESLint enforces the arrows: `pack` and `guide` are pure TypeScript, and `ui` holds no business code.
-
-```mermaid
-flowchart TB
-  screens["screens and app<br/>navigation, composition"] --> features
-  screens --> ui["ui<br/>presentation primitives"]
-  subgraph features["features"]
-    direction LR
-    pack["pack<br/>parse, catalog"]
-    guide["guide<br/>session, tour, progress"]
-    instructor["instructor<br/>router, grounding, models, voice"]
-    viewport["viewport<br/>gestures, framing, markers"]
-  end
-  viewport --> splatPkg["react-native-splat"]
-  instructor --> onDevicePkg["react-native-on-device"]
-  splatPkg --> core["sfg C interface<br/>shared C++ core"]
-  core --> metal["Metal on iOS"]
-  core --> vulkan["Vulkan on Android"]
-  onDevicePkg --> speech["SpeechAnalyzer, Kokoro, Foundation Models<br/>Android SpeechRecognizer, TextToSpeech"]
 ```
 
 ### How splats reach the screen
@@ -87,12 +62,9 @@ flowchart LR
   upload --> camera
 ```
 
+- Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
+- A tap returns the part label that contributes most to that pixel; the renderer brightens that part, dims the rest and frames it.
 - Metal composites front to back into a half-float target; Vulkan composites back to front into a scaled offscreen target.
-- Gestures run as UI-thread worklets that call `orbit` and `dolly` synchronously through Nitro.
-- A tap calls `pick` on a worker: the ray composites the Gaussians it passes, nearest first, and returns the label that contributes most to that pixel.
-- The app maps the label to a part, the session expands it to its children, and the renderer brightens those splats with a faint accent tint and dims the rest to 55% while the camera frames them.
-- Part markers come from `project`, which reads the last drawn frame's projection synchronously.
-- A new cloud materialises with a rising reveal sweep, and `onReady` fires after its first GPU frame.
 
 ### Instructor turn
 
@@ -111,7 +83,9 @@ flowchart LR
   scripted --> commit
 ```
 
-Streamed words and part emphasis stay provisional until the reply completes, so a failure or interruption leaves the session untouched.
+Replies stay provisional until they complete, so a failure or interruption leaves the session untouched.
+Android has no on-device model, so offline it answers open questions from the scripted pack guidance.
+Commands, procedures and specifications work offline the same way on both platforms.
 
 ## Decisions
 
@@ -119,15 +93,15 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 
 | Decision | Why | Considered and rejected |
 | --- | --- | --- |
-| Bare React Native with local [Nitro](https://nitro.margelo.com) packages ([0005](docs/adr/0005-bare-react-native-with-local-nitro-packages.md)) | One UI for iOS and Android; Nitro gives typed, synchronous native calls for per-frame gestures and projection reads | Expo managed: the custom engine needs the native projects anyway. Two native apps: two UIs for one product. |
-| Own C++ splat engine, a pruned SplatKit copy ([0002](docs/adr/0002-pruned-splatkit-without-lod.md), [0003](docs/adr/0003-shared-core-owns-viewer-behaviour.md)) | Per-splat labels, picking, highlight and framing need control of the data; one core is tested without a GPU and drawn by Metal and Vulkan | Platform viewers such as MetalSplatter: iOS only, so Android would repeat picking and highlight. Unity or Unreal: a heavy runtime inside React Native, without labels. WebGL in a WebView: a second runtime between gestures and drawing. A LOD tree: one engine bay does not need it. |
-| SPZ v3 cloud, `labels.bin` sidecar and SHA-256 manifest ([0004](docs/adr/0004-verified-offline-pack.md)) | 63 MB instead of the 636 MB trained PLY; SPZ has no label field, so one label byte per splat rides beside it; every byte is verified before use | Raw PLY: too large to bundle. A custom format: loses SPZ tooling. Streaming: the guide must open offline. |
-| Commands first, then Claude, Apple Foundation Models and scripted answers ([0006](docs/adr/0006-commands-and-ordered-instructor-fallback.md)) | Navigation stays deterministic, answers are best online, and something useful remains offline | Cloud only: fails offline. On-device only: the Apple model needs eligible Apple hardware and has no Android version. |
-| Cloudflare Worker in front of Claude | Keeps the API key off devices, rate limits per IP and turns the stream into NDJSON | Calling the API from the app: leaks the key. A dedicated server: more to run for one endpoint. |
-| iOS voice: SpeechAnalyzer in, Kokoro on CPU ONNX Runtime out ([0008](docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md)) | On-device, offline and natural; runs in the simulator and its failures are catchable | AVSpeechSynthesizer alone: robotic, kept as fallback. Core ML Kokoro: crash advisories. MLX: no simulator. sherpa-onnx Kokoro: links GPL eSpeak. |
-| Android voice: system SpeechRecognizer and TextToSpeech | Uses installed offline voices and recognition | Kokoro on Android: another 105 MB of model resources. |
-| COLMAP, Brush and SAM 3.1 on Modal ([0007](docs/adr/0007-local-pipeline-with-colmap-and-modal-sam.md)) | Polycam's camera records had zero translations; Brush trains on the Mac GPU; SAM needs CUDA, so it runs on Modal | Polycam poses: unusable. CUDA-only trainers: no NVIDIA GPU locally. |
-| One repository with two native packages ([0001](docs/adr/0001-one-repository.md)) | The pipeline validates packs with the app's own parser, so producer and consumer change together; the viewer and speech packages have unrelated native dependencies | A separate pipeline repository: contract drift. One native package: couples the GPU engine with audio and ML. |
+| Bare React Native with local [Nitro](https://nitro.margelo.com) packages ([0005](docs/adr/0005-bare-react-native-with-local-nitro-packages.md)) | One UI for iOS and Android; Nitro gives typed, synchronous native calls for per-frame gestures | Expo managed: the engine needs the native projects anyway. Two native apps: two UIs for one product. |
+| Own C++ splat engine, a pruned SplatKit copy ([0002](docs/adr/0002-pruned-splatkit-without-lod.md), [0003](docs/adr/0003-shared-core-owns-viewer-behaviour.md)) | Labels, picking, highlight and framing need control of the data; one core is tested without a GPU and drawn by Metal and Vulkan | MetalSplatter: iOS only. Unity or Unreal: a heavy runtime inside React Native. WebGL in a WebView: a second runtime between gestures and drawing. |
+| SPZ v3 cloud, label sidecar and SHA-256 manifest ([0004](docs/adr/0004-verified-offline-pack.md)) | 63 MB instead of the 636 MB trained PLY, one label byte per splat, and every byte verified before use | Raw PLY: too large to bundle. Streaming: the guide must open offline. |
+| Commands first, then Claude, Apple Foundation Models and scripted answers ([0006](docs/adr/0006-commands-and-ordered-instructor-fallback.md)) | Navigation stays deterministic, answers are best online, and something useful remains offline | Cloud only: fails offline. On-device only: the Apple model needs eligible hardware and has no Android version. |
+| No on-device model on Android | Offline, the scripted guidance already covers commands, procedures and specifications | Gemini Nano through ML Kit: only on a few recent phones. A bundled model such as Gemma: hundreds of MB in the app. |
+| Cloudflare Worker in front of Claude | Keeps the API key off devices and rate limits per IP | Calling the API from the app: leaks the key. |
+| Voice: SpeechAnalyzer and Kokoro on iOS ([0008](docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md)), system speech on Android | On-device and offline; Kokoro sounds natural and runs in the simulator | AVSpeechSynthesizer alone: robotic, kept as fallback. Core ML Kokoro: crash advisories. Kokoro on Android: another 105 MB. |
+| COLMAP, Brush and SAM 3.1 on Modal ([0007](docs/adr/0007-local-pipeline-with-colmap-and-modal-sam.md)) | Polycam's camera poses were unusable; Brush trains on the Mac GPU; SAM needs CUDA | CUDA-only trainers: no NVIDIA GPU locally. |
+| One repository with two native packages ([0001](docs/adr/0001-one-repository.md)) | The pipeline validates packs with the app's own parser; the viewer and speech packages have unrelated native dependencies | A separate pipeline repository: contract drift. |
 
 ## Repository
 
@@ -152,21 +126,17 @@ cd apps/field-guide
 nice -n 19 npm run ios
 ```
 
-Preparation downloads the pack from this repository's release with an authenticated `gh` and verifies it; `--pack <archive>` or `FIELD_GUIDE_PACK_URL` override the source.
-It then builds or reuses the engine, fetches pinned speech resources and installs JavaScript, Ruby and CocoaPods dependencies.
+Preparation downloads the pack release with `gh` and verifies it, builds or reuses the engine, and installs the speech resources and dependencies.
 
-## Production readiness
+## Status
 
 | Area | State |
 | --- | --- |
-| Checks | Unit and interface tests for the app, both native packages, the C interface, Metal drawing, the pipeline and the proxy, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
-| Data integrity | Pack bytes are checked against SHA-256 digests and splat counts at preparation and again at load |
-| Offline | Viewer, procedures and scripted answers work in airplane mode; Kokoro voice is bundled |
-| Secrets | The Claude key lives only in the Worker, behind a per-IP rate limit and the key's spend cap |
-| Distribution | iOS ships through TestFlight; Android Release signs with an upload key read from Gradle properties ([app setup](apps/field-guide/README.md#device-preparation)) |
-| Open before a store release | Physical-device performance and voice acceptance, crash reporting, caller attestation on the Worker, a Play upload key and listing, a privacy policy, and the AR check on the real engine ([TASKS.md](TASKS.md)) |
-
-An AR check against the physical engine is in the code but hidden behind `AR_CHECK_ENABLED`, because it needs the real car.
+| Testing | iOS on a physical iPhone and the iPad simulator, shipped through TestFlight; Android on the API 36 tablet emulator only |
+| Checks | Tests for the app, both native packages, the C interface, Metal drawing, the pipeline and the proxy, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
+| Offline | Viewer, procedures, commands and scripted answers work in airplane mode |
+| Secrets | The Claude key lives only in the Worker, behind a per-IP rate limit and a spend cap |
+| Open before a store release | Physical Android testing, crash reporting, caller attestation on the Worker, a Play listing, a privacy policy, and the AR check on the real engine, which is hidden behind `AR_CHECK_ENABLED` ([TASKS.md](TASKS.md)) |
 
 ## Read next
 

@@ -3,6 +3,26 @@
 The app composes the [guide design](../../docs/specs/field-guide-design.md) with local viewer and speech packages.
 Its platform/bridge choice is recorded in [ADR 0005](../../docs/adr/0005-bare-react-native-with-local-nitro-packages.md).
 
+## Layers
+
+Screens compose features; features talk to native code only through two local Nitro packages.
+ESLint enforces the arrows: `pack` and `guide` are pure TypeScript, and `ui` holds no business code.
+
+```mermaid
+flowchart TB
+  screens["screens and app<br/>navigation, composition"] --> features
+  screens --> ui["ui<br/>presentation primitives"]
+  subgraph features["features"]
+    direction LR
+    pack["pack<br/>parse, catalog"]
+    guide["guide<br/>session, tour, progress"]
+    instructor["instructor<br/>router, grounding, models, voice"]
+    viewport["viewport<br/>gestures, framing, markers"]
+  end
+  viewport --> splatPkg["react-native-splat"]
+  instructor --> onDevicePkg["react-native-on-device"]
+```
+
 ## Setup
 
 | Requirement | Preparation |
