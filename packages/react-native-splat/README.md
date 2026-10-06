@@ -35,7 +35,8 @@ The [Kotlin Nitro view](android/src/main/java/com/margelo/nitro/splat/HybridSpla
 Choreographer schedules frames while the shared core needs them and pauses on inactivity or detachment.
 Bundled assets become app-private files after manifest identity, size and SHA-256 checks; the core verifies the supplied digests and decoded source count before acceptance.
 Gradle/CMake build the adapter and embed compiled shaders without an iOS framework.
-Android file hashing uses the vendored PicoSHA2 header because the NDK supplies no OpenSSL library; iOS uses CommonCrypto.
+The Android viewer and its native dependencies are optimised in every variant, including Debug, while React Native Debug stays debuggable.
+Android hashing selects ARMv8 SHA-256 instructions when the CPU supports them and uses a bounded PicoSHA2 fallback; iOS uses CommonCrypto.
 [Provenance](../../docs/PROVENANCE.md#source-and-resource-identities) records the imported renderer and pinned Vulkan helpers.
 
 ## Limits and diagnostics
@@ -44,5 +45,5 @@ The iOS viewer requires an A14-class GPU or later; Android requires Vulkan and A
 AR needs a physical iOS 27 iPhone and a separate reference; [acceptance](../../TASKS.md) covers recognition, registration and semantic camera masks.
 Camera metadata arrives at 1 Hz and does not measure model confidence or inference speed.
 Debug `FIELD_GUIDE_AR_DIAGNOSTICS=1` enables AR console metadata; viewer counters are exposed by `react-native-splat/src/diagnostics`.
-Release keeps operational errors and disables diagnostic counters/console output.
+iOS Release keeps operational errors and disables diagnostic counters/console output; Android records load and frame timings in logcat.
 Artifact tests use fake compilers; C-interface tests run without a GPU and Mac Metal tests exercise drawing.
