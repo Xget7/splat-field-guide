@@ -32,7 +32,7 @@ export function ProcedureSheet({
     <Modal
       testID="procedure-sheet"
       visible={visible}
-      presentationStyle="pageSheet"
+      presentationStyle="formSheet"
       animationType="slide"
       backdropColor={Color.surface}
       allowSwipeDismissal

@@ -422,7 +422,7 @@ describe('viewer screen', () => {
     expect(sheet().props).toMatchObject({
       testID: 'procedure-sheet',
       visible: true,
-      presentationStyle: 'pageSheet',
+      presentationStyle: 'formSheet',
       allowSwipeDismissal: true,
     });
     for (const { id } of pack.procedures) {
