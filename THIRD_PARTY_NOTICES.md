@@ -86,6 +86,7 @@ Android runtime additions are listed below; platform speech recognition and TTS 
 | --- | --- | --- |
 | vk-bootstrap | MIT | [Source](https://github.com/charles-lunarg/vk-bootstrap) |
 | Vulkan Memory Allocator | MIT | [Source](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) |
+| PicoSHA2 | MIT | [Source](https://github.com/okdshin/PicoSHA2) |
 | AndroidX, including bundled SQLite | Apache-2.0; SQLite public domain | [Source](https://android.googlesource.com/platform/frameworks/support/), [SQLite terms](https://sqlite.org/copyright.html) |
 | Material Components | Apache-2.0 | [Source](https://github.com/material-components/material-components-android) |
 | Kotlin, coroutines and JetBrains annotations | Apache-2.0 | [Kotlin](https://github.com/JetBrains/kotlin), [coroutines](https://github.com/Kotlin/kotlinx.coroutines), [annotations](https://github.com/JetBrains/java-annotations) |

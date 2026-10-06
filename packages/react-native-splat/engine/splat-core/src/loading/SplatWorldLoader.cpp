@@ -8,7 +8,9 @@
 #include <string>
 #include <utility>
 
-#if defined(__APPLE__)
+#if defined(SPLAT_CORE_PORTABLE_SHA256)
+#include "picosha2.h"
+#elif defined(__APPLE__)
 #include <CommonCrypto/CommonDigest.h>
 #else
 #include <openssl/evp.h>
@@ -28,7 +30,9 @@ using Clock = std::chrono::steady_clock;
 constexpr std::size_t kSha256Bytes = 32;
 constexpr char kHexDigits[] = "0123456789abcdef";
 constexpr char kInvalidIdentity[] = "Pack source identity is invalid";
+#if !defined(SPLAT_CORE_PORTABLE_SHA256)
 constexpr char kDigestFailed[] = "SHA-256 computation failed";
+#endif
 constexpr char kSplatDigestMismatch[] = "Cloud SHA-256 does not match the pack manifest";
 constexpr char kLabelsDigestMismatch[] = "Part labels SHA-256 does not match the pack manifest";
 constexpr char kSplatCountMismatch[] = "Cloud splat count does not match the pack manifest";
@@ -41,7 +45,12 @@ bool validDigest(const std::string& digest) {
 
 Result<std::string> sha256(ByteView bytes) {
   std::array<unsigned char, kSha256Bytes> digest;
-#if defined(__APPLE__)
+#if defined(SPLAT_CORE_PORTABLE_SHA256)
+  picosha2::hash256_one_by_one context;
+  if (!bytes.empty()) context.process(bytes.data, bytes.data + bytes.size);
+  context.finish();
+  context.get_hash_bytes(digest.begin(), digest.end());
+#elif defined(__APPLE__)
   CC_SHA256_CTX context;
   if (CC_SHA256_Init(&context) != 1) return Error{ErrorCode::corrupt, kDigestFailed};
   for (std::size_t offset = 0; offset < bytes.size;) {

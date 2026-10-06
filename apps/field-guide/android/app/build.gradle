@@ -130,6 +130,7 @@ def prepareFieldGuideAssets = tasks.register('prepareFieldGuideAssets', Exec) {
     inputs.file('../../ios/FieldGuide/ThirdPartyNotices.txt')
     inputs.file('../ThirdPartyNotices.txt')
     inputs.file('../../../../packages/react-native-splat/engine/LICENSE')
+    inputs.file('../../../../packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE')
     inputs.dir('../../../../packages/react-native-splat/engine/splatkit-android/licenses')
     outputs.dir(runtimeAssets)
     commandLine 'node', file('../../scripts/prepare-android-assets.cjs'), runtimeAssets.get().asFile

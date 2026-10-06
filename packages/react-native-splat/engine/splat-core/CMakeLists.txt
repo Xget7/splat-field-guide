@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(SPLAT_CORE_BUILD_TESTS "Build splat_core unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(SPLAT_CORE_PORTABLE_SHA256 "Use vendored SHA-256 without platform crypto" ${ANDROID})
 # "thread" or "address" (address implies undefined). Off by default; CI runs both.
 set(SPLAT_CORE_SANITIZE "" CACHE STRING "Sanitizer for splat_core and its tests")
 
@@ -35,7 +36,10 @@ add_library(splat_core STATIC
 target_include_directories(splat_core PUBLIC include)
 find_package(ZLIB REQUIRED)  # the SPZ gzip container is inflated here, with a ceiling
 target_link_libraries(splat_core PRIVATE spz ZLIB::ZLIB PUBLIC Threads::Threads)
-if(NOT APPLE)
+if(SPLAT_CORE_PORTABLE_SHA256)
+  target_compile_definitions(splat_core PRIVATE SPLAT_CORE_PORTABLE_SHA256)
+  target_include_directories(splat_core SYSTEM PRIVATE vendor/picosha2)
+elseif(NOT APPLE)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   target_link_libraries(splat_core PRIVATE OpenSSL::Crypto)
 endif()

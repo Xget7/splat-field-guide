@@ -79,6 +79,11 @@ function prepareAssets(destination, packRoot = PACK_ROOT) {
   );
   for (const file of fs.readdirSync(vulkanLicenses))
     fs.copyFileSync(path.join(vulkanLicenses, file), path.join(licenses, file));
+  const hashLicense = path.join(
+    ROOT,
+    'packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE',
+  );
+  fs.copyFileSync(hashLicense, path.join(licenses, 'PicoSHA2.txt'));
   // Shared license texts have one maintained copy, with platform-only sections excluded.
   const sharedNotices = fs
     .readFileSync(
@@ -96,21 +101,22 @@ function prepareAssets(destination, packRoot = PACK_ROOT) {
     path.resolve(__dirname, '../android/ThirdPartyNotices.txt'),
     'utf8',
   );
-  const rendererNotices = [
-    ['vk-bootstrap.txt', 'vk-bootstrap'],
-    ['VulkanMemoryAllocator.txt', 'Vulkan Memory Allocator'],
+  const nativeNotices = [
+    [path.join(vulkanLicenses, 'vk-bootstrap.txt'), 'vk-bootstrap'],
+    [
+      path.join(vulkanLicenses, 'VulkanMemoryAllocator.txt'),
+      'Vulkan Memory Allocator',
+    ],
+    [hashLicense, 'PicoSHA2'],
   ]
     .map(
       ([file, title]) =>
-        `${NOTICE_SEPARATOR}\n${title}\n\n${fs.readFileSync(
-          path.join(vulkanLicenses, file),
-          'utf8',
-        )}`,
+        `${NOTICE_SEPARATOR}\n${title}\n\n${fs.readFileSync(file, 'utf8')}`,
     )
     .join('\n');
   fs.writeFileSync(
     path.join(destination, 'ThirdPartyNotices.txt'),
-    [sharedNotices, androidNotices, rendererNotices].join('\n'),
+    [sharedNotices, androidNotices, nativeNotices].join('\n'),
   );
 }
 

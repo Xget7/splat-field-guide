@@ -57,6 +57,7 @@ test('Android packages only verified runtime records and rejects corrupt packs',
     );
     assert.match(notices, /React Native and Yoga/);
     assert.match(notices, /Vulkan Memory Allocator/);
+    assert.match(notices, /PicoSHA2/);
     assert.match(notices, /Fresco/);
     assert.doesNotMatch(notices, /Kokoro model/);
     manifest.tiers[0].splatCount = 4;

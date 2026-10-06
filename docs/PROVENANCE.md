@@ -8,6 +8,10 @@ Shipped dependency terms and full license texts are indexed in [third-party noti
 | Material | Source identity |
 | --- | --- |
 | SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `62cee54d884bd20c7dd450e8e6525e3d4c0e1652`, integrated revision `a28c8cc4e89fb0b40d98691f40fc8472870dda4c`; [retained license](../packages/react-native-splat/engine/LICENSE) |
+| SplatKit Vulkan/Nitro Android | [Xget7/splatkit revision 56524cf](https://github.com/Xget7/splatkit/tree/56524cfbcc4aac81f71405ad8c19d4f90420ab3d), imported surface, buffers, visibility, radix sorting and rendering with a Field Guide Kotlin/JNI binding; MIT under the retained SplatKit license |
+| vk-bootstrap | [v1.4.307](https://github.com/charles-lunarg/vk-bootstrap/tree/v1.4.307), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/vk-bootstrap.txt) |
+| Vulkan Memory Allocator | [v3.2.1](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/tree/v3.2.1), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/VulkanMemoryAllocator.txt) |
+| PicoSHA2 | [revision 161cb3f](https://github.com/okdshin/PicoSHA2/tree/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29), standalone Android SHA-256 header; [MIT license](../packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE) |
 | SPZ | [nianticlabs/spz](https://github.com/nianticlabs/spz/tree/affd0ecea7fbb4c265ee119475af7ee5b2997482), pinned by CMake |
 | zstd | SPZ's 1.5.6 dependency, using BSD-3-Clause terms from its dual-license distribution |
 | App/native dependencies | Exact JS/pod versions in [package-lock.json](../apps/field-guide/package-lock.json) and [Podfile.lock](../apps/field-guide/ios/Podfile.lock) |
@@ -16,7 +20,7 @@ Shipped dependency terms and full license texts are indexed in [third-party noti
 | FluidAudio frontend | Five adapted Swift files from [revision 2a2e382](https://github.com/FluidInference/FluidAudio/tree/2a2e382f80e07720fb511183de1731813a90a39a/Sources/FluidAudio/TTS), with [adaptations](../packages/react-native-on-device/ios/KokoroFrontend/README.md) |
 | Misaki/BART resources | [FluidInference revision 006395f](https://huggingface.co/FluidInference/kokoro-82m-coreml/tree/006395f65025af251858b1ab0a7178a6a1e73f9f), derived from [PeterReid revision a5631b2](https://huggingface.co/PeterReid/graphemes_to_phonemes_en_us/tree/a5631b285d18d59483c32c0c3379cb9fac924f4b) |
 | Geist | Bundled font binaries and [OFL text](../apps/field-guide/assets/fonts/Geist-OFL.txt) |
-| Apple frameworks/system zlib | Platform-provided implementations under their SDK/system terms |
+| Apple/Android frameworks and system libraries | Platform-provided implementations under their SDK/system terms |
 
 [kokoro-models.json](../apps/field-guide/scripts/kokoro-models.json) records immutable download URLs and individual hashes.
 ONNX Runtime's dependency notices remain bundled alongside its MIT license.
@@ -53,4 +57,5 @@ The SAM license restricts military, warfare and ITAR-related uses; review those 
 | AR | Author-supplied Object Capture/Create ML output and reviewed landmark picks, with physical alignment acceptance pending |
 
 Exact producing COLMAP/Brush settings and SAM checkpoint identities are required for deterministic reproduction; byte identity alone does not recover execution settings.
+The Vulkan import excludes LOD, streaming, render policy and CPU sorting; its [source receipt](../packages/react-native-splat/engine/splatkit-android/UPSTREAM) identifies the retained files.
 The retained engine contains guide-specific label-aware loading/filtering, picking, highlight and camera behaviour; its imported-source identity and license must accompany redistribution.
