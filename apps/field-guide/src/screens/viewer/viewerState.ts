@@ -13,7 +13,7 @@ import {
   type Exchange,
   type TurnEvent,
 } from '../../features/instructor/turn';
-import { cardContentFor, type CardContent } from './guideContent';
+import { CardKind, cardContentFor, type CardContent } from './guideContent';
 
 export { ExchangePhase, type Exchange } from '../../features/instructor/turn';
 
@@ -104,10 +104,13 @@ function showStep(state: ViewerState, pack: Pack): ViewerState {
   if (last?.kind === EntryKind.step && last.key === key) {
     return state;
   }
+  // The overview only stands for the screen until a part or step replaces it.
+  const replaced =
+    last?.kind === EntryKind.step && last.card.kind === CardKind.overview;
   return {
     ...state,
     stepsShown: state.stepsShown + 1,
-    thread: append(state.thread, {
+    thread: append(replaced ? state.thread.slice(0, -1) : state.thread, {
       kind: EntryKind.step,
       id: state.stepsShown,
       key,

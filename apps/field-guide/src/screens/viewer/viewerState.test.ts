@@ -3,6 +3,7 @@ import { SessionEventType } from '../../features/guide/session';
 import { bundledPack } from '../../features/pack/bundledPack';
 import { createModelInstructor } from '../../features/instructor/models/modelInstructor';
 import { ExchangePhase, TurnEventType } from '../../features/instructor/turn';
+import { CardKind } from './guideContent';
 import {
   answeredExchanges,
   EntryKind,
@@ -89,6 +90,31 @@ describe('viewer conversation and guide presentation', () => {
     expect(run(exploring, { type: ViewerActionType.guide }).session).toEqual(
       coolant.session,
     );
+  });
+
+  it('lists the overview only until a part replaces it', () => {
+    const select = (partId: string | null): ViewerAction => ({
+      type: ViewerActionType.session,
+      event: { type: SessionEventType.select, partId },
+    });
+    const state = run(
+      coolant,
+      { type: ViewerActionType.explore },
+      select('battery'),
+      select(null),
+      select('fuse-box'),
+      select(null),
+    );
+    expect(
+      state.thread.map(entry =>
+        entry.kind === EntryKind.step ? entry.card.kind : entry.kind,
+      ),
+    ).toEqual([
+      CardKind.procedure,
+      CardKind.part,
+      CardKind.part,
+      CardKind.overview,
+    ]);
   });
 
   it('forgets the guide set aside once another procedure starts', () => {
