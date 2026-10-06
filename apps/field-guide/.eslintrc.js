@@ -1,4 +1,4 @@
-const composition = ['**/screens/**', '**/navigation/**', '**/App'];
+const composition = ['**/screens/**', '**/app/**', '**/App'];
 const native = [
   'react',
   'react/**',

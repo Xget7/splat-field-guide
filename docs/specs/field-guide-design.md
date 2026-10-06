@@ -34,7 +34,7 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 
 | Unit | Owns |
 | --- | --- |
-| `src/App.tsx`, `src/navigation` | Startup, navigation, catalog context and the native progress adapter |
+| `src/App.tsx`, `src/app` | Startup, navigation, catalog context and the native progress adapter |
 | `src/pack`, `src/guide` | Pure pack parsing/catalog and session, tour, progress, highlight and framing rules |
 | `src/instructor` | Command routing, turns, authored grounding, model adapters and voice |
 | `src/viewport` | Native viewer readiness, gestures, camera conversion, framing and projected markers |

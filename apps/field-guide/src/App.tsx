@@ -1,9 +1,9 @@
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RootNavigator } from './navigation/RootNavigator';
+import { RootNavigator } from './app/RootNavigator';
 import { bundledPack } from './pack/bundledPack';
-import { PackErrorScreen } from './navigation/PackErrorScreen';
+import { PackErrorScreen } from './app/PackErrorScreen';
 import { Color } from './ui/theme';
 
 function App() {

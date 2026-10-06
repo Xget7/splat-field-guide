@@ -7,10 +7,10 @@ import {
   type ComingSoonGuide,
   type ReadyGuide,
 } from '../../pack/catalog';
-import { useCatalog } from '../../navigation/CatalogContext';
-import { LearnMode, Route, type ScreenProps } from '../../navigation/routes';
+import { useCatalog } from '../../app/CatalogContext';
+import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { type Progress } from '../../guide/progress';
-import { loadProgress } from '../../navigation/progressStorage';
+import { loadProgress } from '../../app/progressStorage';
 import { SectionHeader } from '../../ui/SectionHeader';
 import { Color, Space, Type } from '../../ui/theme';
 import { continueRowFor } from './library';

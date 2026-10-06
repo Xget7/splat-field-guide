@@ -11,10 +11,10 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CATEGORY_TITLE, findReadyGuide } from '../../pack/catalog';
-import { useCatalog } from '../../navigation/CatalogContext';
+import { useCatalog } from '../../app/CatalogContext';
 import type { ProcedureId } from '../../pack/pack';
 import { TOUR_ID } from '../../guide/tour';
-import { LearnMode, Route, type ScreenProps } from '../../navigation/routes';
+import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { Button, IconButton, IconButtonVariant } from '../../ui/Button';
 import { Icon, IconName } from '../../ui/Icon';
 import { READOUT_SEPARATOR } from '../../ui/readout';

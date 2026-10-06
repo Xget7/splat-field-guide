@@ -8,7 +8,7 @@ import {
   useInstructorVoice,
   type Utterance,
 } from '../../instructor/voice/useInstructorVoice';
-import { clearProgress, saveProgress } from '../../navigation/progressStorage';
+import { clearProgress, saveProgress } from '../../app/progressStorage';
 import { cardContentFor } from './guideContent';
 import {
   answeredExchanges,

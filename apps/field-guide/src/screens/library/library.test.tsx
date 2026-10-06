@@ -3,10 +3,10 @@ import { NavigationContext } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor } from '../../pack/catalog';
-import { CatalogProvider } from '../../navigation/CatalogContext';
-import { LearnMode, Route, type ScreenProps } from '../../navigation/routes';
+import { CatalogProvider } from '../../app/CatalogContext';
+import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { bundledPack } from '../../pack/bundledPack';
-import { saveProgress } from '../../navigation/progressStorage';
+import { saveProgress } from '../../app/progressStorage';
 import { continueRowFor } from './library';
 import { LibraryScreen } from './LibraryScreen';
 

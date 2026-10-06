@@ -2,8 +2,8 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Linking } from 'react-native';
 import { catalogFor } from '../../pack/catalog';
-import { CatalogProvider } from '../../navigation/CatalogContext';
-import { Route, type ScreenProps } from '../../navigation/routes';
+import { CatalogProvider } from '../../app/CatalogContext';
+import { Route, type ScreenProps } from '../../app/routes';
 import { bundledPack } from '../../pack/bundledPack';
 import { ARScreen } from './ARScreen';
 

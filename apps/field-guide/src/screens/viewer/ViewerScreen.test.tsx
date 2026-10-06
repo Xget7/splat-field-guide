@@ -22,7 +22,7 @@ import {
 import type { SplatViewSpec } from 'react-native-splat';
 import { fixturePack } from '../../testing/fixturePack';
 import { catalogFor } from '../../pack/catalog';
-import { CatalogProvider } from '../../navigation/CatalogContext';
+import { CatalogProvider } from '../../app/CatalogContext';
 import { highlightFor } from '../../guide/derive';
 import type { ProcedureId } from '../../pack/pack';
 import { SessionEventType } from '../../guide/session';
@@ -32,10 +32,10 @@ import {
   Route,
   type RootStackParamList,
   type ScreenProps,
-} from '../../navigation/routes';
+} from '../../app/routes';
 import { bundledPack } from '../../pack/bundledPack';
 import { continueRowFor } from '../library/library';
-import { loadProgress } from '../../navigation/progressStorage';
+import { loadProgress } from '../../app/progressStorage';
 import { ViewerScreen, type FieldGuideDebug } from './ViewerScreen';
 import { onDeviceInstructions } from '../../instructor/models/onDeviceModel';
 import { Color, Motion } from '../../ui/theme';
