@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.22)
 project(splatkit_android LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# The viewer and its dependencies need optimisation even when React Native is debuggable.
+add_compile_options(-O3)
 include(FetchContent)
 set(VK_BOOTSTRAP_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
 FetchContent_Declare(vk-bootstrap
