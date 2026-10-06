@@ -1,10 +1,10 @@
-# One repository for the engine, app and pipeline
+# One repository at the pack contract
 
 Status: accepted.
 
-The pipeline and app meet at the pack contract.
+The pipeline and app share a versioned pack contract, so keep the pipeline, app and native packages in one repository.
+Publication validates packs with the app parser through [validate-pack.cjs](../../scripts/validate-pack.cjs), allowing producer and consumer changes to be verified together.
 
-Keep the renderer, native packages, app and pipeline together so a contract change can land in one commit.
-
-- Each folder keeps its own toolchain.
-- A separate pipeline product would need an extracted pack contract.
+- Contract changes and their checks can land together.
+- Each unit retains its own toolchain and tests.
+- Extracting the pipeline requires a separately maintained consumer contract.

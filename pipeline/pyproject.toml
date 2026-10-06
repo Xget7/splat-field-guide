@@ -1,0 +1,19 @@
+[project]
+name = "field-guide-pipeline"
+version = "0.0.1"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy<2",
+  "opencv-python-headless",
+  "pillow",
+  "scipy",
+  "pyyaml",
+  "modal",
+  "fastapi",
+  "httpx2",
+  "uvicorn",
+  "usd-core",
+]
+
+[dependency-groups]
+dev = ["pytest"]

@@ -2,78 +2,49 @@
 
 ## Before editing
 
-- **Names:** read [CONTEXT.md](CONTEXT.md) before introducing or renaming an equipment, guidance, pack or AR concept.
-- **Decisions:** read the relevant [ADR](docs/adr/) before changing a module's interface, ownership, model order, pack format or platform choice.
-- **Evidence:** use the [research index](docs/research/README.md) when checking capture measurements, historical alternatives, speech choices or provisional AR claims.
+- **Names:** read [CONTEXT.md](CONTEXT.md) before introducing or renaming equipment, guidance, pack or AR concepts.
+- **Ownership:** read [design](docs/specs/field-guide-design.md#ownership) and the relevant [ADR](docs/adr/) before changing an interface, ownership, model order, pack format or platform choice.
+- **Evidence:** read the agent [process record](docs/process.md) before checking capture measurements, native bridge/speech decisions or provisional AR claims.
 - **Pipeline:** read [pipeline/README.md](pipeline/README.md) before touching capture stages, annotations, export or pack preparation.
-- **Splat:** read [react-native-splat](packages/react-native-splat/README.md) before changing the view, engine lifecycle or generated interface.
+- **Splat:** read [react-native-splat](packages/react-native-splat/README.md) before changing its view, engine lifecycle or generated interface.
 - **Speech/model:** read [react-native-on-device](packages/react-native-on-device/README.md) before changing audio, transcription, generation or speech resources.
-- **App:** read [app setup](apps/field-guide/README.md) for device preparation and [REQUIREMENTS.md](REQUIREMENTS.md) plus [TASKS.md](TASKS.md) before changing acceptance claims.
+- **Acceptance:** read [app setup](apps/field-guide/README.md), [REQUIREMENTS.md](REQUIREMENTS.md) and [TASKS.md](TASKS.md) before changing acceptance claims.
 
-Complete this step when the owned module, its interface and the evidence needed to verify the change are identified.
-
-## Repo map
-
-| Path | Owns |
-| --- | --- |
-| `apps/field-guide/src/app` | Composition and navigation |
-| `apps/field-guide/src/domain` | Pure pack/session rules, tours and highlight/framing derivation |
-| `apps/field-guide/src/features` | Library, guide detail, viewer and AR presentation |
-| `apps/field-guide/src/modules` | Catalog, pack paths, ordered progress, instructor turns and viewport ownership |
-| `apps/field-guide/src/shared` | UI primitives, general hooks and route contracts |
-| `packages/react-native-splat` | Nitro view, C interface, C++ geometry and Metal rendering |
-| `packages/react-native-on-device` | Transcription, Apple generation, Kokoro and audio coordination |
-| `services/instructor-proxy` | Worker request policy, Claude credentials and stream translation |
-| `pipeline`, `content` | Capture stages and authored maintenance content |
-| `scripts`, `data/pack` | Demo preparation, archive packaging and ignored prepared artifacts |
-| `tests`, `docs` | Interface checks and supporting records |
-
-Dependencies flow from app composition to features/modules, then domain/shared.
-Modules do not import features or app composition; domain has no React/native dependencies and shared has no business dependencies.
-ESLint enforces this direction; import implementations directly instead of adding barrels.
+Proceed when the owned unit, caller/test interface and required evidence are identified.
+Source/simulator checks leave physical acceptance explicitly unchecked.
 
 ## Prepare and verify
 
-Run commands from the stated directory, using fakes rather than paid requests.
+Run from the stated directory with `nice -n 19`, using fakes for paid services.
 
 | Directory | Purpose | Command |
 | --- | --- | --- |
-| Root | Prepare demo | `nice -n 19 scripts/prepare.sh --pack /path/to/gol-trend-engine-bay-1.tar.gz` |
-| Root | Engine framework | `nice -n 19 packages/react-native-splat/scripts/build-ios-engine.sh` |
-| `apps/field-guide` | Install JS | `nice -n 19 npm ci` |
-| `apps/field-guide` | Start/run | `npm start`, `nice -n 19 npm run ios` |
-| `apps/field-guide` | Tests | `nice -n 19 npm test -- --runInBand` |
-| `apps/field-guide` | Lint and types | `nice -n 19 npm run lint`, `nice -n 19 npm run typecheck` |
-| Each native package | Install/codegen | `nice -n 19 npm ci`, `nice -n 19 npm run codegen` |
-| Each native package | Lint and types | `nice -n 19 npm run lint`, `nice -n 19 npm run typecheck` |
-| `packages/react-native-splat` | Artifact tests | `nice -n 19 npm test` |
-| `packages/react-native-on-device` | JS/Swift harness tests | `nice -n 19 npm test -- --runInBand` |
-| `services/instructor-proxy` | Install/tests/types | `nice -n 19 npm ci`, `nice -n 19 npm test`, `nice -n 19 npx tsc --noEmit -p .` |
-| Root | Pipeline preflight | `nice -n 19 uv run pipeline/preflight.py` |
-| Root | Verify exported pack | `nice -n 19 uv run pipeline/export_checks.py --pack data/pack/gol-trend-engine-bay/1 --labels data/pack/.sources/lift/labels.npy` |
-| Root | Marking-page tests | `nice -n 19 node --test tests/pipeline/test_mark_page.cjs` |
-| Root | Pipeline lint | `nice -n 19 uvx ruff check --select F,E9 pipeline tests/pipeline scripts` |
-| Root | Pack archive | `nice -n 19 scripts/package-pack.sh` |
-| `apps/field-guide` | Ruby dependencies | `nice -n 19 bundle install` |
-| `apps/field-guide/ios` | Pods after preparation/codegen | `nice -n 19 bundle exec pod install` |
+| Root | Prepare demo | `scripts/prepare.sh --pack /path/to/gol-trend-engine-bay-1.tar.gz` |
+| Root | Build/reuse engine | `packages/react-native-splat/scripts/build-ios-engine.sh` |
+| App and native packages | Install, lint, types | `npm ci`, `npm run lint`, `npm run typecheck` |
+| `apps/field-guide` | App tests | `npm test -- --runInBand` |
+| Each native package | Codegen | `npm run codegen` |
+| `packages/react-native-splat` | Artifact tests | `npm test` |
+| `packages/react-native-on-device` | JS/Swift harnesses | `npm test -- --runInBand` |
+| `services/instructor-proxy` | Tests/types | `npm test`, `npx tsc --noEmit -p .` |
+| Root | Pipeline tests | `uv run --project pipeline python -m pytest pipeline/tests` |
+| Root | Pipeline preflight | `uv run --project pipeline python -m pipeline.pack.preflight` |
+| Root | Marking-page test | `node --test pipeline/tests/test_mark_page.cjs` |
+| Root | Pipeline lint | `uvx ruff check --select F,E9 pipeline scripts` |
+| Root | Verify exported pack | `uv run --project pipeline python -m pipeline.pack.export_checks --pack data/pack/gol-trend-engine-bay/1 --labels data/pack/.sources/lift/labels.npy` |
+| Root | Package archive | `scripts/package-pack.sh` |
+| `apps/field-guide` | Ruby dependencies | `bundle install` |
+| `apps/field-guide/ios` | Pods | `bundle exec pod install` |
 
-Omit `--pack` once the public release exists, or supply `FIELD_GUIDE_PACK_URL`; matching pack files and engine fingerprints are reused.
-Preparation installs app and native package development dependencies, fetches pinned Kokoro resources, installs the app Gemfile and runs `bundle exec pod install`.
-Gemfile.lock selects Bundler 2.4.22, CocoaPods 1.16.2 and xcodeproj 1.27.0; use the locked Bundler command when changing pods.
-It accepts only `--pack <archive>`; force an engine rebuild with `build-ios-engine.sh --force`, then rerun preparation.
-App/package tools need Node 22.11+; the proxy uses Node 26+; pipeline scripts need Python 3.12+, uv and Node for the app parser.
-After preparation, each native package is ready for its own checks.
-Pipeline export checks require the corresponding capture/training artifacts; a missing source is a blocker to report, not evidence of a passed real-pack check.
-Nitro outputs in `nitrogen/generated` are intentionally committed with their specifications.
-On-device tests compile Swift harnesses on macOS 26+ and skip those checks on other hosts.
+Preparation installs all three app/native development dependency sets and the locked app Gemfile before Pods.
+Use locked Bundler 2.4.22 with CocoaPods 1.16.2 and xcodeproj 1.27.0 when changing Pods.
+After an engine source change, prepare before installing Pods; use `build-ios-engine.sh --force` for an explicit rebuild.
+App/package tools need Node 22.11+; the proxy needs Node 26+; pipeline tools need Python 3.12+, uv and Node for the consumer parser.
+`pipeline/pyproject.toml` and `uv.lock` own local Python dependencies; invoke Python stages as modules from root.
+Source-backed export checks require every corresponding source artifact and the publication receipt; report missing inputs as blockers.
+On-device tests compile Swift harnesses on macOS 26+ and skip those harnesses on other hosts.
 
-Run pipeline regression tests from root with the dependencies used by the fake-backed suite:
-
-```sh
-nice -n 19 uv run --with 'numpy<2' --with opencv-python-headless --with pillow --with scipy --with pyyaml --with modal --with fastapi --with httpx2 python -m unittest discover -s tests/pipeline
-```
-
-Build and test the GPU-independent C++/C interface from root:
+Build/test the GPU-independent C++/C interface from root:
 
 ```sh
 nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
@@ -81,7 +52,7 @@ nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
 nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
 ```
 
-Build and test the Metal implementation and shared core on the Mac, from root:
+Build/test Metal and the shared core on the Mac, from root:
 
 ```sh
 nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
@@ -89,33 +60,52 @@ nice -n 19 cmake --build packages/react-native-splat/build/checks --parallel 2
 nice -n 19 ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 ```
 
-Build the app without signing, from root:
+Build the app without signing from root, selecting a simulator explicitly when validating a device layout:
 
 ```sh
 nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
   -scheme FieldGuide -configuration Debug -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath apps/field-guide/ios/build/agent-simulator \
+  -derivedDataPath apps/field-guide/ios/build/final-shape \
   COMPILATION_CACHE_ENABLE_CACHING=NO CODE_SIGNING_ALLOWED=NO build
 ```
 
-Keep every xcodebuild's derived data under `apps/field-guide/ios/build/`, disable compilation caching and delete that build folder when finished.
-Complete verification when the affected interface tests, lint/types and relevant build pass, with device-only acceptance left explicitly unchecked.
+Keep xcodebuild DerivedData under `apps/field-guide/ios/build/`, disable compilation caching and delete the temporary build directory afterward.
+Verification completes when affected interface tests, lint/types and the relevant build pass, with unresolved hardware/source prerequisites recorded.
+
+## Capture and reference operations
+
+Read the process record and inspect stage `--help`/`--plan` before execution.
+Use `nice -n 19 uv run --project pipeline python -m pipeline.pack.<stage>` from root for `ingest`, `poses`, `cameras`, `training`, `preflight`, `import_annotations`, `lift_all`, `export` and `export_checks`.
+`training --plan` starts no training; `pipeline/pack/train_local.sh` invokes the execution path.
+Before authorized SAM execution, configure Modal and its `huggingface` secret with approved `HF_TOKEN`, then upload the exact ingested JPEGs to `sfg-spike-frames:/jpg`.
+Use `modal deploy --module pipeline.pack.sam_live` for marking and `modal run --module pipeline.pack.sam_track` for propagation; stop the marking app after use.
+Download the complete accepted marks revision tree from `/marks` before lifting.
+After reviewed export, update the pinned content manifest and package the archive; publishing requires explicit authorization.
+
+AR Python stages use `pipeline.ar.<stage>`: `register_reference`, `prepare_reference`, `cleanup_reference`, `train_reference`, `publish_landmarks` and `watch_ar`.
+The reference training recipe uses explicit `--mode standard --angles front --plan` with `--source` and `--output`; remove `--plan` only when training is authorized.
+Build `reconstruct_reference.swift`, `author_ar_landmarks.swift` and `probe_reference.swift` with `nice -n 19 xcrun swiftc`, following their file headers.
+For physical AR diagnostics, `watch_ar --device <identifier> --expect detected` captures metadata; `--check-capture <jsonl> --expect detected` replays it without a phone.
+Create the destination directory before redirecting stdout; a recognition verdict leaves landmark alignment unchecked.
 
 ## Implementation and writing rules
 
 - Design deep modules with small interfaces; callers and tests cross the same seam.
 - Apply the deletion test: useful modules keep complexity from spreading into callers.
-- Two adapters justify a seam; one is a hypothetical seam.
-- Reproduce a bug with a failing screen, module-interface or C-interface test, then fix it and see that test pass.
-- Keep few essential behaviour tests, extend existing ones and remove implementation-only tests once interface coverage replaces them.
-- Match surrounding naming, idiom and comment density; comments explain why in plain sentences.
-- Name meaningful or repeated literals for events, URLs, headers, messages and limits.
+- Two adapters justify a seam; one is hypothetical.
+- Import implementations directly, with dependency directions enforced by app ESLint.
+- Put tests beside their code and shared app fakes/setup in `src/testing`.
+- Reproduce bugs with a failing screen, module-interface or C-interface test, then fix and rerun it.
+- Extend essential behaviour tests and remove implementation-only tests when interface coverage replaces them.
+- Match surrounding naming and idiom; comments explain why in plain sentences.
+- Name meaningful or repeated event, URL, header, message and limit literals.
+- Commit Nitro generated outputs with their specifications.
 - Use ASCII hyphens or commas; U+2014 and U+00B7 are forbidden in code, comments, docs and commits.
 - Put each full Markdown sentence on its own physical line.
-- Keep human READMEs short, operational instructions here, glossary definitions implementation-free, ADRs concise and research historical.
-- Distinguish source/simulator checks from physical acceptance; update affected docs with behaviour changes.
-- When shipped dependencies or resources change, reconcile [third-party notices](THIRD_PARTY_NOTICES.md) and the app's `ios/FieldGuide/ThirdPartyNotices.txt` from their local license texts.
-- Commit small logical steps with one plain imperative sentence, without co-author, generated or other trailers.
+- Keep human READMEs short, operations here, glossary definitions implementation-free and ADRs concise.
+- Human docs describe the current code; the agent process record retains measurements and unresolved prerequisites.
+- Reconcile [third-party notices](THIRD_PARTY_NOTICES.md) and the bundled texts when shipped dependencies/resources change.
+- Commit small logical steps with one plain imperative sentence and no trailers.
 - Publish, deploy, upload or make paid calls only when explicitly requested.
 
-Finish with the relevant checks passing, temporary artifacts removed, and an accurate report of unresolved device or external prerequisites.
+Finish with relevant checks passing, temporary artifacts removed and an accurate report of unresolved prerequisites.

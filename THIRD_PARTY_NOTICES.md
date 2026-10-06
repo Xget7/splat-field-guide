@@ -1,6 +1,6 @@
 # Third-party notices
 
-The app bundles [ThirdPartyNotices.txt](apps/field-guide/ios/FieldGuide/ThirdPartyNotices.txt) with the locally available license texts below.
+The app bundles [ThirdPartyNotices.txt](apps/field-guide/ios/FieldGuide/ThirdPartyNotices.txt) with the license texts listed below.
 Versions and resource identities remain in the app lockfiles and [provenance](docs/PROVENANCE.md).
 
 | Component | License | Source |
@@ -22,14 +22,14 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 | Folly | Apache-2.0 | [Source](https://github.com/facebook/folly) |
 | Boost | BSL-1.0 | [Source](https://github.com/boostorg/boost) |
 | zlib (system library) | Zlib | [Source](https://github.com/madler/zlib) |
-| fast_float | MIT (declared by React Native podspec) | [Source](https://github.com/fastfloat/fast_float) |
-| SocketRocket | BSD-style (declared in vendored headers) | [Source](https://github.com/facebookincubator/SocketRocket) |
+| fast_float 8.0.0 | MIT | [License](https://raw.githubusercontent.com/fastfloat/fast_float/v8.0.0/LICENSE-MIT) |
+| SocketRocket 0.7.1 | BSD-3-Clause | [License](https://raw.githubusercontent.com/facebookincubator/SocketRocket/0.7.1/LICENSE) |
 | @babel/runtime | MIT | [Source](https://github.com/babel/babel) |
 | @react-native/asset-utils | MIT | [Source](https://github.com/react/react-native) |
 | @react-native/js-polyfills | MIT | [Source](https://github.com/react/react-native) |
 | @react-native/normalize-colors | MIT | [Source](https://github.com/react/react-native) |
 | @react-native/virtualized-lists | MIT | [Source](https://github.com/react/react-native) |
-| @react-native-async-storage/async-storage | MIT | [Source](https://github.com/react-native-async-storage/async-storage) |
+| @react-native-async-storage/async-storage 3.1.1 | MIT | [License](https://raw.githubusercontent.com/react-native-async-storage/async-storage/4535ff0728207221a5831ed59dcebab1e4fba33e/LICENSE) |
 | @react-navigation/core | MIT | [Source](https://github.com/react-navigation/react-navigation) |
 | react-is | MIT | [Source](https://github.com/react/react) |
 | @react-navigation/elements | MIT | [Source](https://github.com/react-navigation/react-navigation) |
@@ -45,7 +45,7 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 | fast-deep-equal | MIT | [Source](https://github.com/epoberezkin/fast-deep-equal) |
 | invariant | MIT | [Source](https://github.com/zertosh/invariant) |
 | memoize-one | MIT | [Source](https://github.com/alexreardon/memoize-one) |
-| metro-runtime | MIT | [Source](https://github.com/react/metro) |
+| metro-runtime 0.87.1 | MIT | [License](https://raw.githubusercontent.com/react/metro/c7597f88c3e5b2a0d5e5915dfed2413aadcdfcce/LICENSE) |
 | nanoid | MIT | [Source](https://github.com/ai/nanoid) |
 | nullthrows | MIT | [Source](https://github.com/zertosh/nullthrows) |
 | promise | MIT | [Source](https://github.com/then/promise) |
@@ -54,7 +54,7 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 | React Native and Yoga | MIT | [Source](https://github.com/react/react-native) |
 | react-native-gesture-handler | MIT | [Source](https://github.com/software-mansion/react-native-gesture-handler) |
 | react-native-is-edge-to-edge | MIT | [Source](https://github.com/zoontek/react-native-edge-to-edge) |
-| react-native-nitro-modules | MIT | [Source](https://github.com/mrousavy/nitro) |
+| react-native-nitro-modules 0.37.1 | MIT | [License](https://raw.githubusercontent.com/mrousavy/nitro/v0.37.1/LICENSE) |
 | react-native-reanimated | MIT | [Source](https://github.com/software-mansion/react-native-reanimated) |
 | react-native-safe-area-context | MIT | [Source](https://github.com/appandflow/react-native-safe-area-context) |
 | react-native-screens | MIT | [Source](https://github.com/software-mansion/react-native-screens) |
@@ -70,7 +70,6 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 | warn-once | MIT | [Source](https://github.com/satya164/warn-once) |
 | whatwg-fetch | MIT | [Source](https://github.com/github/fetch) |
 
-Full license texts were unavailable locally for fast_float, SocketRocket, @react-native-async-storage/async-storage, metro-runtime, react-native-nitro-modules; their entries retain the declared terms without substituting license text.
 ONNX Runtime dependency notices are retained as one upstream document, including their individual licenses.
 The speech frontend uses Misaki/BART resources; no eSpeak or phonemizer code/data is bundled.
 Apple frameworks and system zlib are supplied by the platform; build-only CMake, GoogleTest, Nitrogen and capture/training tools are outside this app inventory.
