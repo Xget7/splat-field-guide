@@ -90,7 +90,7 @@ flowchart LR
 - Metal composites front to back into a half-float target; Vulkan composites back to front into a scaled offscreen target.
 - Gestures run as UI-thread worklets that call `orbit` and `dolly` synchronously through Nitro.
 - A tap calls `pick` on a worker: the ray composites the Gaussians it passes, nearest first, and returns the label that contributes most to that pixel.
-- The app maps the label to a part, the session expands it to its children, and the renderer tints those splats marine blue and dims the rest while the camera frames them.
+- The app maps the label to a part, the session expands it to its children, and the renderer brightens those splats with a faint accent tint and dims the rest to 55% while the camera frames them.
 - Part markers come from `project`, which reads the last drawn frame's projection synchronously.
 - A new cloud materialises with a rising reveal sweep, and `onReady` fires after its first GPU frame.
 
