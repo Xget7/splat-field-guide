@@ -5,7 +5,7 @@ enum OnDeviceGeneration {
   static func stream(session: LanguageModelSession, prompt: String,
     onPartial: (String) -> Void) async throws -> String {
     let stream = session.streamResponse(
-      to: prompt, options: GenerationOptions(sampling: .greedy))
+      to: prompt, options: GenerationOptions(samplingMode: .greedy))
     var finalText: String?
     for try await snapshot in stream {
       try Task.checkCancellation()
