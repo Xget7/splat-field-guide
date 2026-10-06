@@ -8,8 +8,10 @@ module EngineArtifact
   SLICES = %w[ios-arm64 ios-arm64-simulator].freeze
 
   def self.fingerprint(package)
-    files = Dir.glob(File.join(package, "engine", "**", "*" )).select do |file|
-      File.file?(file) && !file.start_with?(File.join(package, "engine", "splatkit-android") + File::SEPARATOR) && !file.delete_prefix("#{package}/").split(File::SEPARATOR).include?("build") &&
+    # Android sources, build trees and tests never reach the iOS framework.
+    files = Dir.glob(File.join(package, "engine", "**", "*")).select do |file|
+      parts = file.delete_prefix("#{package}/").split(File::SEPARATOR)
+      File.file?(file) && parts[1] != "splatkit-android" && (parts & %w[build tests]).empty? &&
         (SOURCE_EXTENSIONS.include?(File.extname(file)) || File.basename(file) == "CMakeLists.txt")
     end
     files += %w[build-ios-engine.sh engine-artifact.rb package-ios-engine.py].map { |name| File.join(package, "scripts", name) }
