@@ -24,8 +24,3 @@ dependencies {
     implementation 'com.facebook.react:react-android'
     implementation project(':react-native-nitro-modules')
 }
-
-// Compile the small library together; cached symlinked sources lose module visibility.
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    incremental = false
-}
