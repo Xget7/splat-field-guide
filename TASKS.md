@@ -13,5 +13,5 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
 - [ ] Verify the current AR reference on the real engine, then measure landmark alignment, drift, recovery, negative scenes and actual torch behaviour on an iOS 27 iPhone.
 - [ ] Choose the semantic camera-overlay renderer after reference-frame and physical alignment acceptance.
 - [ ] Supply `publication.json` and manifest source artifacts to complete capture-backed export verification.
-- [ ] Configure the release repository, publish the archive/checksum and verify acquisition from a clean clone (R21).
+- [ ] Run the full quickstart from a clean clone of the private repository (R21).
 - [ ] Record the airplane-mode video and deliver TestFlight with author signing credentials (R19, R20).
