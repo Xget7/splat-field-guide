@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "codegen": "nitrogen",
-    "lint": "eslint .",
+    "lint": "eslint . && prettier --check src",
     "typecheck": "tsc --noEmit",
     "test": "node --test __tests__/*.test.js"
   },

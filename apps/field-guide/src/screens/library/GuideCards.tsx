@@ -1,5 +1,8 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type ComingSoonGuide, type ReadyGuide } from '../../features/pack/catalog';
+import {
+  type ComingSoonGuide,
+  type ReadyGuide,
+} from '../../features/pack/catalog';
 import { IconButton, IconButtonVariant } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../ui/theme';

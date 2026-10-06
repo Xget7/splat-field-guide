@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { AnswerKind, parseAnswer } from '../../../features/instructor/answerFormat';
+import {
+  AnswerKind,
+  parseAnswer,
+} from '../../../features/instructor/answerFormat';
 import type { WordRange } from '../../../features/instructor/voice/speechPresentation';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
 import { useAnswerReveal } from './useAnswerReveal';

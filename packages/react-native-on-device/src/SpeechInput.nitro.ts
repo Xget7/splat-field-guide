@@ -7,7 +7,8 @@ export type SpeechPermission = 'granted' | 'denied' | 'restricted';
 export type SpeechInputAvailability = 'available' | 'unavailable';
 
 /** Continuous on-device listening on iOS; Android prefers on-device recognition and otherwise requests offline service. */
-export interface SpeechInput extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
+export interface SpeechInput
+  extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   /** Asks for microphone and speech recognition access; once answered, later calls just report it. */
   requestPermission(): Promise<SpeechPermission>;
   /**

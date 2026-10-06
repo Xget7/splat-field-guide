@@ -14,7 +14,6 @@ export interface SplatDiagnosticsSnapshot {
 }
 
 /** Live-instance counters that let the app prove views do not leak. */
-export interface SplatDiagnostics
-  extends HybridObject<{ ios: 'swift' }> {
+export interface SplatDiagnostics extends HybridObject<{ ios: 'swift' }> {
   snapshot(): SplatDiagnosticsSnapshot;
 }

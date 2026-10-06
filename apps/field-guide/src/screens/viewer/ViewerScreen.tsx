@@ -7,7 +7,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { findReadyGuide, type ReadyGuide } from '../../features/pack/catalog';
 import { useCatalog } from '../../app/CatalogContext';
-import { type Pack, type PartId, type ProcedureId } from '../../features/pack/pack';
+import {
+  type Pack,
+  type PartId,
+  type ProcedureId,
+} from '../../features/pack/pack';
 import {
   currentProcedure,
   SessionEventType,

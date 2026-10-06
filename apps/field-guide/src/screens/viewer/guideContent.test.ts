@@ -1,5 +1,9 @@
 import { fixturePack } from '../../testing/fixturePack';
-import { INITIAL_SESSION, reduce, SessionEventType } from '../../features/guide/session';
+import {
+  INITIAL_SESSION,
+  reduce,
+  SessionEventType,
+} from '../../features/guide/session';
 import { TOUR_ID } from '../../features/guide/tour';
 import { CardKind, cardContentFor, stepRowsFor } from './guideContent';
 

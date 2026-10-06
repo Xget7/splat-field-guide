@@ -10,7 +10,6 @@ import {
 import { AnswerKind, formatBlock, parseAnswer } from './answerFormat';
 import { NOT_COVERED_REPLY, type InstructorAnswer } from './instructor';
 
-
 // Bound prompt size to leave room for the answer within the on-device token window.
 export const MAX_QUESTION_CHARS = 300;
 export const MAX_HISTORY_CHARS = 300;

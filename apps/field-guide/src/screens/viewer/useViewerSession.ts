@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { ProcedureId } from '../../features/pack/pack';
-import { SessionEventType, type SessionEvent } from '../../features/guide/session';
+import {
+  SessionEventType,
+  type SessionEvent,
+} from '../../features/guide/session';
 import type { ReadyGuide } from '../../features/pack/catalog';
 import { sessionForExchange } from '../../features/instructor/turn';
 import type { ModelInstructor } from '../../features/instructor/models/modelInstructor';

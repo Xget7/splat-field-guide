@@ -9,7 +9,8 @@ export type LanguageModelAvailability =
   | 'unavailable';
 
 /** The on-device language model, answering in plain text. */
-export interface LanguageModel extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
+export interface LanguageModel
+  extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   availability(): LanguageModelAvailability;
   /** Loads the model for `instructions` ahead of a `respond` that uses the same ones. */
   prewarm(instructions: string): void;
