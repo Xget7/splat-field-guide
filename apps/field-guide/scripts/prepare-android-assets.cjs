@@ -6,6 +6,17 @@ const ROOT = path.resolve(__dirname, '../../..');
 const PACK_ROOT = path.join(ROOT, 'data/pack');
 const FONT_ROOT = path.resolve(__dirname, '../assets/fonts');
 const LABEL_HEADER_BYTES = 16;
+const NOTICE_SEPARATOR =
+  '========================================================================';
+const IOS_ONLY_NOTICES = new Set([
+  'ONNX Runtime',
+  'ONNX Runtime dependencies',
+  'Kokoro model, af_heart voice and phoneme configuration',
+  'FluidAudio frontend',
+  'Misaki English lexicon',
+  'English BART G2P weights, vocabulary and compiled CoreML resources',
+  'SocketRocket',
+]);
 
 function prepareAssets(destination, packRoot = PACK_ROOT) {
   fs.rmSync(destination, { recursive: true, force: true });
@@ -68,6 +79,39 @@ function prepareAssets(destination, packRoot = PACK_ROOT) {
   );
   for (const file of fs.readdirSync(vulkanLicenses))
     fs.copyFileSync(path.join(vulkanLicenses, file), path.join(licenses, file));
+  // Shared license texts have one maintained copy, with platform-only sections excluded.
+  const sharedNotices = fs
+    .readFileSync(
+      path.resolve(__dirname, '../ios/FieldGuide/ThirdPartyNotices.txt'),
+      'utf8',
+    )
+    .split(new RegExp(`^${NOTICE_SEPARATOR}$`, 'm'))
+    .filter(
+      (section, index) =>
+        index === 0 ||
+        !IOS_ONLY_NOTICES.has(section.trimStart().split('\n')[0]),
+    )
+    .join(NOTICE_SEPARATOR);
+  const androidNotices = fs.readFileSync(
+    path.resolve(__dirname, '../android/ThirdPartyNotices.txt'),
+    'utf8',
+  );
+  const rendererNotices = [
+    ['vk-bootstrap.txt', 'vk-bootstrap'],
+    ['VulkanMemoryAllocator.txt', 'Vulkan Memory Allocator'],
+  ]
+    .map(
+      ([file, title]) =>
+        `${NOTICE_SEPARATOR}\n${title}\n\n${fs.readFileSync(
+          path.join(vulkanLicenses, file),
+          'utf8',
+        )}`,
+    )
+    .join('\n');
+  fs.writeFileSync(
+    path.join(destination, 'ThirdPartyNotices.txt'),
+    [sharedNotices, androidNotices, rendererNotices].join('\n'),
+  );
 }
 
 module.exports = { prepareAssets };

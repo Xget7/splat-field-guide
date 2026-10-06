@@ -51,11 +51,25 @@ test('Android packages only verified runtime records and rejects corrupt packs',
       ['cloud', 'labels', 'manifest.json'],
     );
     assert.ok(fs.existsSync(path.join(destination, 'fonts/Geist-Regular.ttf')));
+    const notices = fs.readFileSync(
+      path.join(destination, 'ThirdPartyNotices.txt'),
+      'utf8',
+    );
+    assert.match(notices, /React Native and Yoga/);
+    assert.match(notices, /Vulkan Memory Allocator/);
+    assert.match(notices, /Fresco/);
+    assert.doesNotMatch(notices, /Kokoro model/);
     manifest.tiers[0].splatCount = 4;
-    fs.writeFileSync(path.join(source, 'manifest.json'), JSON.stringify(manifest));
+    fs.writeFileSync(
+      path.join(source, 'manifest.json'),
+      JSON.stringify(manifest),
+    );
     assert.throws(() => prepareAssets(destination, packs), /count mismatch/);
     manifest.tiers[0].splatCount = 3;
-    fs.writeFileSync(path.join(source, 'manifest.json'), JSON.stringify(manifest));
+    fs.writeFileSync(
+      path.join(source, 'manifest.json'),
+      JSON.stringify(manifest),
+    );
     fs.writeFileSync(path.join(source, 'labels'), 'wrong');
     assert.throws(() => prepareAssets(destination, packs), /digest mismatch/);
   } finally {
