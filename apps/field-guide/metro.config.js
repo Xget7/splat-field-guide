@@ -7,20 +7,18 @@ const onDeviceLibrary = path.resolve(
   appRoot,
   '../../packages/react-native-on-device',
 );
-const bundledPack = path.resolve(
-  appRoot,
-  '../../data/pack/gol-trend-engine-bay/1',
-);
+const pinnedPack = path.resolve(appRoot, '../../content/gol-trend-engine-bay');
 
 /**
  * Linked packages must not shadow the app's React, React Native or Nitro runtimes.
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const config = {
-  watchFolders: [splatLibrary, onDeviceLibrary, bundledPack],
+  watchFolders: [splatLibrary, onDeviceLibrary, pinnedPack],
   resolver: {
     nodeModulesPaths: [path.join(appRoot, 'node_modules')],
-    // Only the pack's manifest is imported; its cloud and labels ship as app resources.
+    // Only the pinned manifest is imported; preparation checks the downloaded pack against it,
+    // and the pack's cloud and labels ship as app resources.
     blockList: [
       new RegExp(
         `${appRoot}/(ios/(Pods|build)|android/(build|app/build|app/.cxx|.gradle)|vendor)/.*`,
@@ -31,7 +29,7 @@ const config = {
       new RegExp(
         `${onDeviceLibrary}/(node_modules|build|ios/KokoroResources|android/(build|.cxx))/.*`,
       ),
-      new RegExp(`${bundledPack}/(?!manifest\\.json$).*`),
+      new RegExp(`${pinnedPack}/(?!manifest\\.json$).*`),
     ],
   },
 };
