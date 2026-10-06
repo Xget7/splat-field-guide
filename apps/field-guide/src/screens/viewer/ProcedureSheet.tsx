@@ -6,7 +6,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import type { Pack, ProcedureId } from '../../features/pack/pack';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../ui/theme';
 import { procedureRowsFor } from '../../features/guide/procedureRows';
@@ -27,7 +30,6 @@ export function ProcedureSheet({
   onChoose,
   onClose,
 }: Props) {
-  const insets = useSafeAreaInsets();
   return (
     <Modal
       testID="procedure-sheet"
@@ -39,43 +41,64 @@ export function ProcedureSheet({
       // Native swipe dismissal must also clear the controlled visible state.
       onRequestClose={onClose}
     >
-      <View
-        style={[
-          styles.surface,
-          {
-            paddingLeft: insets.left + Space.lg,
-            paddingRight: insets.right + Space.lg,
-            paddingBottom: insets.bottom + Space.lg,
-          },
-        ]}
-      >
-        <View style={styles.header}>
-          <Text accessibilityRole="header" style={styles.heading}>
-            Procedures
-          </Text>
-          <Pressable
-            testID="procedure-done"
-            accessibilityRole="button"
-            onPress={onClose}
-            style={({ pressed }) => [styles.done, pressed && styles.pressed]}
-          >
-            <Text style={styles.doneText}>Done</Text>
-          </Pressable>
-        </View>
-        <ScrollView>
-          <ProcedureList
-            rows={procedureRowsFor(pack)}
-            current={current}
-            onChoose={onChoose}
-          />
-        </ScrollView>
-      </View>
+      {/* The sheet measures its own insets: none on an iPad card, the status bar on Android. */}
+      <SafeAreaProvider>
+        <SheetContent
+          pack={pack}
+          current={current}
+          onChoose={onChoose}
+          onClose={onClose}
+        />
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
+function SheetContent({
+  pack,
+  current,
+  onChoose,
+  onClose,
+}: Omit<Props, 'visible'>) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.surface,
+        {
+          paddingTop: insets.top + Space.lg,
+          paddingLeft: insets.left + Space.lg,
+          paddingRight: insets.right + Space.lg,
+          paddingBottom: insets.bottom + Space.lg,
+        },
+      ]}
+    >
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          Procedures
+        </Text>
+        <Pressable
+          testID="procedure-done"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+        >
+          <Text style={styles.doneText}>Done</Text>
+        </Pressable>
+      </View>
+      <ScrollView>
+        <ProcedureList
+          rows={procedureRowsFor(pack)}
+          current={current}
+          onChoose={onChoose}
+        />
+      </ScrollView>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  surface: { flex: 1, backgroundColor: Color.surface, paddingTop: Space.lg },
+  surface: { flex: 1, backgroundColor: Color.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
