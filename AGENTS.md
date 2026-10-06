@@ -99,7 +99,7 @@ For Debug, start an owned Metro port and reverse it with `adb -s <serial> revers
 Record screenshots and the APK before deleting temporary builds and the private Gradle cache.
 Stop scoped device servers, shut down the owned emulator with `adb -s <serial> emu kill` and stop the owned Metro process when verification finishes.
 
-## Capture and reference operations
+## Capture and pack operations
 
 Read the process record and inspect stage `--help`/`--plan` before execution.
 Use `nice -n 19 uv run --project pipeline python -m pipeline.pack.<stage>` from root for `ingest`, `poses`, `cameras`, `training`, `preflight`, `import_annotations`, `lift_all`, `export` and `export_checks`.
@@ -109,11 +109,7 @@ Use `modal deploy --module pipeline.pack.sam_live` for marking and `modal run --
 Download the complete accepted marks revision tree from `/marks` before lifting.
 After reviewed export, update the pinned content manifest and package the archive; publishing requires explicit authorization.
 
-AR Python stages use `pipeline.ar.<stage>`: `register_reference`, `prepare_reference`, `cleanup_reference`, `train_reference`, `publish_landmarks` and `watch_ar`.
-The reference training recipe uses explicit `--mode standard --angles front --plan` with `--source` and `--output`; remove `--plan` only when training is authorized.
-Build `reconstruct_reference.swift`, `author_ar_landmarks.swift` and `probe_reference.swift` with `nice -n 19 xcrun swiftc`, following their file headers.
-For physical AR diagnostics, `watch_ar --device <identifier> --expect detected` captures metadata; `--check-capture <jsonl> --expect detected` replays it without a phone.
-Create the destination directory before redirecting stdout; a recognition verdict leaves landmark alignment unchecked.
+The AR reference has no pipeline stage; it is trained in the Create ML app, as [pipeline/README.md](pipeline/README.md#ar-reference) records.
 
 ## Implementation and writing rules
 

@@ -35,7 +35,7 @@ The selected speech frontend links no eSpeak code or data.
 | Brush 0.3.0 | Local training, [Apache-2.0](https://github.com/ArthurBrussee/brush/blob/main/LICENSE); recorded binary SHA-256 `8380ed40cce870025393e1ea0257e0752351c67a409d827b76dc75ec3a999a71` |
 | SAM 3.1 | Modal masks/tracking under the [Meta SAM license](https://github.com/facebookresearch/sam3/blob/2345a4a/LICENSE); source `2345a4a`, Torch 2.8.0 and torchvision 0.23.0 |
 | PyTorch/torchvision | BSD-3-Clause; their distributions retain dependency notices |
-| Python dependencies | [pyproject.toml](../pipeline/pyproject.toml) and [uv.lock](../pipeline/uv.lock) pin geometry, image, marking and OpenUSD dependencies under their upstream terms |
+| Python dependencies | [pyproject.toml](../pipeline/pyproject.toml) and [uv.lock](../pipeline/uv.lock) pin geometry, image and marking dependencies under their upstream terms |
 | Modal/Hugging Face | Hosted service terms and separate model licenses |
 | Object Capture/Create ML/Xcode | Apple SDK/tool terms for reference preparation and native builds |
 | CMake/GoogleTest | BSD-3-Clause; GoogleTest is pinned to 1.15.2 |

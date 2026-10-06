@@ -1,7 +1,7 @@
-# Pack and AR reference pipeline
+# Pack pipeline
 
-The pipeline prepares the guide's runtime pack and its separate provisional AR reference.
-The [consumer design](../docs/specs/field-guide-design.md#pack-contract) defines the pack contract; [AGENTS.md](../AGENTS.md#capture-and-reference-operations) contains execution commands.
+The pipeline prepares the guide's runtime pack.
+The [consumer design](../docs/specs/field-guide-design.md#pack-contract) defines the pack contract; [AGENTS.md](../AGENTS.md#capture-and-pack-operations) contains execution commands.
 Demo builds consume an archive through the [root quickstart](../README.md#quickstart); capture stages require the author's photos and annotations.
 
 ## Pack stages
@@ -32,15 +32,9 @@ Existing pack versions require explicit replacement; staged candidates and rollb
 Physical part correctness, authored content and metric dimensions require owner review before publication.
 Archive packaging includes only manifest-referenced runtime files; [prepare.sh](../scripts/prepare.sh) accepts the pinned manifest and verified files.
 
-## AR reference stages
+## AR reference
 
-| Stage | Code | Output |
-| --- | --- | --- |
-| Reconstruct | [reconstruct_reference.swift](ar/reconstruct_reference.swift) | Textured Object Capture USDZ, photo poses and identities |
-| Register/prepare | [register_reference.py](ar/register_reference.py), [prepare_reference.py](ar/prepare_reference.py), [cleanup_reference.py](ar/cleanup_reference.py) | Digest-bound candidate registration and reviewed rigid assembly |
-| Train | [train_reference.py](ar/train_reference.py) | Local Create ML reference, logs, progress and disk-guard state |
-| Landmarks | [author_ar_landmarks.swift](ar/author_ar_landmarks.swift), [publish_landmarks.py](ar/publish_landmarks.py) | Reviewed mesh picks converted to a pack-bound candidate |
-| Inspect | [probe_reference.swift](ar/probe_reference.swift), [watch_ar.py](ar/watch_ar.py) | Network integrity checks and bounded device diagnostics |
-
-The app copies a separately prepared reference when present; it is excluded from the viewer archive.
+The provisional AR reference is not built here.
+Train it in the Create ML app (Object Tracking) from an Object Capture model of the same photographs.
+The app copies the resulting `.referenceobject` when present; it is excluded from the viewer archive.
 [Open work](../TASKS.md) covers reference-frame validation and physical recognition/alignment before semantic overlay rendering.

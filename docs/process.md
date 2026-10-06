@@ -117,24 +117,18 @@ Physical pronunciation, cold/warm latency, interruption/echo, Release size and p
 
 ## AR reference
 
-[reconstruct_reference.swift](../pipeline/ar/reconstruct_reference.swift) used Object Capture with the same 124 photographs, preserving the rigid engine-bay assembly with automatic object masking disabled.
-`data/ar-reference/gol-trend-engine-bay/medium.usdz` contains 43512 vertices, 86630 triangles and three textures, alongside poses/capture identities.
-[register_reference.py](../pipeline/ar/register_reference.py) paired 124 cameras and held out 25; the candidate RMSE is 0.00133 pack units overall and 0.00138 held out, with orientation p90 0.24 degrees.
+Object Capture built a textured model from the same 124 photographs, preserving the rigid engine-bay assembly with automatic object masking disabled.
+Registration against the pack cameras held out 25 of 124; RMSE is 0.00133 pack units overall and 0.00138 held out, with orientation p90 0.24 degrees.
 These residuals use estimated scale and do not measure AR alignment on the engine.
-[prepare_reference.py](../pipeline/ar/prepare_reference.py) transformed the mesh into pack coordinates; [cleanup_reference.py](../pipeline/ar/cleanup_reference.py) removed 208 isolated triangles, leaving 86422 with unchanged textures.
-`aligned.cleaned.usdz` has bounds about 2.155 x 0.983 x 1.282 m; dimensions and Up/Front orientation need physical review.
-A Standard/Upright measurement on macOS 26.7 took 4 h 26 min 23 s, with state/logs under `training-standard.*`.
-A disk-exhaustion measurement stopped after 18 minutes at 2.49%; [train_reference.py](../pipeline/ar/train_reference.py) guards temp/output volumes with a 30 GiB start reserve.
-The installed Standard/Front reference from macOS 27.0.1 is format 2.0 and 47047755 bytes, described by `engine-bay.current.json`.
+The cleaned model has 86422 triangles and bounds about 2.155 x 0.983 x 1.282 m; dimensions and Up/Front orientation need physical review.
+The Create ML app (Object Tracking) trains the reference; a Standard/Upright run on macOS 26.7 took 4 h 26 min, so keep 30 GiB free before starting.
+The installed Standard/Front reference from macOS 27.0.1 is format 2.0 and 47047755 bytes, kept in ignored `data/ar-reference/gol-trend-engine-bay/`.
 CRC, both Core ML networks and the embedded USDZ digest passed integrity checks; recognition on physical equipment remains unverified.
 
 ## Landmarks and device checks
 
-[author_ar_landmarks.swift](../pipeline/ar/author_ar_landmarks.swift) records reviewed raw mesh picks; [publish_landmarks.py](../pipeline/ar/publish_landmarks.py) converts them through digest-bound registration into a pack-bound candidate.
-The app's [landmarks.json](../apps/field-guide/assets/ar/landmarks.json) contains four landmarks and an identity referenceFromPack candidate, pending verification of the trained reference frame.
+The app's [landmarks.json](../apps/field-guide/assets/ar/landmarks.json) holds four reviewed mesh picks and an identity referenceFromPack candidate, pending verification of the trained reference frame.
 [ARGuideNativeView.swift](../packages/react-native-splat/ios/ARGuideNativeView.swift) displays points only with tracked object/camera state; full semantic masks are not connected.
 A photo-screen measurement on 2026-10-02 recorded 49 one-second samples, 60.1 camera FPS on average, 46 normal-tracking samples, zero object anchors and zero session/load errors.
 The owner reported an unsuccessful real-engine test without retained states, leaving detection, tracking and display undiagnosed.
-[probe_reference.swift](../pipeline/ar/probe_reference.swift) tests network loading/detector output; assumed preprocessing and reconstruction photos cannot establish recognition accuracy.
-[watch_ar.py](../pipeline/ar/watch_ar.py) records Debug metadata with a 512 KiB cap and replay verdict; camera FPS is not inference speed or confidence.
 Verify current-reference recognition, landmark pixel error, drift, recovery, illumination, negative scenes and actual torch behaviour on a physical iPhone before choosing the semantic overlay renderer.

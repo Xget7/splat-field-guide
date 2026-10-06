@@ -25,7 +25,7 @@ Device signing and offline system-asset preparation are in [app setup](apps/fiel
 ## Read next
 
 - [Design and ownership](docs/specs/field-guide-design.md), [vocabulary](CONTEXT.md) and [targets](REQUIREMENTS.md).
-- [Architecture decisions](docs/adr/), [capture and reference pipeline](pipeline/README.md) and [instructor proxy](services/instructor-proxy/README.md).
+- [Architecture decisions](docs/adr/), [pack pipeline](pipeline/README.md) and [instructor proxy](services/instructor-proxy/README.md).
 - [Viewer package](packages/react-native-splat/README.md) and [speech/model package](packages/react-native-on-device/README.md).
 - [Provenance](docs/PROVENANCE.md), [third-party notices](THIRD_PARTY_NOTICES.md) and [MIT license](LICENSE).
 - [Agent instructions](AGENTS.md) for operational commands and contribution rules.
