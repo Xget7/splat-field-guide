@@ -39,9 +39,9 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 | `src/features/instructor` | Command routing, turns, authored grounding, model adapters and voice |
 | `src/features/viewport` | Native viewer readiness, gestures, camera conversion, framing and projected markers |
 | `src/screens`, `src/ui` | Screen composition and view models, then business-free presentation primitives |
-| `react-native-splat` | Shared C++ viewer behaviour, Metal rendering, Nitro views and provisional AR alignment |
-| `react-native-on-device` | Apple transcription/generation, Kokoro/Apple output and audio coordination |
+| `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views and iOS-only provisional AR alignment |
+| `react-native-on-device` | Platform speech, iOS Apple generation/Kokoro and audio coordination |
 | `instructor-proxy`, `pipeline` | Cloud request policy/stream translation, then pack and AR reference preparation |
 
 Screens compose the lower units; pack/guide remain free of React and native imports, and UI imports no business code.
-The AR screen checks recognition and four landmarks with a separately prepared reference; physical alignment and semantic camera masks remain open.
+The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; physical alignment and semantic camera masks remain open.

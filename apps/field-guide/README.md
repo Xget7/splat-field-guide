@@ -18,6 +18,18 @@ Use the [root quickstart](../../README.md#quickstart) to prepare resources and r
 The CLI starts Metro; for Xcode, run `npm start` here and open `ios/FieldGuide.xcworkspace` with the FieldGuide scheme.
 Engine/resource changes require preparation; the engine builder and reuse rules are in the [viewer package](../../packages/react-native-splat/README.md#engine-preparation).
 
+## Android
+
+Install JDK 17, Android SDK platform/build-tools 37 and NDK 27.1.12297006, and set `ANDROID_HOME` to the SDK directory.
+The app supports Android 10+ with Vulkan; the checked build targets API 36 and arm64-v8a.
+Prepare the shared pack through the root quickstart, then use the [Android build commands](../../AGENTS.md#android) to build and install.
+The [viewer package](../../packages/react-native-splat/README.md#android-adapter) describes pack installation and rendering; Gradle bundles runtime files, Geist fonts and [licenses](../../THIRD_PARTY_NOTICES.md#android-inventory).
+
+For emulator review, use an API 36 arm64 tablet image with 6 GB RAM and the host GPU (`-gpu host`).
+The full tier renders with the host GPU; software rendering stalls during upload on the checked Mac, with its limits recorded in the [process record](../../docs/process.md#android).
+Microphone permission and an installed recognition model/voice determine offline speech readiness.
+Platform capabilities are documented with the [viewer and AR interfaces](../../packages/react-native-splat/README.md#interfaces) and [Android speech/generation](../../packages/react-native-on-device/README.md#android).
+
 ## Device preparation
 
 Choose a development team and provisionable bundle identifier in Xcode's Signing & Capabilities.

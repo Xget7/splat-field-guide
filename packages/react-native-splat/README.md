@@ -1,6 +1,6 @@
 # react-native-splat
 
-Typed Nitro views wrap the C++/Metal viewer and a separate RealityKit AR alignment check.
+Typed Nitro views wrap the shared C++ viewer with Metal on iOS and Vulkan on Android, plus an iOS-only RealityKit AR alignment check.
 [ADR 0003](../../docs/adr/0003-shared-core-owns-viewer-behaviour.md) records ownership; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has build, test and codegen commands.
 
 ## Engine preparation
@@ -20,16 +20,27 @@ The podspec rejects missing/stale artifacts and directs the caller to repository
 | `pick` | Worker-backed asynchronous part-label result |
 | `project`, `drawnDirection` | Synchronous last-drawn-frame reads; float32 projection buffers, NaN behind the camera |
 | [C interface](engine/splatkit-engine/include/splatkit/sfg.h) | `sfg_begin_load` reserves ownership; `sfg_load_request` validates optional identity and rejects stale work; `sfg_load` performs unverified standalone loading |
-| [ARGuideView](src/ARGuideView.nitro.ts) | Local reference/landmarks and torch request; typed recognition, actual torch and optional telemetry events |
+| [ARGuideView](src/ARGuideView.nitro.ts) | iOS only; local reference/landmarks and torch request; typed recognition, actual torch and optional telemetry events |
 
 Drawing sleeps when unchanged and pauses while inactive.
 The loader checks mapped-file digests and decoded source count on its worker before accepting content.
 Dropping a view detaches callbacks and stops its render thread; outstanding calls retain the engine until completion.
 C callbacks run on the reporting thread and must not wait for another engine call.
 
+## Android adapter
+
+[The Vulkan adapter](engine/splatkit-android) implements the same `sfg` rendering interface with GPU visibility, radix sorting and splat rasterization.
+Label-aware filtering/reordering, picking and camera behaviour stay in the shared core; Vulkan applies the same tint, dimming and reveal parameters as Metal.
+The [Kotlin Nitro view](android/src/main/java/com/margelo/nitro/splat/HybridSplatView.kt) owns a TextureView, a render HandlerThread and worker-backed loading.
+Choreographer schedules frames while the shared core needs them and pauses on inactivity or detachment.
+Bundled assets become app-private files after manifest identity, size and SHA-256 checks; the core verifies the supplied digests and decoded source count before acceptance.
+Gradle/CMake build the adapter and embed compiled shaders without an iOS framework.
+Android file hashing uses the vendored PicoSHA2 header because the NDK supplies no OpenSSL library; iOS uses CommonCrypto.
+[Provenance](../../docs/PROVENANCE.md#source-and-resource-identities) records the imported renderer and pinned Vulkan helpers.
+
 ## Limits and diagnostics
 
-The viewer's implemented adapter is iOS with an A14-class GPU or later; Android needs native/rendering adapters.
+The iOS viewer requires an A14-class GPU or later; Android requires Vulkan and API 29+ with enough memory for the selected tier.
 AR needs a physical iOS 27 iPhone and a separate reference; [acceptance](../../TASKS.md) covers recognition, registration and semantic camera masks.
 Camera metadata arrives at 1 Hz and does not measure model confidence or inference speed.
 Debug `FIELD_GUIDE_AR_DIAGNOSTICS=1` enables AR console metadata; viewer counters are exposed by `react-native-splat/src/diagnostics`.

@@ -1,12 +1,13 @@
 # Splat Field Guide
 
 Field Guide turns a capture of real equipment into a mobile maintenance guide with named parts, procedures and a spoken instructor.
-The demo covers the author's Volkswagen Gol Trend engine bay, with an iPad layout and an iPhone viewer.
+The demo covers the author's Volkswagen Gol Trend engine bay, with tablet layouts on iPad and Android and an iPhone viewer.
 Open a guide, explore its parts or follow a procedure; use reading or voice mode for instructor questions.
 Physical acceptance and delivery work are listed in [TASKS.md](TASKS.md).
 
 ## Quickstart
 
+The commands below run iOS; [Android setup](apps/field-guide/README.md#android) covers its SDK and emulator.
 Use an Apple silicon Mac with the prerequisites in [app setup](apps/field-guide/README.md#setup).
 From the repository root:
 

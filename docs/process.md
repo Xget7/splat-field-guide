@@ -83,6 +83,16 @@ On 2026-10-05, the iPad simulator verified pack digests in 111.83 ms and accepte
 The host C-interface harness measured digest verification at 119.67 ms with the same files.
 App/interface tests and a Debug iPad simulator build pass; physical stress, gestures, picking and sustained performance remain unchecked.
 
+## Android
+
+The API 36 arm64 tablet emulator uses 1280 x 800 at density 160, 6 GB RAM and four virtual CPU cores on an Apple M4 Pro.
+Host-GPU Vulkan 1.2.306 through MoltenVK renders all 2438073 filtered SH3 splats; software SwiftShader stalls during upload without a reported allocation, feature or buffer-limit failure, and its cause is unresolved.
+The merged Debug build on 2026-10-06 loaded a fresh asset copy in 30537 ms, including 6092.64 ms for SHA-256 verification, and measured 18.8 ms GPU frames at 36.8 fps during reveal.
+The arm64 Debug APK is 160616448 bytes; unoptimized native loading and hashing limit these emulator measurements.
+Emulator screenshots verify the engine bay, marine-blue part picking/dimming, procedure framing and scripted answers with networking disabled.
+Installed English recognition assets report ready, and speech interfaces start/cancel; the muted emulator does not establish acoustic input, audible output or echo acceptance.
+Physical Android performance, gestures and voice acceptance remain in [TASKS.md](../TASKS.md).
+
 ## Speech output
 
 [react-native-on-device](../packages/react-native-on-device/README.md) implements quantized Kokoro v1.0 with af_heart on ONNX Runtime 1.30.0 CPU, plus Apple speech fallback.

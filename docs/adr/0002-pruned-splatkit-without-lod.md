@@ -8,4 +8,4 @@ Keep a recorded SplatKit source copy with one cloud per tier, export-time croppi
 - Filtering and spatial reordering must preserve labels with splats.
 - Engine fixes and source integration are owned here, with revisions and licenses in [provenance](../PROVENANCE.md).
 - The high tier needs physical performance acceptance before choosing a smaller export.
-- An Android renderer needs a platform adapter to the retained core.
+- Metal and Vulkan adapters draw the same filtered cloud without platform-specific LOD policy.
