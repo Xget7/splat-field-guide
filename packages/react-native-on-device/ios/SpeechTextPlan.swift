@@ -7,15 +7,13 @@ struct SpeechSentence {
 }
 
 enum SpeechTextPlan {
-  // Kokoro renders a chunk whole before any of it plays, so the first chunk is cut short at a
-  // clause: the voice starts sooner, and the rest is rendered while it speaks.
+  // Kokoro renders whole chunks, so a shorter first chunk reduces initial playback latency.
   private static let chunkLimit = 180
   private static let firstChunkLimit = 80
   private static let firstChunkMinimum = 24
   private static let clauseEnds: Set<Character> = [",", ";", ":"]
 
-  // Short clauses bound first-audio latency and avoid Kokoro's 510-phoneme limit.
-  // The original ranges survive splitting and numeric normalization in the frontend.
+  // Chunk limits reduce phoneme overflow risk while ranges retain the original text's UTF-16 offsets.
   static func sentences(in text: String) -> [SpeechSentence] {
     var ranges: [Range<String.Index>] = []
     text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .bySentences) {

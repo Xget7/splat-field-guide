@@ -1,4 +1,3 @@
-"""The marking HTTP interface restores durable capture-bound prompts."""
 
 import pathlib
 import tempfile

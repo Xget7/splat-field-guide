@@ -1,21 +1,4 @@
-"""Lift every marked part at once: one uint8 label per splat, in PLY order.
-
-Each part's votes come from lift.py (its keyframes plus the tracked photos that survive lift.voters). A splat then
-takes the part holding the clear majority of its neighbourhood's light, otherwise 0 (spec 5.8, step 6):
-  - Top-level parts compete: the one with the largest share above MAJORITY wins the splat.
-  - A parent's mask covers its children, so for deciding whether a splat belongs to a parent or any of its children
-    the votes use the parent's mask united with its children's masks, photo by photo.
-  - The splat then takes the child with the largest share above MAJORITY, else the parent.
-A part is then one object: pieces of it that lie away from its body are another object the tracker took for it
-(a second blue cap across the bay), so they are dropped, a child's to its parent.
-Parts without saved marks are skipped and reported. The neighbourhood pooling in lift.Scene.share is the vote that
-cleans stray labels: a splat with too little light of its own takes what its neighbours send.
-
-Label numbers are 1-based in the order of content/gol-trend-engine-bay/pack.yaml; 0 means no part.
-Run:  uv run lift_all.py [--marks ../data/segment/marks] [--tracks ../data/segment/tracks]
-In:   <marks>/<part>/*.png (modal volume get sfg-spike-frames /marks/<part> ...) and <tracks>/<part>/ from sam_track.py
-Out:  data/segment/lift/all/labels.npy, report.json, views_<part>.jpg per part and parts.ply (each part tinted).
-"""
+"""Labels follow PLY order with 1-based pack.yaml part numbers and 0 for no part; parent eligibility uses masks united with children before child ownership is resolved."""
 
 import argparse
 import json
@@ -39,13 +22,13 @@ PIECE_LINK = 0.05
 # A piece farther from the part's largest piece than this share of that piece's extent is another object.
 PIECE_REACH = 0.25
 EXTENT_PERCENTILE = 2.0  # a point set's extent: the diagonal from its 2nd to its 98th percentile
-# Distinct tints (RGB, 0 to 1) by label number - 1; the viewer's own highlight is lift.HIGHLIGHT_RGB.
+# RGB tints use 0-1 components in label-number-minus-one order.
 PART_RGB = [(0.95, 0.35, 0.65), (0.98, 0.75, 0.15), (0.20, 0.85, 0.40), (0.55, 0.40, 0.95), (0.95, 0.50, 0.10),
             (0.22, 0.74, 0.97), (0.90, 0.20, 0.20), (0.10, 0.85, 0.85), (0.70, 0.90, 0.20), (0.60, 0.30, 0.10)]
 
 
 def pack_parts() -> dict[str, dict]:
-    """Part id -> {"label", "parent"} in the pack's order. The marking page's parts must be the same parts."""
+    """Label numbers follow pack order and must agree with marking-page part identities and parents."""
     import yaml
 
     authored = yaml.safe_load(PACK.read_text())["parts"]
@@ -59,10 +42,7 @@ def pack_parts() -> dict[str, dict]:
 
 
 def union_views(parent: dict, children: list[dict]) -> dict[int, tuple[np.ndarray, float]]:
-    """The votes of a parent united with its children: each photo's masks combined.
-
-    Photos come from the parent's own voters; without a parent mask they come from the children.
-    """
+    """Use the parent's voting photos when present, otherwise the children's photos."""
     sources = [v for v in (parent, *children) if v]
     frames = set(parent) if parent else set().union(*children)
     return {f: (np.any([v[f][0] for v in sources if f in v], axis=0), max(v[f][1] for v in sources if f in v))
@@ -70,10 +50,7 @@ def union_views(parent: dict, children: list[dict]) -> dict[int, tuple[np.ndarra
 
 
 def assign(parts: dict[str, dict], shares: dict[str, np.ndarray], group_shares: dict[str, np.ndarray]) -> np.ndarray:
-    """One label per splat from each part's share and each top-level part's group share (see the module doc).
-
-    shares: part id -> share of its own masks; group_shares: top-level id -> share of it united with its children.
-    """
+    """shares contains each part's mask share; group_shares contains each top-level part's union with its children."""
     size = len(next(iter(group_shares.values())))
     tops = [t for t, p in parts.items() if p["parent"] is None and t in group_shares]
     best, owner = np.zeros(size), np.full(size, NO_PART, np.uint8)
@@ -123,7 +100,6 @@ def pieces(points: np.ndarray, link: float) -> np.ndarray:
 
 
 def body(points: np.ndarray) -> np.ndarray:
-    """Which points are the object's body: its largest piece and every piece within reach of it."""
     from scipy.spatial import cKDTree
 
     piece = pieces(points, PIECE_LINK * extent(points))
@@ -136,8 +112,7 @@ def body(points: np.ndarray) -> np.ndarray:
 
 
 def drop_strays(parts: dict[str, dict], labels: np.ndarray, points: np.ndarray) -> np.ndarray:
-    """Labels without the pieces that lie away from their part's body: a top-level part's pieces go to no part, a
-    child's to its parent. A top-level part's body includes its children's splats."""
+    """Detached parent pieces become unlabelled, detached child pieces return to the parent, and parent bodies include their children."""
     out = labels.copy()
     tops = [t for t, p in parts.items() if p["parent"] is None]
     for part in tops + [c for c in parts if c not in tops]:  # parents first, so a child keeps what they drop
@@ -150,7 +125,6 @@ def drop_strays(parts: dict[str, dict], labels: np.ndarray, points: np.ndarray) 
 
 
 def load_part(scene: lift.Scene, part: str, marks: pathlib.Path, tracks: pathlib.Path) -> dict | None:
-    """The photos that vote for a part, or None when the owner has not marked it."""
     capture = artifacts.capture(lift.PHOTOS)["sha256"]
     masks.read(marks / part, capture)
     keyframes = lift.load_masks(marks / part)
@@ -181,7 +155,6 @@ def lift_parts(scene: lift.Scene, parts: dict[str, dict], loaded: dict[str, dict
 
 
 def tint(splat: np.ndarray, labels: np.ndarray) -> np.ndarray:
-    """A copy of the splat with each part's colour mixed into its splats."""
     tinted = np.array(splat)
     for number in np.unique(labels[labels != NO_PART]):
         rgb = (np.array(PART_RGB[number - 1]) - 0.5) / lift.SH_C0

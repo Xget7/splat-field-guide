@@ -14,10 +14,8 @@ export interface LanguageModel extends HybridObject<{ ios: 'swift'; android: 'ko
   /** Loads the model for `instructions` ahead of a `respond` that uses the same ones. */
   prewarm(instructions: string): void;
   /**
-   * Answers `prompt` in a fresh session with greedy decoding, so the same question gets the
-   * same grounded answer. `onPartial` gets the text generated so far each time it grows.
-   * Resolves with the complete text; rejects when the model is unavailable, refuses, or is
-   * cancelled.
+   * Uses a fresh session with greedy decoding; `onPartial` receives the text generated so far.
+   * Resolves with the complete text; rejects on unavailability, refusal, generation failure, or cancellation.
    */
   respond(
     instructions: string,

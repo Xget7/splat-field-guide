@@ -1,14 +1,8 @@
-"""Reads content/<pack>/knowledge.md into short notes per part, for the instructor to retrieve one at a time.
-
-The on-device model has a 4096-token context, so the app sends only the notes a question needs.
-Each "## <part name>" section becomes that part's notes, and each "### <heading>" under it one note whose topic
-comes from TOPICS. Source keys like "[VW safety]" and list numbering are dropped: the model reads plain sentences.
-"""
+"""Per-part notes let callers limit model context to the relevant knowledge.md sections."""
 
 import pathlib
 import re
 
-# Heading in knowledge.md -> topic id the app retrieves by.
 TOPICS = {
     "What it is": "identity",
     "What it does": "purpose",
@@ -31,7 +25,6 @@ def _sentences(lines: list[str]) -> str:
 
 
 def read_notes(path: pathlib.Path, parts: list[dict]) -> dict[str, list[dict]]:
-    """Notes per part id, in the file's order; every part section and heading must be known."""
     by_name = {p["name"]: p["id"] for p in parts}
     notes: dict[str, list[dict]] = {p["id"]: [] for p in parts}
     part_id: str | None = None

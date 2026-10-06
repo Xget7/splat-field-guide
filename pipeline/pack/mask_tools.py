@@ -1,4 +1,3 @@
-"""Photo layout, mask validation and view ordering shared by marking, tracking and lifting."""
 
 def raw_from_display(x: float, y: float, orientation: int) -> tuple[float, float]:
     """The click tool shows photos upright (EXIF applied); SAM and COLMAP see the stored pixels."""
@@ -15,7 +14,6 @@ TILE = 472
 
 
 def fit_square(photo, side: int):
-    """Letterbox any photo into a side x side tile, so portrait and landscape photos can share a sheet."""
     import cv2
     import numpy as np
 
@@ -30,11 +28,7 @@ def fit_square(photo, side: int):
 
 def contact_sheet(photo_for, frames, masks, colours, prompts, orientations, to_raw=True,
                   tile=TILE, per_row=4, label=None) -> bytes:
-    """Photos with each part's mask tinted in its colour and the clicks drawn on top, shown upright.
-
-    photo_for(frame) returns the stored-orientation BGR photo; masks is part id -> frame -> bool mask.
-    to_raw=False means the clicks are already in stored-pixel coordinates; label(frame) captions a tile.
-    """
+    """photo_for returns stored-layout BGR pixels and masks maps part ids to frame-indexed bool masks; to_raw=False accepts normalized stored-layout clicks."""
     import cv2
     import numpy as np
 
@@ -75,12 +69,10 @@ def contact_sheet(photo_for, frames, masks, colours, prompts, orientations, to_r
     return cv2.imencode(".jpg", np.vstack(rows), [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes()
 
 
-# --- Marking page: the owner marks a whole part on a few photos and sees SAM's mask live ---
 
 # Photos (0-based capture indices) that together show the engine from the front, both sides and above.
 KEYFRAMES = [0, 5, 11, 13, 18, 44, 87, 122]
-# The parts in the order the page offers them, each with the photos (0-based) where it shows clearly from
-# different sides. A child part lies inside its parent: its splats belong to both.
+# Photos are 0-based capture indices chosen across views; child splats also belong to the parent.
 PARTS = {
     "coolant-reservoir": {"name": "Reserva de agua", "parent": None, "photos": [10, 25, 40, 76, 113]},
     "power-steering-reservoir": {"name": "Reserva de líquido de dirección", "parent": None,
@@ -95,13 +87,11 @@ PARTS = {
 
 
 def photos_to_mark() -> list[int]:
-    """Every photo some part is marked on; SAM prepares these once so each click only runs the decoder."""
     return sorted({f for part in PARTS.values() for f in part["photos"]})
 WORKING_SIDE = 1416  # SAM and the tracker both see the photos at this size
 
 
 def working_photo(photo):
-    """The upright photo SAM segments on the marking page, as RGB at WORKING_SIDE."""
     from PIL import ImageOps
 
     upright = ImageOps.exif_transpose(photo).convert("RGB")
@@ -125,7 +115,7 @@ def raw_from_display_mask(mask, orientation: int):
 
 
 def mask_png(mask) -> bytes:
-    """A mask as a white PNG whose alpha is the mask, ready to composite in the browser."""
+    """White pixels with mask alpha support browser compositing."""
     import io
 
     import numpy as np
@@ -133,13 +123,13 @@ def mask_png(mask) -> bytes:
 
     alpha = Image.fromarray(np.asarray(mask, bool).astype(np.uint8) * 255, "L")
     png = io.BytesIO()
-    # Fast compression: this runs on every click, and a slightly larger PNG beats a slower answer.
+    # Low compression reduces latency on every marking click.
     Image.merge("LA", (Image.new("L", alpha.size, 255), alpha)).save(png, "PNG", compress_level=1)
     return png.getvalue()
 
 
 def sam_prompt(marks: dict, width: int, height: int) -> dict | None:
-    """Page marks (relative, upright) as SAM predict() arguments in pixels; None when nothing says "this"."""
+    """Normalized upright prompts become pixel coordinates; without a box, negative-only clicks yield no prediction."""
     import numpy as np
 
     clicks, box = marks.get("clicks", []), marks.get("box")
@@ -151,13 +141,13 @@ def sam_prompt(marks: dict, width: int, height: int) -> dict | None:
         prompt["point_labels"] = np.array([1 if c["positive"] else 0 for c in clicks], np.int32)
     if box is not None:
         prompt["box"] = np.array([box[0] * width, box[1] * height, box[2] * width, box[3] * height], np.float32)
-    # One click is ambiguous (a bolt, the valve cover, the engine), so let SAM offer three and keep its best.
+    # A single click is ambiguous, so request multiple candidate masks.
     prompt["multimask_output"] = box is None and len(clicks) == 1
     return prompt
 
 
 def view_distance(centres, directions):
-    """How different two photos look: camera travel (in median-radius units) plus turn (in 45 degree units)."""
+    """Camera travel uses median-radius units and turn uses 45-degree units."""
     import numpy as np
 
     c, d = np.asarray(centres, float), np.asarray(directions, float)
@@ -173,10 +163,7 @@ HOLDOUT_COUNT = 2
 
 
 def pick_holdouts(keyframes: list[int], centres, directions) -> list[int]:
-    """The keyframes to hide when scoring variants: those farthest (mean view distance) from the other keyframes.
-
-    Empty below MIN_KEYFRAMES_TO_SCORE keyframes. The hardest photos to predict show a variant's real quality.
-    """
+    """Distant held-out views challenge each variant while leaving at least three keyframes for tracking."""
     import numpy as np
 
     if len(keyframes) < MIN_KEYFRAMES_TO_SCORE:
@@ -224,20 +211,15 @@ def iou(a, b) -> float:
     return float(np.logical_and(a, b).sum() / union) if union else 1.0
 
 
-MIN_MASK_SHARE = 0.001  # a keyframe mask covering less of its photo than this is a slip, not a part
-MAX_MASK_SHARE = 0.9  # one covering more is the whole photo
-# Share of a child's mask that its parent's mask covers on a photo marked for both. The lift unites the two, so a
-# parent drawn a little short is harmless; a child mostly outside was marked on something else.
+MIN_MASK_SHARE = 0.001
+MAX_MASK_SHARE = 0.9
+# Mask union tolerates a short parent boundary, but a child mostly outside likely marks another object.
 MIN_CHILD_INSIDE = 0.5
 MAX_SIBLING_OVERLAP = 0.5  # share of the smaller of two top-level parts' masks that the other may also claim
 
 
 def check_marks(saved: dict[str, dict], shape_of, parts: dict | None = None) -> list[str]:
-    """What stops the owner's saved marks from being tracked and lifted; empty when nothing does.
-
-    saved[part] = {"marks": its marks.json, "masks": {photo: bool mask in the stored layout}};
-    shape_of(photo) is the stored-layout shape the tracker reads for that photo.
-    """
+    """saved maps part ids to marks.json and frame-indexed bool masks; shape_of returns the stored-layout photo shape."""
     import numpy as np
 
     parts = PARTS if parts is None else parts

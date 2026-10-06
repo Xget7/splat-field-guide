@@ -116,17 +116,17 @@ const DIM = "rgba(0, 0, 0, 0.5)";
 const view = document.getElementById("view");
 const ctx = view.getContext("2d");
 const stage = document.getElementById("stage");
-let part = null;                 // the part being marked, from ?part= or the first one
-let keyframes = [];              // the photos this part is marked on
-let current = 0;                 // index into keyframes
+let part = null;
+let keyframes = [];
+let current = 0;
 let mode = "pos";
 let drag = null;
 let marks = {};                  // frame -> {clicks: [{x, y, positive}], box: [x0, y0, x1, y1] | null}
 let capture = null;
 let revision = null;
-let savedState = null;           // the marked photos as last saved, to know whether there is anything to save
+let savedState = null;
 const undoStack = {};            // frame -> previous marks, newest last
-const photos = {};               // frame -> HTMLImageElement
+const photos = {};
 const masks = {};                // frame -> {key, img, score, base}
 const latest = {};               // frame -> newest request id, so late answers never overwrite newer ones
 let requestId = 0;
@@ -183,7 +183,6 @@ function loadImage(src) {
   });
 }
 
-// --- drawing ---------------------------------------------------------------------------------
 
 function fit() {
   const img = photos[frame()];
@@ -194,7 +193,6 @@ function fit() {
 }
 const canvasPerCssPx = () => view.width / view.clientWidth;
 
-// Photo with the part tinted, the rest dimmed and a thin outline, cached per mask.
 function base(f) {
   const photo = photos[f];
   const entry = masks[f];
@@ -261,7 +259,6 @@ function redraw() {
     (m.box ? " , rectángulo" : "") + (entry && entry.img ? ` , calidad ${entry.score.toFixed(2)}` : "");
 }
 
-// --- marks -----------------------------------------------------------------------------------
 
 function relative(e) {
   const r = view.getBoundingClientRect();
@@ -318,7 +315,7 @@ stage.addEventListener("pointerup", e => {
     change(f, m);
     return;
   }
-  if (!d.onPhoto) { redraw(); return; }  // a click beside the photo is not a mark
+  if (!d.onPhoto) { redraw(); return; }
   const hit = m.clicks.findIndex(c =>
     Math.hypot((c.x - d.start.x) * view.clientWidth, (c.y - d.start.y) * view.clientHeight) <= HIT_RADIUS_PX);
   if (hit >= 0) m.clicks.splice(hit, 1);
@@ -327,7 +324,6 @@ stage.addEventListener("pointerup", e => {
 });
 stage.addEventListener("pointercancel", () => { drag = null; redraw(); });
 
-// --- SAM -------------------------------------------------------------------------------------
 
 async function segment(f) {
   const m = marksFor(f);
@@ -361,8 +357,8 @@ async function segment(f) {
   }
 }
 
-// --- photos and navigation -------------------------------------------------------------------
 
+// --- photos: test_mark_page.cjs uses this marker to bound segment().
 function markThumb(f) {
   const el = document.querySelector(`.thumb[data-frame="${f}"]`);
   if (el) el.classList.toggle("marked", Boolean(masks[f] && masks[f].img));
@@ -412,7 +408,6 @@ async function save() {
     refreshStatus();
   }
 }
-// Moving to another part saves this one first, so nothing marked is left unsaved.
 async function openPart(id) {
   if (id === part) return;
   if (dirty() && !(await save())) return;

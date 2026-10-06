@@ -1,9 +1,4 @@
-"""Checks for export.py: the maths on synthetic data, then the pack it wrote and its recorded source artifacts.
-
-Run:  uv run export_checks.py [--pack ../data/pack/gol-trend-engine-bay/1] [--labels <labels.npy used for the pack>]
-Exit code 1 when any check fails. A missing pack or source artifact fails verification.
-The SPZ reader here is written from nianticlabs/spz load-spz.cc, not from export.py, so a shared mistake cannot hide.
-"""
+"""Source-backed verification requires pack artifacts and receipts, with an independent SPZ reader derived from nianticlabs/spz load-spz.cc."""
 
 import argparse
 import gzip
@@ -52,13 +47,12 @@ def check(name: str):
         try:
             detail = fn()
             results.append((True, f"{name}{f': {detail}' if detail else ''}"))
-        except Exception as e:  # a failed check is reported, never raised
+        except Exception as e:
             results.append((False, f"{name}: {type(e).__name__}: {e}"))
         return fn
     return wrap
 
 
-# --- An independent SPZ reader, following load-spz.cc (version 1 to 3, gzip) ---
 
 def read_spz(data: bytes) -> dict:
     raw = gzip.decompress(data)
@@ -99,7 +93,6 @@ def read_spz(data: bytes) -> dict:
             "sh": (blocks["sh"].reshape(n, dim, 3).astype(np.float64) - 128) / 128}
 
 
-# --- Synthetic data ---
 
 def random_rotation(rng) -> np.ndarray:
     q, _ = np.linalg.qr(rng.normal(size=(3, 3)))
@@ -127,10 +120,8 @@ def angle_deg(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.degrees(np.arccos(np.clip(a @ b / np.linalg.norm(a) / np.linalg.norm(b), -1, 1))))
 
 
-# --- Maths ---
 
 def test_sh_basis_is_orthonormal():
-    """The basis constants and the order stay those of 3DGS: real SH of bands 1 to 3 integrate to the identity."""
     nodes, weights = np.polynomial.legendre.leggauss(24)
     phi = np.arange(48) * 2 * np.pi / 48
     z, phi = np.meshgrid(nodes, phi, indexing="ij")
@@ -160,7 +151,7 @@ def test_sh_rotation_preserves_colour():
 
 
 def test_transform_follows_through():
-    """The covariance of a splat after Placement.apply is scale^2 R Sigma R^T, and SH and positions follow."""
+    """Covariance must transform as scale^2 R Sigma R^T."""
     rng = np.random.default_rng(SEED)
     cloud = random_cloud(rng, 50, 3)
     placement = export.Placement(random_rotation(rng), rng.normal(size=3), 0.37)
@@ -187,7 +178,6 @@ def _unit(v: np.ndarray) -> np.ndarray:
 
 
 def test_display_axes_match_exif_transpose():
-    """For each EXIF orientation, a stored pixel one step along the up (right) axis shows above (right of) centre."""
     w, h, step = 60, 40, 15
     for orientation in (1, 3, 6, 8):
         up, right = export.display_axes(orientation)
@@ -207,10 +197,7 @@ def test_display_axes_match_exif_transpose():
 
 def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int],
                       pitch_deg: tuple[float, float]) -> tuple[list[tuple], list[int], np.ndarray]:
-    """A sweep of cameras looking at the origin with pitches in `pitch_deg`, each stored with an EXIF orientation.
-
-    Each carries the gravity its accelerometer would record, in device axes, off by about GRAVITY_NOISE_DEG.
-    """
+    """Cameras carry device-axis gravity with GRAVITY_NOISE_DEG noise across EXIF orientations."""
     e1 = np.cross(up, [1, 0, 0]) if abs(up[0]) < 0.9 else np.cross(up, [0, 1, 0])
     e1 /= np.linalg.norm(e1)
     e2 = np.cross(up, e1)
@@ -223,7 +210,7 @@ def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int],
         photo_up /= np.linalg.norm(photo_up)
         photo_right = np.cross(forward, photo_up)
         orientation = orientations[i % len(orientations)]
-        up_c, right_c = export.display_axes(orientation)     # the photo's up and right in the stored pixels' axes
+        up_c, right_c = export.display_axes(orientation)
         x_axis = up_c[0] * photo_up + right_c[0] * photo_right   # stored x (right) and y (down) in the world
         y_axis = up_c[1] * photo_up + right_c[1] * photo_right
         rotation = np.stack([x_axis, y_axis, forward])       # world to camera
@@ -235,7 +222,6 @@ def synthetic_cameras(rng, up: np.ndarray, count: int, orientations: list[int],
 
 
 def test_levelling_recovers_gravity():
-    """Gravity is recovered however the photos pitch; the old mean display-up was off by their mean pitch."""
     rng = np.random.default_rng(SEED)
     for pitch_deg in ((-25, 25), (-85, -5), (-70, -50)):   # around the horizon, into an engine bay, steeply down
         up = _unit(rng.normal(size=(1, 3)))[0]
@@ -255,7 +241,7 @@ def test_levelling_recovers_gravity():
     skewed[:5] *= -1
     cameras = export.camera_geometry(poses, orientations, skewed)
     assert angle_deg(export.estimate_up(cameras)[0], up) < UP_RECOVERY_DEG, "outliers moved the estimate"
-    # Wrong device mappings are refused. A flipped sign agrees with itself, so only the photos being upright catch it.
+    # A flipped gravity sign agrees across photos, so display orientation must detect it.
     for wrong, reasons in ((-gravity, ("above",)), (gravity @ np.diag([1.0, 1, -1]), ("spreads", "above"))):
         try:
             export.estimate_up(export.camera_geometry(poses, orientations, wrong))
@@ -266,7 +252,7 @@ def test_levelling_recovers_gravity():
 
 
 def maker_note(entries: list[tuple[int, int, int, bytes]]) -> bytes:
-    """An Apple MakerNote with these (tag, type, count, payload) entries, payloads stored after the directory."""
+    """MakerNote payloads follow the directory in (tag, type, count, payload) entries."""
     head = export.APPLE_MAKER_NOTE + b"\0\x01MM"
     data_at = len(head) + 2 + 12 * len(entries) + 4
     directory, data = struct.pack(">H", len(entries)), b""
@@ -297,7 +283,6 @@ def test_scale_from_a_battery():
     assert abs(found["aspect"] - export.BATTERY_ASPECT) < 0.05, f"aspect {found['aspect']:.2f}"
 
 
-# --- SPZ and labels ---
 
 def test_spz_round_trip_synthetic():
     rng = np.random.default_rng(SEED)
@@ -346,7 +331,6 @@ def test_labels_bin_layout():
     assert np.array_equal(np.frombuffer(raw, np.uint8, offset=16), labels), "labels"
 
 
-# --- The actual consumer parser ---
 
 def parse_pack(value):
     result = subprocess.run(['node', str(HERE.parents[1] / 'scripts/validate-pack.cjs'), '--json'],
@@ -372,7 +356,6 @@ def sample_manifest() -> dict:
 
 
 def test_knowledge_notes():
-    """Headings become topics, source keys and numbering go, and unknown sections are refused."""
     parts = [{"id": "battery", "name": "Battery"}]
     with tempfile.TemporaryDirectory() as tmp:
         path = pathlib.Path(tmp) / "knowledge.md"
@@ -394,8 +377,7 @@ def test_knowledge_notes():
 
 
 def test_framing_radius_fits_a_box():
-    """Head on, a cube's near face sets the distance; turned, a long flat box ends whole in the view, touching its
-    margin. The view basis here is built as a look-at, independently of export.framing_radius."""
+    """Build the view basis independently of export.framing_radius to avoid sharing its errors."""
     half = 0.5
     tan_y = math.tan(math.radians(export.ENGINE_FOV_Y_DEG) / 2)
     for aspect in (1.0, export.NARROWEST_VIEW_ASPECT):
@@ -421,7 +403,6 @@ def test_framing_radius_fits_a_box():
     return f"cube {expected:.3f} m upright, long box {radius:.3f} m, fills {ndc.max():.3f} of the half view"
 
 
-# --- The pack on disk ---
 
 def load_pack(pack: pathlib.Path):
     manifest = json.loads((pack / "manifest.json").read_text())
@@ -454,7 +435,6 @@ def test_manifest_against_files(pack: pathlib.Path):
 
 
 def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_part: str, source_ply: pathlib.Path | None = None, source_report: pathlib.Path | None = None):
-    """The SPZ decodes; labels.bin has the spec header and is the input labels cropped the way the report says."""
     manifest, report = load_pack(pack)
     tier = manifest["tiers"][0]
     decoded = read_spz((pack / tier["cloud"]["path"]).read_bytes())
@@ -466,7 +446,6 @@ def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_pa
     labels = np.frombuffer(raw, np.uint8, offset=16)
     assert labels.max() <= len(manifest["parts"]), "a label no part carries"
 
-    # Recompute the crop from the PLY and the recorded placement: same count, same splats, same labels.
     sources = manifest["sources"]
     source_ply = source_ply or HERE.parents[1] / sources["ply"]["path"]
     label_path = label_path or HERE.parents[1] / sources["labels"]["path"]
@@ -514,7 +493,6 @@ def test_bounds_and_anchors(pack: pathlib.Path, decoded: dict, labels: np.ndarra
 
 
 def test_levelling_of_the_real_photos(report: dict):
-    """In the pack's frame the photos' recorded gravity is +Y, the frame is right-handed and the scale is recorded."""
     rotation = np.array(report["placement"]["rotation"])
     assert np.allclose(rotation @ rotation.T, np.eye(3), atol=1e-9), "not orthonormal"
     assert np.linalg.det(rotation) > 0, "mirrored"
@@ -531,7 +509,6 @@ def test_levelling_of_the_real_photos(report: dict):
 
 
 def test_home_outside_crop(pack: pathlib.Path, report: dict):
-    """The home camera sits outside the kept box, so no floater the crop keeps hangs between it and the parts."""
     home = json.loads((pack / "manifest.json").read_text())["camera"]["home"]
     azimuth, elevation = math.radians(home["azimuth"]), math.radians(home["elevation"])
     camera = home["radius"] * np.array([math.cos(elevation) * math.sin(azimuth), math.sin(elevation),
@@ -542,7 +519,6 @@ def test_home_outside_crop(pack: pathlib.Path, report: dict):
 
 
 def test_parts_fit_the_view(pack: pathlib.Path):
-    """Each part framed from the home direction on an upright phone stays within the radius limits."""
     manifest = json.loads((pack / "manifest.json").read_text())
     home, limits = manifest["camera"]["home"], manifest["camera"]["limits"]
     fits = {part["id"]: export.framing_radius(np.array(part["bounds"]["min"]), np.array(part["bounds"]["max"]),
@@ -573,7 +549,6 @@ def composite_view(cloud: dict, alpha: np.ndarray, rotation, translation, camera
 
 
 def test_render_matches_original(decoded: dict, keep: np.ndarray, splat, placement, report):
-    """The same photo composited from the original splats and from the decoded pack agrees up to quantisation."""
     photos = sorted(lift.PHOTOS.glob("*.jpg"))
     cameras = lift.read_cameras(lift.SPARSE)
     source = export.load_splats(splat, keep, decoded["degree"])

@@ -1,15 +1,4 @@
-"""Carry a part's keyframe masks (drawn on the marking page) to every photo with the SAM 3 tracker.
-
-The keyframes are whatever masks the owner saved for the part under /marks/<part>/. The photos are not a video,
-so the order they are fed in matters. With four or more keyframes each variant below is scored by hiding one of the
-two keyframes farthest from the others (mask_tools.pick_holdouts), tracking from the rest and comparing the
-prediction with the owner's mask (IoU); the best variant then runs with every keyframe. With fewer keyframes, or
-with --variant, nothing is scored and one variant runs directly (DEFAULT_VARIANT unless named).
-
-Check first:  uv run preflight.py
-Run:          modal run sam_track.py --part engine [--variant "view order, all keyframes"]
-Out:          a mask per photo on the volume at /tracks/<part>/, and data/segment/tracks/<part>/ previews plus report.json.
-"""
+"""Still-photo order controls tracking continuity; variants are scored against held-out keyframes when enough marks exist."""
 
 import json
 import pathlib
@@ -30,11 +19,10 @@ VARIANTS = {
     "capture order, all keyframes": ("capture", -1),
     "view order, all keyframes": ("view", -1),
 }
-DEFAULT_VARIANT = "view order, all keyframes"  # won on the engine; used when there are too few keyframes to score
+DEFAULT_VARIANT = "view order, all keyframes"
 
 
 def choose_variant(keyframes: list[int], requested: str = "") -> tuple[bool, str]:
-    """Whether to score the variants, and which one runs when they are not scored."""
     assert not requested or requested in VARIANTS, f"unknown variant {requested!r}; choose from {list(VARIANTS)}"
     if requested or len(keyframes) < mask_tools.MIN_KEYFRAMES_TO_SCORE:
         return False, requested or DEFAULT_VARIANT
@@ -200,7 +188,7 @@ def track(part: str, centres: list[list[float]], directions: list[list[float]], 
 
 
 def plan(part: str) -> dict:
-    """Check names, bytes and reconstruction before starting a GPU; standard library only."""
+    """Validate capture and reconstruction before GPU work using only the standard library."""
     assert part in mask_tools.PARTS, f"unknown part {part}"
     found = artifacts.capture(PHOTOS)
     cameras = json.loads((HERE / "cameras.json").read_text())

@@ -1,4 +1,3 @@
-"""Web API behind the marking page. No GPU code here, so the preflight runs it against a fake SAM."""
 
 import base64
 import io
@@ -53,7 +52,7 @@ class Sam(Protocol):
 
 def make_app(sam: Sam, photo_dir: pathlib.Path, page: pathlib.Path, marks_dir: pathlib.Path,
              refresh: Callable[[], None] = lambda: None, commit: Callable[[], None] = lambda: None) -> FastAPI:
-    """`marks_dir` is where saved parts land (one folder each); `refresh` makes other containers' saves visible."""
+    """refresh exposes saves from other containers before revision checks."""
     from PIL import Image
 
     api = FastAPI()

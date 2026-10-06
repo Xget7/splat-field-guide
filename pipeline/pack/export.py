@@ -1,15 +1,4 @@
-"""Export a trained PLY and its per-splat part labels as the pack the app bundles.
-
-The COLMAP world has an arbitrary up, so the cloud is first levelled with the gravity the iPhone's accelerometer
-recorded in each photo (+Y up, right-handed, the SPZ "RUB" frame), centred on the labelled parts and scaled to metres,
-then cropped around the labelled parts.
-Positions, rotations, log-scales and spherical harmonics all follow the transform. The SPZ is written in the
-format the app's decoder reads (version 3, gzip); labels.bin lists one label per splat in the SPZ's order.
-
-Run:  uv run export.py [--labels ../data/segment/lift/all/labels.npy] [--out ../data/pack/gol-trend-engine-bay/1]
-Out:  <out>/manifest.json, <out>/high/cloud.spz, <out>/high/labels.bin and <out>/publication.json (estimates and limits).
-Check the result with export_checks.py.
-"""
+"""Cloud and labels share a crop and transform into right-handed RUB coordinates with +Y up."""
 
 import argparse
 import gzip
@@ -40,38 +29,32 @@ SCHEMA_VERSION = 1
 TIER = "high"
 CLOUD_PATH, LABELS_PATH = f"{TIER}/cloud.spz", f"{TIER}/labels.bin"
 
-# --- Levelling, scale and crop ---
 EXIF_ORIENTATION = 274
 EXIF_IFD, EXIF_MAKER_NOTE = 0x8769, 0x927C
 APPLE_MAKER_NOTE = b"Apple iOS\0"
 APPLE_IFD_OFFSET = 14           # after the signature, a version and "MM"; offsets count from the note's start
 APPLE_ACCELERATION = 0x0008     # three signed rationals, in g
 EXIF_SRATIONAL = 10
-# The recorded vector is gravity, pointing down, in Core Motion's device axes: x to the right of the screen, y to its
-# top, z out of it. The stored pixels of the rear camera are the sensor's own landscape frame whatever the EXIF
-# orientation, with x along the device's -y, y along its -x and the view along its -z. So up, in the COLMAP camera
-# frame of the stored pixels (x right, y down, z forward), is this matrix times the recorded vector.
+# Core Motion gravity points down in device axes (right, top, out); rear stored pixels follow (-y, -x, -z), so this maps gravity to COLMAP camera up (right, down, forward).
 UP_FROM_DEVICE_GRAVITY = np.array([[0.0, 1, 0], [1, 0, 0], [0, 0, 1]])
 UP_SIGMA_DEG = 15.0            # photos further than this from the up estimate lose weight (Cauchy scale)
 UP_ITERATIONS = 20
-GRAVITY_AGREEMENT_DEG = 5.0     # the photos' gravity, in the COLMAP world, agrees to this median (1.4 on the capture)
+GRAVITY_AGREEMENT_DEG = 5.0     # Maximum median gravity deviation in the COLMAP world.
 UPRIGHT_FRACTION = 0.9          # at least this share of photos must show up above their centre, as a phone is held
 BATTERY_LABEL_ID = "battery"
-BATTERY_LONGEST_SIDE_M = 0.242  # a standard 60 Ah battery (242 x 175 x 190 mm)
+BATTERY_LONGEST_SIDE_M = 0.242  # Assumed battery dimension, pending physical measurement.
 BATTERY_ASPECT = 242 / 175      # its longest over its shortest horizontal side, to sanity-check the estimate
 EXTENT_PERCENTILE = 2.0         # robust extent of a part: 2nd to 98th percentile of its splat centres
-CROP_PERCENTILE = 0.5           # the crop box spans this percentile range of the labelled splats...
-CROP_MARGIN = 0.25              # ...plus this fraction of its side along each axis, so the margin above the
-                                # parts stays below the cameras however wide the bay
+CROP_PERCENTILE = 0.5           # Crop bounds use symmetric percentiles of labelled splats.
+CROP_MARGIN = 0.25              # Relative side margins keep the crop below the capture cameras.
 
-# --- Spherical harmonics ---
 SH_C0 = lift.SH_C0
 SH_MAX_DEGREE = 3
-SH_FIT_DIRECTIONS = 4096        # directions the per-band rotation is fitted on
-SH_FIT_TOLERANCE = 1e-9         # largest residual of that fit
+SH_FIT_DIRECTIONS = 4096
+SH_FIT_TOLERANCE = 1e-9
 SH_SEED = 7
 
-# --- SPZ encoding, from nianticlabs/spz src/cc/load-spz.cc at the commit the app pins ---
+# SPZ encoding follows nianticlabs/spz src/cc/load-spz.cc at the app's pinned revision.
 SPZ_MAGIC = 0x5053474E          # "NGSP"
 SPZ_VERSION = 3                 # gzip container with smallest-three quaternions; the app's decoder reads 1 to 4
 SPZ_HEADER = struct.Struct("<IIIBBBB")
@@ -84,7 +67,6 @@ SPZ_QUAT_BITS = 9
 SQRT1_2 = 0.707106781186547524401
 GZIP_LEVEL = 9
 
-# --- Labels and manifest ---
 LABELS_MAGIC = b"SFGL"
 LABELS_HEADER = struct.Struct("<4sHHII")
 LABELS_VERSION, LABEL_BYTES = 1, 1
@@ -93,9 +75,8 @@ ELEVATION_LIMIT_DEG = (5.0, 85.0)  # the orbit never goes below the floor or ove
 LIMIT_DECIMALS = 1              # angles in the manifest are rounded to this many decimals, limits outwards
 CAMERA_PERCENTILE = 2.0         # limits follow the photos' own viewpoints between these percentiles
 RADIUS_MARGIN = 0.8             # minimum radius: this fraction of the closest photo's distance
-RADIUS_DECIMALS = 3             # radii in the manifest, rounded outwards too
-# The app frames one part at a time with the engine's `frame`. These mirror SplatEngine.cpp, so the radius limit
-# leaves room for the largest part on the narrowest view the app draws in.
+RADIUS_DECIMALS = 3             # Radii round outwards to preserve framing limits.
+# Match SplatEngine.cpp so radius limits fit the largest part in the app's narrowest view.
 ENGINE_FOV_Y_DEG = 65.0         # SplatEngine::kFieldOfViewRadians
 ENGINE_FRAMING_MARGIN = 1.05    # kFramingMargin: a framed box fills at most 1 / this of the half view
 ENGINE_NEAR_PLANE = 0.05        # kNearPlane
@@ -107,7 +88,7 @@ def sha256(path: pathlib.Path) -> str:
 
 
 def dot(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Matrix product; matmul warns spuriously on large finite arrays with Accelerate, einsum does not."""
+    """einsum avoids spurious Accelerate matmul warnings on large finite arrays."""
     return np.einsum("ij,jk->ik", a, b)
 
 
@@ -116,7 +97,6 @@ def round_half_away(x: np.ndarray) -> np.ndarray:
     return np.sign(x) * np.floor(np.abs(x) + 0.5)
 
 
-# --- Reading ---
 
 def load_splats(splat: np.ndarray, keep: np.ndarray | None = None, degree: int | None = None) -> dict:
     """The PLY columns as float32 arrays; `sh` is [n, coefficients, 3] (band 0 excluded), RGB the last axis."""
@@ -159,7 +139,6 @@ def read_labels(path: pathlib.Path, count: int, part_ids: list[str], mask_part: 
     return raw
 
 
-# --- Levelling ---
 
 def display_axes(orientation: int) -> tuple[np.ndarray, np.ndarray]:
     """Up and right of the upright photo, as unit vectors in the camera frame of its stored pixels (x right, y down)."""
@@ -235,11 +214,7 @@ def robust_direction(directions: np.ndarray) -> tuple[np.ndarray, dict]:
 
 
 def estimate_up(cameras: dict[str, np.ndarray]) -> tuple[np.ndarray, dict]:
-    """Gravity up in the COLMAP world, from the photos' accelerometers.
-
-    Fails when the photos disagree, as a wrong device-to-camera mapping or re-rotated pixels would make them, or when
-    most photos would show up below their centre, as a sign error would.
-    """
+    """Gravity disagreement detects device mapping errors; inverted display-up detects a flipped gravity sign."""
     up, stats = robust_direction(cameras["gravity_up"])
     assert stats["median_deviation_deg"] < GRAVITY_AGREEMENT_DEG, \
         f"the photos' gravity spreads {stats['median_deviation_deg']:.1f} degrees (median) in the COLMAP world"
@@ -251,17 +226,12 @@ def estimate_up(cameras: dict[str, np.ndarray]) -> tuple[np.ndarray, dict]:
 
 
 def level_rotation(up: np.ndarray, forward: np.ndarray) -> np.ndarray:
-    """Rows right, up, back of the levelled frame in COLMAP coordinates (right-handed, so x = y cross z).
-
-    The cameras look along `forward`; its horizontal part becomes -Z, so a camera orbiting at azimuth 0 sits on +Z
-    and sees what the photographer saw.
-    """
+    """Right-handed rows are right, up and back in COLMAP coordinates, placing the home camera on +Z."""
     horizontal = forward - (forward @ up) * up
     back = -horizontal / np.linalg.norm(horizontal)
     return np.stack([np.cross(up, back), up, back])
 
 
-# --- Transforming a splat ---
 
 def quat_from_matrix(m: np.ndarray) -> np.ndarray:
     from scipy.spatial.transform import Rotation
@@ -295,11 +265,7 @@ def sh_basis(d: np.ndarray, degree: int) -> np.ndarray:
 
 
 def sh_rotation(rotation: np.ndarray, degree: int) -> np.ndarray:
-    """Matrix M [K, K] with new_coefficients = M @ coefficients when the world is rotated by `rotation`.
-
-    Colour at a rotated direction d' must equal the old colour at R^T d', so each band is the linear map between the
-    basis sampled at R^T d and at d, fitted over many directions. Bands do not mix, so M is block diagonal.
-    """
+    """Fit each band independently so colour at d' equals the original colour at R^T d', with new_coefficients = M @ coefficients."""
     d = np.random.default_rng(SH_SEED).normal(size=(SH_FIT_DIRECTIONS, 3))
     d /= np.linalg.norm(d, axis=1, keepdims=True)
     at, turned = sh_basis(d, degree), sh_basis(dot(d, rotation), degree)  # d @ R is R^T d per row
@@ -327,7 +293,6 @@ class Placement:
         return rotation @ self.rotation.T, self.scale * (translation + rotation @ self.origin)
 
     def apply(self, cloud: dict) -> dict:
-        """Positions, rotations, log-scales and SH of a cloud from load_splats."""
         turn = quat_from_matrix(self.rotation)
         out = dict(cloud)
         out["positions"] = self.points(cloud["positions"].astype(np.float64)).astype(np.float32)
@@ -341,7 +306,6 @@ class Placement:
 
 
 def estimate_scale(points: np.ndarray) -> dict:
-    """Longest horizontal side of a part's splats and its aspect ratio, from the principal axes of their footprint."""
     flat = points[:, [0, 2]] - points[:, [0, 2]].mean(0)
     axes = np.linalg.eigh(dot(flat.T, flat))[1]
     ends = [100 - EXTENT_PERCENTILE, EXTENT_PERCENTILE]
@@ -349,7 +313,6 @@ def estimate_scale(points: np.ndarray) -> dict:
     return {"longest": float(max(sides)), "aspect": float(max(sides) / min(sides))}
 
 
-# --- SPZ ---
 
 def pack_quaternions(q_xyzw: np.ndarray) -> np.ndarray:
     """Smallest-three: the largest component is dropped (sign chosen so it is positive), the rest take 10 bits each."""
@@ -407,7 +370,6 @@ def write_labels(path: pathlib.Path, labels: np.ndarray):
     path.write_bytes(LABELS_HEADER.pack(LABELS_MAGIC, LABELS_VERSION, LABEL_BYTES, len(labels), 0) + labels.tobytes())
 
 
-# --- Manifest ---
 
 def part_geometry(parts: list[dict], labels: np.ndarray, points: np.ndarray,
                   allow_missing: bool) -> tuple[dict, list[str]]:
@@ -435,15 +397,14 @@ def part_geometry(parts: list[dict], labels: np.ndarray, points: np.ndarray,
 
 
 def outward(low: float, high: float, decimals: int = LIMIT_DECIMALS) -> tuple[float, float]:
-    """A range rounded to `decimals` without shrinking, so what was inside stays inside."""
+    """Outward rounding preserves every value inside the original limits."""
     step = 10.0 ** -decimals
     return round(math.floor(low / step) * step, decimals), round(math.ceil(high / step) * step, decimals)
 
 
 def framing_radius(low: np.ndarray, high: np.ndarray, azimuth_deg: float, elevation_deg: float,
                    aspect: float) -> float:
-    """How far the engine's `frame` puts the camera from the box centre, looking from this direction: the closest
-    distance at which every corner is inside the view, less the margin, and in front of the near plane."""
+    """Match the engine's frame distance so every corner fits within the margin and beyond the near plane."""
     azimuth, elevation = math.radians(azimuth_deg), math.radians(elevation_deg)
     forward = -np.array([math.cos(elevation) * math.sin(azimuth), math.sin(elevation),
                          math.cos(elevation) * math.cos(azimuth)])
@@ -460,11 +421,7 @@ def framing_radius(low: np.ndarray, high: np.ndarray, azimuth_deg: float, elevat
 
 
 def camera_block(camera_points: np.ndarray, extent: float, part_boxes: list[tuple[np.ndarray, np.ndarray]]) -> dict:
-    """Home and limits from where the photos were taken, seen from the origin (the labelled parts' centre).
-
-    The azimuth range keeps the orbit on the side the photos saw, measured around the home so it may cross 180.
-    The radius reaches far enough to frame each part whole from the home direction on an upright phone.
-    """
+    """Azimuth limits wrap around home, and radius limits must fit every part on an upright phone."""
     horizontal = np.hypot(camera_points[:, 0], camera_points[:, 2])
     elevation = np.degrees(np.arctan2(camera_points[:, 1], horizontal))
     distance = np.linalg.norm(camera_points, axis=1)
@@ -507,7 +464,6 @@ def build_manifest(content: dict, out: pathlib.Path, count: int, geometry: dict,
             "camera": camera, "parts": parts, "procedures": content["procedures"]}
 
 
-# --- Main ---
 
 def main():
     parser = argparse.ArgumentParser()
@@ -572,7 +528,6 @@ def publish(args, out: pathlib.Path):
     assert labels.any(), "no splat is labelled"
     lap(f"{count:,} splats, {int((labels > 0).sum()):,} labelled")
 
-    # Level with the photos' gravity and heading.
     photos = sorted(lift.PHOTOS.glob("*.jpg"))
     poses = list(lift.read_cameras(lift.SPARSE)[p.name] for p in photos)
     cameras = camera_geometry(poses, read_orientations(photos), read_device_gravity(photos))
@@ -587,7 +542,6 @@ def publish(args, out: pathlib.Path):
     low, high = np.percentile(levelled[marked], [CROP_PERCENTILE, 100 - CROP_PERCENTILE], axis=0)
     origin = (low + high) / 2 @ rotation  # back in COLMAP coordinates
 
-    # Metres: the battery's longest horizontal side, when the battery is labelled.
     battery = part_ids.index(BATTERY_LABEL_ID) + 1
     scale_report = {"metric": False, "scale": 1.0,
                     "note": "the battery is not labelled, so the scale is COLMAP units, not metres"}
@@ -599,7 +553,6 @@ def publish(args, out: pathlib.Path):
                         "note": "approximate: scaled so the battery's longest horizontal side is 0.242 m"}
     placement = Placement(rotation, origin, scale_report["scale"])
 
-    # Crop around the labelled parts, dropping splats and labels together.
     placed = placement.points(points)
     box_low, box_high = np.percentile(placed[marked], [CROP_PERCENTILE, 100 - CROP_PERCENTILE], axis=0)
     margin = CROP_MARGIN * (box_high - box_low)

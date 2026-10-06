@@ -1,4 +1,3 @@
-"""Stage commands bind photo names and bytes to their downstream artifacts."""
 
 import pathlib
 import struct

@@ -2,7 +2,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-// Each utterance owns one run configuration. Cancellation is safe during Session::Run.
+// Each utterance owns a run configuration that can be cancelled during Session::Run.
 @interface KokoroCancellation : NSObject
 @property (nonatomic, readonly) BOOL isCancelled;
 - (void)cancel;

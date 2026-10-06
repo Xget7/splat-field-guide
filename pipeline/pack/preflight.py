@@ -1,9 +1,4 @@
-"""Everything that can be checked without a GPU, before a SAM run is sent to Modal.
-
-Run:  uv run --project pipeline python -m pipeline.pack.preflight [--volume]
-      uv run --project pipeline python -m pipeline.pack.preflight --serve-fake     (the marking page on http://127.0.0.1:8765 with a fake SAM)
-Exit code 1 when any check fails; no GPU work is started.
-"""
+"""GPU-free checks exercise geometry and marking with fake SAM; capture-backed checks require author artifacts."""
 
 import argparse
 import io
@@ -33,7 +28,7 @@ def check(name: str):
         try:
             detail = fn()
             results.append((True, f"{name}{f': {detail}' if detail else ''}"))
-        except Exception as e:  # a failed check is reported, never raised
+        except Exception as e:
             results.append((False, f"{name}: {e}"))
         return fn
     return wrap
@@ -59,7 +54,6 @@ def test_modal_app_builds():
 
 
 def test_orientation_matches_what_the_browser_shows():
-    """For every EXIF orientation, a click on the upright photo must land on the same stored pixel."""
     w, h = 40, 30
     for orientation in SUPPORTED_ORIENTATIONS:
         raw = Image.new("L", (w, h))
@@ -68,7 +62,7 @@ def test_orientation_matches_what_the_browser_shows():
         exif[274] = orientation
         buffer = io.BytesIO()
         raw.save(buffer, "PNG", exif=exif)
-        shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer)))  # what Chrome displays
+        shown = np.asarray(ImageOps.exif_transpose(Image.open(buffer)))
         v, u = np.argwhere(shown == 255)[0]
         x, y = mask_tools.raw_from_display((u + 0.5) / shown.shape[1], (v + 0.5) / shown.shape[0], orientation)
         assert (int(x * w), int(y * h)) == (31, 7), f"orientation {orientation} maps to {(int(x * w), int(y * h))}"
@@ -116,7 +110,7 @@ def test_contact_sheet_edge_cases():
     mask = np.zeros((30, 40), bool)
     mask[10:20, 10:20] = True
     cases = [
-        ([], {}, {}),                                   # nothing found at all (the run that crashed)
+        ([], {}, {}),
         ([0, 1], {"cap": {0: mask}}, {0: 6, 1: 1}),     # a frame without a mask, mixed orientations
     ]
     for frames, masks, orientations in cases:
@@ -125,7 +119,6 @@ def test_contact_sheet_edge_cases():
 
 
 def test_mask_orientation_matches_the_photo():
-    """A mask drawn on the upright photo must land on the same stored pixels, for every EXIF orientation."""
     raw = np.zeros((30, 40), bool)
     raw[3:9, 25:37] = True
     for orientation in SUPPORTED_ORIENTATIONS:
@@ -140,7 +133,6 @@ def test_mask_orientation_matches_the_photo():
 
 
 def test_working_photo_matches_tracker_frames():
-    """The page's upright photo, turned back, is exactly the frame the tracker reads (same size, no resampling drift)."""
     name = sorted(PHOTOS.glob("*.jpg"))[mask_tools.KEYFRAMES[0]]
     upright = mask_tools.working_photo(Image.open(name))
     stored = Image.open(name)
@@ -161,7 +153,6 @@ def test_page_script_parses():
 
 
 class FakeSam:
-    """Stands in for SAM behind the real web API: discs around the clicks, clipped to the box."""
 
     def __init__(self, out: pathlib.Path):
         self.out = out
@@ -265,7 +256,6 @@ def test_page_api_with_fake_sam():
 
 
 def test_view_order_follows_the_cameras():
-    """Cameras on a ring, shuffled, must come back in ring order (either direction)."""
     rng = np.random.default_rng(0)
     angles = np.linspace(0, 2 * np.pi, 30, endpoint=False)
     centres = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)
@@ -289,11 +279,11 @@ def test_small_tile_sheet():
 
 
 def test_entrypoints_run_in_the_modal_cli_python():
-    """`modal run` executes local entrypoints with the modal CLI's own Python, which has no numpy or OpenCV."""
+    """Modal entrypoints must import under the CLI interpreter without assuming NumPy or OpenCV is installed."""
     import os
     import shutil
 
-    # The modal on PATH outside this preflight's own environment is the one `modal run` uses.
+    # Resolve Modal outside the preflight environment to exercise the CLI's interpreter.
     own_bin = str(pathlib.Path(sys.prefix) / "bin")
     path = os.pathsep.join(d for d in os.environ["PATH"].split(os.pathsep) if d.rstrip("/") != own_bin)
     cli = shutil.which("modal", path=path)
@@ -317,7 +307,6 @@ def test_cameras_cover_every_photo():
 
 
 def test_projection_matches_opencv():
-    """lift.project must agree with OpenCV's model with the same four distortion terms (COLMAP OPENCV, as Brush)."""
     from pipeline.pack import lift
     rng = np.random.default_rng(1)
     fx, fy, cx, cy, *distortion = params = (2017.87, 2017.68, 1416.0, 1062.0, 0.0636, -0.1051, 0.0001, 0.0001)
@@ -353,10 +342,7 @@ def test_compositing_follows_occlusion():
 
 
 def arc_scene(balls: dict[str, tuple[tuple[float, float, float], float]]):
-    """Balls (the parts, id -> centre, radius) in front of a wall, seen by seven cameras on an arc.
-
-    Returns the scene, each ball's exact silhouette in every photo, each ball's splat indices and the wall's.
-    """
+    """Exact silhouettes and member indices provide independent truth for balls before a wall seen on a camera arc."""
     from pipeline.pack import lift
     golden = np.pi * (3 - np.sqrt(5))
     k = np.arange(3000)
@@ -386,7 +372,6 @@ def arc_scene(balls: dict[str, tuple[tuple[float, float, float], float]]):
 
 
 def synthetic_scene():
-    """A ball (the part) in front of a wall, seen by seven cameras on an arc; masks are exact ball silhouettes."""
     scene, silhouettes, members, wall = arc_scene({"ball": ((0.0, 0.0, 0.0), 0.5)})
     views = {frame: (mask, 1.0) for frame, mask in silhouettes["ball"].items()}
     truth = np.r_[np.ones(len(members["ball"]), bool), np.zeros(len(wall), bool)]
@@ -403,14 +388,13 @@ def lift_shares(scene, parts, masks: dict[str, dict[int, np.ndarray]]) -> np.nda
 
 
 def facing(scene, indices, centre, keep=lambda d: True) -> np.ndarray:
-    """The splats of a ball that the arc sees (the rim and far side are only grazed), filtered by distance."""
+    """Exclude the rim and far side, which the camera arc only grazes."""
     points = scene.points[indices]
     offset = points - np.asarray(centre)
     return indices[(offset[:, 2] < -0.15) & keep(np.linalg.norm(offset, axis=1))]
 
 
 def test_siblings_are_kept_apart():
-    """Two reservoirs side by side each take their own splats; a mask bleeding onto the neighbour loses to its owner."""
     from pipeline.pack import lift_all
     parts = {"a": {"label": 1, "parent": None}, "b": {"label": 2, "parent": None}}
     balls = {"a": ((-0.3, 0.0, 0.0), 0.25), "b": ((0.3, 0.0, 0.0), 0.25)}
@@ -423,7 +407,7 @@ def test_siblings_are_kept_apart():
         found[name] = (labels[mine] == number).mean()
         assert found[name] > 0.95, f"{name}: only {found[name]:.1%} of its visible splats labelled {number}"
     assert (labels[wall] != lift_all.NO_PART).mean() < 0.002, "wall labelled as a part"
-    # a's mask also covers b in five of seven photos (a share of 5/7 there); b's own share is 1, so b keeps them.
+    # b's full mask share must beat a's overlapping 5/7 share.
     bleeding = {f: m | sil["b"][f] if f < 5 else m for f, m in sil["a"].items()}
     crossed = lift_shares(scene, parts, {"a": bleeding, "b": sil["b"]})
     kept = (crossed[facing(scene, members["b"], balls["b"][0])] == 2).mean()
@@ -432,10 +416,9 @@ def test_siblings_are_kept_apart():
 
 
 def test_child_counts_for_its_parent():
-    """A parent covers its child: the child wins where it holds the majority, the parent keeps the rest."""
     from pipeline.pack import lift_all
     parts = {"engine": {"label": 1, "parent": None}, "cover": {"label": 2, "parent": "engine"}}
-    balls = {"engine": ((0.0, 0.0, 0.0), 0.5), "cover": ((0.0, 0.0, -0.55), 0.2)}  # the cover bulges out of the engine
+    balls = {"engine": ((0.0, 0.0, 0.0), 0.5), "cover": ((0.0, 0.0, -0.55), 0.2)}
     scene, sil, members, wall = arc_scene(balls)
     cover_centre = balls["cover"][0]
     cap = facing(scene, members["cover"], cover_centre, lambda d: d > 0)
@@ -446,31 +429,24 @@ def test_child_counts_for_its_parent():
     assert (both[cap] == 2).mean() > 0.95 and (both[body] == 1).mean() > 0.95, (
         f"engine mask covering its cover: cap {(both[cap] == 2).mean():.1%} cover, body {(both[body] == 1).mean():.1%} engine")
     assert (both[wall] != lift_all.NO_PART).mean() < 0.002, "wall labelled as a part"
-    # The owner left the cover out of the engine's mask: the engine share is 0 there, the cover still wins its splats.
     hole = {f: m & ~sil["cover"][f] for f, m in sil["engine"].items()}
     holed = lift_shares(scene, parts, {"engine": hole, "cover": sil["cover"]})
     assert (holed[cap] == 2).mean() > 0.95 and (holed[body] == 1).mean() > 0.95, "a hole in the engine mask lost the cover"
-    # Only the engine marked: the cover's splats are the engine's.
     alone = lift_shares(scene, parts, {"engine": sil["engine"]})
     assert (alone[cap] == 1).mean() > 0.95 and (alone[body] == 1).mean() > 0.95, "an unmarked child must stay in its parent"
-    # Only the cover marked: its splats are labelled, the engine has no say.
     child_only = lift_shares(scene, parts, {"cover": sil["cover"]})
     assert (child_only[cap] == 2).mean() > 0.95 and (child_only[body] != 1).all(), "an unmarked parent got labels"
-    # The cover is seen in photos 0-1 and the engine in 3-5 (a hole where the cover is, elsewhere): neither holds a
-    # majority alone (2/7 and 3/7), together they do (5/7). The splat belongs to the engine, and the cover, lacking
-    # the majority, does not take it.
+    # Disjoint 2/7 child and 3/7 parent shares must combine into a 5/7 parent majority.
     split_cover = {f: m if f < 2 else np.zeros_like(m) for f, m in sil["cover"].items()}
     split_engine = {f: m if 3 <= f < 6 else m & ~sil["cover"][f] for f, m in sil["engine"].items()}
     split = lift_shares(scene, parts, {"engine": split_engine, "cover": split_cover})
-    # Shares are fuzzy at 2/7 and 3/7, so this checks the bulk: without the union most would be 0 (the engine alone
-    # holds more than half on about a quarter of them), and with it the engine takes them and the cover few.
+    # Neighbourhood pooling blurs the 2/7 and 3/7 shares, so check bulk ownership.
     split_share = np.bincount(split[cap], minlength=3) / len(cap)
     assert split_share[1] > 0.7 and split_share[2] < 0.2, f"a split cap: none, engine, cover = {split_share.round(2)}"
     return f"cap {(both[cap] == 2).mean():.1%} cover, body {(both[body] == 1).mean():.1%} engine"
 
 
 def test_assign_on_shares():
-    """The rule on hand-made shares: competition, majority threshold, child over parent, label dtype."""
     from pipeline.pack import lift_all
     parts = {"a": {"label": 1, "parent": None}, "b": {"label": 2, "parent": None},
              "p": {"label": 3, "parent": None}, "c1": {"label": 4, "parent": "p"}, "c2": {"label": 5, "parent": "p"}}
@@ -479,13 +455,10 @@ def test_assign_on_shares():
               "c2": np.array([0.0, 0.0, 0.0, 0.6, 0.45, 0.6])}
     groups = {"a": shares["a"], "b": shares["b"], "p": np.maximum(shares["p"], np.maximum(shares["c1"], shares["c2"]))}
     got = lift_all.assign(parts, shares, groups)
-    # a wins 0, b wins 1 (larger share), 2 is a tie at exactly 0.5 (no majority), c1 beats c2, p keeps 4, c2 has a
-    # majority with the group's share only 0.6 so it wins 5.
     assert got.dtype == np.uint8 and got.tolist() == [1, 2, 0, 4, 3, 5], got.tolist()
 
 
 def test_strays_are_dropped():
-    """A far piece of a part goes (to no part, or to the parent for a child); a near piece and a child stay."""
     from pipeline.pack import lift_all
     rng = np.random.default_rng(1)
 
@@ -508,7 +481,7 @@ def test_strays_are_dropped():
 
 def test_pack_and_parts_agree():
     from pipeline.pack import lift_all
-    parts = lift_all.pack_parts()  # asserts the ids and parents match mask_tools.PARTS
+    parts = lift_all.pack_parts()
     assert [p["label"] for p in parts.values()] == list(range(1, len(parts) + 1)), "labels are not 1-based in pack order"
     assert set(parts) == set(mask_tools.PARTS), "a part is missing on one side"
     assert all(p["parent"] is None or p["parent"] in parts for p in parts.values()), "a parent is not a part"
@@ -523,7 +496,7 @@ def test_parts_ply_tints_each_part():
     tinted = lift_all.tint(splat, np.array([0, 1, 2, 1], np.uint8))
     colour = np.stack([tinted[f"f_dc_{c}"] for c in range(3)], 1)
     assert (colour[0] == 0).all() and (colour[1] == colour[3]).all() and not np.allclose(colour[1], colour[2])
-    rgb = 0.5 + lift.SH_C0 * colour[1]  # the tint moves the colour towards the part's own
+    rgb = 0.5 + lift.SH_C0 * colour[1]
     assert (rgb - 0.5) @ (np.array(lift_all.PART_RGB[0]) - 0.5) > 0 and (splat["f_dc_0"] == 0).all()
 
 
@@ -569,7 +542,6 @@ def test_lift_recovers_a_synthetic_part():
 
 
 def test_lift_ignores_a_tracker_mistake():
-    """Two tracked photos mark the wall instead of the ball: they are outvoted and then stop voting."""
     from pipeline.pack import lift
     scene, views, truth, balls = synthetic_scene()
     keyframes = {f: views[f][0] for f in (0, 3, 6)}
@@ -585,7 +557,6 @@ def test_lift_ignores_a_tracker_mistake():
 
 
 def test_colmap_poses_reproject_their_points():
-    """The poses lift reads must put each COLMAP 3D point back where it was matched, as closely as COLMAP does."""
     import struct
 
     from pipeline.pack import lift
@@ -694,7 +665,7 @@ def main():
                      ("COLMAP poses reproject their points", test_colmap_poses_reproject_their_points),
                      ("entrypoints run in the modal CLI's Python", test_entrypoints_run_in_the_modal_cli_python)]:
         check(name)(fn)
-    from pipeline.pack import export_checks  # the export's maths, so a pack is not built on a broken transform
+    from pipeline.pack import export_checks
 
     for name, fn in export_checks.SYNTHETIC_CHECKS:
         check(f"export: {name}")(fn)

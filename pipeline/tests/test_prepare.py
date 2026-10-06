@@ -1,4 +1,3 @@
-"""Exercise release packaging and preparation with real pack bytes and fake build tools."""
 
 import gzip
 import json

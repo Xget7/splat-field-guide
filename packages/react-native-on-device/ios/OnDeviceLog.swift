@@ -22,7 +22,6 @@ enum OnDeviceLog {
   static func speechMeasurement(_ message: String) {
 #if DEBUG
     output.notice("\(message, privacy: .public)")
-    // Also visible in the Xcode console and a simulator launch log.
     print("[Kokoro] \(message)")
     measurementWriter.async {
       guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,

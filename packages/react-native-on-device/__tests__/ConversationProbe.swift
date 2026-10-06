@@ -3,8 +3,7 @@ import NitroModules
 
 struct OnDeviceError: Error { let message: String }
 
-// AVAudioSession is iOS-only. Its notification transport is controlled here; the graph
-// still uses the real AVAudioEngine and never starts audio hardware in this probe.
+// Substitute the iOS-only session notifications while retaining the real, unstarted AVAudioEngine.
 enum OnDeviceAudioSession { static func activate() throws {} }
 enum AVAudioSession {
   static let interruptionNotification = Notification.Name("AVAudioSessionInterruptionNotification")
@@ -24,8 +23,7 @@ final class KokoroCancellation {
   func cancel() { lock.withLock { cancelled = true } }
 }
 
-// The external model worker is paused before audio exists, so output cancellation cannot
-// accidentally pass only because a player happened to be running.
+// Pause synthesis before audio exists to verify cancellation independently of playback.
 final class KokoroEngine {
   static let sampleRate = 24_000.0
   static let synthesizing = DispatchSemaphore(value: 0)

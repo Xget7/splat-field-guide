@@ -1,4 +1,3 @@
-"""Malformed source artifacts terminate, and diagnostic previews honor photo layout."""
 
 import pathlib
 import struct

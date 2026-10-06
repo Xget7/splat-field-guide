@@ -44,23 +44,20 @@ final class OnDeviceAudioLevel {
   }
 }
 
-/// Whether someone is talking, read from the microphone level against the room's own noise:
-/// speech has to stand clear of the background measured before it began. Owned by one input tap and accessed
-/// only on its audio thread.
+// Owned by one audio tap, with the voice threshold set against the preceding quiet samples.
 final class OnDeviceVoiceActivity {
   enum Change { case started, ended }
 
   // Levels are 0 to 1 over 40 dB, so 0.2 is 8 dB.
   private static let margin = 0.2
-  // About -40 dBFS: below this nothing is a voice, however still the room.
+  // The absolute threshold is about -40 dBFS.
   private static let minimumVoice = 0.25
   // Only quiet samples enter this window, so sustained speech cannot raise its own threshold.
   private static let floorWindow: TimeInterval = 3
-  // Louder for this long is a voice rather than a click or a knock.
+  // Sustained onset excludes clicks and knocks.
   private static let onset: TimeInterval = 0.1
-  // Quiet for this long ends a turn: past the gaps between words, short of a felt wait.
+  // The pause must outlast gaps between words.
   static let endPause: TimeInterval = 0.7
-  // A voice that never pauses, such as a radio, still ends its turn after this long.
   private static let longestTurn: TimeInterval = 20
 
   private var recent: [(time: TimeInterval, level: Double)] = []
@@ -69,7 +66,7 @@ final class OnDeviceVoiceActivity {
   private var lastVoice: TimeInterval = 0
   private var noiseFloor = 0.0
 
-  /// Takes the level at `time`, in seconds, and returns the change it makes, if any.
+  // time is in seconds.
   func update(_ level: Double, at time: TimeInterval) -> Change? {
     if speakingSince == nil, louderSince == nil {
       recent.removeAll { time - $0.time > Self.floorWindow }

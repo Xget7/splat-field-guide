@@ -46,7 +46,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     }
   }
 
-  // Model state belongs exclusively to this worker. Playback and utterance state belong to main.
+  // The worker owns model state; main owns playback and utterance state.
   private let worker = DispatchQueue(label: "dev.splatfieldguide.kokoro", qos: .userInitiated)
   private var model: Result<KokoroEngine, Error>?
   private var active: Utterance?
@@ -71,7 +71,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
       center.addObserver(forName: OnDeviceAudioGraph.didInterruptPlayback, object: graph,
         queue: .main) { [weak self] _ in self?.stopCurrent() },
     ]
-    // The JS factory is lazy. Merely creating output on entering the instructor warms off UI.
+    // Warm the model off main to avoid blocking the UI on first use.
     worker.async {
       let start = ProcessInfo.processInfo.systemUptime
       let result = Result { try KokoroEngine() }
@@ -269,7 +269,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     wordTimer?.cancel()
     wordTimer = nil
     graph.stopPlayback()
-    // Keep playAndRecord active. Speech input will reuse the shared session immediately.
+    // Keep playAndRecord active for speech input to reuse the shared session.
     if let error { utterance.promise.reject(withError: error) } else { utterance.promise.resolve() }
   }
 

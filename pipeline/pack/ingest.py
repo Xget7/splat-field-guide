@@ -32,7 +32,6 @@ def ingest(source: Path, output: Path):
     if len(names) != len(set(names)):
         raise ValueError('photo names collide after JPEG conversion')
     with artifacts.candidate(output) as staged:
-        # Keep depth, camera JSON and original HEIFs beside the exact JPEG training inputs.
         shutil.copytree(source, staged / 'originals')
         photos = staged / 'jpg'
         photos.mkdir()

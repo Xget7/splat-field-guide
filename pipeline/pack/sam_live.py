@@ -1,9 +1,4 @@
-"""Marking page with SAM 3 in the loop: the owner marks a whole part on a few photos and sees the mask live.
-
-Check first:  uv run --project pipeline python -m pipeline.pack.preflight              (runs the page against a fake SAM, no GPU)
-Deploy:       modal deploy --module pipeline.pack.sam_live         (the page stays up; `modal app stop sfg-sam-live` takes it down)
-Saved as complete revisions under /marks/<part>/sets/<revision>/, selected by current.json.
-"""
+"""SAM runs on Modal while saved masks are published as complete capture-bound revisions."""
 
 import pathlib
 

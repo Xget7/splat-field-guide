@@ -1,7 +1,5 @@
 import AVFoundation
 
-// Apple audio and recognition are external dependencies; the controlled harness uses the
-// same interface without opening a microphone or downloading recognition assets.
 protocol ConversationAudio: AnyObject {
   func startListening(onStopped: @escaping (String) -> Void,
     tap: @escaping AVAudioNodeTapBlock) throws -> AVAudioFormat
@@ -14,8 +12,7 @@ protocol ConversationTranscription: AnyObject {
   func cancel()
 }
 
-/// One open microphone and transcription, split into turns by acoustic pauses.
-/// Lifecycle and callbacks belong to main; level detection belongs to the audio tap.
+// Lifecycle and callbacks belong to main; level detection belongs to the audio tap.
 final class OnDeviceConversation {
   typealias Transcribe = (String, [String], @escaping (String) -> Void,
     @escaping (Error?) -> Void) throws -> any ConversationTranscription

@@ -8,22 +8,18 @@ private protocol TranscriptionResult: SpeechModuleResult, Sendable {
 extension SpeechTranscriber.Result: TranscriptionResult {}
 extension DictationTranscriber.Result: TranscriptionResult {}
 
-/// Live transcription with SpeechAnalyzer, the on-device model behind Notes and Voice Memos,
-/// which hears accented speech far better than SFSpeechRecognizer. Audio comes in on the
-/// microphone's tap thread; everything else, callbacks included, is on the main queue.
+// Audio conversion runs on the tap thread; turn state and callbacks belong to main.
 final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendable {
   private struct Model {
     let locale: Locale
     let format: AVAudioFormat
-    // SpeechTranscriber where the device has it, else the older dictation model.
+    // Selects SpeechTranscriber instead of DictationTranscriber.
     let full: Bool
   }
 
   private static let modelsLock = NSLock()
   private static var models: [String: Model] = [:]
 
-  /// Finds the model for a locale and installs it, downloading it once if needed, so later
-  /// transcription works offline. False when the locale cannot be transcribed here.
   static func prepare(locale identifier: String) async throws -> Bool {
     if modelsLock.withLock({ models[identifier] }) != nil { return true }
     let requested = Locale(identifier: identifier)
@@ -47,8 +43,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
       attributeOptions: [])
   }
 
-  /// Apple's voice activity detection: audio with no speech in it is not transcribed, so room
-  /// noise does not come back as a stray "." or word. Medium is Apple's recommended level.
+  // Voice detection keeps room noise from producing stray transcript text.
   private static func detector() -> SpeechDetector {
     SpeechDetector(detectionOptions: .init(sensitivityLevel: .medium), reportResults: false)
   }
@@ -66,20 +61,18 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
   private let onEnd: (Error?) -> Void
   private var reading: Task<Void, Never>?
   private var closed = false
-  // How long to wait for results already sent once the model has finalised, and for the
-  // model itself should it not answer.
+  // Allow queued results to reach main after finalization.
   private static let settleGrace: TimeInterval = 0.15
+  // Bound settlement if the model never answers.
   private static let longestSettle: TimeInterval = 1.5
 
   // Results from audio before this time belong to an earlier turn.
   private var since = CMTime.zero
-  // The turn being finalised: where it ends, and who gets its text.
   private var ending: (through: CMTime, done: (String) -> Void)?
   // Settled words heard after the turn being finalised, which start the next one.
   private var next: [String] = []
   private var finalized: [String] = []
   private var volatile = ""
-  /// Everything heard since the start or the last turn ended.
   private(set) var text = ""
 
   // Tap thread only.
@@ -88,9 +81,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
   private let fedLock = NSLock()
   private var fedFrames: AVAudioFramePosition = 0
 
-  /// Starts at once and buffers audio while the model loads, so no word is lost. `prepare` must
-  /// have succeeded for the locale. `onChange` gets the whole text each time it changes and
-  /// `onEnd` the error, if any, if results stop before `cancel`.
+  // Buffer audio while the prepared model loads to preserve the start of speech.
   init(locale identifier: String, hints: [String], onChange: @escaping (String) -> Void,
     onEnd: @escaping (Error?) -> Void) throws {
     guard let model = Self.modelsLock.withLock({ Self.models[identifier] }) else {
@@ -117,17 +108,14 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
     }
   }
 
-  /// Tap thread: converts microphone audio to the model's format and queues it.
+  // Called only on the audio tap thread.
   func append(_ buffer: AVAudioPCMBuffer) {
     guard let converted = convert(buffer) else { return }
     fedLock.withLock { fedFrames += AVAudioFramePosition(converted.frameLength) }
     input.yield(AnalyzerInput(buffer: converted))
   }
 
-  /// Ends the turn at the audio heard so far and hands over its text once the model has
-  /// settled it. The model on its own holds its last words back for more context, seconds after
-  /// the speaker has stopped; asked to finalise, it gives them in a fraction of a second. Audio
-  /// after this point starts the next turn.
+  // Explicit finalization releases trailing words without waiting for more speech context.
   func endTurn(_ done: @escaping (String) -> Void) {
     guard ending == nil else { return }
     let through = CMTime(value: fedLock.withLock { fedFrames },
@@ -181,7 +169,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
   private func take(_ piece: String, range: CMTimeRange, isFinal: Bool, settled: CMTime) {
     guard !closed, CMTimeCompare(range.start, since) >= 0 else { return }
     if let ending, CMTimeCompare(range.start, ending.through) >= 0 {
-      // The next turn has begun; its passing guesses come again once this one is done.
+      // Keep settled next-turn words while this turn finishes.
       if isFinal { next.append(piece) }
       return
     }

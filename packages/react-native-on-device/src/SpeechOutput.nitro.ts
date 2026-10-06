@@ -1,12 +1,11 @@
 import type { HybridObject } from 'react-native-nitro-modules';
 
-/** Reads English with bundled Kokoro, with the best installed system voice as fallback. */
+/** Uses bundled English Kokoro on iOS with system fallback, and an installed offline voice on Android. */
 export interface SpeechOutput extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   /**
    * Stops anything already being said, then says `text`; resolves when it ends or is stopped.
-   * `onWord` gets each word's range in `text`, in UTF-16 code units like a JS string index, during
-   * playback. Kokoro estimates each start from word length and the sentence audio duration;
-   * the Apple fallback reports its own word callbacks.
+   * `onWord` receives original UTF-16 ranges during playback, estimated by Kokoro from word length
+   * and sentence duration or reported by the system voice.
    */
   speak(
     text: string,

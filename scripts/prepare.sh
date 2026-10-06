@@ -11,8 +11,7 @@ if [ "$#" -gt 0 ]; then
     exit 2
   fi
 fi
-# The repository is private, so its release assets reach only authenticated clients.
-# An authenticated gh downloads the archive once into the ignored releases folder.
+# Private release assets require authenticated gh access.
 CACHED_ARCHIVE="$ROOT/data/pack/releases/$PACK_ARCHIVE"
 if [ "$#" -eq 0 ] && [ -z "${FIELD_GUIDE_PACK_URL:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   if [ ! -f "$CACHED_ARCHIVE" ]; then

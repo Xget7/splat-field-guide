@@ -1,12 +1,4 @@
-"""Lift a part's per-photo masks onto the splat: every splat takes the side most of its visible light fell on.
-
-Each photo is composited coarsely from splat centres (front to back per cell), so a splat's say in a photo is how
-much it contributes there: its opacity times the light that gets past the splats in front of it. The votes are then
-pooled over each splat's nearest neighbours in 3D, which removes speckle and labels splats hidden inside the part.
-
-Run:  uv run lift.py --masks ../data/segment/marks/engine [--tracked ../data/segment/tracks/engine] [--leave-one-out]
-Out:  data/segment/lift/<part>/labels.npy (one bool per splat, PLY order), report.json, views.jpg and tinted.ply.
-"""
+"""PLY-order labels use front-to-back alpha-weighted photo votes pooled over 3D neighbours to reduce speckle and label hidden interiors."""
 
 import argparse
 import json
@@ -30,7 +22,7 @@ MIN_WEIGHT = 0.05           # a neighbourhood contributing less than this over a
 MAJORITY = 0.5              # a splat belongs to a part when more than this share of its light went through the masks
 NEIGHBOURS = 16             # splats whose votes are pooled, the splat itself included
 REJECT_IOU = 0.3            # a tracked mask this far from what the other photos agree on stops voting
-HIGHLIGHT_RGB = (0x25 / 255, 0x76 / 255, 0xD2 / 255)  # the guide's accent, marine blue (#2576D2)
+HIGHLIGHT_RGB = (0x25 / 255, 0x76 / 255, 0xD2 / 255)
 HIGHLIGHT_MIX = 0.65                # how much of a highlighted splat's colour the accent replaces
 SH_C0 = 0.28209479177387814
 OPENCV = 4
@@ -83,10 +75,7 @@ def read_cameras(sparse: pathlib.Path) -> dict[str, tuple]:
 
 
 def project(points: np.ndarray, rotation, translation, camera, scale: float):
-    """COLMAP OPENCV projection (the model Brush trains with), in pixels of the photo resized by `scale`.
-
-    Points behind the camera or far outside the field of view come back as NaN.
-    """
+    """COLMAP OPENCV projection uses resized-photo pixels and returns NaN behind the camera or far outside its field of view."""
     width, height, (fx, fy, cx, cy, k1, k2, p1, p2) = camera
     cam = np.einsum("ij,kj->ki", rotation, points) + translation  # matmul warns spuriously with Accelerate
     z = cam[:, 2]
@@ -114,8 +103,8 @@ def contributions(u, v, z, alpha, width: int, height: int):
     a = np.minimum(alpha[inside], 0.99)
     log_left = np.cumsum(np.log1p(-a))
     starts = np.flatnonzero(np.r_[True, cell[1:] != cell[:-1]])
-    before = np.r_[0.0, log_left[:-1]]  # light absorbed by everything earlier in the run...
-    before -= np.repeat(np.r_[0.0, log_left[starts[1:] - 1]], np.diff(np.r_[starts, len(cell)]))  # ...in this cell
+    before = np.r_[0.0, log_left[:-1]]  # Cumulative log transmission before each splat.
+    before -= np.repeat(np.r_[0.0, log_left[starts[1:] - 1]], np.diff(np.r_[starts, len(cell)]))  # Reset at each cell boundary.
     return inside, px, py, cell, a * np.exp(before)
 
 
@@ -137,7 +126,6 @@ def load_masks(folder: pathlib.Path) -> dict[int, np.ndarray]:
 
 
 def load_tracked(folder: pathlib.Path, keyframes) -> dict[int, np.ndarray]:
-    """sam_track's masks for the photos that are not keyframes, except where the tracker lost the part."""
     scores = json.loads((folder / "report.json").read_text())["photos"]
     # A negative score means the tracker lost the part, not that it is absent: such a mask must not vote.
     return {f: m for f, m in load_masks(folder / "masks").items() if f not in keyframes and scores[str(f)]["score"] > 0}
@@ -186,15 +174,10 @@ class Scene:
         return np.where(seen, inside / np.where(seen, total, 1), 0.0)
 
     def labels(self, votes: np.ndarray) -> np.ndarray:
-        """Majority of the light each splat's neighbourhood sent through the masks."""
         return self.share(votes) > MAJORITY
 
     def check(self, labels: np.ndarray, frame: int, mask: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
-        """Composite the labels in a photo and compare with its mask cell by cell: IoU, rendered cells, mask cells.
-
-        A part in front takes every cell it partly covers, so it renders up to a cell wider and even perfect labels
-        score below 1. Compare variants with each other, not with 1.
-        """
+        """Partial cell coverage widens rendered parts, so compare variant IoU scores rather than expecting perfect labels to score 1."""
         height, width = mask.shape
         index, _, _, cell, weight = self.view(frame, width, height)
         share = composite(labels[index].astype(np.float64), cell, weight, width, height)
@@ -205,7 +188,6 @@ class Scene:
         return float((rendered & truth & known).sum() / union) if union else 1.0, rendered, truth
 
     def preview(self, frame: int, mask: np.ndarray, rendered: np.ndarray, truth: np.ndarray) -> np.ndarray:
-        """The photo with its mask beside the splat composite with the labels, both upright."""
         height, width = mask.shape
         index, _, _, cell, weight = self.view(frame, width, height)
         colour = np.nan_to_num(composite(self.colour[index], cell, weight, width, height))
@@ -223,11 +205,7 @@ class Scene:
 
 
 def voters(scene: Scene, keyframes: dict[int, np.ndarray], tracked: dict[int, np.ndarray], trust: float):
-    """Photos that vote and how much, and the tracked photos left out.
-
-    The tracker sometimes follows the wrong object; the other photos outvote it, and then it stops voting.
-    The owner's keyframes always vote.
-    """
+    """Owner keyframes always vote, while tracked masks that disagree with the other photos are rejected."""
     views = {f: (m, trust) for f, m in tracked.items()} | {f: (m, 1.0) for f, m in keyframes.items()}
     labels = scene.labels(scene.votes(views))
     rejected = sorted(f for f in tracked if f not in keyframes and scene.check(labels, f, tracked[f])[0] < REJECT_IOU)
@@ -313,7 +291,6 @@ def main():
     np.save(out / "labels.npy", labels)
     (out / "report.json").write_text(json.dumps(report, indent=2))
     cv2.imwrite(str(out / "views.jpg"), sheet(tiles), [cv2.IMWRITE_JPEG_QUALITY, 85])
-    # A copy of the splat with the part tinted in the accent, to open in any splat viewer.
     tinted = np.array(splat)
     accent = (np.array(HIGHLIGHT_RGB) - 0.5) / SH_C0
     for channel in range(3):

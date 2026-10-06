@@ -1,8 +1,6 @@
 import AVFoundation
 
-/// The audio engine speech plays through. Listening taps the same engine with
-/// voice processing on, so echo cancellation has a reference for Kokoro playback.
-/// Apple fallback plays outside this graph and still needs caller-side echo filtering. Main queue only.
+// Main queue only, sharing Kokoro playback for echo cancellation while Apple fallback needs caller-side filtering.
 final class OnDeviceAudioGraph: ConversationAudio {
   static let shared = OnDeviceAudioGraph()
   static let speechSampleRate: Double = 24_000
@@ -36,21 +34,18 @@ final class OnDeviceAudioGraph: ConversationAudio {
     ]
   }
 
-  /// Gets the player ready for 24 kHz mono speech buffers.
   func startPlayback() throws {
     try OnDeviceAudioSession.activate()
     try startEngine()
     playing = true
   }
 
-  /// Stops speech; the engine keeps running only while it is also listening.
   func stopPlayback() {
     player.stop()
     playing = false
     if !listening { engine.stop() }
   }
 
-  /// Opens the microphone with echo cancellation and taps it until `stopListening`.
   func startListening(onStopped: @escaping (String) -> Void, tap: @escaping AVAudioNodeTapBlock) throws -> AVAudioFormat {
     try OnDeviceAudioSession.activate()
     stopListening()
@@ -58,7 +53,7 @@ final class OnDeviceAudioGraph: ConversationAudio {
     engine.stop()
     let input = engine.inputNode
     try input.setVoiceProcessingEnabled(true)
-    // Ducking other audio is for calls; here only the app itself is playing.
+    // Minimize ducking because only the app's own audio is playing.
     input.voiceProcessingOtherAudioDuckingConfiguration =
       AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false,
         duckingLevel: .min)
@@ -80,8 +75,7 @@ final class OnDeviceAudioGraph: ConversationAudio {
     return format
   }
 
-  /// Closes the microphone. A fresh engine follows, because one whose input was ever used
-  /// keeps the microphone open while it runs, even for speech alone.
+  // Replacing the engine releases a microphone that would otherwise stay open during playback.
   func stopListening() {
     guard listening else { return }
     listening = false

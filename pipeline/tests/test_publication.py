@@ -1,4 +1,3 @@
-"""Verify the publication interface against the consumer and a temporary filesystem."""
 
 import pathlib
 import subprocess
@@ -78,7 +77,6 @@ class ExportFailureTests(unittest.TestCase):
             (out / 'high').mkdir(parents=True)
             (out / 'manifest.json').write_text('last good manifest')
             (out / 'high/cloud.spz').write_bytes(b'last good cloud')
-            # Missing authored knowledge must leave the accepted version untouched.
             with patch.object(sys, 'argv', ['export.py', '--replace', '--ply', str(ply), '--labels', str(labels), '--out', str(out)]), \
                     patch.object(export, 'KNOWLEDGE', root / 'missing.md'), \
                     patch.object(lift, 'PHOTOS', photos), patch.object(lift, 'SPARSE', sparse):
