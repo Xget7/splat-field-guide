@@ -1,4 +1,4 @@
-import type { Pack, ProcedureId } from '../../pack/pack';
+import type { Pack, ProcedureId } from '../../features/pack/pack';
 import {
   INITIAL_SESSION,
   reduce,
@@ -6,16 +6,16 @@ import {
   startAt,
   type SessionEvent,
   type SessionState,
-} from '../../guide/session';
+} from '../../features/guide/session';
 import {
   ExchangePhase,
   TurnEventType,
   type Exchange,
   type TurnEvent,
-} from '../../instructor/turn';
+} from '../../features/instructor/turn';
 import { cardContentFor, type CardContent } from './guideContent';
 
-export { ExchangePhase, type Exchange } from '../../instructor/turn';
+export { ExchangePhase, type Exchange } from '../../features/instructor/turn';
 
 // A long session scrolls back this far; older entries drop off the top.
 export const MAX_THREAD_ENTRIES = 60;

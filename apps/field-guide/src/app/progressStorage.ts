@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { parseProgress, type Progress } from '../guide/progress';
+import { parseProgress, type Progress } from '../features/guide/progress';
 
 const PROGRESS_KEY = 'field-guide/progress/v1';
 let pendingWrite = Promise.resolve();

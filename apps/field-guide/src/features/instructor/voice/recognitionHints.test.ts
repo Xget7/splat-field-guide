@@ -1,4 +1,4 @@
-import { fixturePack } from '../../testing/fixturePack';
+import { fixturePack } from '../../../testing/fixturePack';
 import { recognitionHintsFor } from './recognitionHints';
 
 describe('recognitionHintsFor', () => {

@@ -5,16 +5,16 @@ import Animated, {
   LayoutAnimationConfig,
   useReducedMotion,
 } from 'react-native-reanimated';
-import { findReadyGuide, type ReadyGuide } from '../../pack/catalog';
+import { findReadyGuide, type ReadyGuide } from '../../features/pack/catalog';
 import { useCatalog } from '../../app/CatalogContext';
-import { type Pack, type PartId, type ProcedureId } from '../../pack/pack';
+import { type Pack, type PartId, type ProcedureId } from '../../features/pack/pack';
 import {
   currentProcedure,
   SessionEventType,
   type SessionEvent,
   type SessionState,
-} from '../../guide/session';
-import { defaultInstructor } from '../../instructor/models/defaultInstructor';
+} from '../../features/guide/session';
+import { defaultInstructor } from '../../features/instructor/models/defaultInstructor';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
@@ -22,7 +22,7 @@ import { Color, HAIRLINE, Space, Type } from '../../ui/theme';
 import { stepRowsFor } from './guideContent';
 import { InstructorPanel } from './instructor/InstructorPanel';
 import { ProcedureSheet } from './ProcedureSheet';
-import { SplatViewport } from '../../viewport/SplatViewport';
+import { SplatViewport } from '../../features/viewport/SplatViewport';
 import { PartList } from './PartList';
 import { StepList } from './StepList';
 import { StepPanel } from './StepPanel';

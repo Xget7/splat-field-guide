@@ -65,7 +65,7 @@ Build the app without signing from root, selecting a simulator explicitly when v
 ```sh
 nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
   -scheme FieldGuide -configuration Debug -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath apps/field-guide/ios/build/final-shape \
+  -derivedDataPath apps/field-guide/ios/build/simulator \
   COMPILATION_CACHE_ENABLE_CACHING=NO CODE_SIGNING_ALLOWED=NO build
 ```
 

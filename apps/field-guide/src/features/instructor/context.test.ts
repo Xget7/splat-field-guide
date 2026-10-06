@@ -1,6 +1,6 @@
 import { NoteTopic } from '../pack/pack';
 import { INITIAL_SESSION } from '../guide/session';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 import { pointsAtScreen, subjectOf, topicsFor } from './context';
 
 const pack = fixturePack();

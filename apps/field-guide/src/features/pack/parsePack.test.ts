@@ -1,6 +1,6 @@
 import { findProcedure, PART_LABEL_MAX, PART_LABEL_MIN } from './pack';
 import { PackErrorCode, parsePack } from './parsePack';
-import { fixtureCopy, fixtureManifest } from '../testing/fixturePack';
+import { fixtureCopy, fixtureManifest } from '../../testing/fixturePack';
 import { TOUR_ID } from '../guide/tour';
 
 function errorOf(mutate: (manifest: Record<string, any>) => void) {

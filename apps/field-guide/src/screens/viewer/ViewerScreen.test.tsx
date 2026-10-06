@@ -21,31 +21,31 @@ import {
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
 import { fixturePack } from '../../testing/fixturePack';
-import { catalogFor } from '../../pack/catalog';
+import { catalogFor } from '../../features/pack/catalog';
 import { CatalogProvider } from '../../app/CatalogContext';
-import { highlightFor } from '../../guide/derive';
-import type { ProcedureId } from '../../pack/pack';
-import { SessionEventType } from '../../guide/session';
-import { TOUR_ID } from '../../guide/tour';
+import { highlightFor } from '../../features/guide/derive';
+import type { ProcedureId } from '../../features/pack/pack';
+import { SessionEventType } from '../../features/guide/session';
+import { TOUR_ID } from '../../features/guide/tour';
 import {
   LearnMode,
   Route,
   type RootStackParamList,
   type ScreenProps,
 } from '../../app/routes';
-import { bundledPack } from '../../pack/bundledPack';
+import { bundledPack } from '../../features/pack/bundledPack';
 import { continueRowFor } from '../library/library';
 import { loadProgress } from '../../app/progressStorage';
 import { ViewerScreen, type FieldGuideDebug } from './ViewerScreen';
-import { onDeviceInstructions } from '../../instructor/models/onDeviceModel';
+import { onDeviceInstructions } from '../../features/instructor/models/onDeviceModel';
 import { Color, Motion } from '../../ui/theme';
 import { InstructorPanel } from './instructor/InstructorPanel';
 import { PanelMode, PanelPan } from './instructor/panelMotion';
 import {
   VoiceHint,
   VOICE_LOCALE,
-} from '../../instructor/voice/useInstructorVoice';
-import { recognitionHintsFor } from '../../instructor/voice/recognitionHints';
+} from '../../features/instructor/voice/useInstructorVoice';
+import { recognitionHintsFor } from '../../features/instructor/voice/recognitionHints';
 
 // Native hosts are replaced while the screen, reducer and callbacks run together.
 jest.mock('react-native-gesture-handler', () => ({

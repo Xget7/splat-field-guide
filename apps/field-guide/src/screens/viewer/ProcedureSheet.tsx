@@ -7,9 +7,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Pack, ProcedureId } from '../../pack/pack';
+import type { Pack, ProcedureId } from '../../features/pack/pack';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../ui/theme';
-import { procedureRowsFor } from '../../guide/procedureRows';
+import { procedureRowsFor } from '../../features/guide/procedureRows';
 import { ProcedureList } from '../ProcedureList';
 
 interface Props {

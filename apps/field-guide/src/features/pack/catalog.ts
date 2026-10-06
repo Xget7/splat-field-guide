@@ -58,7 +58,7 @@ const COMING_SOON: readonly ComingSoonGuide[] = [
     category: Category.vehicles,
     title: 'Tactical truck',
     area: 'Engine bay',
-    image: require('../../assets/guides/soon-tactical-truck.png'),
+    image: require('../../../assets/guides/soon-tactical-truck.png'),
   },
   {
     id: 'rotorcraft-rotor-head',
@@ -66,7 +66,7 @@ const COMING_SOON: readonly ComingSoonGuide[] = [
     category: Category.aviation,
     title: 'Rotorcraft',
     area: 'Main rotor head',
-    image: require('../../assets/guides/soon-rotorcraft.png'),
+    image: require('../../../assets/guides/soon-rotorcraft.png'),
   },
   {
     id: 'generator-set-panel',
@@ -74,7 +74,7 @@ const COMING_SOON: readonly ComingSoonGuide[] = [
     category: Category.energy,
     title: 'Generator set',
     area: 'Control panel',
-    image: require('../../assets/guides/soon-generator.png'),
+    image: require('../../../assets/guides/soon-generator.png'),
   },
   {
     id: 'drilling-rig-top-drive',
@@ -82,7 +82,7 @@ const COMING_SOON: readonly ComingSoonGuide[] = [
     category: Category.oilAndGas,
     title: 'Drilling rig',
     area: 'Top drive',
-    image: require('../../assets/guides/soon-drilling-rig.png'),
+    image: require('../../../assets/guides/soon-drilling-rig.png'),
   },
 ];
 
@@ -98,7 +98,7 @@ export function catalogFor(golTrend: Pack): readonly Guide[] {
       area: 'Engine bay',
       safety: 'Engine off and cold before you touch anything.',
       // A frame of this pack as the app renders it, from the iOS simulator.
-      image: require('../../assets/guides/gol-trend-engine-bay.jpg'),
+      image: require('../../../assets/guides/gol-trend-engine-bay.jpg'),
       pack: golTrend,
     },
     ...COMING_SOON,

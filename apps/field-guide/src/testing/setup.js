@@ -68,8 +68,8 @@ jest.mock('react-native-reanimated', () => {
 
 // Tests never reach the network: the shared cloud model has no proxy, and cloud tests
 // build their own with a fake request.
-jest.mock('../instructor/models/cloudModel', () => {
-  const actual = jest.requireActual('../instructor/models/cloudModel');
+jest.mock('../features/instructor/models/cloudModel', () => {
+  const actual = jest.requireActual('../features/instructor/models/cloudModel');
   return { ...actual, cloudModel: actual.createCloudModel({ url: null }) };
 });
 

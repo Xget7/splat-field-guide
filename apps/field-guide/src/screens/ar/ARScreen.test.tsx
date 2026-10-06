@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Linking } from 'react-native';
-import { catalogFor } from '../../pack/catalog';
+import { catalogFor } from '../../features/pack/catalog';
 import { CatalogProvider } from '../../app/CatalogContext';
 import { Route, type ScreenProps } from '../../app/routes';
-import { bundledPack } from '../../pack/bundledPack';
+import { bundledPack } from '../../features/pack/bundledPack';
 import { ARScreen } from './ARScreen';
 
 jest.mock('react-native-splat', () => ({ ARGuideView: 'ARGuideView' }));

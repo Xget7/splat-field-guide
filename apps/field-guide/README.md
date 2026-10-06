@@ -30,7 +30,7 @@ Missing transcription/model assets affect offline input and generation; [speech 
 
 ## Configuration and checks
 
-[INSTRUCTOR_PROXY_URL](src/instructor/models/cloudModel.ts) selects the Worker base URL; set it to `null` for offline-only generation.
+[INSTRUCTOR_PROXY_URL](src/features/instructor/models/cloudModel.ts) selects the Worker base URL; set it to `null` for offline-only generation.
 The checked-in endpoint is the author's demo Worker; its access policy is in the [service README](../../services/instructor-proxy/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
 App tests sit beside their source with fakes in `src/testing`; commands are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).

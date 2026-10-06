@@ -36,11 +36,11 @@ import {
   meterHeightsFor,
   SpanKind,
   type WordRange,
-} from '../../../instructor/voice/speechPresentation';
+} from '../../../features/instructor/voice/speechPresentation';
 import {
   VoiceState,
   type InstructorVoice,
-} from '../../../instructor/voice/useInstructorVoice';
+} from '../../../features/instructor/voice/useInstructorVoice';
 
 export function panelLayout() {
   return LinearTransition.springify()

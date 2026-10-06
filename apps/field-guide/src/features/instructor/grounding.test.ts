@@ -1,6 +1,6 @@
 import { SessionEventType, INITIAL_SESSION, startAt } from '../guide/session';
 import { evidenceFor } from './context';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 import { TOUR_ID } from '../guide/tour';
 import {
   answerAbout,

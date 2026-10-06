@@ -2,9 +2,9 @@ import {
   findReadyGuide,
   type Guide,
   type ReadyGuide,
-} from '../../pack/catalog';
-import { findProcedure, type Procedure } from '../../pack/pack';
-import type { Progress } from '../../guide/progress';
+} from '../../features/pack/catalog';
+import { findProcedure, type Procedure } from '../../features/pack/pack';
+import type { Progress } from '../../features/guide/progress';
 import { stepLabel } from '../../ui/readout';
 
 export interface ContinueRow {

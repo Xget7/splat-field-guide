@@ -1,12 +1,12 @@
 import React from 'react';
 import { ScrollView, Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { catalogFor } from '../../pack/catalog';
+import { catalogFor } from '../../features/pack/catalog';
 import { CatalogProvider } from '../../app/CatalogContext';
-import { TOUR_ID } from '../../guide/tour';
+import { TOUR_ID } from '../../features/guide/tour';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
-import { bundledPack } from '../../pack/bundledPack';
-import { procedureRowsFor } from '../../guide/procedureRows';
+import { bundledPack } from '../../features/pack/bundledPack';
+import { procedureRowsFor } from '../../features/guide/procedureRows';
 import { GuideDetailScreen } from './GuideDetailScreen';
 import { Space } from '../../ui/theme';
 

@@ -68,13 +68,13 @@ class PreparationTests(unittest.TestCase):
                 shutil.copyfile(ROOT / 'scripts' / name, repo / 'scripts' / name)
             (repo / 'pipeline').mkdir()
             shutil.copyfile(ROOT / 'pipeline/artifacts.py', repo / 'pipeline/artifacts.py')
-            domain = repo / 'apps/field-guide/src/pack'
+            domain = repo / 'apps/field-guide/src/features/pack'
             domain.mkdir(parents=True)
             for name in ('pack.ts', 'parsePack.ts'):
-                shutil.copyfile(ROOT / 'apps/field-guide/src/pack' / name, domain / name)
+                shutil.copyfile(ROOT / 'apps/field-guide/src/features/pack' / name, domain / name)
             guide = domain.parent / 'guide'
             guide.mkdir()
-            shutil.copyfile(ROOT / 'apps/field-guide/src/guide/tour.ts', guide / 'tour.ts')
+            shutil.copyfile(ROOT / 'apps/field-guide/src/features/guide/tour.ts', guide / 'tour.ts')
             modules = repo / 'apps/field-guide/node_modules'
             modules.mkdir()
             (modules / 'typescript').symlink_to(ROOT / 'apps/field-guide/node_modules/typescript')

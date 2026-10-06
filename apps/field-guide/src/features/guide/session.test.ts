@@ -9,7 +9,7 @@ import {
   SessionState,
   startAt,
 } from './session';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 
 const pack = fixturePack();
 

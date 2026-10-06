@@ -1,6 +1,6 @@
 // Test data only; the real pack comes from content/.
-import { Pack } from '../pack/pack';
-import { parsePack } from '../pack/parsePack';
+import { Pack } from '../features/pack/pack';
+import { parsePack } from '../features/pack/parsePack';
 
 const box = (x: number) => ({ min: [x, 0, 0], max: [x + 1, 1, 1] });
 const part = (

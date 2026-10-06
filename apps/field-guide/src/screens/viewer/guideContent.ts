@@ -1,11 +1,11 @@
-import { findPart, type Pack } from '../../pack/pack';
+import { findPart, type Pack } from '../../features/pack/pack';
 import {
   currentProcedure,
   currentStep,
   isLastStep,
   type SessionState,
-} from '../../guide/session';
-import { TOUR_ID } from '../../guide/tour';
+} from '../../features/guide/session';
+import { TOUR_ID } from '../../features/guide/tour';
 
 export const CardKind = {
   part: 'part',

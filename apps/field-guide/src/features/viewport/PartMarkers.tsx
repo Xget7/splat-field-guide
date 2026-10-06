@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SplatViewSpec } from 'react-native-splat';
 import type { Bounds, PartId } from '../pack/pack';
-import { Color, Font, Motion, Radius, Space, Type } from '../ui/theme';
+import { Color, Font, Motion, Radius, Space, Type } from '../../ui/theme';
 
 export interface MarkedPart {
   readonly id: PartId;

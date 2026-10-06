@@ -13,7 +13,7 @@ import type { Pack } from '../../pack/pack';
 import { isQuestion, isScripted } from '../instructor';
 import { routeCommand, RouteKind } from '../router';
 import { hasSpokenWord, isUnfinished } from '../utterance';
-import { Motion } from '../../ui/theme';
+import { Motion } from '../../../ui/theme';
 import {
   normalizedLevel,
   speechTextFor,

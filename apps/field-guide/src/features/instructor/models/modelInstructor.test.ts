@@ -1,5 +1,5 @@
 import { INITIAL_SESSION } from '../../guide/session';
-import { fixturePack } from '../../testing/fixturePack';
+import { fixturePack } from '../../../testing/fixturePack';
 import { answerAbout } from '../grounding';
 import { answerFor, NOT_COVERED_REPLY } from '../instructor';
 import { TurnEventType } from '../turn';

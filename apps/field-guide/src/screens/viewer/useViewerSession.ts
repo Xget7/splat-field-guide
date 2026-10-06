@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import type { ProcedureId } from '../../pack/pack';
-import { SessionEventType, type SessionEvent } from '../../guide/session';
-import type { ReadyGuide } from '../../pack/catalog';
-import { sessionForExchange } from '../../instructor/turn';
-import type { ModelInstructor } from '../../instructor/models/modelInstructor';
+import type { ProcedureId } from '../../features/pack/pack';
+import { SessionEventType, type SessionEvent } from '../../features/guide/session';
+import type { ReadyGuide } from '../../features/pack/catalog';
+import { sessionForExchange } from '../../features/instructor/turn';
+import type { ModelInstructor } from '../../features/instructor/models/modelInstructor';
 import {
   useInstructorVoice,
   type Utterance,
-} from '../../instructor/voice/useInstructorVoice';
+} from '../../features/instructor/voice/useInstructorVoice';
 import { clearProgress, saveProgress } from '../../app/progressStorage';
 import { cardContentFor } from './guideContent';
 import {

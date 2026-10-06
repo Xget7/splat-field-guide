@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SectionHeader } from '../../ui/SectionHeader';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../ui/theme';
-import type { Part, PartId } from '../../pack/pack';
+import type { Part, PartId } from '../../features/pack/pack';
 
 /**
  * Every named part of the capture, to look at one directly while exploring.

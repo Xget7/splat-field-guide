@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from './App';
-import { bundledPack } from './pack/bundledPack';
+import { bundledPack } from './features/pack/bundledPack';
 
 // Native hosts the library never reaches.
 jest.mock('react-native-splat', () => ({ SplatView: 'SplatView' }));

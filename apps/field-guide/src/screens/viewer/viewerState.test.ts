@@ -1,8 +1,8 @@
-import type { Pack } from '../../pack/pack';
-import { SessionEventType } from '../../guide/session';
-import { bundledPack } from '../../pack/bundledPack';
-import { createModelInstructor } from '../../instructor/models/modelInstructor';
-import { ExchangePhase, TurnEventType } from '../../instructor/turn';
+import type { Pack } from '../../features/pack/pack';
+import { SessionEventType } from '../../features/guide/session';
+import { bundledPack } from '../../features/pack/bundledPack';
+import { createModelInstructor } from '../../features/instructor/models/modelInstructor';
+import { ExchangePhase, TurnEventType } from '../../features/instructor/turn';
 import {
   answeredExchanges,
   EntryKind,

@@ -1,4 +1,4 @@
-import manifest from '../../../../data/pack/gol-trend-engine-bay/1/manifest.json';
+import manifest from '../../../../../data/pack/gol-trend-engine-bay/1/manifest.json';
 import type { Pack } from './pack';
 import { parsePack } from './parsePack';
 

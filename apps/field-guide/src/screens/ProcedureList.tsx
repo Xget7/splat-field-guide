@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ProcedureId } from '../pack/pack';
+import type { ProcedureId } from '../features/pack/pack';
 import { Icon, IconName } from '../ui/Icon';
 import { Color, HAIRLINE, Radius, Space, Type } from '../ui/theme';
-import type { ProcedureRow } from '../guide/procedureRows';
+import type { ProcedureRow } from '../features/guide/procedureRows';
 
 const TRAILING_ICON = 20;
 

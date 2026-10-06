@@ -2,7 +2,7 @@ import { languageModel } from 'react-native-on-device';
 import { createModelInstructor } from './modelInstructor';
 import { INITIAL_SESSION, startAt } from '../../guide/session';
 import { evidenceFor } from '../context';
-import { fixturePack } from '../../testing/fixturePack';
+import { fixturePack } from '../../../testing/fixturePack';
 import { onDeviceInstructions, onDeviceModel } from './onDeviceModel';
 
 const pack = fixturePack();

@@ -1,5 +1,5 @@
 import { SessionEvent, SessionEventType } from '../guide/session';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 import { normalize, routeCommand, RouteKind } from './router';
 
 const pack = fixturePack();

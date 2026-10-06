@@ -5,7 +5,7 @@ import {
   reduce,
   SessionEventType,
 } from './session';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 import { TOUR_ID, TOUR_TITLE, tourOf } from './tour';
 
 const pack = fixturePack();

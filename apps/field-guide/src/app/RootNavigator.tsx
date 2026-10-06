@@ -5,9 +5,9 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
-import { catalogFor } from '../pack/catalog';
+import { catalogFor } from '../features/pack/catalog';
 import { CatalogProvider } from './CatalogContext';
-import type { Pack } from '../pack/pack';
+import type { Pack } from '../features/pack/pack';
 import { GuideDetailScreen } from '../screens/guide-detail/GuideDetailScreen';
 import { LibraryScreen } from '../screens/library/LibraryScreen';
 import { ViewerScreen } from '../screens/viewer/ViewerScreen';

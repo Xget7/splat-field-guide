@@ -1,6 +1,6 @@
 # Instructor proxy
 
-The Cloudflare Worker holds the Claude API key and translates Messages API streams for the [cloud adapter](../../apps/field-guide/src/instructor/models/cloudModel.ts).
+The Cloudflare Worker holds the Claude API key and translates Messages API streams for the [cloud adapter](../../apps/field-guide/src/features/instructor/models/cloudModel.ts).
 Instructor policy is in [ADR 0006](../../docs/adr/0006-commands-and-ordered-instructor-fallback.md); fake-backed checks are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).
 
 | Contract | Behaviour |

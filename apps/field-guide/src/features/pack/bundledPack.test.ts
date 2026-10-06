@@ -1,5 +1,5 @@
 import { bundledPack, sourceFor } from './bundledPack';
-import { fixturePack } from '../testing/fixturePack';
+import { fixturePack } from '../../testing/fixturePack';
 
 test('the bundled manifest parses and includes the generated tour first', () => {
   expect(bundledPack.ok).toBe(true);

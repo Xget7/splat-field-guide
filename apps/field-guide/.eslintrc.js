@@ -14,7 +14,7 @@ module.exports = {
   extends: '@react-native',
   overrides: [
     {
-      files: ['src/{pack,guide}/**/*.{ts,tsx}'],
+      files: ['src/features/{pack,guide}/**/*.{ts,tsx}'],
       excludedFiles: ['**/*.test.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
@@ -38,7 +38,7 @@ module.exports = {
       },
     },
     {
-      files: ['src/{instructor,viewport}/**/*.{ts,tsx}'],
+      files: ['src/features/{instructor,viewport}/**/*.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
           'error',

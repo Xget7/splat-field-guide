@@ -2,7 +2,7 @@ import { createModelInstructor } from './modelInstructor';
 import type { InstructorModel } from './InstructorModel';
 import { INITIAL_SESSION } from '../../guide/session';
 import { evidenceFor } from '../context';
-import { fixturePack } from '../../testing/fixturePack';
+import { fixturePack } from '../../../testing/fixturePack';
 import { ReplyFormat, rulesFor } from '../grounding';
 import {
   cloudInstructions,

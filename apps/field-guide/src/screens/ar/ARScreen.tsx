@@ -3,7 +3,7 @@ import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
 import { ARGuideView } from 'react-native-splat';
-import { findReadyGuide } from '../../pack/catalog';
+import { findReadyGuide } from '../../features/pack/catalog';
 import { useCatalog } from '../../app/CatalogContext';
 import { Route, type ScreenProps } from '../../app/routes';
 import { Button, IconButton, IconButtonVariant } from '../../ui/Button';

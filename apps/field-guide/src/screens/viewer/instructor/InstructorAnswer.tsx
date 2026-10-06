@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { AnswerKind, parseAnswer } from '../../../instructor/answerFormat';
-import type { WordRange } from '../../../instructor/voice/speechPresentation';
+import { AnswerKind, parseAnswer } from '../../../features/instructor/answerFormat';
+import type { WordRange } from '../../../features/instructor/voice/speechPresentation';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
 import { useAnswerReveal } from './useAnswerReveal';
 import { KaraokeText } from './InstructorMotion';

@@ -24,11 +24,11 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-import { SpokenSection } from '../../../instructor/voice/speechPresentation';
+import { SpokenSection } from '../../../features/instructor/voice/speechPresentation';
 import {
   VoiceState,
   type InstructorVoice,
-} from '../../../instructor/voice/useInstructorVoice';
+} from '../../../features/instructor/voice/useInstructorVoice';
 import type { CardContent } from '../guideContent';
 import {
   EntryKind,

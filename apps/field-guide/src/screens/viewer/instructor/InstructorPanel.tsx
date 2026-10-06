@@ -35,7 +35,7 @@ import { InstructorThread } from './InstructorThread';
 import {
   speechTextFor,
   SpokenSection,
-} from '../../../instructor/voice/speechPresentation';
+} from '../../../features/instructor/voice/speechPresentation';
 import {
   Composer,
   composerStyles,
@@ -58,7 +58,7 @@ import {
 import {
   VoiceState,
   type InstructorVoice,
-} from '../../../instructor/voice/useInstructorVoice';
+} from '../../../features/instructor/voice/useInstructorVoice';
 
 // Open under the splat, the panel is as tall as what it says, up to half the screen; past
 // that the thread scrolls, so the splat above keeps the rest.

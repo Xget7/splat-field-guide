@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { Guide } from '../pack/catalog';
+import type { Guide } from '../features/pack/catalog';
 
 const CatalogContext = createContext<readonly Guide[] | null>(null);
 

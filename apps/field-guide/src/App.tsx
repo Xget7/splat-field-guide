@@ -2,7 +2,7 @@ import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './app/RootNavigator';
-import { bundledPack } from './pack/bundledPack';
+import { bundledPack } from './features/pack/bundledPack';
 import { PackErrorScreen } from './app/PackErrorScreen';
 import { Color } from './ui/theme';
 
