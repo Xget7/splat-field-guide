@@ -76,9 +76,13 @@ export function StepPanel({
           <Label testID="step-counter" color={Color.accent}>
             {hasStep
               ? stepLabel(content.stepNumber, content.stepCount)
+              : content.selected
+              ? 'Part'
               : 'Overview'}
           </Label>
-          {content.selected && <Label color={Color.muted}>Selected</Label>}
+          {hasStep && content.selected && (
+            <Label color={Color.muted}>Selected</Label>
+          )}
         </View>
         {hasStep && !docked && (
           <StepSegments
@@ -97,35 +101,36 @@ export function StepPanel({
           <Text style={styles.body}>{content.body}</Text>
           {content.caution !== '' && <CautionNote text={content.caution} />}
         </ScrollView>
-        <View style={styles.buttons}>
-          <IconButton
-            testID="step-back"
-            icon={IconName.back}
-            accessibilityLabel="Previous step"
-            size={BUTTON_HEIGHT}
-            disabled={content.backDisabled}
-            onPress={onBack}
-          />
-          <IconButton
-            testID="step-repeat"
-            icon={IconName.repeat}
-            accessibilityLabel={
-              content.selected ? 'Back to step' : 'Show again'
-            }
-            variant={IconButtonVariant.raised}
-            size={BUTTON_HEIGHT}
-            disabled={!hasStep}
-            onPress={onRepeat}
-          />
-          <Button
-            testID="step-next"
-            label={content.last ? 'Finish' : 'Next'}
-            icon={content.last ? IconName.check : undefined}
-            disabled={content.nextDisabled}
-            onPress={onNext}
-            style={styles.next}
-          />
-        </View>
+        {hasStep && (
+          <View style={styles.buttons}>
+            <IconButton
+              testID="step-back"
+              icon={IconName.back}
+              accessibilityLabel="Previous step"
+              size={BUTTON_HEIGHT}
+              disabled={content.backDisabled}
+              onPress={onBack}
+            />
+            <IconButton
+              testID="step-repeat"
+              icon={IconName.repeat}
+              accessibilityLabel={
+                content.selected ? 'Back to step' : 'Show again'
+              }
+              variant={IconButtonVariant.raised}
+              size={BUTTON_HEIGHT}
+              onPress={onRepeat}
+            />
+            <Button
+              testID="step-next"
+              label={content.last ? 'Finish' : 'Next'}
+              icon={content.last ? IconName.check : undefined}
+              disabled={content.nextDisabled}
+              onPress={onNext}
+              style={styles.next}
+            />
+          </View>
+        )}
       </View>
     </GestureDetector>
   );
