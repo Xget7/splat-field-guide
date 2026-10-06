@@ -18,6 +18,10 @@ Pod::Spec.new do |s|
 
   s.source_files        = ["ios/*.swift"]
   s.vendored_frameworks = engine
+  # The engine's simulator slice is arm64 only, so simulator Release builds must skip x86_64.
+  no_intel_simulator = { "EXCLUDED_ARCHS[sdk=iphonesimulator*]" => "x86_64" }
+  s.pod_target_xcconfig  = no_intel_simulator
+  s.user_target_xcconfig = no_intel_simulator
   s.frameworks          = ["Metal", "QuartzCore", "ARKit", "RealityKit", "AVFoundation"]
   s.libraries           = ["c++", "z"]
 
