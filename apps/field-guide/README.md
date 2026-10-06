@@ -12,7 +12,7 @@ Its platform/bridge choice is recorded in [ADR 0005](../../docs/adr/0005-bare-re
 | Viewer | iOS/iPadOS 26+ with an A14-class GPU or later |
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
-| Provisional AR | Physical iPhone on iOS 27 and the separately prepared reference |
+| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/app/arCheck.ts) |
 
 Use the [root quickstart](../../README.md#quickstart) to prepare resources and run the app.
 The CLI starts Metro; for Xcode, run `npm start` here and open `ios/FieldGuide.xcworkspace` with the FieldGuide scheme.

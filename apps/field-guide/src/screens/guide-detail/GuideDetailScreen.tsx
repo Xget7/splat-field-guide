@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Image,
   Pressable,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CATEGORY_TITLE, findReadyGuide } from '../../features/pack/catalog';
+import { offersArCheck } from '../../app/arCheck';
 import { useCatalog } from '../../app/CatalogContext';
 import type { ProcedureId } from '../../features/pack/pack';
 import { TOUR_ID } from '../../features/guide/tour';
@@ -184,7 +184,7 @@ export function GuideDetailScreen({
         <SectionHeader title="Procedures" />
         <ProcedureList rows={checks} onChoose={openProcedure} />
       </View>
-      {Platform.OS === 'ios' && (
+      {offersArCheck() && (
         <View style={styles.section}>
           <SectionHeader title="Augmented reality" />
           <Pressable

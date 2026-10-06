@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, ScrollView, Text } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor } from '../../features/pack/catalog';
 import { CatalogProvider } from '../../app/CatalogContext';
@@ -170,28 +170,14 @@ describe('Guide detail screen', () => {
     );
   });
 
-  test('Android offers the viewer without an AR entry point', async () => {
-    const original = Platform.OS;
-    Object.defineProperty(Platform, 'OS', {
-      value: 'android',
-      configurable: true,
-    });
-    try {
-      await mount();
-      expect(renderer.root.findAllByProps({ testID: 'open-ar' })).toHaveLength(
-        0,
-      );
-      await press('start-tour');
-      expect(navigation.navigate).toHaveBeenCalledWith(
-        Route.viewer,
-        expect.anything(),
-      );
-    } finally {
-      Object.defineProperty(Platform, 'OS', {
-        value: original,
-        configurable: true,
-      });
-    }
+  test('a shared build offers the viewer without an AR entry point', async () => {
+    await mount();
+    expect(renderer.root.findAllByProps({ testID: 'open-ar' })).toHaveLength(0);
+    await press('start-tour');
+    expect(navigation.navigate).toHaveBeenCalledWith(
+      Route.viewer,
+      expect.anything(),
+    );
   });
 
   test('scroll clearance follows the measured safety bar height', async () => {

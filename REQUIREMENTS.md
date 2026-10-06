@@ -40,6 +40,6 @@ Reading and voice must both support the guidance flow, with interruption in voic
 - R21. Provide reproducible repository preparation, current documentation, decisions and provenance.
 
 Fresh-device offline transcription is unmet when system assets require downloading.
-The AR landmark check remains provisional; physical recognition, alignment and full semantic camera masks are open.
+The AR landmark check remains provisional and hidden by default; physical recognition, alignment and full semantic camera masks are open.
 The Android emulator verifies the full-tier viewer, picking/highlight, procedure framing and scripted instructor fallback.
 AR is iOS-only; downloaded pack updates and progress sync require implementation.

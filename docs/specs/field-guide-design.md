@@ -44,4 +44,4 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 | `instructor-proxy`, `pipeline` | Cloud request policy/stream translation, then pack and AR reference preparation |
 
 Screens compose the lower units; pack/guide remain free of React and native imports, and UI imports no business code.
-The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; physical alignment and semantic camera masks remain open.
+The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; it stays hidden unless `AR_CHECK_ENABLED` is set, and physical alignment and semantic camera masks remain open.

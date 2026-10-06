@@ -5,8 +5,8 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
-import { Platform } from 'react-native';
 import { catalogFor } from '../features/pack/catalog';
+import { offersArCheck } from './arCheck';
 import { CatalogProvider } from './CatalogContext';
 import type { Pack } from '../features/pack/pack';
 import { GuideDetailScreen } from '../screens/guide-detail/GuideDetailScreen';
@@ -51,7 +51,7 @@ export function RootNavigator({ pack }: { pack: Pack }) {
             component={ViewerScreen}
             options={VIEWER_OPTIONS}
           />
-          {Platform.OS === 'ios' && (
+          {offersArCheck() && (
             <Stack.Screen
               name={Route.ar}
               component={ARScreen}

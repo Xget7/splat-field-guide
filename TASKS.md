@@ -12,7 +12,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
 - [ ] Measure iPhone frame rate, idle drawing, load time, memory and thermal behaviour; reduce the tier if required (R10).
 - [ ] Check voice commands, interruption/echo, pronunciation, latency, model fallback, cautions and continuation behaviour on an eligible device (R14-R17).
 - [ ] Run prepared-device airplane-mode checks and fresh-device missing-assets checks separately, with system asset readiness recorded (R18).
-- [ ] Verify the current AR reference on the real engine, then measure landmark alignment, drift, recovery, negative scenes and actual torch behaviour on an iOS 27 iPhone.
+- [ ] Enable `AR_CHECK_ENABLED`, verify the current AR reference on the real engine, then measure landmark alignment, drift, recovery, negative scenes and actual torch behaviour on an iOS 27 iPhone.
 - [ ] Choose the semantic camera-overlay renderer after reference-frame and physical alignment acceptance.
 - [ ] Supply `publication.json` and manifest source artifacts to complete capture-backed export verification.
 - [ ] Record the airplane-mode video and deliver TestFlight with author signing credentials (R19, R20).

@@ -3,6 +3,7 @@
 Field Guide turns a capture of real equipment into a mobile maintenance guide with named parts, procedures and a spoken instructor.
 The demo covers the author's Volkswagen Gol Trend engine bay, with tablet layouts on iPad and Android and an iPhone viewer.
 Open a guide, explore its parts or follow a procedure; use reading or voice mode for instructor questions.
+An AR check against the physical engine is in the code but hidden, because it needs the real car.
 Physical acceptance and delivery work are listed in [TASKS.md](TASKS.md).
 
 ## Quickstart
