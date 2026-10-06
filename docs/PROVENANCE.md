@@ -56,7 +56,7 @@ Its license includes end-use restrictions, including military/warfare uses, so i
 | Material | Ownership and evidence |
 | --- | --- |
 | Original capture | Author's 124 Polycam photos and captured depth of their 2010 VW Gol Trend; raw export excluded from git/release, permission needed from the author |
-| Ingested capture | Ordered names/bytes/digests in [tracker cameras](../pipeline/cameras.json); original/conversion receipt in local `capture.json` |
+| Ingested capture | Ordered names/bytes/digests in [tracker cameras](../pipeline/pack/cameras.json); original/conversion receipt in local `capture.json` |
 | Authored guide | Original part descriptions, procedures and knowledge under the root MIT license; [sources/qualifications](../content/gol-trend-engine-bay/SOURCES.md) distinguish external evidence from owner-confirmed oil guidance |
 | Hand-marked masks | Author-reviewed eight-part prompts/keyframes; new revisions retain capture binding, historical imports explicitly record retrospective binding |
 | Historical training | Original COLMAP/Brush settings and SAM checkpoint identities not fully recoverable; imported byte identities do not establish the historical execution environment |

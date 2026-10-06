@@ -49,10 +49,10 @@ Run commands from the stated directory, using fakes rather than paid requests.
 | `packages/react-native-splat` | Artifact tests | `nice -n 19 npm test` |
 | `packages/react-native-on-device` | JS/Swift harness tests | `nice -n 19 npm test -- --runInBand` |
 | `services/instructor-proxy` | Install/tests/types | `nice -n 19 npm ci`, `nice -n 19 npm test`, `nice -n 19 npx tsc --noEmit -p .` |
-| Root | Pipeline preflight | `nice -n 19 uv run pipeline/preflight.py` |
-| Root | Verify exported pack | `nice -n 19 uv run pipeline/export_checks.py --pack data/pack/gol-trend-engine-bay/1 --labels data/pack/.sources/lift/labels.npy` |
-| Root | Marking-page tests | `nice -n 19 node --test tests/pipeline/test_mark_page.cjs` |
-| Root | Pipeline lint | `nice -n 19 uvx ruff check --select F,E9 pipeline tests/pipeline scripts` |
+| Root | Pipeline preflight | `nice -n 19 uv run --project pipeline python -m pipeline.pack.preflight` |
+| Root | Verify exported pack | `nice -n 19 uv run --project pipeline python -m pipeline.pack.export_checks --pack data/pack/gol-trend-engine-bay/1 --labels data/pack/.sources/lift/labels.npy` |
+| Root | Marking-page tests | `nice -n 19 node --test pipeline/tests/test_mark_page.cjs` |
+| Root | Pipeline lint | `nice -n 19 uvx ruff check --select F,E9 pipeline pipeline/tests scripts` |
 | Root | Pack archive | `nice -n 19 scripts/package-pack.sh` |
 | `apps/field-guide` | Ruby dependencies | `nice -n 19 bundle install` |
 | `apps/field-guide/ios` | Pods after preparation/codegen | `nice -n 19 bundle exec pod install` |
@@ -70,7 +70,7 @@ On-device tests compile Swift harnesses on macOS 26+ and skip those checks on ot
 Run pipeline regression tests from root with the dependencies used by the fake-backed suite:
 
 ```sh
-nice -n 19 uv run --with 'numpy<2' --with opencv-python-headless --with pillow --with scipy --with pyyaml --with modal --with fastapi --with httpx2 python -m unittest discover -s tests/pipeline
+nice -n 19 uv run --with 'numpy<2' --with opencv-python-headless --with pillow --with scipy --with pyyaml --with modal --with fastapi --with httpx2 python -m unittest discover -s pipeline/tests
 ```
 
 Build and test the GPU-independent C++/C interface from root:

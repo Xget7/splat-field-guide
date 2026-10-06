@@ -54,13 +54,13 @@ flowchart LR
 En Mac se puede empezar con detalle `.medium`, revisar huecos/textura y aumentar calidad si aporta información útil.
 [Object Capture](https://developer.apple.com/documentation/realitykit/creating-3d-objects-from-photographs), [Niveles de detalle](https://developer.apple.com/documentation/realitykit/photogrammetrysession/request/detail).
 
-Ya hay un programa completo: [reconstruct_reference.swift](../../pipeline/reconstruct_reference.swift).
+Ya hay un programa completo: [reconstruct_reference.swift](../../pipeline/ar/reconstruct_reference.swift).
 Estos comandos se ejecutan desde la raíz del repo; rechazan sobrescribir resultados existentes:
 
 ```sh
 mkdir -p tools
 nice -n 19 xcrun swiftc -parse-as-library -O -target arm64-apple-macos15.0 \
-  pipeline/reconstruct_reference.swift -o tools/reconstruct-reference
+  pipeline/ar/reconstruct_reference.swift -o tools/reconstruct-reference
 nice -n 19 tools/reconstruct-reference --photos data/capture/jpg \
   --output data/ar-reference/gol-trend-engine-bay/medium.usdz --detail medium
 ```
@@ -80,18 +80,18 @@ Medir dimensiones reales y ajustar ambos recursos; luego estimar `referenceFromP
 Guardar la calibración con los IDs/versiones de referencia y pack; verificar landmarks independientes antes de asociarlos.
 [Poses de Object Capture](https://developer.apple.com/documentation/realitykit/photogrammetrysession/request/poses).
 
-Implementado en [register_reference.py](../../pipeline/register_reference.py): empareja fotografías por nombre, convierte cámaras COLMAP al sistema del pack y ajusta escala, rotación y traslación.
+Implementado en [register_reference.py](../../pipeline/ar/register_reference.py): empareja fotografías por nombre, convierte cámaras COLMAP al sistema del pack y ajusta escala, rotación y traslación.
 Reserva una de cada cinco cámaras para comprobar el ajuste.
-[prepare_reference.py](../../pipeline/prepare_reference.py) aplica la inversa al USDZ y conserva sus texturas mediante OpenUSD.
-Después, [cleanup_reference.py](../../pipeline/cleanup_reference.py) retira un fragmento aislado de fondo: 208 de 86.630 triángulos, conservando las tres texturas y las coordenadas de la malla restante.
+[prepare_reference.py](../../pipeline/ar/prepare_reference.py) aplica la inversa al USDZ y conserva sus texturas mediante OpenUSD.
+Después, [cleanup_reference.py](../../pipeline/ar/cleanup_reference.py) retira un fragmento aislado de fondo: 208 de 86.630 triángulos, conservando las tres texturas y las coordenadas de la malla restante.
 Salida: `aligned.cleaned.usdz`, todavía pendiente de validación física.
 [Transformaciones USD](https://openusd.org/release/api/class_usd_geom_xformable.html), [Empaquetado USDZ](https://openusd.org/release/api/usdz_package_8h.html).
 
 ```sh
-uv run pipeline/register_reference.py \
+uv run --project pipeline python -m pipeline.ar.register_reference \
   --poses data/ar-reference/gol-trend-engine-bay/medium.poses.json \
   --output data/ar-reference/gol-trend-engine-bay/medium.registration.candidate.json
-uv run pipeline/prepare_reference.py \
+uv run --project pipeline python -m pipeline.ar.prepare_reference \
   --model data/ar-reference/gol-trend-engine-bay/medium.usdz \
   --registration data/ar-reference/gol-trend-engine-bay/medium.registration.candidate.json \
   --output data/ar-reference/gol-trend-engine-bay/aligned.candidate.usdz
@@ -108,11 +108,11 @@ La receta publicada para cargar referencias y añadir anchoring en Composer Pro 
 
 **3. Entrenar una referencia.**
 Create ML usa USDZ fotorealista, escala correcta y un objeto rígido; entrenamiento local en Mac.
-Nuestro [runner](../../pipeline/train_reference.py) ejecuta `xcrun createml objecttracker`, registra modo/ángulos y vigila el disco; la receta actual usa explícitamente `--mode standard --angles front` para la referencia de [10](10-object-tracking-training-audit.md).
+Nuestro [runner](../../pipeline/ar/train_reference.py) ejecuta `xcrun createml objecttracker`, registra modo/ángulos y vigila el disco; la receta actual usa explícitamente `--mode standard --angles front` para la referencia de [10](10-object-tracking-training-audit.md).
 Comando desde la raíz:
 
 ```sh
-uv run pipeline/train_reference.py \
+uv run --project pipeline python -m pipeline.ar.train_reference \
   --source data/ar-reference/gol-trend-engine-bay/aligned.cleaned.usdz \
   --output data/ar-reference/gol-trend-engine-bay/engine-bay.referenceobject \
   --mode standard --angles front --plan
@@ -193,11 +193,11 @@ Repetir con distinta iluminación y oclusión parcial.
 Tracking normal de cámara no garantiza que la referencia esté bien registrada.
 
 Ya implementada en la app: abrir la guía del Gol → **Open AR alignment check**.
-[ARScreen.tsx](../../apps/field-guide/src/features/ar/screens/ARScreen.tsx) presenta el estado; [ARGuideNativeView.swift](../../packages/react-native-splat/ios/ARGuideNativeView.swift) usa `ARView`, carga archivos locales y coloca cuatro esferas sobre tapones de refrigerante, dirección asistida y líquido de frenos, y una esquina del filtro de aire.
+[ARScreen.tsx](../../apps/field-guide/src/screens/ar/ARScreen.tsx) presenta el estado; [ARGuideNativeView.swift](../../packages/react-native-splat/ios/ARGuideNativeView.swift) usa `ARView`, carga archivos locales y coloca cuatro esferas sobre tapones de refrigerante, dirección asistida y líquido de frenos, y una esquina del filtro de aire.
 Oculta los puntos si se pierde el objeto o el tracking de cámara.
 Estos puntos comprueban alineación; las máscaras completas todavía no están conectadas a esta vista.
 
-**Diagnóstico en vivo:** `uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl` abre la app en el iPhone indicado con `--device DEVICE_ID` mediante Xcode y activa `FIELD_GUIDE_AR_DIAGNOSTICS=1`.
+**Diagnóstico en vivo:** `uv run --project pipeline python -m pipeline.ar.watch_ar --device DEVICE_ID --output .work/ar-check/ar-live.jsonl` abre la app en el iPhone indicado con `--device DEVICE_ID` mediante Xcode y activa `FIELD_GUIDE_AR_DIAGNOSTICS=1`.
 Registra carga, errores, estado de cámara, entrega de frames por segundo, anchors recibidos/seguidos y pose a 1 Hz, durante 15 minutos.
 Los FPS son de cámara; no representan velocidad ni confianza del modelo.
 La API pública no entrega un score de confianza.
@@ -214,7 +214,7 @@ ARKit intenta reconocer el conjunto y encajar esa copia invisible sobre el objet
 Solo después RealityKit dibuja los puntos; mover el teléfono cambia la vista, no sus posiciones dentro de la copia.
 Buscar el motor significa que aún falta un encaje válido, no que falle el dibujo.
 
-**Pruebas ejecutables:** [probe_reference.swift](../../pipeline/probe_reference.swift) carga las dos redes del archivo y ejecuta el detector con fotos, devolviendo JSON.
+**Pruebas ejecutables:** [probe_reference.swift](../../pipeline/ar/probe_reference.swift) carga las dos redes del archivo y ejecuta el detector con fotos, devolviendo JSON.
 Extrae los modelos temporalmente y los elimina al terminar.
 Se ejecutó sobre ocho fotos de reconstrucción: con la conversión BT.601/0–1 asumida, máximos del mapa 0,063–0,423 frente a ~0,026 en colores uniformes.
 No son porcentajes de acierto: el preprocesamiento de ARKit no es público, las fotos no son un conjunto independiente y los negativos son solo controles básicos.
@@ -222,13 +222,13 @@ El tracker tiene entradas de rayos de cámara y salidas `Classification`, `Confi
 
 ```sh
 mkdir -p tools .work/ar-check
-nice -n 19 xcrun swiftc -O pipeline/probe_reference.swift -o tools/probe-reference
+nice -n 19 xcrun swiftc -O pipeline/ar/probe_reference.swift -o tools/probe-reference
 tools/probe-reference data/ar-reference/gol-trend-engine-bay/engine-bay.referenceobject \
   data/capture/jpg/1790717105584360.jpg
 # Positivo: abrir AR y apuntar al motor real durante la ventana de captura.
-uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor-positive.log
+uv run --project pipeline python -m pipeline.ar.watch_ar --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor-positive.log
 # Negativo: misma prueba apuntando a una escena sin ese motor.
-uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect absent > .work/ar-check/ar-monitor-negative.log
+uv run --project pipeline python -m pipeline.ar.watch_ar --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect absent > .work/ar-check/ar-monitor-negative.log
 ```
 
 La comprobación devuelve exit 0/1 y exige muestras de cámara y ausencia de errores de sesión.

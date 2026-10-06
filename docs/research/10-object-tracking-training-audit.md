@@ -87,7 +87,7 @@ Comando: `xcrun createml objecttracker --source aligned.cleaned.usdz --output en
 Terminó con `exitCode=0` en 4 h 26 min.
 Sus cuatro losses sin etiquetas no expresan porcentaje de acierto.
 
-Captura positiva con app Debug, iPhone conectado y motor delante: crear `.work/ar-check`, luego `uv run pipeline/watch_ar.py --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor.log`.
+Captura positiva con app Debug, iPhone conectado y motor delante: crear `.work/ar-check`, luego `uv run --project pipeline python -m pipeline.ar.watch_ar --device DEVICE_ID --output .work/ar-check/ar-live.jsonl --duration 60 --expect detected > .work/ar-check/ar-monitor.log`.
 Abre la app: entrar a AR y encuadrar el vano.
 Exige frames sin errores y una muestra con objeto seguido; verificar alineación aparte.
 El HUD offline no conserva historial.

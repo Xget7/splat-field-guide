@@ -63,13 +63,13 @@ La recomendación inicial es extender el renderer Metal existente.
 
 **Entradas:** fotos originales, cámaras COLMAP, `engine_30000.ply` y máscaras por pieza.
 
-[sam_live.py](../../pipeline/sam_live.py) permite marcar piezas con SAM 3.
-[sam_track.py](../../pipeline/sam_track.py) propaga esas máscaras por las fotos.
-Sus salidas alimentan [lift_all.py](../../pipeline/lift_all.py):
+[sam_live.py](../../pipeline/pack/sam_live.py) permite marcar piezas con SAM 3.
+[sam_track.py](../../pipeline/pack/sam_track.py) propaga esas máscaras por las fotos.
+Sus salidas alimentan [lift_all.py](../../pipeline/pack/lift_all.py):
 
 ```sh
-uv run pipeline/lift_all.py
-uv run pipeline/export.py --labels data/segment/lift/all/labels.npy
+uv run --project pipeline python -m pipeline.pack.lift_all
+uv run --project pipeline python -m pipeline.pack.export --labels data/segment/lift/all/labels.npy
 ```
 
 Son comandos existentes, desde la raíz del repo; no se ejecutaron para esta investigación.
@@ -114,7 +114,7 @@ xyz_pack = placement.points(xyz.reshape(1, 3))[0]
 ```
 
 `image_id` y `point2d_index` salen de una pequeña herramienta de selección sobre las fotos; hay que crearla.
-`placement` es la misma transformación de [export.py](../../pipeline/export.py), guardada en `publication.json`.
+`placement` es la misma transformación de [export.py](../../pipeline/pack/export.py), guardada en `publication.json`.
 [API PyCOLMAP](https://colmap.github.io/pycolmap/pycolmap.html).
 
 Medir la distancia real entre dos puntos conocidos.

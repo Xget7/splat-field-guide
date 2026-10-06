@@ -44,7 +44,7 @@ Debug needs reachable Metro; Release embeds JS.
 | Instructor | Commands first, then Claude through the Worker, Apple on device and scripted fallback |
 | Turns | Instructor owns `ask`/`cancel`/`prewarm`; streamed words and part emphasis provisional, accepted final answers commit session actions |
 | Evidence | Shared resolved part/procedure evidence including cautions; heuristic numerical guards use relevant evidence only |
-| Remote configuration | [cloudModel.ts](src/modules/instructor/data/cloudModel.ts) exports `INSTRUCTOR_PROXY_URL`; set it to your Worker URL or `null` for offline-only guidance |
+| Remote configuration | [cloudModel.ts](src/instructor/models/cloudModel.ts) exports `INSTRUCTOR_PROXY_URL`; set it to your Worker URL or `null` for offline-only guidance |
 | Remote completion | Proxy errors, incomplete stop reasons, empty answers and missing successful done trigger fallback |
 | Continuation | Procedure Stop/Finish clear saved progress; Explore preserves the guide position; ordered storage writes prevent an older save restoring cleared progress |
 | Viewport | `modules/viewport` owns native readiness, picking, camera conversion, framing and projected markers; viewer session owns guidance |
@@ -67,4 +67,4 @@ The AR copy phase includes `data/ar-reference/gol-trend-engine-bay/engine-bay.re
 ## Development
 
 See [AGENTS.md](../../AGENTS.md) for the source map, dependency rules, exact checks and Nitro regeneration commands.
-App tests live in [tests/field-guide](../../tests/field-guide/) and use native/model fakes; simulator results do not establish physical acceptance.
+App tests live in [apps/field-guide/src](../../apps/field-guide/src/) and use native/model fakes; simulator results do not establish physical acceptance.

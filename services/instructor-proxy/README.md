@@ -16,6 +16,6 @@ Read [ADR 0012](../../docs/adr/0012-text-instructor-with-ordered-fallback.md) fo
 
 For local development, put `ANTHROPIC_API_KEY` in an ignored `.dev.vars` and run `npm run dev` here; live questions spend API credit.
 When publication is authorised, run `npx wrangler login`, `npx wrangler secret put ANTHROPIC_API_KEY`, then `npm run deploy` here.
-Set [INSTRUCTOR_PROXY_URL](../../apps/field-guide/src/modules/instructor/data/cloudModel.ts) to your Worker base URL, without `/v1/answer`, or `null` to disable remote generation.
+Set [INSTRUCTOR_PROXY_URL](../../apps/field-guide/src/instructor/models/cloudModel.ts) to your Worker base URL, without `/v1/answer`, or `null` to disable remote generation.
 The checked-in URL is the author's demo Worker; it has no caller authentication and accepts caller-supplied instructions.
 Set the key's monthly spend limit in the Anthropic console separately from the per-IP rate limit.
