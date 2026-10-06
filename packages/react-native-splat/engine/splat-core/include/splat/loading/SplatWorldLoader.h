@@ -20,6 +20,12 @@ struct ByteView {
   bool empty() const { return size == 0; }
 };
 
+struct SourceIdentity {
+  std::string splatSha256;
+  std::string labelsSha256;
+  uint32_t expectedSplatCount;
+};
+
 // Prepares worlds for a renderer. Decoding runs on whatever thread calls `load`, the
 // result waits until the render thread takes it, and a newer load replaces one still
 // waiting. A world is decoded from SPZ, given its part labels, cleared of haze and
@@ -38,6 +44,9 @@ class SplatWorldLoader {
     std::size_t sparseRemoved = 0;
     double decodeMillis = 0;
     double reorderMillis = 0;
+    double verificationMillis = 0;
+    std::size_t sourceSplatCount = 0;
+    bool verified = false;
   };
 
   // Highest SH degree materialized for worlds loaded from now on. The source SPZ remains full.
@@ -45,11 +54,14 @@ class SplatWorldLoader {
 
   // An SPZ world whose positions are in `sourceFrame`, with the labels.bin that labels its
   // splats; without one every splat is unlabelled. Labels for another number of splats
-  // fail as `labelsMismatch`. Errors leave whatever was waiting.
-  Result<WorldReport> loadWorld(ByteView spz, ByteView labels, CoordinateFrame sourceFrame);
+  // or another manifest digest fail as `labelsMismatch`. Identity checks use the source
+  // count before filtering. Errors leave whatever was waiting.
+  Result<WorldReport> loadWorld(ByteView spz, ByteView labels, CoordinateFrame sourceFrame,
+                                const SourceIdentity* identity = nullptr);
   // The same from files, mapped rather than read. An empty labels path means no labels.
   Result<WorldReport> loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
-                                    CoordinateFrame sourceFrame);
+                                    CoordinateFrame sourceFrame,
+                                    const SourceIdentity* identity = nullptr);
 
   // The newest world not yet taken, or nothing.
   std::unique_ptr<SplatCloud> takeWorld();

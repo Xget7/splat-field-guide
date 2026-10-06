@@ -90,11 +90,17 @@ JNIEXPORT jlong JNICALL JNI_METHOD(beginLoad)(JNIEnv*, jobject, jlong id) {
   auto state = engine(id); return state ? sfg_begin_load(state->handle) : 0;
 }
 JNIEXPORT void JNICALL JNI_METHOD(load)(JNIEnv* env, jobject, jlong id, jlong request,
-                                       jstring splatPath, jstring labelsPath) {
+                                       jstring splatPath, jstring labelsPath,
+                                       jstring splatSha256, jstring labelsSha256, jlong expectedSplatCount) {
   auto state = engine(id); if (!state) return;
   const char* cloud = env->GetStringUTFChars(splatPath, nullptr);
   const char* labels = env->GetStringUTFChars(labelsPath, nullptr);
-  sfg_load_request(state->handle, request, cloud, *labels ? labels : nullptr);
+  const char* cloudDigest = env->GetStringUTFChars(splatSha256, nullptr);
+  const char* labelsDigest = env->GetStringUTFChars(labelsSha256, nullptr);
+  sfg_source_identity identity{cloudDigest, labelsDigest, static_cast<uint32_t>(expectedSplatCount)};
+  sfg_load_request(state->handle, request, cloud, *labels ? labels : nullptr, &identity);
+  env->ReleaseStringUTFChars(splatSha256, cloudDigest);
+  env->ReleaseStringUTFChars(labelsSha256, labelsDigest);
   env->ReleaseStringUTFChars(splatPath, cloud);
   env->ReleaseStringUTFChars(labelsPath, labels);
 }

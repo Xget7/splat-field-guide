@@ -28,7 +28,14 @@ internal object BundledPack {
       val tier = tiers.getJSONObject(i)
       val cloud = "$base/${tier.getJSONObject("cloud").getString("path")}"
       val labels = "$base/${tier.getJSONObject("labels").getString("path")}"
-      if (source.splatPath == cloud && source.labelsPath == labels) matchingTier = true
+      if (source.splatPath == cloud && source.labelsPath == labels) {
+        require(source.splatSha256 == tier.getJSONObject("cloud").getString("sha256") &&
+          source.labelsSha256 == tier.getJSONObject("labels").getString("sha256") &&
+          source.expectedSplatCount == tier.getLong("splatCount").toDouble()) {
+          "Source identity does not match its manifest tier"
+        }
+        matchingTier = true
+      }
       require(tier.getJSONObject("labels").getLong("bytes") == tier.getLong("splatCount") + LABEL_HEADER_BYTES) {
         "Pack count mismatch"
       }
@@ -61,7 +68,8 @@ internal object BundledPack {
       "Files do not belong to one manifest tier"
     }
     File(directory, "manifest.json").writeBytes(manifestBytes)
-    return SplatSource(File(context.filesDir, source.splatPath).path, File(context.filesDir, source.labelsPath).path)
+    return SplatSource(File(context.filesDir, source.splatPath).path, File(context.filesDir, source.labelsPath).path,
+      source.splatSha256, source.labelsSha256, source.expectedSplatCount)
   }
 
   private fun valid(file: File, bytes: Long, digest: String): Boolean {

@@ -94,10 +94,17 @@ bool sfg_load(sfg_engine* engine, const char* spz_path, const char* SFG_NULLABLE
 // Any thread: reserves a replacement before its decoding is scheduled. A newer reservation
 // supersedes every older request, including its pending upload and completion events.
 uint64_t sfg_begin_load(sfg_engine* engine);
+// Identity from the pack manifest, checked before a decoded cloud can be accepted.
+typedef struct {
+  const char* splat_sha256;
+  const char* labels_sha256;
+  uint32_t expected_splat_count;
+} sfg_source_identity;
 // Any thread, blocking: decodes only for this reservation. False for a superseded request,
 // without a failure event. The engine must outlive both the reservation and the call.
 bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path,
-                      const char* SFG_NULLABLE labels_path);
+                      const char* SFG_NULLABLE labels_path,
+                      const sfg_source_identity* SFG_NULLABLE identity);
 
 // One vsync: steps the camera and the highlight and draws if anything visible changed. True
 // when a frame was drawn.

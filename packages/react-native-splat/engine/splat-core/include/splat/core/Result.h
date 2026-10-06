@@ -14,7 +14,7 @@ enum class ErrorCode {
   corrupt,
   gpuUnavailable,
   unreadable,      // a file that cannot be opened, is empty, or cannot be mapped
-  labelsMismatch,  // part labels for a different number of splats than the cloud has
+  labelsMismatch,  // part labels that disagree with the cloud count or pack identity
 };
 
 struct Error {

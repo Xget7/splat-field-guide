@@ -23,7 +23,16 @@ data class SplatSource(
   val splatPath: String,
   @DoNotStrip
   @Keep
-  val labelsPath: String
+  val labelsPath: String,
+  @DoNotStrip
+  @Keep
+  val splatSha256: String,
+  @DoNotStrip
+  @Keep
+  val labelsSha256: String,
+  @DoNotStrip
+  @Keep
+  val expectedSplatCount: Double
 ) {
   /* primary constructor */
 
@@ -32,12 +41,18 @@ data class SplatSource(
     if (other !is SplatSource) return false
     return Objects.deepEquals(this.splatPath, other.splatPath)
       && Objects.deepEquals(this.labelsPath, other.labelsPath)
+      && Objects.deepEquals(this.splatSha256, other.splatSha256)
+      && Objects.deepEquals(this.labelsSha256, other.labelsSha256)
+      && Objects.deepEquals(this.expectedSplatCount, other.expectedSplatCount)
   }
 
   override fun hashCode(): Int {
     return arrayOf<Any?>(
       splatPath,
-      labelsPath
+      labelsPath,
+      splatSha256,
+      labelsSha256,
+      expectedSplatCount
     ).contentDeepHashCode()
   }
 
@@ -49,8 +64,8 @@ data class SplatSource(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(splatPath: String, labelsPath: String): SplatSource {
-      return SplatSource(splatPath, labelsPath)
+    private fun fromCpp(splatPath: String, labelsPath: String, splatSha256: String, labelsSha256: String, expectedSplatCount: Double): SplatSource {
+      return SplatSource(splatPath, labelsPath, splatSha256, labelsSha256, expectedSplatCount)
     }
   }
 }

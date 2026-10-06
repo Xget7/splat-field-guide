@@ -7,20 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0956757271E1BECB4CD7944B /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 019E1953BA04B7405DD5C0E1 /* GeistMono-Medium.ttf */; };
 		0C80B921A6F3F58F76C31292 /* libPods-FieldGuide.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-FieldGuide.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		513FFF0318C9D36707DA7063 /* GeistMono-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AEF10B97DAE69C5091FC9128 /* GeistMono-SemiBold.ttf */; };
 		6BEA910BD25CD6832E458734 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		7A1DA8E34AA8695D5EE3DD8D /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C65EB00691EDFE98520A4A13 /* Geist-SemiBold.ttf */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		86247EA738BE977004D10EE4 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1D85DE3F534D69F8EBF0B906 /* Geist-Bold.ttf */; };
+		96B6C9E287CE469CAC3D1F01 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = 96B6C9E287CE469CAC3D1F02 /* ThirdPartyNotices.txt */; };
 		E34E6E427FA922DE6F7C4EC6 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F310777D259CCB92B9D8DFA7 /* Geist-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		019E1953BA04B7405DD5C0E1 /* GeistMono-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "GeistMono-Medium.ttf"; path = "../assets/fonts/GeistMono-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		13B07F961A680F5B00A75B9A /* FieldGuide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FieldGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = FieldGuide/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FieldGuide/Info.plist; sourceTree = "<group>"; };
@@ -31,7 +29,7 @@
 		5DCACB8F33CDC322A6C60F78 /* libPods-FieldGuide.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FieldGuide.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FieldGuide/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = FieldGuide/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		AEF10B97DAE69C5091FC9128 /* GeistMono-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "GeistMono-SemiBold.ttf"; path = "../assets/fonts/GeistMono-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		96B6C9E287CE469CAC3D1F02 /* ThirdPartyNotices.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ThirdPartyNotices.txt; path = FieldGuide/ThirdPartyNotices.txt; sourceTree = "<group>"; };
 		C65EB00691EDFE98520A4A13 /* Geist-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "Geist-SemiBold.ttf"; path = "../assets/fonts/Geist-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F310777D259CCB92B9D8DFA7 /* Geist-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "Geist-Regular.ttf"; path = "../assets/fonts/Geist-Regular.ttf"; sourceTree = SOURCE_ROOT; };
@@ -65,6 +63,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				96B6C9E287CE469CAC3D1F02 /* ThirdPartyNotices.txt */,
 			);
 			name = FieldGuide;
 			sourceTree = "<group>";
@@ -114,8 +113,6 @@
 				F310777D259CCB92B9D8DFA7 /* Geist-Regular.ttf */,
 				C65EB00691EDFE98520A4A13 /* Geist-SemiBold.ttf */,
 				1D85DE3F534D69F8EBF0B906 /* Geist-Bold.ttf */,
-				019E1953BA04B7405DD5C0E1 /* GeistMono-Medium.ttf */,
-				AEF10B97DAE69C5091FC9128 /* GeistMono-SemiBold.ttf */,
 			);
 			name = Fonts;
 			sourceTree = SOURCE_ROOT;
@@ -196,8 +193,7 @@
 				E34E6E427FA922DE6F7C4EC6 /* Geist-Regular.ttf in Resources */,
 				7A1DA8E34AA8695D5EE3DD8D /* Geist-SemiBold.ttf in Resources */,
 				86247EA738BE977004D10EE4 /* Geist-Bold.ttf in Resources */,
-				0956757271E1BECB4CD7944B /* GeistMono-Medium.ttf in Resources */,
-				513FFF0318C9D36707DA7063 /* GeistMono-SemiBold.ttf in Resources */,
+				96B6C9E287CE469CAC3D1F01 /* ThirdPartyNotices.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -255,7 +251,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The app loads its packs from packs/<id>/<version>/ in its resources (react-native-splat\n# resolves a relative source path there). rsync keeps a rebuild with an unchanged pack quick.\nset -euo pipefail\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\nif [ ! -d \"$PACKS\" ]; then\n  echo \"error: no packs at $PACKS; run pipeline/export.py first\" >&2\n  exit 1\nfi\nmkdir -p \"$DEST\"\nrsync -a --delete \"$PACKS/\" \"$DEST/\"\n\"$SRCROOT/../scripts/copy_ar_reference.sh\"\n";
+			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\npython3 \"$SRCROOT/../../../scripts/copy_bundled_packs.py\" \"$PACKS\" \"$DEST\" gol-trend-engine-bay/1\n\"$SRCROOT/../scripts/copy_ar_reference.sh\"\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

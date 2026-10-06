@@ -35,9 +35,18 @@ namespace margelo::nitro::splat {
       jni::local_ref<jni::JString> splatPath = this->getFieldValue(fieldSplatPath);
       static const auto fieldLabelsPath = clazz->getField<jni::JString>("labelsPath");
       jni::local_ref<jni::JString> labelsPath = this->getFieldValue(fieldLabelsPath);
+      static const auto fieldSplatSha256 = clazz->getField<jni::JString>("splatSha256");
+      jni::local_ref<jni::JString> splatSha256 = this->getFieldValue(fieldSplatSha256);
+      static const auto fieldLabelsSha256 = clazz->getField<jni::JString>("labelsSha256");
+      jni::local_ref<jni::JString> labelsSha256 = this->getFieldValue(fieldLabelsSha256);
+      static const auto fieldExpectedSplatCount = clazz->getField<double>("expectedSplatCount");
+      double expectedSplatCount = this->getFieldValue(fieldExpectedSplatCount);
       return SplatSource(
         splatPath->toStdString(),
-        labelsPath->toStdString()
+        labelsPath->toStdString(),
+        splatSha256->toStdString(),
+        labelsSha256->toStdString(),
+        expectedSplatCount
       );
     }
 
@@ -47,13 +56,16 @@ namespace margelo::nitro::splat {
      */
     [[maybe_unused]]
     static jni::local_ref<JSplatSource::javaobject> fromCpp(const SplatSource& value) {
-      using JSignature = JSplatSource(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>);
+      using JSignature = JSplatSource(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, double);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
         clazz,
         jni::make_jstring(value.splatPath),
-        jni::make_jstring(value.labelsPath)
+        jni::make_jstring(value.labelsPath),
+        jni::make_jstring(value.splatSha256),
+        jni::make_jstring(value.labelsSha256),
+        value.expectedSplatCount
       );
     }
   };

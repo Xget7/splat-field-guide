@@ -18,17 +18,32 @@ public extension SplatSource {
   /**
    * Create a new instance of `SplatSource`.
    */
-  init(splatPath: String, labelsPath: String) {
-    self.init(std.string(splatPath), std.string(labelsPath))
+  init(splatPath: String, labelsPath: String, splatSha256: String, labelsSha256: String, expectedSplatCount: Double) {
+    self.init(std.string(splatPath), std.string(labelsPath), std.string(splatSha256), std.string(labelsSha256), expectedSplatCount)
   }
 
   @inline(__always)
   var splatPath: String {
     return String(self.__splatPath)
   }
-  
+
   @inline(__always)
   var labelsPath: String {
     return String(self.__labelsPath)
+  }
+
+  @inline(__always)
+  var splatSha256: String {
+    return String(self.__splatSha256)
+  }
+
+  @inline(__always)
+  var labelsSha256: String {
+    return String(self.__labelsSha256)
+  }
+
+  @inline(__always)
+  var expectedSplatCount: Double {
+    return self.__expectedSplatCount
   }
 }

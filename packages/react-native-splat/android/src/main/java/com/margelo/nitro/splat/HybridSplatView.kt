@@ -41,7 +41,7 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     }
   }
 
-  override var source = SplatSource("", "")
+  override var source = SplatSource("", "", "", "", 0.0)
   override var highlight = doubleArrayOf()
   override var cameraLimits: CameraLimits? = null
   override var revealSeconds: Double? = null
@@ -85,7 +85,10 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
         workers.execute {
           try {
             val files = BundledPack.resolve(texture.context, input)
-            SplatEngine.load(id, request, files.splatPath, files.labelsPath)
+            require(files.expectedSplatCount.isFinite() && files.expectedSplatCount in 1.0..MAX_SPLAT_COUNT &&
+              files.expectedSplatCount % 1.0 == 0.0) { "Invalid source splat count" }
+            SplatEngine.load(id, request, files.splatPath, files.labelsPath,
+              files.splatSha256, files.labelsSha256, files.expectedSplatCount.toLong())
           } catch (error: Exception) {
             if (!dropped && loaded == input) nativeEvent(EVENT_LOAD_FAILED, error.message ?: PACK_LOADING_FAILED, 0)
           }
@@ -187,5 +190,6 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     private const val EVENT_GPU_UNAVAILABLE = 3
     private const val VULKAN_INITIALIZATION_FAILED = "Vulkan initialization failed"
     private const val PACK_LOADING_FAILED = "Pack loading failed"
+    private const val MAX_SPLAT_COUNT = 4294967295.0
   }
 }

@@ -9,7 +9,8 @@ internal object SplatEngine {
   external fun surface(id: Long, surface: Surface?)
   external fun resize(id: Long, width: Int, height: Int)
   external fun beginLoad(id: Long): Long
-  external fun load(id: Long, request: Long, cloud: String, labels: String)
+  external fun load(id: Long, request: Long, cloud: String, labels: String,
+    splatSha256: String, labelsSha256: String, expectedSplatCount: Long)
   external fun draw(id: Long, nanos: Long): Boolean
   external fun orbit(id: Long, azimuth: Float, elevation: Float)
   external fun dolly(id: Long, factor: Float)

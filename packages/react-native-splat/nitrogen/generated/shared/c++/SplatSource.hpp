@@ -41,10 +41,13 @@ namespace margelo::nitro::splat {
   public:
     std::string splatPath     SWIFT_PRIVATE;
     std::string labelsPath     SWIFT_PRIVATE;
+    std::string splatSha256     SWIFT_PRIVATE;
+    std::string labelsSha256     SWIFT_PRIVATE;
+    double expectedSplatCount     SWIFT_PRIVATE;
 
   public:
     SplatSource() = default;
-    explicit SplatSource(std::string splatPath, std::string labelsPath): splatPath(splatPath), labelsPath(labelsPath) {}
+    explicit SplatSource(std::string splatPath, std::string labelsPath, std::string splatSha256, std::string labelsSha256, double expectedSplatCount): splatPath(splatPath), labelsPath(labelsPath), splatSha256(splatSha256), labelsSha256(labelsSha256), expectedSplatCount(expectedSplatCount) {}
 
   public:
     friend bool operator==(const SplatSource& lhs, const SplatSource& rhs) = default;
@@ -61,13 +64,19 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::splat::SplatSource(
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "splatPath"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "labelsPath")))
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "labelsPath"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "splatSha256"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "labelsSha256"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "expectedSplatCount")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::splat::SplatSource& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "splatPath"), JSIConverter<std::string>::toJSI(runtime, arg.splatPath));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "labelsPath"), JSIConverter<std::string>::toJSI(runtime, arg.labelsPath));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "splatSha256"), JSIConverter<std::string>::toJSI(runtime, arg.splatSha256));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "labelsSha256"), JSIConverter<std::string>::toJSI(runtime, arg.labelsSha256));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "expectedSplatCount"), JSIConverter<double>::toJSI(runtime, arg.expectedSplatCount));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -80,6 +89,9 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "splatPath")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "labelsPath")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "splatSha256")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "labelsSha256")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "expectedSplatCount")))) return false;
       return true;
     }
   };
