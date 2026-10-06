@@ -11,12 +11,12 @@ Use an Apple silicon Mac with the prerequisites in [app setup](apps/field-guide/
 From the repository root:
 
 ```sh
-nice -n 19 scripts/prepare.sh --pack /path/to/gol-trend-engine-bay-1.tar.gz
+nice -n 19 scripts/prepare.sh
 cd apps/field-guide
 nice -n 19 npm run ios
 ```
 
-Supply the author's archive or set `FIELD_GUIDE_PACK_URL`; the public release location in `scripts/prepare.sh` needs configuration before archive acquisition works without an override.
+Preparation downloads the pack from this repository's release with an authenticated `gh`; `--pack <archive>` or `FIELD_GUIDE_PACK_URL` override it.
 Preparation verifies the pack, builds/reuses the engine, fetches pinned speech resources and installs JS/Ruby dependencies and CocoaPods.
 Device signing and offline system-asset preparation are in [app setup](apps/field-guide/README.md).
 

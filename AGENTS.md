@@ -19,7 +19,7 @@ Run from the stated directory with `nice -n 19`, using fakes for paid services.
 
 | Directory | Purpose | Command |
 | --- | --- | --- |
-| Root | Prepare demo | `scripts/prepare.sh --pack /path/to/gol-trend-engine-bay-1.tar.gz` |
+| Root | Prepare demo (release via authenticated `gh`, or `--pack <archive>`) | `scripts/prepare.sh` |
 | Root | Build/reuse engine | `packages/react-native-splat/scripts/build-ios-engine.sh` |
 | App and native packages | Install, lint, types | `npm ci`, `npm run lint`, `npm run typecheck` |
 | `apps/field-guide` | App tests | `npm test -- --runInBand` |

@@ -1,6 +1,5 @@
 #!/bin/sh
-# Fill this one owner/name constant when the repository is published.
-PUBLISHED_REPOSITORY='FILL_IN_OWNER/FILL_IN_REPOSITORY'
+PUBLISHED_REPOSITORY='Xget7/splat-field-guide'
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PACK_TAG='pack-gol-trend-engine-bay-1'
@@ -11,6 +10,17 @@ if [ "$#" -gt 0 ]; then
     echo 'Usage: scripts/prepare.sh [--pack <archive>]' >&2
     exit 2
   fi
+fi
+# The repository is private, so its release assets reach only authenticated clients.
+# An authenticated gh downloads the archive once into the ignored releases folder.
+CACHED_ARCHIVE="$ROOT/data/pack/releases/$PACK_ARCHIVE"
+if [ "$#" -eq 0 ] && [ -z "${FIELD_GUIDE_PACK_URL:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  if [ ! -f "$CACHED_ARCHIVE" ]; then
+    mkdir -p "$(dirname "$CACHED_ARCHIVE")"
+    gh release download "$PACK_TAG" --repo "$PUBLISHED_REPOSITORY" --pattern "$PACK_ARCHIVE" --clobber --output "$CACHED_ARCHIVE.partial"
+    mv "$CACHED_ARCHIVE.partial" "$CACHED_ARCHIVE"
+  fi
+  set -- --pack "$CACHED_ARCHIVE"
 fi
 # A fresh checkout needs the compiler to run the app parser before accepting pack files.
 if [ ! -d "$ROOT/apps/field-guide/node_modules/typescript" ]; then
