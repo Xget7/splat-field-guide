@@ -20,6 +20,11 @@ import {
   useTapGesture,
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
+import type { VoiceSessionEvents } from '../../features/instructor/voice/voiceSession';
+import {
+  createInstructorRuntime,
+  type InstructorRuntime,
+} from '../../app/instructorRuntime';
 import { fixturePack } from '../../testing/fixturePack';
 import { catalogFor } from '../../features/pack/catalog';
 import { CatalogProvider } from '../../app/CatalogContext';
@@ -112,6 +117,7 @@ function deferred<T>() {
 const modelReply = (reply = 'It supplies the starter.') => reply;
 
 describe('viewer screen', () => {
+  let runtime: InstructorRuntime;
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   const native = () =>
@@ -156,7 +162,7 @@ describe('viewer screen', () => {
     await act(async () => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={entries}>
-          <ViewerScreen {...props} />
+          <ViewerScreen {...props} runtime={runtime} />
         </CatalogProvider>,
       );
     });
@@ -178,6 +184,8 @@ describe('viewer screen', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    runtime = createInstructorRuntime({ proxyUrl: null });
+    runtime.start();
     view.project.mockReset().mockReturnValue(0);
     jest.mocked(useReducedMotion).mockReturnValue(false);
     jest.mocked(model.availability).mockReturnValue('unavailable');
@@ -193,8 +201,76 @@ describe('viewer screen', () => {
   });
   afterEach(async () => {
     await act(() => renderer.unmount());
+    runtime.stop();
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  test('typed questions use active voice, and tool navigation keeps its live exchange without interruption', async () => {
+    let heard!: VoiceSessionEvents;
+    const instructor = {
+      prewarm: jest.fn(),
+      ask: jest.fn(),
+      cancel: jest.fn(),
+    };
+    const session = {
+      kind: 'agent' as const,
+      start: jest.fn(async (_context: unknown, events: VoiceSessionEvents) => {
+        heard = events;
+        events.listening(true);
+      }),
+      say: jest.fn(async () => {}),
+      ask: jest.fn(() => true),
+      update: jest.fn(),
+      interrupt: jest.fn(),
+      setMuted: jest.fn(),
+      stop: jest.fn(),
+    };
+    runtime.stop();
+    runtime = {
+      instructor,
+      sessionFor: () => session,
+      setPack: jest.fn(),
+      setInstructorOpen: jest.fn(),
+      setIdle: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+    };
+    await mount({
+      mode: LearnMode.instructor,
+      voice: true,
+      procedureId: 'check-coolant',
+    });
+    await act(async () => debug().ask('Why check the coolant?'));
+    expect(session.ask).toHaveBeenCalledWith('Why check the coolant?');
+    expect(instructor.ask).not.toHaveBeenCalled();
+    await act(async () => {
+      heard.turn({
+        type: 'begin',
+        exchange: {
+          id: 42,
+          phase: 'pending',
+          question: 'Next step',
+          reply: '',
+          caution: '',
+          part: null,
+        },
+      });
+    });
+    session.interrupt.mockClear();
+    instructor.cancel.mockClear();
+    await act(async () => heard.action({ type: SessionEventType.next }));
+    expect(debug().getState().stepIndex).toBe(1);
+    expect(text('instructor-question')).toBe('Next step');
+    expect(session.interrupt).not.toHaveBeenCalled();
+    expect(instructor.cancel).not.toHaveBeenCalled();
+    await press('instructor-voice-end');
+    await act(async () => debug().ask('Explain the coolant'));
+    expect(instructor.ask).toHaveBeenCalledWith(
+      expect.objectContaining({ question: 'Explain the coolant' }),
+      expect.any(Function),
+    );
+    expect(session.ask).toHaveBeenCalledTimes(1);
   });
 
   test('opens the requested step with safe-area padding and derived props', async () => {

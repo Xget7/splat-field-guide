@@ -1,3 +1,4 @@
+import { stepKeyFor } from '../../features/instructor/agent/agentTools';
 import type { Pack, ProcedureId } from '../../features/pack/pack';
 import {
   INITIAL_SESSION,
@@ -47,6 +48,7 @@ export interface ViewerState {
 
 export const ViewerActionType = {
   session: 'session',
+  agent: 'agent',
   turn: 'turn',
   explore: 'explore',
   guide: 'guide',
@@ -54,7 +56,9 @@ export const ViewerActionType = {
 
 export type ViewerAction =
   | {
-      readonly type: typeof ViewerActionType.session;
+      readonly type:
+        | typeof ViewerActionType.session
+        | typeof ViewerActionType.agent;
       readonly event: SessionEvent;
     }
   | { readonly type: typeof ViewerActionType.turn; readonly event: TurnEvent }
@@ -82,9 +86,6 @@ export function initialViewerState(
 const append = (thread: readonly ThreadEntry[], entry: ThreadEntry) =>
   [...thread, entry].slice(-MAX_THREAD_ENTRIES);
 
-const stepKey = (session: SessionState) =>
-  `${session.procedureId}:${session.stepIndex}:${session.selectedPart}`;
-
 function settle(state: ViewerState): ViewerState {
   return state.exchange?.phase === ExchangePhase.done
     ? {
@@ -99,7 +100,7 @@ function settle(state: ViewerState): ViewerState {
 }
 
 function showStep(state: ViewerState, pack: Pack): ViewerState {
-  const key = stepKey(state.session);
+  const key = stepKeyFor(state.session);
   const last = state.thread[state.thread.length - 1];
   if (last?.kind === EntryKind.step && last.key === key) {
     return state;
@@ -185,6 +186,20 @@ export function reduceViewer(
         }
       }
       return state;
+    }
+    case ViewerActionType.agent: {
+      const live =
+        state.exchange?.phase === ExchangePhase.pending ||
+        state.exchange?.phase === ExchangePhase.streaming;
+      return showStep(
+        apply(
+          live ? state : settle(state),
+          action.event,
+          pack,
+          live ? state.exchange : null,
+        ),
+        pack,
+      );
     }
     case ViewerActionType.session: {
       const next = apply(state, action.event, pack, null);

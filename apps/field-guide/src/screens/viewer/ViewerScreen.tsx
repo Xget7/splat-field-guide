@@ -18,7 +18,10 @@ import {
   type SessionEvent,
   type SessionState,
 } from '../../features/guide/session';
-import { defaultInstructor } from '../../features/instructor/models/defaultInstructor';
+import {
+  instructorRuntime,
+  type InstructorRuntime,
+} from '../../app/instructorRuntime';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
@@ -60,7 +63,8 @@ const SIDEBAR_WIDTH = 400;
 export function ViewerScreen({
   navigation,
   route,
-}: ScreenProps<typeof Route.viewer>) {
+  runtime = instructorRuntime,
+}: ScreenProps<typeof Route.viewer> & { runtime?: InstructorRuntime }) {
   const { guideId, procedureId, stepIndex, mode, voice } = route.params;
   const guide = findReadyGuide(useCatalog(), guideId);
   const exit = useCallback(() => navigation.goBack(), [navigation]);
@@ -69,6 +73,7 @@ export function ViewerScreen({
   }
   return (
     <Viewer
+      runtime={runtime}
       guide={guide}
       procedureId={procedureId}
       stepIndex={stepIndex}
@@ -80,6 +85,7 @@ export function ViewerScreen({
 }
 
 interface ViewerProps {
+  runtime: InstructorRuntime;
   guide: ReadyGuide;
   procedureId: ProcedureId;
   stepIndex: number;
@@ -89,6 +95,7 @@ interface ViewerProps {
 }
 
 function Viewer({
+  runtime,
   guide,
   procedureId,
   stepIndex,
@@ -120,7 +127,7 @@ function Viewer({
     procedureId,
     stepIndex,
     instructorOpen,
-    instructor: defaultInstructor,
+    runtime,
     startInVoice,
   });
   const [pickerVisible, setPickerVisible] = useState(false);

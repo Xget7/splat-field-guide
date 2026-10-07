@@ -159,3 +159,18 @@ describe('viewer conversation and guide presentation', () => {
     ]);
   });
 });
+
+it('agent navigation preserves the question still being answered', () => {
+  const current = run(initialViewerState('check-coolant', 0, pack), pending);
+  const next = reduceViewer(
+    current,
+    { type: 'agent', event: { type: SessionEventType.next } },
+    pack,
+  );
+  expect(next.session.stepIndex).toBe(1);
+  expect(next.exchange).toBe(current.exchange);
+  expect(next.thread.at(-1)).toMatchObject({
+    kind: 'step',
+    key: 'check-coolant:1:null',
+  });
+});

@@ -6,7 +6,16 @@ import {
 } from '../../features/guide/session';
 import type { ReadyGuide } from '../../features/pack/catalog';
 import { sessionForExchange } from '../../features/instructor/turn';
-import type { ModelInstructor } from '../../features/instructor/models/modelInstructor';
+import {
+  instructorRuntime,
+  type InstructorRuntime,
+} from '../../app/instructorRuntime';
+import { useInstructorMode } from '../../features/events/useAppEvent';
+import { stepKeyFor } from '../../features/instructor/agent/agentTools';
+import {
+  UtteranceKind,
+  type VoiceContext,
+} from '../../features/instructor/voice/voiceSession';
 import {
   useInstructorVoice,
   type Utterance,
@@ -30,7 +39,7 @@ interface Options {
   procedureId: ProcedureId;
   stepIndex: number;
   instructorOpen: boolean;
-  instructor: ModelInstructor;
+  runtime?: InstructorRuntime;
   startInVoice?: boolean;
 }
 
@@ -40,10 +49,16 @@ export function useViewerSession({
   procedureId,
   stepIndex,
   instructorOpen,
-  instructor,
+  runtime = instructorRuntime,
   startInVoice,
 }: Options) {
   const { pack } = guide;
+  const { instructor } = runtime;
+  const mode = useInstructorMode();
+  const sessionFor = useCallback(
+    (status: typeof mode) => runtime.sessionFor(status, pack),
+    [runtime, pack],
+  );
   const [state, act] = useReducer(
     (current: ViewerState, action: ViewerAction) =>
       reduceViewer(current, action, pack),
@@ -57,6 +72,7 @@ export function useViewerSession({
   );
   const stateRef = useRef(state);
   stateRef.current = state;
+  const askVoice = useRef<((text: string) => boolean) | null>(null);
   const interruptVoice = useRef<(() => void) | null>(null);
 
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
@@ -91,6 +107,9 @@ export function useViewerSession({
       if (question === '') {
         return;
       }
+      if (askVoice.current?.(question)) {
+        return;
+      }
       interruptVoice.current?.();
       const current = stateRef.current;
       instructor.ask(
@@ -114,6 +133,8 @@ export function useViewerSession({
     if (exchange !== null) {
       return exchange.phase === ExchangePhase.done
         ? {
+            kind: UtteranceKind.answer,
+            stepKey: null,
             id: `answer:${exchange.id}`,
             reply: exchange.reply,
             caution: exchange.caution,
@@ -124,22 +145,47 @@ export function useViewerSession({
       return null;
     }
     return {
+      kind: UtteranceKind.step,
+      stepKey: stepKeyFor(session),
       id: `step:${session.procedureId}:${session.stepIndex}:${session.selectedPart}:${frameRequest}`,
       reply: card.body,
       caution: card.caution,
     };
   }, [exchange, card, session, frameRequest]);
 
+  const context = useMemo(
+    (): VoiceContext => ({
+      pack,
+      state: state.session,
+      history: answeredExchanges(state),
+      thinking,
+    }),
+    [pack, state, thinking],
+  );
   const voice = useInstructorVoice({
     pack,
     enabled: instructorOpen,
     utterance,
-    thinking,
+    context,
+    mode,
+    sessionFor,
+    onTurn: event => act({ type: ViewerActionType.turn, event }),
+    onAction: event => act({ type: ViewerActionType.agent, event }),
+    onIdle: idle => runtime.setIdle(idle),
     onAsk: ask,
     onCancel: cancelAnswer,
     startInVoice,
   });
   interruptVoice.current = voice.interrupt;
+  askVoice.current = voice.ask;
+
+  useEffect(() => {
+    runtime.setPack(pack);
+  }, [runtime, pack]);
+  useEffect(() => {
+    runtime.setInstructorOpen(instructorOpen);
+    return () => runtime.setInstructorOpen(false);
+  }, [runtime, instructorOpen]);
 
   useEffect(() => {
     if (instructorOpen) {

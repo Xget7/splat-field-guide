@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { instructorRuntime } from './app/instructorRuntime';
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,6 +9,9 @@ import { PackErrorScreen } from './app/PackErrorScreen';
 import { Color } from './ui/theme';
 
 function App() {
+  useEffect(() => {
+    instructorRuntime.start();
+  }, []);
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
