@@ -18,30 +18,21 @@ flowchart TB
   end
   subgraph Device["iPhone, iPad, Android"]
     direction LR
-    app["React Native<br/>Nitro"] ~~~ splat["SplatKit core<br/>Metal, Vulkan"] ~~~ speech["Foundation<br/>Models, Kokoro"]
+    app["React Native<br/>Nitro"] ~~~ splat["SplatKit core<br/>Metal, Vulkan"] ~~~ speech["SpeechAnalyzer<br/>Kokoro-82M"] ~~~ model["Foundation<br/>Models 3B"]
   end
   subgraph Online
     direction LR
-    eleven["ElevenLabs<br/>agent"] -->|"custom LLM"| worker["Cloudflare<br/>Worker"]
-    worker --> claude["Claude<br/>API"]
+    eleven["ElevenLabs<br/>Flash v2"] -->|"custom LLM"| worker["Cloudflare<br/>Worker"]
+    worker --> claude["Claude<br/>Sonnet 5.5<br/>Haiku 4.5"]
   end
   Build --> Device
   Device --> Online
 ```
 
-### How splats reach the screen
+### Splat viewer
 
-Loading runs once per guide on a worker thread; drawing runs on a render thread and stops when nothing changes.
-
-```mermaid
-flowchart TB
-  load["Verify, decode<br/>and filter"] --> upload["Reorder and<br/>upload to GPU"]
-  upload --> draw["Sort and draw<br/>each frame"]
-```
-
-- Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
-- A tap returns the part label that contributes most to that pixel; the renderer brightens that part, dims the rest and frames it.
-- Metal composites front to back into a half-float target; Vulkan composites back to front into a scaled offscreen target.
+The viewer is its own SDK, [react-native-splat](packages/react-native-splat/README.md): Nitro views over a pruned SplatKit C++ core, drawn by Metal on iOS and Vulkan on Android.
+The app hands it a verified pack and gets orbit, framing, part picking and highlighting; [how it loads and draws](packages/react-native-splat/README.md#how-it-draws) lives in the package.
 
 ### Instructor turn
 
@@ -50,8 +41,13 @@ Typed questions and offline speech meet the command router first, so commands ne
 ```mermaid
 flowchart TB
   router["Command router"] -->|"next, back, repeat"| action["Session action"]
-  router -->|"open question"| models["Claude, Apple<br/>model or script"]
-  models --> commit["Validate, commit, speak"]
+  router -->|"open question"| Answer
+  subgraph Answer["First model that answers"]
+    direction LR
+    claude["Claude<br/>Sonnet 5.5"] -->|"fails"| apple["Foundation<br/>Models 3B"]
+    apple -->|"fails"| script["Guide<br/>script"]
+  end
+  Answer --> commit["Validate, commit, speak"]
 ```
 
 Replies stay provisional until they complete, so a failure or interruption leaves the session untouched.
@@ -68,17 +64,18 @@ The app switches between the two on its own, and on phones the instructor panel 
 stateDiagram-v2
   direction TB
   Online: Online
-  Online: ElevenLabs voice, Claude answers
+  Online: ElevenLabs Flash v2 voice
+  Online: Claude Sonnet 5.5, Haiku 4.5 for voice
   Offline: Offline
-  Offline: Kokoro or system voice
-  Offline: Apple model or guide script
+  Offline: Kokoro-82M or system voice
+  Offline: Foundation Models 3B or guide script
   Online --> Offline: connection lost
   Online --> Offline: weak 5 s, user taps Switch
   Offline --> Online: good 10 s, between turns
 ```
 
 - The app reads the system network path and pings the Worker: no route or three failed pings in a row is a lost connection; slow or failed pings, low bandwidth or low signal is a weak one.
-- A switch shows a card with voice, answers and listening as each gets ready; a piece not ready within 8 seconds falls back, such as Kokoro to the system voice or the Apple model to the guide script.
+- A switch shows a card with voice, answers and listening as each gets ready; a piece not ready within 8 seconds falls back, such as Kokoro-82M to the system voice or Foundation Models to the guide script.
 - After a lost connection, the offline voice says where answers now come from.
 - If ElevenLabs refuses the session for quota or auth, the app stays online with the on-device voice and shows a notice.
 - Every voice session sits behind one `VoiceSession` port, so only the composition root knows which mode runs ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)).
@@ -93,7 +90,7 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 | Bare React Native with local [Nitro](https://nitro.margelo.com) packages ([0005](docs/adr/0005-bare-react-native-with-local-nitro-packages.md)) | One UI for iOS and Android; Nitro gives typed, synchronous native calls for per-frame gestures | Expo managed: the engine needs the native projects anyway. Two native apps: two UIs for one product. |
 | Own C++ splat engine, a pruned SplatKit copy ([0002](docs/adr/0002-pruned-splatkit-without-lod.md), [0003](docs/adr/0003-shared-core-owns-viewer-behaviour.md)) | Labels, picking, highlight and framing need control of the data; one core is tested without a GPU and drawn by Metal and Vulkan | MetalSplatter: iOS only. Unity or Unreal: a heavy runtime inside React Native. WebGL in a WebView: a second runtime between gestures and drawing. |
 | SPZ v3 cloud, label sidecar and SHA-256 manifest ([0004](docs/adr/0004-verified-offline-pack.md)) | 63 MB instead of the 636 MB trained PLY, one label byte per splat, and every byte verified before use | Raw PLY: too large to bundle. Streaming: the guide must open offline. |
-| Commands first, then Claude, Apple Foundation Models and scripted answers ([0006](docs/adr/0006-commands-and-ordered-instructor-fallback.md)) | Navigation stays deterministic, answers are best online, and something useful remains offline | Cloud only: fails offline. On-device only: the Apple model needs eligible hardware and has no Android version. |
+| Commands first, then Claude, Apple Foundation Models and scripted answers ([0006](docs/adr/0006-commands-and-ordered-instructor-fallback.md)) | Navigation stays deterministic, answers are best online, and something useful remains offline | Cloud only: fails offline. On-device only: Apple's 3B Foundation Models needs eligible hardware and has no Android version. |
 | No on-device model on Android | Offline, the scripted guidance already covers commands, procedures and specifications | Gemini Nano through ML Kit: only on a few recent phones. A bundled model such as Gemma: hundreds of MB in the app. |
 | Cloudflare Worker in front of Claude and ElevenLabs | Keeps both keys off devices, signs agent sessions and rate limits per IP | Calling the APIs from the app: leaks the keys. |
 | ElevenLabs agent online, on-device pipeline offline ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)) | Natural turn-taking, barge-in and fast first audio online, with Claude still writing every answer; offline keeps working | OpenAI Realtime: answers must come from Claude. ElevenLabs speech-to-text with our own turn-taking: rebuilds what the agent does. Kokoro online: latency and a second voice. |

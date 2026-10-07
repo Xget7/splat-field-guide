@@ -3,6 +3,31 @@
 Typed Nitro views wrap the shared C++ viewer with Metal on iOS and Vulkan on Android, plus an iOS-only RealityKit AR alignment check.
 [ADR 0003](../../docs/adr/0003-shared-core-owns-viewer-behaviour.md) records ownership; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has build, test and codegen commands.
 
+## How it draws
+
+Loading runs once per guide on a worker thread; drawing runs on a render thread for each changed frame.
+
+```mermaid
+flowchart TB
+  subgraph Load["Load, worker thread"]
+    direction LR
+    map["Memory-map<br/>SPZ, labels"] --> verify["Check SHA-256<br/>and count"]
+    verify --> decode["Decode SPZ v3<br/>drop haze"]
+    decode --> index["Reorder, pick<br/>index, upload"]
+  end
+  subgraph Frame["Each changed frame, render thread"]
+    direction LR
+    camera["Orbit<br/>camera"] --> cull["GPU cull,<br/>depth keys"]
+    cull --> sort["GPU radix<br/>sort"]
+    sort --> draw["Draw, SH 3,<br/>part tint"]
+  end
+  Load --> Frame
+```
+
+- Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
+- A tap returns the part label that contributes most to that pixel; the renderer brightens that part, dims the rest and frames it.
+- Metal composites front to back into a half-float target; Vulkan composites back to front into a scaled offscreen target.
+
 ## Engine preparation
 
 The builder produces arm64 device/simulator slices in `ios/Frameworks/SplatKitCore.xcframework` using pinned SPZ/zstd dependencies.
