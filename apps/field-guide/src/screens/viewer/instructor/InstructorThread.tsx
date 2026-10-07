@@ -225,6 +225,11 @@ export function InstructorThread({
             contentOffset.y + layoutMeasurement.height >=
             contentSize.height - FOLLOW_SLOP;
         }}
+        onLayout={() => {
+          if (following.current) {
+            scroll.current?.scrollToEnd({ animated: false });
+          }
+        }}
         onContentSizeChange={() => {
           if (following.current || seen.current !== said) {
             seen.current = said;

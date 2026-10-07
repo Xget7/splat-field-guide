@@ -463,6 +463,32 @@ describe('instructor panel modes', () => {
     expect(rendered).not.toHaveBeenCalled();
   });
 
+  test('the thread keeps its end in view when it resizes, unless the reader scrolled back', async () => {
+    await mount({ exchange: INTERRUPTED_EXCHANGE });
+    const thread = renderer.root.findByType(ScrollView);
+    const scrollToEnd = jest.mocked(thread.instance.scrollToEnd);
+    const resize = async () => {
+      await act(() =>
+        thread.props.onLayout({ nativeEvent: { layout: THREAD_WINDOW } }),
+      );
+    };
+    scrollToEnd.mockClear();
+    await resize();
+    expect(scrollToEnd).toHaveBeenCalledTimes(1);
+    await act(() =>
+      thread.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          contentSize: THREAD_SIZE,
+          layoutMeasurement: THREAD_WINDOW,
+        },
+      }),
+    );
+    scrollToEnd.mockClear();
+    await resize();
+    expect(scrollToEnd).not.toHaveBeenCalled();
+  });
+
   test('a completed reply has no interrupted label', async () => {
     await mount({ exchange: { ...INTERRUPTED_EXCHANGE, interrupted: false } });
     expect(hasText('Interrupted')).toBe(false);
