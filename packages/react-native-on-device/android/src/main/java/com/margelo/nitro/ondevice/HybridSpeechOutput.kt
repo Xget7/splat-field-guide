@@ -40,18 +40,20 @@ class HybridSpeechOutput : HybridSpeechOutputSpec() {
           initialized = status == TextToSpeech.SUCCESS
           tts?.setOnUtteranceProgressListener(listener)
           settlePreparation()
-          val action = pending
-          pending = null
-          action?.invoke()
+          startPending()
         }
       }
     } catch (_: Exception) {
       initialized = false
       settlePreparation()
-      val action = pending
-      pending = null
-      action?.invoke()
+      startPending()
     }
+  }
+
+  private fun startPending() {
+    val action = pending
+    pending = null
+    action?.invoke()
   }
 
   private fun settlePreparation() {

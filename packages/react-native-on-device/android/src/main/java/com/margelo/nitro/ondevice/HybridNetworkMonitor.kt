@@ -54,7 +54,7 @@ class HybridNetworkMonitor : HybridNetworkMonitorSpec() {
         NetworkTransport.WIFI -> {
           val strength = capabilities.signalStrength
           if (strength == NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED) UNKNOWN
-          else if (Build.VERSION.SDK_INT >= 30) {
+          else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val wifi = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
             wifi.calculateSignalLevel(strength).coerceIn(0, MAX_SIGNAL_LEVEL).toDouble()
           } else {

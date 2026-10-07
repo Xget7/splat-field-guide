@@ -24,6 +24,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
   private var recognizer: SpeechRecognizer? = null
   private var generation = 0
   private var listening = false
+  private var listeningRequest = 0
   private var preparedLocale: String? = null
   private var preparation: SpeechRecognizer? = null
   private var preparing: Promise<SpeechInputAvailability>? = null
@@ -116,92 +117,98 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
     onStopped: (String) -> Unit): Promise<Unit> {
     val promise = Promise<Unit>()
     main.post {
-      if (listening || preparedLocale != locale ||
-        context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-        promise.reject(IllegalStateException(INPUT_NOT_READY))
-        return@post
-      }
-      if (!OnDeviceAudioOwnership.acquire(this)) {
-        promise.reject(IllegalStateException(INPUT_NOT_READY))
-        return@post
-      }
-      val token = ++generation
-      var level = 0.0
-      var lastLevel = 0L
-      try {
-        val speech = if (Build.VERSION.SDK_INT >= 31 && onDeviceAvailable()) SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-          else SpeechRecognizer.createSpeechRecognizer(context)
-        recognizer = speech
-        listening = true
-        val intent = recognitionIntent(locale).apply {
-          if (Build.VERSION.SDK_INT >= 33) putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(hints.toList()))
+      val request = ++listeningRequest
+      OnDeviceAudioOwnership.whenReady ready@ {
+        if (request != listeningRequest) {
+          promise.reject(IllegalStateException(INPUT_CANCELLED))
+          return@ready
         }
-        fun current() = listening && generation == token
-        fun stopped(reason: String) {
-          if (!current()) return
-          listening = false
-          OnDeviceAudioOwnership.release(this@HybridSpeechInput)
-          recognizer = null
-          speech.destroy()
-          onVoice(false)
-          onLevel(0.0)
-          onStopped(reason)
+        if (listening || OnDeviceAudioOwnership.occupied) {
+          promise.reject(IllegalStateException(OnDeviceAudioOwnership.ALREADY_LISTENING))
+          return@ready
         }
-        fun restart() {
-          if (!current()) return
-          main.postDelayed({
-            if (current()) try { speech.startListening(intent) }
-            catch (error: Exception) { stopped(error.message ?: RESTART_FAILED) }
-          }, RESTART_MS)
+        if (preparedLocale != locale ||
+          context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+          promise.reject(IllegalStateException(INPUT_NOT_READY))
+          return@ready
         }
-        speech.setRecognitionListener(object : RecognitionListener {
-          override fun onReadyForSpeech(params: Bundle?) {}
-          override fun onBeginningOfSpeech() { if (current()) onVoice(true) }
-          override fun onEndOfSpeech() { if (current()) { onVoice(false); onLevel(0.0) } }
-          override fun onRmsChanged(rmsdB: Float) {
-            if (!current()) return
-            val now = System.nanoTime()
-            if (now - lastLevel < LEVEL_INTERVAL_NS) return
-            lastLevel = now
-            level += (((rmsdB + 2.0) / 12.0).coerceIn(0.0, 1.0) - level) * 0.25
-            onLevel(level)
+        if (!OnDeviceAudioOwnership.acquire(this)) {
+          promise.reject(IllegalStateException(OnDeviceAudioOwnership.ALREADY_LISTENING))
+          return@ready
+        }
+        val token = ++generation
+        val meter = AudioLevel(RECOGNITION_FLOOR_DB, RECOGNITION_CEILING_DB)
+        try {
+          val speech = if (Build.VERSION.SDK_INT >= 31 && onDeviceAvailable()) SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+            else SpeechRecognizer.createSpeechRecognizer(context)
+          recognizer = speech
+          listening = true
+          val intent = recognitionIntent(locale).apply {
+            if (Build.VERSION.SDK_INT >= 33) putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(hints.toList()))
           }
-          override fun onPartialResults(results: Bundle?) {
-            if (current()) results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(onPartial)
-          }
-          override fun onResults(results: Bundle?) {
+          fun current() = listening && generation == token
+          fun stopped(reason: String) {
             if (!current()) return
+            listening = false
+            OnDeviceAudioOwnership.release(this@HybridSpeechInput)
+            recognizer = null
+            speech.destroy()
             onVoice(false)
             onLevel(0.0)
-            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
-            if (text.isNotEmpty()) onTurn(text)
-            restart()
+            onStopped(reason)
           }
-          override fun onError(error: Int) {
+          fun restart() {
             if (!current()) return
-            if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-              onVoice(false); onLevel(0.0); restart()
-            }
-            else stopped(when (error) {
-              SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> MODEL_NOT_INSTALLED.format(locale)
-              SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED -> LANGUAGE_UNAVAILABLE.format(locale)
-              SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> NETWORK_REQUIRED
-              SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> PERMISSION_LOST
-              SpeechRecognizer.ERROR_AUDIO -> AUDIO_INTERRUPTED
-              else -> RECOGNITION_STOPPED.format(error)
-            })
+            main.postDelayed({
+              if (current()) try { speech.startListening(intent) }
+              catch (error: Exception) { stopped(error.message ?: RESTART_FAILED) }
+            }, RESTART_MS)
           }
-          override fun onBufferReceived(buffer: ByteArray?) {}
-          override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-        speech.startListening(intent)
-        promise.resolve(Unit)
-      } catch (error: Exception) {
-        listening = false
-        OnDeviceAudioOwnership.release(this)
-        recognizer?.destroy()
-        recognizer = null
-        promise.reject(error)
+          speech.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() { if (current()) onVoice(true) }
+            override fun onEndOfSpeech() { if (current()) { onVoice(false); onLevel(0.0) } }
+            override fun onRmsChanged(rmsdB: Float) {
+              if (!current()) return
+              meter.update(rmsdB.toDouble())?.let(onLevel)
+            }
+            override fun onPartialResults(results: Bundle?) {
+              if (current()) results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(onPartial)
+            }
+            override fun onResults(results: Bundle?) {
+              if (!current()) return
+              onVoice(false)
+              onLevel(0.0)
+              val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+              if (text.isNotEmpty()) onTurn(text)
+              restart()
+            }
+            override fun onError(error: Int) {
+              if (!current()) return
+              if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                onVoice(false); onLevel(0.0); restart()
+              }
+              else stopped(when (error) {
+                SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> MODEL_NOT_INSTALLED.format(locale)
+                SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED -> LANGUAGE_UNAVAILABLE.format(locale)
+                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> NETWORK_REQUIRED
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> PERMISSION_LOST
+                SpeechRecognizer.ERROR_AUDIO -> AUDIO_INTERRUPTED
+                else -> RECOGNITION_STOPPED.format(error)
+              })
+            }
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+          })
+          speech.startListening(intent)
+          promise.resolve(Unit)
+        } catch (error: Exception) {
+          listening = false
+          OnDeviceAudioOwnership.release(this)
+          recognizer?.destroy()
+          recognizer = null
+          promise.reject(error)
+        }
       }
     }
     return promise
@@ -210,6 +217,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
   override fun cancel() {
     main.post {
       generation++
+      listeningRequest++
       listening = false
       OnDeviceAudioOwnership.release(this)
       recognizer?.cancel()
@@ -232,8 +240,10 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
   companion object {
     private const val PERMISSION_REQUEST = 8711
     private const val RESTART_MS = 150L
-    private const val LEVEL_INTERVAL_NS = 33_333_333L
-    private const val INPUT_NOT_READY = "Speech input is not prepared, permitted, or already listening"
+    private const val RECOGNITION_FLOOR_DB = -2.0
+    private const val RECOGNITION_CEILING_DB = 10.0
+    private const val INPUT_CANCELLED = "Speech input was cancelled"
+    private const val INPUT_NOT_READY = "Speech input is not prepared or permitted"
     private const val RESTART_FAILED = "Speech recognition could not restart"
     private const val MODEL_NOT_INSTALLED = "The speech model for %s is not installed"
     private const val LANGUAGE_UNAVAILABLE = "Speech input is unavailable for %s"
