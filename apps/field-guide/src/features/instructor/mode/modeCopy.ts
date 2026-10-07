@@ -36,8 +36,11 @@ export const SuggestionCopy = {
 export const ModeToggleCopy = {
   goOffline: 'Go offline',
   goOnline: 'Go online',
+  stayOffline: 'Stay offline',
   goOfflineHint: 'Uses the on-device voice and answers until you go online.',
   goOnlineHint: 'Uses the online voice again when the connection is good.',
+  stayOfflineHint:
+    'Keeps the on-device voice and answers when the connection returns.',
 } as const;
 
 /** Said by the offline voice after a switch caused by the network. */

@@ -5,6 +5,7 @@ import {
   ModeCause,
   ModeRequestType,
   VoiceSource,
+  type ModeStatus,
 } from '../../../features/events/types';
 import {
   ModeNoticeCopy,
@@ -91,9 +92,17 @@ const GO_ONLINE = {
   hint: ModeToggleCopy.goOnlineHint,
   requestType: ModeRequestType.allowOnline,
 } as const;
+const STAY_OFFLINE = {
+  label: ModeToggleCopy.stayOffline,
+  hint: ModeToggleCopy.stayOfflineHint,
+  requestType: ModeRequestType.forceOffline,
+} as const;
 
-export function toggleFor(forced: boolean) {
-  return forced ? GO_ONLINE : GO_OFFLINE;
+export function toggleFor(status: Pick<ModeStatus, 'mode' | 'forced'>) {
+  if (status.forced) {
+    return GO_ONLINE;
+  }
+  return status.mode === InstructorMode.offline ? STAY_OFFLINE : GO_OFFLINE;
 }
 
 export function useModeView() {

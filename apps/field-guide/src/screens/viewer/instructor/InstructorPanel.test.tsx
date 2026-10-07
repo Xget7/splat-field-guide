@@ -186,6 +186,28 @@ describe('instructor panel modes', () => {
     }
   });
 
+  test('Stay offline keeps on-device voice and answers when a lost connection returns', async () => {
+    const requests: string[] = [];
+    const unsubscribe = appEvents.on('modeRequest', request =>
+      requests.push(request.type),
+    );
+    try {
+      await mode({
+        mode: InstructorMode.offline,
+        cause: ModeCause.network,
+        answers: AnswerSource.script,
+      });
+      await mount();
+      expect(button('Stay offline').props.accessibilityHint).toBe(
+        'Keeps the on-device voice and answers when the connection returns.',
+      );
+      await act(() => button('Stay offline').props.onPress());
+      expect(requests).toEqual(['forceOffline']);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   test.each([
     InstructorMode.switchingToOffline,
     InstructorMode.switchingToOnline,

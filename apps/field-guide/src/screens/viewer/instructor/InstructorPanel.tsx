@@ -156,7 +156,7 @@ export function InstructorPanel({
   const reducedMotion = useReducedMotion();
   const instructorMode = useModeView();
   const switching = isSwitching(instructorMode.mode);
-  const modeToggle = toggleFor(instructorMode.forced);
+  const modeToggle = toggleFor(instructorMode);
   const minimized = !docked && mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
