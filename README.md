@@ -5,30 +5,28 @@ You orbit a Gaussian splat of the machine, tap a part to see what it is, follow 
 The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
 It is tested on a physical iPhone and the iPad simulator; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
-## Architecture
+## System architecture
 
 A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
 
 ```mermaid
 flowchart TB
-  subgraph Mac["Capture pipeline: author's Mac, SAM on Modal"]
-    photos["124 photos"] --> colmap["COLMAP<br/>camera poses"]
-    photos --> sam["SAM 3.1<br/>part masks"]
-    colmap --> brush["Brush<br/>splat training"]
-    brush --> lift["Lift masks<br/>onto splats"]
-    sam --> lift
-    lift --> export["Export and<br/>verify the pack"]
+  subgraph Build
+    direction LR
+    modal["Modal<br/>SAM 3.1"] -->|"masks"| mac["Mac<br/>COLMAP, Brush"]
+    mac -->|"pack"| github["GitHub<br/>Releases"]
   end
-  export --> release[("GitHub release")]
-  release -->|"prepare.sh<br/>checks SHA-256"| Device
   subgraph Device["iPhone, iPad, Android"]
-    app["React Native app"] --> splat["Splat engine<br/>Metal, Vulkan"]
-    app --> ondevice["Speech and<br/>Apple model"]
+    direction LR
+    app["React Native<br/>Nitro"] ~~~ splat["SplatKit core<br/>Metal, Vulkan"] ~~~ speech["Foundation<br/>Models, Kokoro"]
   end
-  Device -->|"typed questions"| worker["Cloudflare<br/>Worker"]
-  Device -->|"online voice"| agent["ElevenLabs<br/>agent"]
-  agent -->|"custom LLM"| worker
-  worker --> claude["Claude API"]
+  subgraph Online
+    direction LR
+    eleven["ElevenLabs<br/>agent"] -->|"custom LLM"| worker["Cloudflare<br/>Worker"]
+    worker --> claude["Claude<br/>API"]
+  end
+  Build --> Device
+  Device --> Online
 ```
 
 ### How splats reach the screen
@@ -37,18 +35,8 @@ Loading runs once per guide on a worker thread; drawing runs on a render thread 
 
 ```mermaid
 flowchart TB
-  subgraph Load["Load, worker thread"]
-    files["Memory-map<br/>SPZ and labels"] --> verify["Check SHA-256<br/>and splat count"]
-    verify --> decode["Decode SPZ v3<br/>2.5M splats"]
-    decode --> filter["Drop haze<br/>and floaters"]
-    filter --> order["Spatial reorder<br/>and pick index"]
-    order --> upload["GPU upload"]
-  end
-  subgraph Frame["Each changed frame, render thread"]
-    camera["Orbit camera"] --> sort["GPU cull<br/>and depth sort"]
-    sort --> draw["Draw splats<br/>with part tint"]
-  end
-  Load --> Frame
+  load["Verify, decode<br/>and filter"] --> upload["Reorder and<br/>upload to GPU"]
+  upload --> draw["Sort and draw<br/>each frame"]
 ```
 
 - Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
@@ -61,15 +49,9 @@ Typed questions and offline speech meet the command router first, so commands ne
 
 ```mermaid
 flowchart TB
-  input["Typed or<br/>spoken text"] --> router{"Command?"}
-  router -->|"yes: next, back, repeat"| action["Session action"]
-  router -->|no| evidence["Evidence for<br/>step and part"]
-  evidence --> cloud["Claude<br/>via the Worker"]
-  cloud -->|"offline or failed"| apple["Apple model<br/>on device"]
-  apple -->|"unavailable or failed"| scripted["Scripted<br/>guidance"]
-  cloud --> commit["Validate,<br/>commit, speak"]
-  apple --> commit
-  scripted --> commit
+  router["Command router"] -->|"next, back, repeat"| action["Session action"]
+  router -->|"open question"| models["Claude, Apple<br/>model or script"]
+  models --> commit["Validate, commit, speak"]
 ```
 
 Replies stay provisional until they complete, so a failure or interruption leaves the session untouched.
@@ -90,13 +72,9 @@ stateDiagram-v2
   Offline: Offline
   Offline: Kokoro or system voice
   Offline: Apple model or guide script
-  state weak <<choice>>
-  [*] --> Online
   Online --> Offline: connection lost
-  Online --> weak: weak for 5 s
-  weak --> Offline: Switch
-  weak --> Online: Keep online
-  Offline --> Online: good for 10 s<br/>between turns
+  Online --> Offline: weak 5 s, user taps Switch
+  Offline --> Online: good 10 s, between turns
 ```
 
 - The app reads the system network path and pings the Worker: no route or three failed pings in a row is a lost connection; slow or failed pings, low bandwidth or low signal is a weak one.
