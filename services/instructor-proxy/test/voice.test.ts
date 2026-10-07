@@ -19,10 +19,10 @@ function request() {
   });
 }
 
-test("voice sessions issue uncached signed URLs using the agent id and server key", async (t) => {
+test("voice sessions issue uncached single-use signed URLs using the agent id and server key", async (t) => {
   const input = request();
   t.mock.method(globalThis, "fetch", async (url, options) => {
-    assert.equal(String(url), "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=agent%2Fid");
+    assert.equal(String(url), "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=agent%2Fid&include_conversation_id=true");
     assert.equal(options.method, "GET");
     assert.deepEqual(options.headers, { "xi-api-key": "voice-key" });
     assert.equal(options.signal, input.signal);

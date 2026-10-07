@@ -20,6 +20,7 @@ export async function handleVoiceSession(request: Request, env: Env): Promise<Re
   try {
     const url = new URL(SIGNED_URL_ENDPOINT);
     url.searchParams.set("agent_id", env.AGENT_ID);
+    url.searchParams.set("include_conversation_id", "true");
     const upstream = await fetch(url.toString(), {
       method: "GET",
       headers: { [Header.voiceKey]: env.ELEVENLABS_API_KEY },
