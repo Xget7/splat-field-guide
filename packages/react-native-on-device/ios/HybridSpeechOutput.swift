@@ -71,23 +71,6 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
       center.addObserver(forName: OnDeviceAudioGraph.didInterruptPlayback, object: graph,
         queue: .main) { [weak self] _ in self?.stopCurrent() },
     ]
-    // Warm the model off main to avoid blocking the UI on first use.
-    worker.async {
-      let start = ProcessInfo.processInfo.systemUptime
-      let result = Result { () throws -> KokoroEngine in
-        let engine = try KokoroEngine()
-        _ = try engine.synthesize(Self.warmupText, cancellation: KokoroCancellation())
-        return engine
-      }
-      self.model = result
-      switch result {
-      case .success:
-        OnDeviceLog.speechMeasurement(String(format: "model_warm_ms=%.1f",
-          (ProcessInfo.processInfo.systemUptime - start) * 1000))
-      case .failure(let error):
-        OnDeviceLog.speechOutput("Kokoro unavailable, using Apple speech: \(error.localizedDescription)")
-      }
-    }
 #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("-kokoro-benchmark") {
       DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.runBenchmark(0) }
@@ -97,12 +80,32 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
 
   private static let warmupText = "Ready."
 
+  // Only the worker touches the model, and only a requested Kokoro voice loads it.
+  private func loadKokoro() -> Result<KokoroEngine, Error> {
+    if let model { return model }
+    let start = ProcessInfo.processInfo.systemUptime
+    let result = Result { () throws -> KokoroEngine in
+      let engine = try KokoroEngine()
+      _ = try engine.synthesize(Self.warmupText, cancellation: KokoroCancellation())
+      return engine
+    }
+    model = result
+    switch result {
+    case .success:
+      OnDeviceLog.speechMeasurement(String(format: "model_warm_ms=%.1f",
+        (ProcessInfo.processInfo.systemUptime - start) * 1000))
+    case .failure(let error):
+      OnDeviceLog.speechOutput("Kokoro unavailable, using Apple speech: \(error.localizedDescription)")
+    }
+    return result
+  }
+
   func prepare(voice: SpeechVoice) throws -> Promise<SpeechVoice> {
     let promise = Promise<SpeechVoice>()
     if voice == .system { promise.resolve(withResult: .system) }
     else {
       worker.async {
-        if case .success? = self.model { promise.resolve(withResult: .kokoro) }
+        if case .success = self.loadKokoro() { promise.resolve(withResult: .kokoro) }
         else { promise.resolve(withResult: .system) }
       }
     }
@@ -156,8 +159,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
       guard !utterance.cancellation.isCancelled else { return }
       let start = ProcessInfo.processInfo.systemUptime
       let result = Result { () throws -> AVAudioPCMBuffer in
-        guard let model = self.model else { throw OnDeviceError(message: "Kokoro is not initialized") }
-        return try model.get().synthesize(utterance.sentences[index].text, cancellation: utterance.cancellation)
+        return try self.loadKokoro().get().synthesize(utterance.sentences[index].text, cancellation: utterance.cancellation)
       }
       let elapsed = ProcessInfo.processInfo.systemUptime - start
       DispatchQueue.main.async {
