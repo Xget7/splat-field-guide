@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { appEvents } from '../apps/field-guide/src/features/events/bus';
 import {
@@ -40,6 +40,9 @@ const ONLINE: ModeStatus = {
 };
 const CONTENT = cardContentFor(INITIAL_SESSION, fixturePack());
 const EXCHANGE_ID = 1;
+const THREAD_SIZE = { width: 300, height: 600 };
+const THREAD_WINDOW = { width: 300, height: 200 };
+const THREAD_SCROLLED_Y = 20;
 const noop = () => {};
 type PanelProps = React.ComponentProps<typeof InstructorPanel>;
 
@@ -227,6 +230,25 @@ describe('instructor panel modes', () => {
     expect(button('Go offline')).toBeUndefined();
   });
 
+  test('Stop instructor has a visible button frame and stops the reply', async () => {
+    const stop = jest.fn();
+    await mount({ voice: { state: VoiceState.speaking, stop } });
+    const control = renderer.root
+      .findAllByType(View)
+      .find(node => node.props.testID === 'instructor-stop')!;
+    expect(control.props.accessibilityLabel).toBe('Stop instructor');
+    const style = StyleSheet.flatten(control.props.style);
+    expect(style.borderWidth).toBeGreaterThan(0);
+    expect(style.backgroundColor).not.toBe('transparent');
+    const action = renderer.root.findAll(
+      node =>
+        node.props.testID === 'instructor-stop' &&
+        typeof node.props.onPress === 'function',
+    )[0];
+    await act(() => action.props.onPress());
+    expect(stop).toHaveBeenCalled();
+  });
+
   test.each([
     {
       mode: PanelMode.expanded,
@@ -277,6 +299,49 @@ describe('instructor panel modes', () => {
     await mount({ mode: PanelMode.minimized });
     expect(hasText('Offline')).toBe(true);
   });
+
+  test.each([
+    {
+      id: 'instructor-hint',
+      mode: PanelMode.expanded,
+      before: { hint: 'Microphone unavailable.' },
+      after: { hint: 'Voice unavailable.' },
+      label: 'Voice unavailable.',
+    },
+    {
+      id: 'instructor-cue',
+      mode: PanelMode.expanded,
+      before: { on: true },
+      after: { on: true, muted: true },
+      label: 'Muted. Tap the mic to listen again.',
+    },
+    {
+      id: 'instructor-preview',
+      mode: PanelMode.minimized,
+      before: { hint: 'Microphone unavailable.' },
+      after: { hint: 'Voice unavailable.' },
+      label: 'Voice unavailable.',
+    },
+  ])(
+    '$id replaces content in place and preserves its live region',
+    async ({ id, mode: panelMode, before, after, label }) => {
+      await mount({ mode: panelMode, voice: before });
+      const labels = () =>
+        renderer.root
+          .findAllByType(Text)
+          .filter(node => node.props.testID === id);
+      const original = labels()[0];
+      await act(() =>
+        renderer.update(<Panel mode={panelMode} voice={after} />),
+      );
+      expect(labels()).toHaveLength(1);
+      expect(labels()[0]).toBe(original);
+      expect(labels()[0].props.accessibilityLiveRegion).toBe('polite');
+      expect(
+        labels()[0].props.accessibilityLabel ?? labels()[0].props.children,
+      ).toBe(label);
+    },
+  );
 
   test('an idle minimized panel reads the online voice fallback title', async () => {
     await mode({ voice: VoiceSource.device });
@@ -356,6 +421,46 @@ describe('instructor panel modes', () => {
       thread: [{ kind: EntryKind.exchange, exchange: INTERRUPTED_EXCHANGE }],
     });
     expect(hasText('Interrupted')).toBe(true);
+  });
+
+  test('the thread fades its top edge only while scrolled away from the top', async () => {
+    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
+    const rendered = jest.fn();
+    await act(() => {
+      renderer = ReactTestRenderer.create(
+        <React.Profiler id="instructor" onRender={rendered}>
+          <Panel exchange={INTERRUPTED_EXCHANGE} />
+        </React.Profiler>,
+      );
+    });
+    const fades = () =>
+      renderer.root.findAllByProps({ testID: 'instructor-thread-top-fade' });
+    const scroll = async (y: number) => {
+      await act(() =>
+        renderer.root.findByType(ScrollView).props.onScroll({
+          nativeEvent: {
+            contentOffset: { x: 0, y },
+            contentSize: THREAD_SIZE,
+            layoutMeasurement: THREAD_WINDOW,
+          },
+        }),
+      );
+    };
+    expect(fades()).toHaveLength(0);
+    await scroll(THREAD_SCROLLED_Y);
+    expect(fades().length).toBeGreaterThan(0);
+    expect(fades()[0].props.pointerEvents).toBe('none');
+    rendered.mockClear();
+    await scroll(THREAD_SCROLLED_Y + THREAD_SCROLLED_Y);
+    await scroll(THREAD_SCROLLED_Y);
+    expect(rendered).not.toHaveBeenCalled();
+    await scroll(0);
+    expect(fades()).toHaveLength(0);
+    rendered.mockClear();
+    await scroll(0);
+    await scroll(-THREAD_SCROLLED_Y);
+    expect(fades()).toHaveLength(0);
+    expect(rendered).not.toHaveBeenCalled();
   });
 
   test('a completed reply has no interrupted label', async () => {

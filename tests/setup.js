@@ -28,8 +28,11 @@ jest.mock('react-native-svg', () => ({
   __esModule: true,
   default: 'Svg',
   Circle: 'Circle',
+  Defs: 'Defs',
+  LinearGradient: 'LinearGradient',
   Path: 'Path',
   Rect: 'Rect',
+  Stop: 'Stop',
 }));
 
 // The viewer's part markers animate on the UI thread, which jest does not have.

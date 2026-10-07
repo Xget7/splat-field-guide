@@ -107,7 +107,19 @@ export function toggleFor(status: Pick<ModeStatus, 'mode' | 'forced'>) {
 
 export function useModeView() {
   const status = useInstructorMode();
-  const notice = NOTICES[status.mode][status.voice][status.answers];
+  const baseNotice = NOTICES[status.mode][status.voice][status.answers];
+  const notice =
+    status.mode === InstructorMode.offline && baseNotice !== null
+      ? {
+          ...baseNotice,
+          detail:
+            baseNotice.detail +
+            ' ' +
+            (status.forced
+              ? ModeNoticeCopy.offlineForced
+              : ModeNoticeCopy.offlineRecovery),
+        }
+      : baseNotice;
   const switchTitle = SWITCH_TITLES[status.mode][status.cause];
   return {
     mode: status.mode,

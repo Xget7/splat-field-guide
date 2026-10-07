@@ -1,5 +1,12 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { useEffect, useLayoutEffect, type ReactNode } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -94,6 +101,7 @@ const MicStatus = {
   muted: 'Muted',
   starting: 'Starting',
 } as const;
+const FadeOpacity = { hidden: 0, visible: 1 } as const;
 function statusColor(status: string | null) {
   if (status === MicStatus.muted) {
     return Color.caution;
@@ -114,6 +122,46 @@ function voiceStatus(voice: InstructorVoice): string {
   return voice.open ? MicStatus.open : MicStatus.starting;
 }
 
+export function ContentFade({
+  contentKey,
+  children,
+  style,
+}: {
+  contentKey: string | number | null;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reducedMotion = useReducedMotion();
+  const hasContent = children != null && typeof children !== 'boolean';
+  const opacity = useSharedValue<number>(FadeOpacity.hidden);
+  const fadingKey = useSharedValue(contentKey);
+  useLayoutEffect(() => {
+    cancelAnimation(opacity);
+    opacity.value = FadeOpacity.hidden;
+    fadingKey.value = contentKey;
+    if (hasContent) {
+      opacity.value = reducedMotion
+        ? FadeOpacity.visible
+        : withTiming(FadeOpacity.visible, {
+            duration: Motion.fast,
+            easing: Easing.out(Easing.exp),
+          });
+    }
+    return () => cancelAnimation(opacity);
+  }, [contentKey, hasContent, reducedMotion, opacity, fadingKey]);
+  // A replacement cannot inherit the previous content's animated opacity.
+  const fade = useAnimatedStyle(() => ({
+    opacity: reducedMotion
+      ? FadeOpacity.visible
+      : fadingKey.value === contentKey
+      ? opacity.value
+      : FadeOpacity.hidden,
+  }));
+  return !hasContent ? null : (
+    <Animated.View style={[style, fade]}>{children}</Animated.View>
+  );
+}
+
 function StatusLabel({
   status,
   color,
@@ -123,28 +171,14 @@ function StatusLabel({
   color: string;
   id: string;
 }) {
-  const reducedMotion = useReducedMotion();
-  const opacity = useSharedValue(1);
-  useEffect(() => {
-    cancelAnimation(opacity);
-    opacity.value = reducedMotion ? 1 : 0;
-    if (!reducedMotion) {
-      opacity.value = withTiming(1, {
-        duration: Motion.fast,
-        easing: Easing.out(Easing.exp),
-      });
-    }
-    return () => cancelAnimation(opacity);
-  }, [status, reducedMotion, opacity]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <Animated.View style={style}>
-      {status !== null && (
+    <ContentFade contentKey={status}>
+      {status !== null ? (
         <Label testID={id} color={color}>
           {status}
         </Label>
-      )}
-    </Animated.View>
+      ) : null}
+    </ContentFade>
   );
 }
 

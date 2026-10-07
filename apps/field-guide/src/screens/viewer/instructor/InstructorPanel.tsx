@@ -48,6 +48,7 @@ import {
 } from '../../../features/instructor/voice/speechPresentation';
 import {
   Composer,
+  ContentFade,
   composerStyles,
   FADE_IN,
   FADE_OUT,
@@ -77,7 +78,6 @@ const SIDE_SIZE = MIN_TOUCH;
 const GRABBER_WIDTH = 36;
 const GRABBER_HEIGHT = 4;
 const GRABBER_SLOP = (MIN_TOUCH - Space.lg) / 2;
-const STEP_EXCHANGE_KEY = 'step';
 const VOICE_ICON = 18;
 
 // Expose spoken commands because voice mode has no navigation buttons.
@@ -324,12 +324,8 @@ export function InstructorPanel({
                   minimized={minimized}
                 />
               </View>
-              {minimized && preview !== '' && (
-                <Animated.View
-                  key={voice.hint || (said?.id ?? STEP_EXCHANGE_KEY)}
-                  entering={FADE_IN}
-                  exiting={FADE_OUT}
-                >
+              <ContentFade contentKey={voice.hint || said?.id || null}>
+                {minimized && preview !== '' ? (
                   <KaraokeText
                     id="instructor-preview"
                     text={preview}
@@ -338,8 +334,8 @@ export function InstructorPanel({
                     style={Type.footnote}
                     numberOfLines={1}
                   />
-                </Animated.View>
-              )}
+                ) : null}
+              </ContentFade>
             </Pressable>
             {!minimized && !switching && (
               <Button
@@ -359,7 +355,6 @@ export function InstructorPanel({
                   testID="instructor-stop"
                   icon={IconName.stop}
                   accessibilityLabel="Stop instructor"
-                  style={styles.sideControl}
                   onPress={voice.stop}
                 />
               </Animated.View>
@@ -391,39 +386,37 @@ export function InstructorPanel({
             reducedMotion={reducedMotion}
             compact={docked}
           />
-          {voice.hint !== '' && (
-            <Animated.Text
-              key={voice.hint}
-              entering={FADE_IN}
-              exiting={FADE_OUT}
-              testID="instructor-hint"
-              accessibilityLiveRegion="polite"
-              style={styles.hint}
-            >
-              {voice.hint}
-            </Animated.Text>
-          )}
-          {cue !== null && (
-            <Animated.Text
-              key={cue.join('')}
-              entering={FADE_IN}
-              exiting={FADE_OUT}
-              testID="instructor-cue"
-              accessibilityLabel={cue.join('')}
-              accessibilityLiveRegion="polite"
-              style={styles.hint}
-            >
-              {cue.map((part, index) =>
-                part.startsWith(COMMAND_QUOTE) ? (
-                  <Text key={index} style={styles.command}>
-                    {part}
-                  </Text>
-                ) : (
-                  part
-                ),
-              )}
-            </Animated.Text>
-          )}
+          <ContentFade contentKey={voice.hint || null}>
+            {voice.hint !== '' ? (
+              <Text
+                testID="instructor-hint"
+                accessibilityLiveRegion="polite"
+                style={styles.hint}
+              >
+                {voice.hint}
+              </Text>
+            ) : null}
+          </ContentFade>
+          <ContentFade contentKey={cue?.join('') ?? null}>
+            {cue !== null ? (
+              <Text
+                testID="instructor-cue"
+                accessibilityLabel={cue.join('')}
+                accessibilityLiveRegion="polite"
+                style={styles.hint}
+              >
+                {cue.map((part, index) =>
+                  part.startsWith(COMMAND_QUOTE) ? (
+                    <Text key={index} style={styles.command}>
+                      {part}
+                    </Text>
+                  ) : (
+                    part
+                  ),
+                )}
+              </Text>
+            ) : null}
+          </ContentFade>
           {voice.on ? (
             <VoiceBar voice={voice} />
           ) : (
@@ -540,7 +533,6 @@ const styles = StyleSheet.create({
   command: { color: Color.text },
   talkRow: { flexDirection: 'row', gap: Space.sm },
   next: { flex: 1 },
-  sideControl: { backgroundColor: 'transparent', borderWidth: 0 },
   voiceButton: {
     height: Composer.button,
     flexDirection: 'row',

@@ -5,11 +5,9 @@ import { SuggestionCopy } from '../../../features/instructor/mode/modeCopy';
 import { Button, ButtonVariant } from '../../../ui/Button';
 import { Color, Space, Type } from '../../../ui/theme';
 
-import { ModeBanner } from './ModeBanner';
-
 export function ModeSuggestion() {
   return (
-    <ModeBanner ruleColor={Color.caution}>
+    <>
       <Text style={styles.title}>{SuggestionCopy.title}</Text>
       <Text style={styles.detail}>{SuggestionCopy.body}</Text>
       <View style={styles.actions}>
@@ -31,7 +29,7 @@ export function ModeSuggestion() {
           }
         />
       </View>
-    </ModeBanner>
+    </>
   );
 }
 

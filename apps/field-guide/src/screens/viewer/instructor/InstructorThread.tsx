@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -14,6 +14,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Label } from '../../../ui/Label';
 import { stepLabel } from '../../../ui/readout';
 import {
@@ -45,6 +46,13 @@ const FOLLOW_SLOP = Space.xl;
 const DOT_SIZE = 6;
 const DOT_COUNT = 3;
 const DOT_DIM = 0.25;
+const ThreadFade = {
+  height: Type.footnote.lineHeight,
+  start: '0%',
+  end: '100%',
+  opaque: 1,
+  clear: 0,
+} as const;
 
 function entryLabel(card: CardContent): string {
   if (card.selected || card.stepCount === 0) {
@@ -171,6 +179,9 @@ export function InstructorThread({
   compact = false,
 }: Props) {
   const scroll = useRef<ScrollViewInstance>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const wasScrolled = useRef(false);
+  const gradientId = useId();
   const following = useRef(true);
   const entries: readonly ThreadEntry[] =
     exchange === null
@@ -195,114 +206,158 @@ export function InstructorThread({
   }
 
   return (
-    <ScrollView
-      ref={scroll}
-      testID="instructor-thread"
-      style={styles.fitted}
-      contentContainerStyle={styles.content}
-      scrollEventThrottle={16}
-      onScroll={({
-        nativeEvent: { contentOffset, contentSize, layoutMeasurement },
-      }) => {
-        following.current =
-          contentOffset.y + layoutMeasurement.height >=
-          contentSize.height - FOLLOW_SLOP;
-      }}
-      onContentSizeChange={() => {
-        if (following.current || seen.current !== said) {
-          seen.current = said;
-          following.current = true;
-          scroll.current?.scrollToEnd({ animated: !reducedMotion });
-        }
-      }}
-    >
-      {entries.map((entry, index) =>
-        !shown.includes(entry) ? null : listed(entry) ? (
-          <View
-            key={entryKey(entry)}
-            testID={`thread-entry-${index}`}
-            style={styles.divider}
-          >
-            <Label color={Color.faint}>
-              {entry.kind === EntryKind.step && entryLabel(entry.card)}
-            </Label>
-            <View style={styles.rule} />
-          </View>
-        ) : (
-          <Animated.View
-            key={entryKey(entry)}
-            testID={`thread-entry-${index}`}
-            entering={FADE_IN}
-            style={styles.entry}
-          >
-            {entry.kind === EntryKind.step ? (
-              <>
-                <Text
-                  testID={index === live ? 'instructor-title' : undefined}
-                  accessibilityRole="header"
-                  style={[styles.title, index !== live && styles.pastTitle]}
-                >
-                  {entry.card.title}
-                </Text>
-                <Said
-                  reply={entry.card.body}
-                  caution={entry.card.caution}
-                  live={index === live}
-                  index={index}
-                  voice={voice}
-                />
-              </>
-            ) : (
-              <>
-                <Text
-                  testID={
-                    index === live
-                      ? 'instructor-question'
-                      : `thread-question-${index}`
-                  }
-                  style={[
-                    styles.question,
-                    index === live && styles.liveQuestion,
-                  ]}
-                >
-                  {entry.exchange.question}
-                </Text>
-                {entry.exchange.reply === '' &&
-                index === live &&
-                !entry.exchange.interrupted ? (
-                  <Thinking still={reducedMotion} />
-                ) : (
+    <View style={styles.fitted}>
+      <ScrollView
+        ref={scroll}
+        testID="instructor-thread"
+        style={styles.fitted}
+        contentContainerStyle={styles.content}
+        scrollEventThrottle={16}
+        onScroll={({
+          nativeEvent: { contentOffset, contentSize, layoutMeasurement },
+        }) => {
+          const nextScrolled = contentOffset.y > 0;
+          if (nextScrolled !== wasScrolled.current) {
+            wasScrolled.current = nextScrolled;
+            setScrolled(nextScrolled);
+          }
+          following.current =
+            contentOffset.y + layoutMeasurement.height >=
+            contentSize.height - FOLLOW_SLOP;
+        }}
+        onContentSizeChange={() => {
+          if (following.current || seen.current !== said) {
+            seen.current = said;
+            following.current = true;
+            scroll.current?.scrollToEnd({ animated: !reducedMotion });
+          }
+        }}
+      >
+        {entries.map((entry, index) =>
+          !shown.includes(entry) ? null : listed(entry) ? (
+            <View
+              key={entryKey(entry)}
+              testID={`thread-entry-${index}`}
+              style={styles.divider}
+            >
+              <Label color={Color.faint}>
+                {entry.kind === EntryKind.step && entryLabel(entry.card)}
+              </Label>
+              <View style={styles.rule} />
+            </View>
+          ) : (
+            <Animated.View
+              key={entryKey(entry)}
+              testID={`thread-entry-${index}`}
+              entering={FADE_IN}
+              style={styles.entry}
+            >
+              {entry.kind === EntryKind.step ? (
+                <>
+                  <Text
+                    testID={index === live ? 'instructor-title' : undefined}
+                    accessibilityRole="header"
+                    style={[styles.title, index !== live && styles.pastTitle]}
+                  >
+                    {entry.card.title}
+                  </Text>
                   <Said
-                    reply={entry.exchange.reply}
-                    caution={entry.exchange.caution}
+                    reply={entry.card.body}
+                    caution={entry.card.caution}
                     live={index === live}
                     index={index}
                     voice={voice}
-                    streaming={entry.exchange.phase === ExchangePhase.streaming}
-                    reducedMotion={reducedMotion}
-                    interrupted={entry.exchange.interrupted}
                   />
-                )}
-              </>
-            )}
-          </Animated.View>
-        ),
-      )}
-      {transcript !== '' && (
-        <Text
-          testID="instructor-transcript"
-          accessibilityLabel={`Provisional transcript: ${transcript}`}
-          style={[styles.question, styles.provisional]}
+                </>
+              ) : (
+                <>
+                  <Text
+                    testID={
+                      index === live
+                        ? 'instructor-question'
+                        : `thread-question-${index}`
+                    }
+                    style={[
+                      styles.question,
+                      index === live && styles.liveQuestion,
+                    ]}
+                  >
+                    {entry.exchange.question}
+                  </Text>
+                  {entry.exchange.reply === '' &&
+                  index === live &&
+                  !entry.exchange.interrupted ? (
+                    <Thinking still={reducedMotion} />
+                  ) : (
+                    <Said
+                      reply={entry.exchange.reply}
+                      caution={entry.exchange.caution}
+                      live={index === live}
+                      index={index}
+                      voice={voice}
+                      streaming={
+                        entry.exchange.phase === ExchangePhase.streaming
+                      }
+                      reducedMotion={reducedMotion}
+                      interrupted={entry.exchange.interrupted}
+                    />
+                  )}
+                </>
+              )}
+            </Animated.View>
+          ),
+        )}
+        {transcript !== '' && (
+          <Text
+            testID="instructor-transcript"
+            accessibilityLabel={`Provisional transcript: ${transcript}`}
+            style={[styles.question, styles.provisional]}
+          >
+            {transcript}
+          </Text>
+        )}
+      </ScrollView>
+      {scrolled && (
+        <Svg
+          testID="instructor-thread-top-fade"
+          pointerEvents="none"
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          width="100%"
+          height={ThreadFade.height}
+          style={styles.topFade}
         >
-          {transcript}
-        </Text>
+          <Defs>
+            <LinearGradient
+              id={gradientId}
+              x1={ThreadFade.start}
+              y1={ThreadFade.start}
+              x2={ThreadFade.start}
+              y2={ThreadFade.end}
+            >
+              <Stop
+                offset={ThreadFade.start}
+                stopColor={Color.black}
+                stopOpacity={ThreadFade.opaque}
+              />
+              <Stop
+                offset={ThreadFade.end}
+                stopColor={Color.black}
+                stopOpacity={ThreadFade.clear}
+              />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+        </Svg>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fitted: { flexGrow: 0, flexShrink: 1 },
+  topFade: { position: 'absolute', top: 0, left: 0 },
   content: {
     gap: Space.lg,
     paddingVertical: Space.xs,

@@ -3,14 +3,13 @@ import { useSwitchSteps } from '../../../features/events/useAppEvent';
 import { SwitchStepState } from '../../../features/events/types';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, Space, Type } from '../../../ui/theme';
-import { ModeBanner } from './ModeBanner';
 
 const INDICATOR_SIZE = 20;
 
 export function SwitchingCard({ title }: { title: string | null }) {
   const steps = useSwitchSteps();
   return (
-    <ModeBanner ruleColor={Color.accent}>
+    <>
       <Text accessibilityLiveRegion="polite" style={styles.title}>
         {title}
       </Text>
@@ -42,7 +41,7 @@ export function SwitchingCard({ title }: { title: string | null }) {
           </Text>
         </View>
       ))}
-    </ModeBanner>
+    </>
   );
 }
 

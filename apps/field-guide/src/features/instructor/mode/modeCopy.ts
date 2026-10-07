@@ -22,6 +22,8 @@ export const ModeNoticeCopy = {
   offlineModel:
     'Answers come from the on-device model, which this device limits. Keep questions short.',
   offlineScript: "Answers come from the guide's script.",
+  offlineRecovery: 'Goes online when the connection returns.',
+  offlineForced: 'Stays offline until you go online.',
   voiceFallbackTitle: 'Online voice unavailable',
   voiceFallback: 'Using on-device voice.',
 } as const;

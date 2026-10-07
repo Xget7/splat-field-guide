@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { appEvents } from '../apps/field-guide/src/features/events/bus';
 import {
@@ -63,6 +63,11 @@ describe('instructor mode area', () => {
         node.props.accessibilityRole === 'button' &&
         node.findAllByType(Text).some(text => text.props.children === label),
     )[0];
+  const banners = () =>
+    renderer.root.findAllByType(View).filter(node => {
+      const style = StyleSheet.flatten(node.props.style);
+      return (style?.borderLeftWidth ?? 0) > 0;
+    });
   const finishSwitch = async (
     settledMode: InstructorMode = InstructorMode.online,
   ) => {
@@ -103,12 +108,13 @@ describe('instructor mode area', () => {
       },
       title: 'Offline',
       detail:
-        'Answers come from the on-device model, which this device limits. Keep questions short.',
+        'Answers come from the on-device model, which this device limits. Keep questions short. Goes online when the connection returns.',
     },
     {
       status: { mode: InstructorMode.offline, answers: AnswerSource.script },
       title: 'Offline',
-      detail: "Answers come from the guide's script.",
+      detail:
+        "Answers come from the guide's script. Goes online when the connection returns.",
     },
   ])('shows $title with $detail', async ({ status, title, detail }) => {
     await mount();
@@ -125,6 +131,60 @@ describe('instructor mode area', () => {
     expect(hasText('Switch to offline?')).toBe(true);
     expect(hasText('Online voice unavailable')).toBe(false);
   });
+
+  test('allowing online recovery changes the offline detail while still offline', async () => {
+    await mode({
+      mode: InstructorMode.offline,
+      answers: AnswerSource.script,
+      forced: true,
+    });
+    await mount();
+    expect(
+      hasText(
+        "Answers come from the guide's script. Stays offline until you go online.",
+      ),
+    ).toBe(true);
+    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
+    expect(
+      hasText(
+        "Answers come from the guide's script. Goes online when the connection returns.",
+      ),
+    ).toBe(true);
+    expect(
+      hasText(
+        "Answers come from the guide's script. Stays offline until you go online.",
+      ),
+    ).toBe(false);
+  });
+
+  test.each([false, true])(
+    'one persistent banner replaces the suggestion with switching and offline content (Reduce Motion: %s)',
+    async reducedMotion => {
+      jest.mocked(useReducedMotion).mockReturnValue(reducedMotion);
+      await mount();
+      await suggest();
+      const banner = banners()[0];
+      await mode({
+        mode: InstructorMode.switchingToOffline,
+        cause: ModeCause.network,
+      });
+      expect(banners()).toHaveLength(1);
+      expect(banners()[0]).toBe(banner);
+      expect(banner.props.entering).toBeUndefined();
+      expect(banner.props.exiting).toBeUndefined();
+      expect(hasText('Connection lost. Switching to offline.')).toBe(true);
+      expect(button('Switch')).toBeUndefined();
+      expect(button('Keep online')).toBeUndefined();
+      await mode({
+        mode: InstructorMode.offline,
+        answers: AnswerSource.script,
+      });
+      expect(banners()).toHaveLength(1);
+      expect(banners()[0]).toBe(banner);
+      expect(hasText('Offline')).toBe(true);
+      expect(hasText('Connection lost. Switching to offline.')).toBe(false);
+    },
+  );
 
   test.each([
     { label: 'Switch', request: 'acceptSuggestion' },
