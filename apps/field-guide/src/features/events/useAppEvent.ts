@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from 'react';
 import { appEvents } from './bus';
+import { mergeSwitchStep } from './switchSteps';
 import {
   AgentState,
   AnswerSource,
   InstructorMode,
   ModeCause,
   NetworkQuality,
+  NetworkReason,
   Transport,
   VoiceSource,
   type AgentStatus,
@@ -18,7 +20,7 @@ import {
 const UNKNOWN_NETWORK: NetworkStatus = {
   quality: NetworkQuality.good,
   transport: Transport.other,
-  reason: 'unknown',
+  reason: NetworkReason.unknown,
 };
 const STARTUP_MODE: ModeStatus = {
   mode: InstructorMode.online,
@@ -54,13 +56,9 @@ export function useAgentStatus() {
 }
 
 let steps: readonly SwitchStep[] = [];
+// Steps arrive before the switching card mounts, so retain them from module load.
 appEvents.on('switchStep', step => {
-  const latestId = steps[0]?.switchId;
-  if (latestId !== undefined && step.switchId < latestId) {
-    return;
-  }
-  const current = latestId === step.switchId ? steps : [];
-  steps = [...current.filter(previous => previous.piece !== step.piece), step];
+  steps = mergeSwitchStep(steps, step);
 });
 export function useSwitchSteps(): readonly SwitchStep[] {
   const snapshot = () => steps;

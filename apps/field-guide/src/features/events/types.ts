@@ -1,3 +1,6 @@
+export const NetworkReason = { unknown: 'unknown' } as const;
+export type NetworkReason = (typeof NetworkReason)[keyof typeof NetworkReason];
+
 export const NetworkQuality = {
   good: 'good',
   weak: 'weak',
