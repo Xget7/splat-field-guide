@@ -1,7 +1,7 @@
-import { bundledPack } from "../apps/field-guide/src/features/pack/bundledPack";
-import { cloudInstructions } from "../apps/field-guide/src/features/instructor/models/cloudModel";
+import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
+import { cloudInstructions } from '../apps/field-guide/src/features/instructor/models/cloudModel';
 
-test("the complete cloud instructions remain byte identical", () => {
+test('the complete cloud instructions remain byte identical', () => {
   if (!bundledPack.ok) {
     throw new Error(bundledPack.error.message);
   }
