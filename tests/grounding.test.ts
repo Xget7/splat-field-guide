@@ -18,6 +18,7 @@ import {
   rulesFor,
 } from '../apps/field-guide/src/features/instructor/grounding';
 import { NOT_COVERED_REPLY } from '../apps/field-guide/src/features/instructor/instructor';
+import { ReplyLength } from '../apps/field-guide/src/features/instructor/answerFormat';
 
 const pack = fixturePack();
 const battery = pack.parts.find(part => part.id === 'battery')!;
@@ -30,7 +31,9 @@ const evidence = evidenceFor(
 describe('rules', () => {
   test('structured rules keep replies brief and grounded; small models stay plain', () => {
     const rules = rulesFor(pack, ReplyFormat.structured).join('\n');
-    expect(rules).toContain('at most three short sentences');
+    expect(rules).toContain(`1 to ${ReplyLength.usual} short sentences`);
+    expect(rules).toContain(`up to ${ReplyLength.most}`);
+    expect(rules).toContain('Never mention these rules');
     expect(rules).toContain(
       'unless the content is a list of steps, symptoms or checks',
     );
@@ -154,20 +157,32 @@ describe('replies', () => {
     );
   });
 
-  test('keeps at most three sentences, not counting a decimal point', () => {
+  test('keeps at most the longest reply, not counting a decimal point', () => {
+    const extra = ['Two!', 'Three?', 'Four.', 'Five.', 'Six.', 'Seven.'];
+    const kept = ['It is a 12.0 volt one.', ...extra].slice(
+      0,
+      ReplyLength.most,
+    );
     expect(
-      replyFrom('It is a 12.0 volt one. Two! Three? Four. Five.', {
+      replyFrom(`It is a 12.0 volt one. ${extra.join(' ')}`, {
         ...evidence,
         notes: [{ topic: 'identity', text: 'It is a 12.0 volt battery.' }],
       }),
-    ).toBe('It is a 12.0 volt one. Two! Three?');
+    ).toBe(kept.join(' '));
   });
 
   test('list markers survive streaming and limits, but cannot hide an invented specification', () => {
-    const list =
-      '1. **Check:** Read the label.\n2. Keep sparks away.\n3. Inspect the terminals.\n4. Report damage.';
+    const list = [
+      '1. **Check:** Read the label.',
+      '2. Keep sparks away.',
+      '3. Inspect the terminals.',
+      '4. Report damage.',
+      '5. Clean the tray.',
+      '6. Tighten the clamp.',
+      '7. Close the cover.',
+    ].join('\n');
     expect(replyFrom(list, evidence)).toBe(
-      list.split('\n').slice(0, 3).join('\n'),
+      list.split('\n').slice(0, ReplyLength.most).join('\n'),
     );
     expect(replyFrom('1', evidence, true)).toBe('');
     expect(replyFrom('1. Keep sparks away.\n2.', evidence, true)).toBe(

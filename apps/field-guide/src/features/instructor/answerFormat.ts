@@ -6,6 +6,10 @@ export const AnswerKind = {
 export type AnswerKind = (typeof AnswerKind)[keyof typeof AnswerKind];
 
 export const MAX_LEAD_WORDS = 3;
+// Most answers take the usual length; one that needs more to be complete or safe may take the most.
+export const ReplyLength = { usual: 3, most: 6 } as const;
+// A step number past the longest list is a specification, not a marker.
+const STEP = new RegExp(`^([1-${ReplyLength.most}])\\.\\s+(.+)$`);
 
 export interface AnswerBlock {
   readonly kind: AnswerKind;
@@ -51,7 +55,7 @@ export function parseAnswer(text: string, streaming = false): FormattedAnswer {
       continue;
     }
     const bullet = /^-\s+(.+)$/.exec(trimmed);
-    const step = /^([1-3])\.\s+(.+)$/.exec(trimmed);
+    const step = STEP.exec(trimmed);
     const kind = bullet
       ? AnswerKind.bullet
       : step

@@ -34,7 +34,7 @@ export const CLIENT_EVENTS = [
 ];
 
 const VoiceStyle = [
-  'Speak in short, plain sentences, at most three per answer.',
+  'Speak in short, plain sentences.',
   'Never use lists, markdown or emoji.',
   'Write numbers, grades and units as the notes write them, for example 5W-40.',
 ] as const;
