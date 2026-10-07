@@ -10,26 +10,23 @@ It is tested on a physical iPhone and the iPad simulator; the Android build runs
 A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
 
 ```mermaid
-flowchart LR
-  subgraph Pipeline["Capture pipeline: author's Mac, SAM on Modal"]
-    direction TB
+flowchart TB
+  subgraph Mac["Capture pipeline: author's Mac, SAM on Modal"]
     photos["124 photos"] --> colmap["COLMAP<br/>camera poses"]
-    colmap --> brush["Brush<br/>splat training"]
     photos --> sam["SAM 3.1<br/>part masks"]
+    colmap --> brush["Brush<br/>splat training"]
     brush --> lift["Lift masks<br/>onto splats"]
     sam --> lift
-    lift --> export["Export and verify<br/>SPZ, labels, manifest"]
+    lift --> export["Export and<br/>verify the pack"]
   end
-  export --> release[("GitHub release<br/>pack archive")]
-  release --> prepare["prepare.sh<br/>SHA-256 check"]
+  export --> release[("GitHub release")]
+  release -->|"prepare.sh<br/>checks SHA-256"| Device
   subgraph Device["iPhone, iPad, Android"]
-    direction TB
-    app["React Native app"] --> splat["react-native-splat<br/>C++ core, Metal, Vulkan"]
-    app --> ondevice["react-native-on-device<br/>speech, audio link, Apple model"]
+    app["React Native app"] --> splat["Splat engine<br/>Metal, Vulkan"]
+    app --> ondevice["Speech and<br/>Apple model"]
   end
-  prepare --> app
-  app -->|"typed questions,<br/>voice session URL"| worker["Cloudflare Worker"]
-  app -->|"spoken turns, online"| agent["ElevenLabs agent"]
+  Device -->|"typed questions"| worker["Cloudflare<br/>Worker"]
+  Device -->|"online voice"| agent["ElevenLabs<br/>agent"]
   agent -->|"custom LLM"| worker
   worker --> claude["Claude API"]
 ```
@@ -39,24 +36,19 @@ flowchart LR
 Loading runs once per guide on a worker thread; drawing runs on a render thread and stops when nothing changes.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph Load["Load, worker thread"]
-    direction TB
-    files["cloud.spz and labels.bin<br/>memory-mapped"] --> verify["SHA-256 and splat count<br/>against the manifest"]
+    files["Memory-map<br/>SPZ and labels"] --> verify["Check SHA-256<br/>and splat count"]
     verify --> decode["Decode SPZ v3<br/>2.5M splats"]
-    decode --> filter["Drop haze and floaters<br/>labels move with splats"]
-    filter --> order["Spatial reorder"]
-    order --> index["Pick index"]
-    index --> upload["GPU upload"]
+    decode --> filter["Drop haze<br/>and floaters"]
+    filter --> order["Spatial reorder<br/>and pick index"]
+    order --> upload["GPU upload"]
   end
   subgraph Frame["Each changed frame, render thread"]
-    direction TB
-    camera["Orbit camera"] --> visibility["GPU visibility<br/>cull, depth keys"]
-    visibility --> sort["GPU radix sort"]
-    sort --> draw["Draw sorted splats<br/>SH degree 3, part tint"]
-    draw --> present["Present"]
+    camera["Orbit camera"] --> sort["GPU cull<br/>and depth sort"]
+    sort --> draw["Draw splats<br/>with part tint"]
   end
-  upload --> camera
+  Load --> Frame
 ```
 
 - Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
@@ -68,14 +60,14 @@ flowchart LR
 Typed questions and offline speech meet the command router first, so commands never wait on a model, and every model shares one text-reply interface with ordered fallback.
 
 ```mermaid
-flowchart LR
-  input["Typed or spoken text"] --> router{"Command?<br/>next, back, repeat"}
-  router -->|yes| action["Session action"]
-  router -->|no| evidence["Authored evidence<br/>for this step and part"]
-  evidence --> cloud["Claude through the Worker"]
-  cloud -->|"offline or failed"| apple["Apple Foundation Models<br/>on device"]
-  apple -->|"unavailable or failed"| scripted["Scripted pack guidance"]
-  cloud --> commit["Validate the complete reply<br/>then commit and speak"]
+flowchart TB
+  input["Typed or<br/>spoken text"] --> router{"Command?"}
+  router -->|"yes: next, back, repeat"| action["Session action"]
+  router -->|no| evidence["Evidence for<br/>step and part"]
+  evidence --> cloud["Claude<br/>via the Worker"]
+  cloud -->|"offline or failed"| apple["Apple model<br/>on device"]
+  apple -->|"unavailable or failed"| scripted["Scripted<br/>guidance"]
+  cloud --> commit["Validate,<br/>commit, speak"]
   apple --> commit
   scripted --> commit
 ```
@@ -90,12 +82,12 @@ Online speech goes to the ElevenLabs agent instead: Claude writes its answers th
 A mode controller picks online or offline voice from the network and a Worker ping, with hysteresis, and lets the user force either mode.
 
 ```mermaid
-flowchart LR
-  signal["Network path<br/>and Worker ping"] --> controller{"Mode controller"}
-  user["Mode toggle and<br/>weak-signal suggestion"] --> controller
-  controller -->|online| agent["ElevenLabs agent<br/>WebSocket, Claude as custom LLM"]
-  controller -->|offline| pipeline["On-device pipeline<br/>speech recognition, Apple model<br/>or script, Kokoro on iOS"]
-  agent -->|"quota, auth or<br/>lost connection"| fallback["Device speech<br/>system voice, with a notice"]
+flowchart TB
+  signal["Network and<br/>Worker ping"] --> controller{"Mode controller"}
+  user["User toggle"] --> controller
+  controller -->|online| agent["ElevenLabs agent"]
+  controller -->|offline| device["On-device pipeline"]
+  agent -->|"quota, auth or<br/>connection lost"| fallback["System voice<br/>with a notice"]
 ```
 
 - Every voice session sits behind one `VoiceSession` port, so only the composition root knows which mode runs ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)).
