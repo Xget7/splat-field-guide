@@ -27,7 +27,7 @@ flowchart TB
   subgraph Online
     direction LR
     eleven["ElevenLabs<br/>Flash v2"] -->|"custom LLM"| worker["Cloudflare<br/>Worker"]
-    worker --> claude["Claude<br/>Sonnet 5.5<br/>Haiku 4.5"]
+    worker --> claude["Claude<br/>Sonnet 5.5<br/>Haiku 5.5"]
   end
   Build --> Device
   Device --> Online
@@ -69,7 +69,7 @@ stateDiagram-v2
   direction TB
   Online: Online
   Online: ElevenLabs Flash v2 voice
-  Online: Claude Sonnet 5.5, Haiku 4.5 for voice
+  Online: Claude Sonnet 5.5, Haiku 5.5 for voice
   Offline: Offline
   Offline: Kokoro-82M or system voice
   Offline: Foundation Models 3B or guide script

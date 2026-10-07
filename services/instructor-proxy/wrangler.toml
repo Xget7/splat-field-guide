@@ -3,9 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
 [vars]
+# Fixed models keep the demo simple; a production backend would choose them per request.
 MODEL = "claude-sonnet-5-5"
 EFFORT = "low"
-VOICE_MODEL = "claude-haiku-4-5-20251001"
+VOICE_MODEL = "claude-haiku-5-5"
 
 [[ratelimits]]
 name = "LIMITER"

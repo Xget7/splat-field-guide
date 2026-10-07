@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setImmediate } from "node:timers/promises";
-import { buildChatUpstreamBody, VOICE_MAX_TOKENS, MAX_CHAT_BODY_CHARS } from "../src/chat.ts";
+import { buildChatUpstreamBody, VOICE_EFFORT, VOICE_MAX_TOKENS, VOICE_THINKING, MAX_CHAT_BODY_CHARS } from "../src/chat.ts";
 import { NARRATION_CHUNK_CHARS } from "../src/narration.ts";
 import { assertError } from "./helpers.ts";
 import { handleRequest } from "../src/index.ts";
@@ -27,6 +27,8 @@ test("text translation caches instructions, drops blank blocks and supplies a co
     assert.deepEqual(result.messages[0], { role: "user", content: [{ type: "text", text: "(The conversation starts.)" }] });
     if (messages.every((message) => !message.content.trim())) assert.ok(!("system" in result));
   }
+  assert.deepEqual(buildChatUpstreamBody({ stream: true, messages: [user, { role: "assistant", content: "Ready." }] }, env)
+    .messages.at(-1), { role: "user", content: [{ type: "text", text: "(Continue.)" }] });
 });
 
 test("tools preserve calls and schemas and place results before text in merged user turns", () => {
@@ -117,7 +119,6 @@ test("invalid credentials and malformed requests fail before upstream calls", as
 test("authorized chat normalizes generation options and streams Claude with the voice model", async (t) => {
   let input: Request;
   let expectedTokens = VOICE_MAX_TOKENS;
-  let expectedTemperature: number | undefined;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(url, "https://api.anthropic.com/v1/messages");
     assert.equal(options.method, "POST");
@@ -128,29 +129,28 @@ test("authorized chat normalizes generation options and streams Claude with the 
     const body = JSON.parse(options.body);
     assert.equal(body.model, "voice-model");
     assert.equal(body.max_tokens, expectedTokens);
-    assert.equal(body.temperature, expectedTemperature);
-    for (const key of ["thinking", "output_config", "tools", "tool_choice", "user_id", "elevenlabs_extra_body", "stream_options"]) {
+    assert.deepEqual(body.thinking, VOICE_THINKING);
+    assert.deepEqual(body.output_config, { effort: VOICE_EFFORT });
+    for (const key of ["temperature", "tools", "tool_choice", "user_id", "elevenlabs_extra_body", "stream_options"]) {
       assert.ok(!(key in body));
     }
     return new Response('event: message_start\ndata: {}\n\nevent: content_block_delta\ndata: {"delta":{"type":"text_delta","text":"Check the dipstick."}}\n\nevent: message_delta\ndata: {"delta":{"stop_reason":"end_turn"}}\n\nevent: message_stop\ndata: {}\n\n');
   });
-  for (const [tokens, temperature, outputTokens, outputTemperature] of [
-    [undefined, undefined, VOICE_MAX_TOKENS, undefined], [null, null, VOICE_MAX_TOKENS, undefined],
-    [75, 0.3, 75, 0.3], [VOICE_MAX_TOKENS + 1, 0, VOICE_MAX_TOKENS, 0],
-    [75, 1.5, 75, 1], [75, -0.5, 75, 0],
-    [0, "warm", VOICE_MAX_TOKENS, undefined], [-1, {}, VOICE_MAX_TOKENS, undefined],
-    [1.5, NaN, VOICE_MAX_TOKENS, undefined], ["75", Infinity, VOICE_MAX_TOKENS, undefined],
-    [NaN, -Infinity, VOICE_MAX_TOKENS, undefined], [Infinity, true, VOICE_MAX_TOKENS, undefined],
+  // The voice model only takes its default sampling, so a caller's temperature never reaches it.
+  for (const [tokens, temperature, outputTokens] of [
+    [undefined, undefined, VOICE_MAX_TOKENS], [null, null, VOICE_MAX_TOKENS],
+    [75, 0.3, 75], [VOICE_MAX_TOKENS + 1, 0, VOICE_MAX_TOKENS],
+    [0, "warm", VOICE_MAX_TOKENS], [-1, {}, VOICE_MAX_TOKENS],
+    [1.5, NaN, VOICE_MAX_TOKENS], ["75", Infinity, VOICE_MAX_TOKENS],
   ]) {
     expectedTokens = outputTokens;
-    expectedTemperature = outputTemperature;
     const requestBody = { stream: true, messages: [user], error: "caller error", status: 418,
       max_tokens: tokens, temperature, tools: null, tool_choice: null,
       model: "ignored", thinking: { type: "adaptive" }, output_config: {},
       user_id: "ignored", elevenlabs_extra_body: {}, stream_options: {} };
     const translated = buildChatUpstreamBody(requestBody, env);
     assert.equal(translated.max_tokens, expectedTokens);
-    assert.equal(translated.temperature, expectedTemperature);
+    assert.ok(!("temperature" in translated));
     input = chatRequest(requestBody);
     const response = await handleRequest(input, endpointEnv);
     assert.equal(response.status, 200);
@@ -166,7 +166,6 @@ test("authorized chat normalizes generation options and streams Claude with the 
   const exactBody = { stream: true, messages: [user], padding: "" };
   exactBody.padding = "x".repeat(MAX_CHAT_BODY_CHARS - JSON.stringify(exactBody).length);
   expectedTokens = VOICE_MAX_TOKENS;
-  expectedTemperature = undefined;
   input = chatRequest(exactBody);
   const response = await handleRequest(input, endpointEnv);
   assert.equal(response.status, 200);

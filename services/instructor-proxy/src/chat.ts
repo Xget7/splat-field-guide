@@ -7,11 +7,15 @@ import { CACHE_CONTROL_TYPE, FUNCTION_TYPE, Role, ToolChoiceType } from "./proto
 
 export const MAX_CHAT_BODY_CHARS = 200000;
 export const VOICE_MAX_TOKENS = 600;
+export const VOICE_EFFORT = "medium";
+// ElevenLabs replays history in the OpenAI format, which cannot carry thinking blocks, and a voice needs its first word fast.
+export const VOICE_THINKING = { type: "disabled" } as const;
 const ANTHROPIC_CONNECTION_TIMEOUT_MS = 10000;
-const ANTHROPIC_TEMPERATURE_RANGE = { min: 0, max: 1 } as const;
 const MILLISECONDS_PER_SECOND = 1000;
 const COMPLETION_ID_PREFIX = "chatcmpl-";
 const CONVERSATION_START = "(The conversation starts.)";
+// The voice model rejects a conversation that ends on its own turn.
+const CONVERSATION_CONTINUE = "(Continue.)";
 const ChatError = {
   tooLarge: "request too large",
   messages: "messages must be a non-empty array of chat messages",
@@ -45,7 +49,6 @@ export interface ChatRequest {
   tools?: readonly ChatTool[] | null;
   tool_choice?: ToolChoice | null;
   max_tokens?: unknown;
-  temperature?: unknown;
 }
 type ValidationError = { status: 400 | 413; error: string };
 
@@ -98,10 +101,6 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
 export function validateChatInput(value: unknown): ChatRequest | ValidationError {
   if (!isObject(value)) return { status: 400, error: RequestError.notObject };
   if (JSON.stringify(value).length > MAX_CHAT_BODY_CHARS) return { status: 413, error: ChatError.tooLarge };
@@ -121,7 +120,6 @@ export function validateChatInput(value: unknown): ChatRequest | ValidationError
     ...(tools != null ? { tools } : {}),
     ...(choice != null ? { tool_choice: choice } : {}),
     ...(isPositiveInteger(value.max_tokens) ? { max_tokens: value.max_tokens } : {}),
-    ...(isFiniteNumber(value.temperature) ? { temperature: value.temperature } : {}),
   };
 }
 
@@ -182,6 +180,9 @@ export function buildChatUpstreamBody(request: ChatRequest, env: Pick<Env, "VOIC
   if (!messages.length || messages[0].role === Role.assistant) {
     messages.unshift({ role: Role.user, content: [{ type: "text", text: CONVERSATION_START }] });
   }
+  if (messages.at(-1)?.role === Role.assistant) {
+    messages.push({ role: Role.user, content: [{ type: "text", text: CONVERSATION_CONTINUE }] });
+  }
   return {
     model: env.VOICE_MODEL,
     max_tokens: Math.min(isPositiveInteger(request.max_tokens) ? request.max_tokens : VOICE_MAX_TOKENS, VOICE_MAX_TOKENS),
@@ -194,9 +195,8 @@ export function buildChatUpstreamBody(request: ChatRequest, env: Pick<Env, "VOIC
       input_schema: tool.parameters ?? { type: "object", properties: {} },
     })) } : {}),
     ...(request.tool_choice != null ? { tool_choice: toolChoice(request.tool_choice) } : {}),
-    ...(isFiniteNumber(request.temperature) ? {
-      temperature: Math.max(ANTHROPIC_TEMPERATURE_RANGE.min, Math.min(request.temperature, ANTHROPIC_TEMPERATURE_RANGE.max)),
-    } : {}),
+    thinking: VOICE_THINKING,
+    output_config: { effort: VOICE_EFFORT },
   };
 }
 
