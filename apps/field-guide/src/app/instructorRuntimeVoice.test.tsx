@@ -1,7 +1,11 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Text, type AppStateStatus } from 'react-native';
-import { speechOutput, type NetworkPath } from 'react-native-on-device';
+import {
+  speechInput,
+  speechOutput,
+  type NetworkPath,
+} from 'react-native-on-device';
 import { createInstructorRuntime } from './instructorRuntime';
 import { fakeAgentTransport } from '../testing/agentTransport';
 import { foregroundAppState } from '../testing/voiceSession';
@@ -174,6 +178,91 @@ function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
     },
   };
 }
+
+test('an offline switch never installs speech assets, but the next Voice tap may open the model prompt', async () => {
+  jest.useFakeTimers();
+  const transport = fakeAgentTransport();
+  const bus = createEventBus<AppEvents>();
+  let state: AppStateStatus = 'active';
+  let change!: (state: AppStateStatus) => void;
+  let path!: (value: NetworkPath) => void;
+  const runtime = createInstructorRuntime({
+    appEvents: bus,
+    networkMonitor: () => ({
+      start: callback => {
+        path = callback;
+      },
+      stop: () => {},
+    }),
+    appState: {
+      get currentState() {
+        return state;
+      },
+      addEventListener: (_event, callback) => {
+        change = callback;
+        return { remove: () => {} };
+      },
+    },
+    proxyUrl: 'https://proxy.example',
+    connect: transport.connect,
+    fetch: jest.fn(async () => ({
+      status: 200,
+      json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+    })) as unknown as typeof fetch,
+  });
+  const h = harness(runtime);
+  let renderer!: Renderer.ReactTestRenderer;
+  try {
+    runtime.start();
+    path({
+      satisfied: true,
+      transport: 'wifi',
+      expensive: false,
+      constrained: false,
+      downstreamKbps: -1,
+      signalLevel: -1,
+    });
+    await act(async () => {
+      renderer = Renderer.create(<h.Harness />);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+      transport.current.onopen?.();
+    });
+    expect(h.voice.open).toBe(true);
+    jest.mocked(speechInput().prepare).mockResolvedValue('unavailable');
+    await act(async () =>
+      bus.emit(AppEvent.modeRequest, { type: 'forceOffline' }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(bus.latest(AppEvent.mode)?.mode).toBe('offline');
+    expect(speechInput().install).not.toHaveBeenCalled();
+    expect(h.voice.on).toBe(false);
+    expect(h.voice.hint).toBe(
+      'On-device speech recognition is unavailable. You can still type.',
+    );
+    jest.mocked(speechInput().install).mockImplementationOnce(async () => {
+      state = 'background';
+      change(state);
+      expect(runtime.voiceSnapshot().foreground).toBe(true);
+      state = 'active';
+      change(state);
+      return 'available';
+    });
+    await act(async () => h.voice.toggle());
+    expect(speechInput().install).toHaveBeenCalledTimes(1);
+    expect(h.voice.on).toBe(true);
+    expect(h.voice.open).toBe(true);
+  } finally {
+    jest.mocked(speechInput().prepare).mockResolvedValue('available');
+    await act(async () => renderer?.unmount());
+    runtime.stop();
+    jest.useRealTimers();
+  }
+});
 
 test.each(['active', 'inactive'])(
   'an initially %s conversation survives inactive, but background leaves voice off on return',

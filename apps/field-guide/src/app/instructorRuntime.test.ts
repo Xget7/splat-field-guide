@@ -1,4 +1,5 @@
 import { fakeAgentTransport } from '../testing/agentTransport';
+import { Platform } from 'react-native';
 import {
   AppEvent,
   VoiceSource,
@@ -13,7 +14,7 @@ import {
   SpeechVoice,
   VOICE_LOCALE,
 } from '../features/instructor/voice/voiceCopy';
-import { speechInput, speechOutput } from 'react-native-on-device';
+import { audioLink, speechInput, speechOutput } from 'react-native-on-device';
 import { createEventBus } from '../features/events/bus';
 import type { AppEvents } from '../features/events/types';
 import { foregroundAppState, voiceEvents } from '../testing/voiceSession';
@@ -24,6 +25,130 @@ import type { NetworkPath } from 'react-native-on-device';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
+
+test.each(['online', 'offline'] as const)(
+  '%s voice survives the microphone prompt but stops on a real background',
+  async mode => {
+    let state = 'active';
+    let change!: (state: import('react-native').AppStateStatus) => void;
+    let allow!: () => void;
+    const permission = new Promise<void>(resolve => {
+      allow = resolve;
+    });
+    const transport = fakeAgentTransport();
+    const runtime = createInstructorRuntime({
+      appEvents: createEventBus<AppEvents>(),
+      proxyUrl: mode === 'online' ? 'https://proxy.example' : null,
+      connect: transport.connect,
+      fetch: jest.fn(async () => ({
+        status: 200,
+        json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+      })) as unknown as typeof fetch,
+      appState: {
+        get currentState() {
+          return state;
+        },
+        addEventListener: (_event, callback) => {
+          change = callback;
+          return { remove: jest.fn() };
+        },
+      },
+    });
+    if (mode === 'online') {
+      jest
+        .mocked(audioLink().requestPermission)
+        .mockImplementationOnce(async () => {
+          await permission;
+          return true;
+        });
+    } else {
+      jest
+        .mocked(speechInput().requestPermission)
+        .mockImplementationOnce(async () => {
+          await permission;
+          return 'granted';
+        });
+    }
+    runtime.start();
+    const pack = fixturePack();
+    const session = runtime.sessionFor(pack)!.session;
+    const changed = voiceEvents();
+    const started = session.start(
+      {
+        pack,
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+        history: [],
+        thinking: false,
+      },
+      changed,
+    );
+    state = 'background';
+    change('background');
+    expect(runtime.voiceSnapshot().foreground).toBe(true);
+    state = 'active';
+    change('active');
+    allow();
+    await jest.advanceTimersByTimeAsync(0);
+    if (mode === 'online') {
+      transport.current.onopen?.();
+    }
+    await started;
+    expect(changed.listening.mock.calls.at(-1)).toEqual([true]);
+    state = 'background';
+    change('background');
+    state = 'active';
+    change('active');
+    expect(changed.listening.mock.calls.at(-1)).toEqual([false]);
+    expect(transport.open).toBe(0);
+    runtime.stop();
+  },
+);
+
+test('a microphone prompt that settles in the background ends the pending conversation', async () => {
+  let state = 'active';
+  let change!: (state: import('react-native').AppStateStatus) => void;
+  let allow!: (permission: 'granted') => void;
+  jest.mocked(speechInput().requestPermission).mockReturnValueOnce(
+    new Promise(resolve => {
+      allow = resolve;
+    }),
+  );
+  const runtime = createInstructorRuntime({
+    appEvents: createEventBus<AppEvents>(),
+    proxyUrl: null,
+    appState: {
+      get currentState() {
+        return state;
+      },
+      addEventListener: (_event, callback) => {
+        change = callback;
+        return { remove: () => {} };
+      },
+    },
+  });
+  runtime.start();
+  const pack = fixturePack();
+  const session = runtime.sessionFor(pack)!.session;
+  const changed = voiceEvents();
+  const started = session.start(
+    {
+      pack,
+      state: { procedureId: null, stepIndex: 0, selectedPart: null },
+      history: [],
+      thinking: false,
+    },
+    changed,
+  );
+  state = 'background';
+  change('background');
+  expect(runtime.voiceSnapshot().foreground).toBe(true);
+  allow('granted');
+  await started;
+  expect(runtime.voiceSnapshot().foreground).toBe(false);
+  expect(changed.listening.mock.calls.at(-1)).toEqual([false]);
+  expect(runtime.sessionFor(pack)).toBeNull();
+  runtime.stop();
+});
 
 test('airplane mode prepares every offline piece and falls back to the script', async () => {
   const appEvents = createEventBus<AppEvents>();
@@ -73,6 +198,84 @@ test('airplane mode prepares every offline piece and falls back to the script', 
   });
   runtime.stop();
 });
+
+test.each([
+  { platform: 'android', label: 'Voice: system voice', voice: 'system' },
+  { platform: 'ios', label: 'Voice: Kokoro', voice: 'kokoro' },
+] as const)(
+  '$platform names and starts its available offline voice',
+  async ({ platform, label, voice }) => {
+    const originalPlatform = jest.replaceProperty(Platform, 'OS', platform);
+    const appEvents = createEventBus<AppEvents>();
+    let path!: (value: NetworkPath) => void;
+    const steps: AppEvents['switchStep'][] = [];
+    const unsubscribe = appEvents.on(AppEvent.switchStep, step =>
+      steps.push(step),
+    );
+    const runtime = createInstructorRuntime({
+      appEvents,
+      appState: foregroundAppState,
+      proxyUrl: 'https://proxy.example',
+      networkMonitor: () => ({
+        start: callback => {
+          path = callback;
+        },
+        stop: () => {},
+      }),
+      fetch: jest.fn(async () => ({ status: 204 })) as unknown as typeof fetch,
+    });
+    try {
+      runtime.start();
+      const route = {
+        satisfied: true,
+        transport: 'wifi' as const,
+        expensive: false,
+        constrained: false,
+        downstreamKbps: -1,
+        signalLevel: -1,
+      };
+      path(route);
+      path({ ...route, satisfied: false });
+      expect(steps.find(step => step.piece === 'voice')).toMatchObject({
+        state: 'starting',
+        label,
+      });
+      await jest.advanceTimersByTimeAsync(600);
+      expect(steps.filter(step => step.piece === 'voice')).toEqual([
+        expect.objectContaining({ state: 'starting', label }),
+        expect.objectContaining({ state: 'ready', label }),
+      ]);
+      const session = runtime.sessionFor(fixturePack())!.session;
+      await session.start(
+        {
+          pack: fixturePack(),
+          state: { procedureId: null, stepIndex: 0, selectedPart: null },
+          history: [],
+          thinking: false,
+        },
+        voiceEvents(),
+      );
+      await session.say({
+        id: 'offline-voice',
+        kind: 'notice',
+        reply: 'Offline.',
+        caution: '',
+        stepKey: null,
+      });
+      expect(speechOutput().speak).toHaveBeenCalledWith(
+        'Offline.',
+        'en-US',
+        expect.any(Function),
+        voice,
+      );
+      session.stop();
+    } finally {
+      runtime.stop();
+      unsubscribe();
+      originalPlatform.restore();
+    }
+  },
+);
 
 test('good network for ten seconds restores agent voice and reuses the prepared signed URL', async () => {
   const appEvents = createEventBus<AppEvents>();

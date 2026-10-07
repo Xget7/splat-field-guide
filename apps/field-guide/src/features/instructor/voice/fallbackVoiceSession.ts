@@ -33,12 +33,23 @@ export function createFallbackVoiceSession({
   let muted = false;
   let pending: string | null = null;
   const current = (id: number) => running && generation === id;
-  async function startFallback(id: number, question: string | null) {
+  async function startFallback(
+    id: number,
+    question: string | null,
+    automatic = false,
+  ) {
     if (!current(id)) {
       return;
     }
     active = fallback;
-    await fallback.start({ ...context, pendingQuestion: pending }, events);
+    await fallback.start(
+      {
+        ...context,
+        pendingQuestion: pending,
+        allowSpeechInstall: automatic ? false : context.allowSpeechInstall,
+      },
+      events,
+    );
     if (!current(id)) {
       return;
     }
@@ -50,7 +61,7 @@ export function createFallbackVoiceSession({
   }
   async function recoverOnDevice(id: number) {
     try {
-      await startFallback(id, pending);
+      await startFallback(id, pending, true);
     } catch {
       if (current(id)) {
         running = false;

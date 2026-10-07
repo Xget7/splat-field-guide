@@ -16,6 +16,7 @@ import {
   type VoiceContext,
   type VoiceSession,
   type VoiceSessionEvents,
+  type VoicePrompt,
 } from './voiceSession';
 
 import {
@@ -35,12 +36,14 @@ interface Options {
   hints: string[];
   input?: typeof speechInput;
   output?: typeof speechOutput;
+  prompt?: VoicePrompt;
 }
 export function createPipelineVoiceSession({
   voice,
   hints,
   input = speechInput,
   output = speechOutput,
+  prompt = request => request(),
 }: Options): VoiceSession {
   let context: VoiceContext;
   let events: VoiceSessionEvents;
@@ -218,12 +221,26 @@ export function createPipelineVoiceSession({
         } catch {
           events.hint(VoiceHint.output);
         }
-        if ((await input().requestPermission()) !== SpeechPermission.granted) {
+        if (
+          (await prompt(() => input().requestPermission())) !==
+          SpeechPermission.granted
+        ) {
           throw new VoiceStartError(VoiceStartFailure.permission);
         }
+        if (!running || id !== lifecycle) {
+          return;
+        }
+        let availability = await input().prepare(VOICE_LOCALE);
+        if (!running || id !== lifecycle) {
+          return;
+        }
         if (
-          (await input().prepare(VOICE_LOCALE)) !== SpeechAvailability.available
+          availability !== SpeechAvailability.available &&
+          initial.allowSpeechInstall !== false
         ) {
+          availability = await prompt(() => input().install(VOICE_LOCALE));
+        }
+        if (availability !== SpeechAvailability.available) {
           throw new VoiceStartError(VoiceStartFailure.unavailable);
         }
         if (!running || id !== lifecycle) {

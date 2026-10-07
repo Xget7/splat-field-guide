@@ -83,6 +83,7 @@ jest.mock('react-native-on-device', () => {
   const input = {
     requestPermission: jest.fn(async () => 'granted'),
     prepare: jest.fn(async () => 'available'),
+    install: jest.fn(async () => 'available'),
     listen: jest.fn(
       async (
         _locale,

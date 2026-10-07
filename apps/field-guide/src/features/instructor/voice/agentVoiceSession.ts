@@ -30,6 +30,7 @@ import {
   type VoiceSession,
   type TypedQuestions,
   type VoiceSessionEvents,
+  type VoicePrompt,
 } from './voiceSession';
 
 export const AGENT_HISTORY_TURNS = 4;
@@ -43,10 +44,12 @@ export function createAgentVoiceSession({
   client: makeClient,
   pack,
   audio = audioLink,
+  prompt = request => request(),
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
   audio?: () => Pick<AudioLinkSpec, 'requestPermission'>;
+  prompt?: VoicePrompt;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;
   let events: VoiceSessionEvents;
@@ -121,7 +124,7 @@ export function createAgentVoiceSession({
       const id = ++generation;
       const current = () => running && generation === id;
       try {
-        if (!(await audio().requestPermission())) {
+        if (!(await prompt(() => audio().requestPermission()))) {
           throw new VoiceStartError(VoiceStartFailure.permission);
         }
       } catch (error) {

@@ -82,6 +82,7 @@ export function useInstructorVoice(options: Options) {
   const latest = useRef(options);
   latest.current = options;
   const session = useRef<VoiceConnection | null>(null);
+  const installRequested = useRef(startInVoice);
   const active = useRef(false);
   const spoken = useRef<string | null>(null);
   const pending = useRef<string | null>(null);
@@ -129,6 +130,8 @@ export function useInstructorVoice(options: Options) {
       return;
     }
     const voice = connection.session;
+    const allowSpeechInstall = installRequested.current;
+    installRequested.current = false;
     let current = true;
     let ended = false;
     let acceptingTurns = true;
@@ -226,7 +229,10 @@ export function useInstructorVoice(options: Options) {
     };
     const start = async () => {
       try {
-        await voice.start(latest.current.context, events);
+        await voice.start(
+          { ...latest.current.context, allowSpeechInstall },
+          events,
+        );
         if (!current || ended) {
           return;
         }
@@ -323,6 +329,7 @@ export function useInstructorVoice(options: Options) {
       setOn(false);
       setMuted(false);
     } else {
+      installRequested.current = true;
       spoken.current = null;
       setOn(true);
       setAttempt(value => value + 1);

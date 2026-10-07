@@ -6,6 +6,7 @@ import {
   type AudioLinkSpec,
   type NetworkPath,
 } from 'react-native-on-device';
+import { Platform } from 'react-native';
 import { appEvents, type EventBus } from '../features/events/bus';
 import {
   AppEvent,
@@ -27,7 +28,11 @@ import {
 } from '../features/connectivity/networkService';
 import { createModeController } from '../features/instructor/mode/modeController';
 import { runSwitch } from '../features/instructor/mode/modeSwitcher';
-import { NO_PROXY_REASON } from '../features/instructor/mode/modeCopy';
+import {
+  NO_PROXY_REASON,
+  SwitchLabel,
+} from '../features/instructor/mode/modeCopy';
+import { SpeechVoice } from '../features/instructor/voice/voiceCopy';
 import {
   createAgentClient,
   type AudioPort,
@@ -100,6 +105,10 @@ export function createInstructorRuntime(
   const audio = deps.audioLink ?? audioLink;
   const paths = deps.networkMonitor ?? networkMonitor;
   const foreground = createInstructorForeground(deps.appState);
+  const offlineVoice =
+    Platform.OS === 'ios'
+      ? { voice: SpeechVoice.kokoro, label: SwitchLabel.kokoro }
+      : { voice: SpeechVoice.system, label: SwitchLabel.systemVoice };
   const model = deps.onDeviceModel ?? onDeviceModel;
   const now = deps.now ?? Date.now;
   const schedule = deps.setTimeout ?? setTimeout;
@@ -157,6 +166,7 @@ export function createInstructorRuntime(
     const tasks = switchTasks(status.mode, {
       input,
       output,
+      offlineVoice,
       model,
       pack,
       probe,
@@ -267,6 +277,8 @@ export function createInstructorRuntime(
     input,
     output,
     audio,
+    prompt: foreground.prompt,
+    offlineVoice: offlineVoice.voice,
     agentAvailable: connection.available,
     foreground: foreground.isForeground,
     onPrimaryFailure: primaryFailure,

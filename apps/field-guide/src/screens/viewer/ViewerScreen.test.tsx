@@ -1292,6 +1292,7 @@ describe('viewer screen', () => {
 
     test('unavailable recognition ends voice with a reason', async () => {
       jest.mocked(input.prepare).mockResolvedValue('unavailable');
+      jest.mocked(input.install).mockResolvedValueOnce('unavailable');
       await mount({ mode: LearnMode.instructor });
       await voiceOn();
       expect(input.listen).not.toHaveBeenCalled();

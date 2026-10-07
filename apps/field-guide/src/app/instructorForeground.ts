@@ -23,24 +23,44 @@ const nativeAppState: AppStatePort = {
 export function createInstructorForeground(activity = nativeAppState) {
   let foreground = activity.currentState !== AppActivity.background;
   let subscription: { remove(): void } | null = null;
+  let changed: ((foreground: boolean) => void) | null = null;
+  let prompts = 0;
+  let currentState = activity.currentState;
+  function apply(state: string | null) {
+    currentState = state;
+    if (prompts > 0 || changed === null) {
+      return;
+    }
+    const next = state !== AppActivity.background;
+    if (next !== foreground) {
+      foreground = next;
+      changed(foreground);
+    }
+  }
   return {
     isForeground: () => foreground,
-    start(changed: (foreground: boolean) => void) {
+    async prompt<T>(request: () => Promise<T>): Promise<T> {
+      prompts++;
+      try {
+        return await request();
+      } finally {
+        prompts--;
+        if (prompts === 0) {
+          apply(activity.currentState ?? currentState);
+        }
+      }
+    },
+    start(onChanged: (foreground: boolean) => void) {
       if (subscription !== null) {
         return;
       }
-      subscription = activity.addEventListener(AppActivity.change, state => {
-        const next = state !== AppActivity.background;
-        if (next === foreground) {
-          return;
-        }
-        foreground = next;
-        changed(foreground);
-      });
+      changed = onChanged;
+      subscription = activity.addEventListener(AppActivity.change, apply);
     },
     stop() {
       subscription?.remove();
       subscription = null;
+      changed = null;
     },
   };
 }

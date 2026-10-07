@@ -1,4 +1,8 @@
-import type { speechInput, speechOutput } from 'react-native-on-device';
+import type {
+  speechInput,
+  speechOutput,
+  SpeechVoice as NativeSpeechVoice,
+} from 'react-native-on-device';
 import {
   AnswerSource,
   InstructorMode,
@@ -19,7 +23,6 @@ import {
 } from '../features/instructor/mode/modeCopy';
 import {
   SpeechAvailability,
-  SpeechVoice,
   VOICE_LOCALE,
 } from '../features/instructor/voice/voiceCopy';
 import {
@@ -31,6 +34,7 @@ import {
 interface SwitchDependencies {
   input: typeof speechInput;
   output: typeof speechOutput;
+  offlineVoice: { voice: NativeSpeechVoice; label: string };
   model: InstructorModel;
   pack: Pack | null;
   prepareAgent(): Promise<boolean>;
@@ -44,11 +48,11 @@ export function switchTasks(
     return [
       {
         piece: SwitchPiece.voice,
-        label: SwitchLabel.kokoro,
+        label: deps.offlineVoice.label,
         fallbackLabel: SwitchLabel.systemVoice,
         start: async () =>
-          (await deps.output().prepare(SpeechVoice.kokoro)) ===
-          SpeechVoice.kokoro,
+          (await deps.output().prepare(deps.offlineVoice.voice)) ===
+          deps.offlineVoice.voice,
       },
       {
         piece: SwitchPiece.answers,

@@ -1,5 +1,6 @@
 import type {
   AudioLinkSpec,
+  SpeechVoice as NativeSpeechVoice,
   speechInput,
   speechOutput,
 } from 'react-native-on-device';
@@ -21,6 +22,7 @@ import type {
   VoiceConnection,
   VoiceSession,
   VoiceStartFailure,
+  VoicePrompt,
 } from '../features/instructor/voice/voiceSession';
 import type { Pack } from '../features/pack/pack';
 
@@ -28,6 +30,8 @@ interface SessionDependencies {
   input: typeof speechInput;
   output: typeof speechOutput;
   audio: () => Pick<AudioLinkSpec, 'requestPermission'>;
+  prompt: VoicePrompt;
+  offlineVoice: NativeSpeechVoice;
   client(handlers: SessionAgentHandlers): AgentClient;
   agentAvailable(): boolean;
   foreground(): boolean;
@@ -86,11 +90,12 @@ export function createInstructorSessions(deps: SessionDependencies) {
           hints: recognitionHintsFor(guide),
           input: deps.input,
           output: deps.output,
+          prompt: deps.prompt,
         }),
         questions: null,
       });
       if (status.mode === InstructorMode.offline) {
-        return own(pipeline(SpeechVoice.kokoro));
+        return own(pipeline(deps.offlineVoice));
       }
       if (!deps.agentAvailable()) {
         return own(pipeline(SpeechVoice.system));
@@ -99,6 +104,7 @@ export function createInstructorSessions(deps: SessionDependencies) {
         pack: guide,
         audio: deps.audio,
         client: deps.client,
+        prompt: deps.prompt,
       });
       const fallback = createFallbackVoiceSession({
         primary,

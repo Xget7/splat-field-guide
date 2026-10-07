@@ -2,6 +2,7 @@ import { speechInput, speechOutput } from 'react-native-on-device';
 import { fixturePack } from '../../../testing/fixturePack';
 import { INITIAL_SESSION } from '../../guide/session';
 import { createPipelineVoiceSession } from './pipelineVoiceSession';
+import { voiceEvents } from '../../../testing/voiceSession';
 
 const context = {
   pack: fixturePack(),
@@ -21,6 +22,46 @@ const events = () => ({
   turn: jest.fn(),
   action: jest.fn(),
   ended: jest.fn(),
+});
+
+test('a voice start installs missing recognition through the system prompt port', async () => {
+  const input = speechInput();
+  jest.mocked(input.prepare).mockResolvedValueOnce('unavailable');
+  let prompting = false;
+  jest.mocked(input.install).mockImplementationOnce(async () => {
+    expect(prompting).toBe(true);
+    return 'available';
+  });
+  const session = createPipelineVoiceSession({
+    voice: 'system',
+    hints: [],
+    prompt: async request => {
+      prompting = true;
+      try {
+        return await request();
+      } finally {
+        prompting = false;
+      }
+    },
+  });
+  const changed = voiceEvents();
+  await session.start(context, changed);
+  expect(input.install).toHaveBeenCalledTimes(1);
+  expect(input.install).toHaveBeenCalledWith('en-US');
+  expect(changed.listening.mock.calls.at(-1)).toEqual([true]);
+  session.stop();
+});
+
+test('a scheduled or failed install leaves listening unavailable so the user can type', async () => {
+  jest.mocked(speechInput().prepare).mockResolvedValueOnce('unavailable');
+  jest.mocked(speechInput().install).mockResolvedValueOnce('unavailable');
+  const session = createPipelineVoiceSession({ voice: 'system', hints: [] });
+  const changed = voiceEvents();
+  await expect(session.start(context, changed)).rejects.toMatchObject({
+    failure: 'unavailable',
+  });
+  expect(changed.listening).not.toHaveBeenCalledWith(true);
+  session.stop();
 });
 
 test('settles a spoken question and ignores callbacks after stopping', async () => {
