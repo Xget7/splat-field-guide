@@ -31,9 +31,9 @@ import {
 } from '../../../ui/theme';
 import { placeOn, sideFor, type Clearance, type Side } from './cardPlacement';
 
-const CARD_WIDTH = 320;
+const CARD_WIDTH = 420;
 const GAP = Space.sm;
-const ICON_SIZE = 20;
+const ICON_SIZE = 24;
 const ENTER_SCALE = 0.98;
 const CardCopy = {
   fold: 'Fold part card',
@@ -260,15 +260,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
-    paddingLeft: Space.lg,
-    paddingRight: Space.sm,
-    paddingVertical: Space.sm,
+    paddingLeft: Space.xl,
+    paddingRight: Space.md,
+    paddingVertical: Space.md,
     gap: Space.sm,
   },
   // The summary sits close under the name; the touch target supplies the space.
   headerOpen: { paddingBottom: 0 },
   title: {
-    ...Type.headline,
+    ...Type.title,
     fontFamily: Font.bold,
     color: Color.text,
     flex: 1,
@@ -283,9 +283,9 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: Color.field },
   body: { flexGrow: 0, flexShrink: 1 },
   bodyContent: {
-    paddingHorizontal: Space.lg,
+    paddingHorizontal: Space.xl,
     paddingTop: Space.xs,
-    paddingBottom: Space.lg,
+    paddingBottom: Space.xl,
   },
   summary: { ...Type.body, color: Color.text },
 });
