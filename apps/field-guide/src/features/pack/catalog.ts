@@ -39,6 +39,8 @@ export interface ReadyGuide extends GuideBase {
   readonly subtitle: string;
   /** The one rule to follow before touching the equipment. */
   readonly safety: string;
+  /** A USDZ model in the iOS app bundle that turns in the library; the image stands in elsewhere. */
+  readonly model?: string;
   readonly pack: Pack;
 }
 
@@ -97,6 +99,8 @@ export function catalogFor(golTrend: Pack): readonly Guide[] {
       safety: 'Engine off and cold before you touch anything.',
       // A frame of this pack as the app renders it, from the iOS simulator.
       image: require('../../../assets/guides/gol-trend-engine-bay.jpg'),
+      // Built from the AR capture by scripts/make_preview_model.sh.
+      model: 'ar/gol-trend-engine-bay/turntable.usdz',
       pack: golTrend,
     },
     ...COMING_SOON,

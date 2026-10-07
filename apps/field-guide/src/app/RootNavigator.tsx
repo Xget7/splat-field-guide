@@ -22,8 +22,8 @@ const NAVIGATION_THEME: Theme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: Color.black,
-    card: Color.black,
+    background: Color.surface,
+    card: Color.surface,
     primary: Color.accent,
     text: Color.text,
     border: Color.line,
@@ -32,7 +32,7 @@ const NAVIGATION_THEME: Theme = {
 
 const SCREEN_OPTIONS = {
   headerShown: false,
-  contentStyle: { backgroundColor: Color.black },
+  contentStyle: { backgroundColor: Color.surface },
 } as const;
 
 // Orbiting drags from anywhere, so the viewer leaves by its back button, not an edge swipe.

@@ -2,7 +2,10 @@ import React from 'react';
 import { NavigationContext } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { catalogFor } from '../apps/field-guide/src/features/pack/catalog';
+import {
+  catalogFor,
+  type ReadyGuide,
+} from '../apps/field-guide/src/features/pack/catalog';
 import { CatalogProvider } from '../apps/field-guide/src/app/CatalogContext';
 import {
   LearnMode,
@@ -11,14 +14,23 @@ import {
 } from '../apps/field-guide/src/app/routes';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 import { saveProgress } from '../apps/field-guide/src/app/progressStorage';
-import { continueRowFor } from '../apps/field-guide/src/screens/library/library';
+import {
+  continueRowFor,
+  factsFor,
+} from '../apps/field-guide/src/screens/library/library';
 import { LibraryScreen } from '../apps/field-guide/src/screens/library/LibraryScreen';
+
+jest.mock('react-native-splat', () => ({ ModelView: 'ModelView' }));
+jest.mock('react-native-nitro-modules', () => ({
+  callback: (fn: unknown) => fn,
+}));
 
 if (!bundledPack.ok) {
   throw new Error(bundledPack.error.message);
 }
 const pack = bundledPack.pack;
 const catalog = catalogFor(pack);
+const guide = catalog[0] as ReadyGuide;
 const progress = {
   guideId: pack.packId,
   procedureId: 'check-coolant',
@@ -45,6 +57,15 @@ test('continue shows one-based progress and a fraction of the procedure', () => 
     stepLabel: 'Step 2 of 5',
     fraction: 2 / 5,
   });
+});
+
+test('a guide counts its parts and authored procedures, leaving out the tour', () => {
+  const authored = pack.procedures.length - 1;
+  expect(pack.procedures[0].id).toBe('tour');
+  expect(factsFor(guide)).toEqual([
+    `${pack.parts.length} parts`,
+    `${authored} procedures`,
+  ]);
 });
 
 describe('Library screen', () => {
@@ -107,6 +128,21 @@ describe('Library screen', () => {
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);
+  });
+
+  test('the ready card turns its model and shows the photo when the model cannot load', async () => {
+    await mount();
+    const card = renderer.root.findByProps({
+      testID: `guide-card-${pack.packId}`,
+    });
+    const model = card.findByType('ModelView' as never);
+    expect(model.props.modelPath).toBe(guide.model);
+    expect(card.findAllByProps({ source: guide.image })).toHaveLength(0);
+    await act(() => model.props.onLoaded(false));
+    expect(card.findAllByType('ModelView' as never)).toHaveLength(0);
+    expect(card.findAllByProps({ source: guide.image }).length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('saved progress opens the same step from the row and its play button', async () => {

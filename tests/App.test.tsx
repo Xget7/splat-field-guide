@@ -3,7 +3,10 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../apps/field-guide/src/App';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 
-jest.mock('react-native-splat', () => ({ SplatView: 'SplatView' }));
+jest.mock('react-native-splat', () => ({
+  SplatView: 'SplatView',
+  ModelView: 'ModelView',
+}));
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));

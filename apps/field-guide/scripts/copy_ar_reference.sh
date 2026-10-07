@@ -6,6 +6,7 @@ REFERENCE_ROOT="$SRCROOT/../../../data/ar-reference/gol-trend-engine-bay"
 AR_DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ar/gol-trend-engine-bay"
 mkdir -p "$AR_DEST"
 cp "$SRCROOT/../assets/ar/landmarks.json" "$AR_DEST/landmarks.json"
+"$SRCROOT/../scripts/make_preview_model.sh" "$REFERENCE_ROOT/aligned.cleaned.usdz" "$AR_DEST/turntable.usdz"
 
 if [ -f "$REFERENCE_ROOT/engine-bay.referenceobject" ]; then
   cp "$REFERENCE_ROOT/engine-bay.referenceobject" "$AR_DEST/engine-bay.referenceobject"

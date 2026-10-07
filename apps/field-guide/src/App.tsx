@@ -30,7 +30,7 @@ function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Color.black },
+  root: { flex: 1, backgroundColor: Color.surface },
 });
 
 export default App;

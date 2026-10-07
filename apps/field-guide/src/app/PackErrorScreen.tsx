@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Backdrop } from '../ui/Gradients';
 import { Icon, IconName } from '../ui/Icon';
 import { Label } from '../ui/Label';
 import { Color, Space, Type } from '../ui/theme';
@@ -9,6 +10,7 @@ const ICON_SIZE = 20;
 export function PackErrorScreen({ message }: { message: string }) {
   return (
     <SafeAreaView style={styles.root}>
+      <Backdrop />
       <View style={styles.status}>
         <Icon name={IconName.warn} size={ICON_SIZE} color={Color.caution} />
         <Label color={Color.caution}>Pack error</Label>
@@ -31,7 +33,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: Color.black,
+    backgroundColor: Color.surface,
     padding: Space.xl,
     gap: Space.md,
   },

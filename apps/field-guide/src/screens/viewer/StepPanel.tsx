@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     paddingTop: Space.lg,
     paddingHorizontal: Space.lg,
     gap: Space.md,
-    backgroundColor: Color.black,
+    backgroundColor: Color.drawer,
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },

@@ -119,6 +119,6 @@ const styles = StyleSheet.create({
   procedureTitle: { ...Type.callout, flex: 1, color: Color.text },
   pressed: { backgroundColor: Color.pressed },
   buttons: { flexDirection: 'row', gap: Space.sm },
-  back: { borderRadius: Radius.control, backgroundColor: Color.field },
-  next: { flex: 1, borderRadius: Radius.control },
+  back: { backgroundColor: Color.field },
+  next: { flex: 1 },
 });

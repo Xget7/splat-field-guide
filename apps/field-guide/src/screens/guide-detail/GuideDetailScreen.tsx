@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import type { ProcedureId } from '../../features/pack/pack';
 import { TOUR_ID } from '../../features/guide/tour';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { Button, IconButton, IconButtonVariant } from '../../ui/Button';
+import { Backdrop, FadingPhoto } from '../../ui/Gradients';
 import { Icon, IconName } from '../../ui/Icon';
 import { READOUT_SEPARATOR } from '../../ui/readout';
 import { SectionHeader } from '../../ui/SectionHeader';
@@ -45,11 +45,11 @@ const Layout = {
   toggleWidth: 44,
   toggleHeight: 26,
   knob: 20,
-  fadeHeight: '60%',
+  // Where the photo starts fading into the backdrop, from its top.
+  fadeFrom: 0.4,
   wideColumn: 440,
-  wideFadeHeight: '50%',
+  wideFadeFrom: 0.5,
 } as const;
-const HERO_FADE = `linear-gradient(to bottom, ${Color.black}00, ${Color.black})`;
 const AR_TITLE = 'AR check on the real engine';
 const VOICE_TITLE = 'Voice assistant';
 const TOGGLE_MOTION = LinearTransition.duration(Motion.fast);
@@ -87,6 +87,7 @@ export function GuideDetailScreen({
   if (!guide) {
     return (
       <View testID="guide-detail-screen" style={styles.screen}>
+        <Backdrop />
         {back}
         <Text
           style={[
@@ -144,7 +145,11 @@ export function GuideDetailScreen({
                   name={option.icon}
                   color={selected ? Color.accent : Color.secondaryText}
                 />
-                <Text style={styles.modeTitle}>{option.title}</Text>
+                <Text
+                  style={[styles.modeTitle, selected && styles.selectedTitle]}
+                >
+                  {option.title}
+                </Text>
               </Pressable>
             );
           })}
@@ -159,7 +164,6 @@ export function GuideDetailScreen({
             onPress={() => setVoice(on => !on)}
             style={({ pressed }) => [
               styles.voiceRow,
-              voice && styles.voiceRowOn,
               pressed && styles.pressed,
             ]}
           >
@@ -228,13 +232,13 @@ export function GuideDetailScreen({
   if (sideBySide) {
     return (
       <View testID="guide-detail-screen" style={[styles.screen, styles.split]}>
+        <Backdrop />
         <View style={styles.wideHero}>
-          <Image
+          <FadingPhoto
+            id="detail-hero"
             source={guide.image}
-            resizeMode="cover"
-            style={styles.heroImage}
+            start={Layout.wideFadeFrom}
           />
-          <View pointerEvents="none" style={styles.wideFade} />
           <View
             style={[
               styles.wideHeading,
@@ -270,18 +274,18 @@ export function GuideDetailScreen({
 
   return (
     <View testID="guide-detail-screen" style={styles.screen}>
+      <Backdrop />
       <ScrollView
-        style={styles.screen}
+        style={styles.scroll}
         contentContainerStyle={{ paddingBottom: barHeight + Space.xl }}
         contentInsetAdjustmentBehavior="never"
       >
         <View style={[styles.hero, wide && styles.tallHero]}>
-          <Image
+          <FadingPhoto
+            id="detail-hero"
             source={guide.image}
-            resizeMode="cover"
-            style={styles.heroImage}
+            start={Layout.fadeFrom}
           />
-          <View pointerEvents="none" style={styles.fade} />
         </View>
         <View style={styles.content}>
           {heading}
@@ -302,20 +306,11 @@ export function GuideDetailScreen({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Color.black },
+  screen: { flex: 1, backgroundColor: Color.surface },
+  scroll: { flex: 1 },
   back: { position: 'absolute', left: Space.lg },
   hero: { height: Layout.heroHeight, overflow: 'hidden' },
   tallHero: { height: Layout.wideHeroHeight },
-  // Bundled images retain their asset height unless explicitly sized.
-  heroImage: { width: '100%', height: '100%' },
-  fade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: Layout.fadeHeight,
-    experimental_backgroundImage: HERO_FADE,
-  },
   content: {
     marginTop: -Layout.titleOverlap,
     paddingHorizontal: Space.lg,
@@ -327,10 +322,12 @@ const styles = StyleSheet.create({
   section: { gap: Space.sm },
   segments: {
     flexDirection: 'row',
+    gap: Space.xxs,
+    padding: Space.xxs,
     backgroundColor: Color.raised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.lineStrong,
-    borderRadius: Radius.md,
+    borderWidth: HAIRLINE,
+    borderColor: Color.line,
+    borderRadius: Radius.round,
   },
   segment: {
     minHeight: Layout.segmentHeight,
@@ -340,25 +337,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Space.sm,
     paddingHorizontal: Space.sm,
-    paddingVertical: Space.sm,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.round,
+    borderWidth: HAIRLINE,
     borderColor: Color.raised,
   },
   selectedSegment: {
-    backgroundColor: Color.accentWash,
-    borderColor: Color.accent,
+    backgroundColor: Color.pressed,
+    borderColor: Color.lineStrong,
   },
-  modeTitle: { ...Type.calloutStrong, flexShrink: 1, color: Color.text },
+  modeTitle: {
+    ...Type.calloutStrong,
+    flexShrink: 1,
+    color: Color.secondaryText,
+  },
+  selectedTitle: { color: Color.text },
   arRow: {
     minHeight: Layout.segmentHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.md,
+    paddingVertical: Space.md,
     paddingHorizontal: Space.lg,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.lineStrong,
+    borderRadius: Radius.card,
+    borderWidth: HAIRLINE,
+    borderColor: Color.line,
     backgroundColor: Color.raised,
   },
   arTitle: { ...Type.callout, color: Color.text, flex: 1 },
@@ -368,17 +370,16 @@ const styles = StyleSheet.create({
     gap: Space.md,
     paddingVertical: Space.md,
     paddingHorizontal: Space.lg,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.lineStrong,
+    borderRadius: Radius.card,
+    borderWidth: HAIRLINE,
+    borderColor: Color.line,
     backgroundColor: Color.raised,
   },
-  voiceRowOn: { borderColor: Color.accent },
   voiceTitle: { ...Type.calloutStrong, flex: 1, color: Color.text },
   toggle: {
     width: Layout.toggleWidth,
     height: Layout.toggleHeight,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.round,
     padding: (Layout.toggleHeight - HAIRLINE * 2 - Layout.knob) / 2,
     borderWidth: HAIRLINE,
     borderColor: Color.lineStrong,
@@ -393,7 +394,7 @@ const styles = StyleSheet.create({
   knob: {
     width: Layout.knob,
     height: Layout.knob,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.round,
     backgroundColor: Color.accentText,
   },
   pressed: { backgroundColor: Color.pressed },
@@ -402,8 +403,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Color.black,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    backgroundColor: Color.surface,
+    borderTopWidth: HAIRLINE,
     borderColor: Color.line,
     paddingHorizontal: Space.lg,
     paddingTop: Space.md,
@@ -411,14 +412,6 @@ const styles = StyleSheet.create({
   },
   split: { flexDirection: 'row' },
   wideHero: { flex: 1, overflow: 'hidden' },
-  wideFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: Layout.wideFadeHeight,
-    experimental_backgroundImage: HERO_FADE,
-  },
   wideHeading: {
     position: 'absolute',
     left: Space.xl,
@@ -427,13 +420,12 @@ const styles = StyleSheet.create({
   },
   wideColumn: {
     width: Layout.wideColumn,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: HAIRLINE,
     borderLeftColor: Color.line,
   },
   wideContent: { paddingHorizontal: Space.lg, gap: Space.xl },
   wideBar: {
-    backgroundColor: Color.black,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: HAIRLINE,
     borderColor: Color.line,
     paddingHorizontal: Space.lg,
     paddingTop: Space.md,

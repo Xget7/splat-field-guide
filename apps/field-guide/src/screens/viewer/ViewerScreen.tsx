@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Space.lg,
     paddingHorizontal: Space.lg,
-    backgroundColor: Color.black,
+    backgroundColor: Color.surface,
   },
   missingText: { ...Type.callout, color: Color.muted },
 });

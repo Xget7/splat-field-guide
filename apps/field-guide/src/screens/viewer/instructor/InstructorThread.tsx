@@ -488,12 +488,12 @@ export function InstructorThread({
             >
               <Stop
                 offset={ThreadFade.start}
-                stopColor={Color.black}
+                stopColor={Color.drawer}
                 stopOpacity={ThreadFade.opaque}
               />
               <Stop
                 offset={ThreadFade.end}
-                stopColor={Color.black}
+                stopColor={Color.drawer}
                 stopOpacity={ThreadFade.clear}
               />
             </LinearGradient>

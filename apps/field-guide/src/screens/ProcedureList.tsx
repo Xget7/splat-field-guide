@@ -64,9 +64,10 @@ export function ProcedureList({ rows, current, onChoose }: Props) {
 
 const styles = StyleSheet.create({
   list: {
-    borderRadius: Radius.md,
+    borderRadius: Radius.card,
     borderWidth: HAIRLINE,
     borderColor: Color.line,
+    backgroundColor: Color.raised,
     overflow: 'hidden',
   },
   row: {

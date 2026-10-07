@@ -33,6 +33,7 @@ flowchart TB
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
 | Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/app/arCheck.ts) |
+| Library model preview | iOS and the local engine-bay capture in `data/ar-reference`; without it the card shows the guide's photo |
 
 Use the [root quickstart](../../README.md#quickstart) to prepare resources and run the app.
 The CLI starts Metro; for Xcode, run `npm start` here and open `ios/FieldGuide.xcworkspace` with the FieldGuide scheme.

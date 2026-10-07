@@ -14,9 +14,11 @@ import {
   Space,
   Type,
 } from './theme';
+import { SheenEdge } from './Gradients';
 import { Icon, type IconName } from './Icon';
 
 const BUTTON_ICON_SIZE = 18;
+const SHEEN_ID = 'button-sheen';
 
 export const ButtonVariant = {
   primary: 'primary',
@@ -78,6 +80,9 @@ export function Button({
           >
             {label}
           </Text>
+          {variant === ButtonVariant.primary && !disabled && (
+            <SheenEdge id={SHEEN_ID} radius={Radius.round} />
+          )}
         </>
       )}
     </Pressable>
@@ -145,7 +150,7 @@ export function IconButton({
 const styles = StyleSheet.create({
   button: {
     height: BUTTON_HEIGHT,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.round,
     paddingHorizontal: Space.xl,
     flexDirection: 'row',
     alignItems: 'center',
@@ -172,7 +177,7 @@ const styles = StyleSheet.create({
   quietTextPressed: { color: Color.text },
   disabledText: { color: Color.faint },
   iconButton: {
-    borderRadius: Radius.md,
+    borderRadius: Radius.round,
     alignItems: 'center',
     justifyContent: 'center',
   },

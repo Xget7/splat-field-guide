@@ -12,6 +12,7 @@ import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { type Progress } from '../../features/guide/progress';
 import { loadProgress } from '../../app/progressStorage';
 import { SectionHeader } from '../../ui/SectionHeader';
+import { Backdrop } from '../../ui/Gradients';
 import { Color, Space, Type } from '../../ui/theme';
 import { continueRowFor } from './library';
 import { ContinueCard, ReadyCard, SoonCard } from './GuideCards';
@@ -20,6 +21,7 @@ import { useWideLayout } from '../../ui/useWideLayout';
 const Layout = {
   columns: 2,
   wideColumns: 4,
+  introWidth: 560,
 } as const;
 
 function rowsOf<T>(items: readonly T[], columns: number): T[][] {
@@ -80,21 +82,31 @@ export function LibraryScreen({
 
   return (
     <View style={styles.screen}>
+      <Backdrop />
       <ScrollView
         testID="library-screen"
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
+          wide && styles.contentWide,
           {
-            paddingTop: insets.top + Space.lg,
+            paddingTop: insets.top + (wide ? Space.xxl : Space.lg),
             paddingBottom: insets.bottom + Space.xxl,
           },
         ]}
         contentInsetAdjustmentBehavior="never"
       >
-        <Text accessibilityRole="header" style={styles.title}>
-          Guides
-        </Text>
+        <View style={styles.intro}>
+          <Text
+            accessibilityRole="header"
+            style={wide ? styles.titleWide : styles.title}
+          >
+            Guides
+          </Text>
+          <Text style={styles.lede}>
+            Maintenance guides built from 3D captures of real equipment.
+          </Text>
+        </View>
         {continuation && (
           <View style={styles.section}>
             <SectionHeader title="Continue" />
@@ -122,7 +134,7 @@ export function LibraryScreen({
             {rowsOf(soon, columns).map(row => (
               <View key={row[0].id} style={styles.gridRow}>
                 {row.map(guide => (
-                  <SoonCard key={guide.id} guide={guide} />
+                  <SoonCard key={guide.id} guide={guide} wide={wide} />
                 ))}
                 {Array.from({ length: columns - row.length }, (_, index) => (
                   <View key={index} style={styles.gridSpacer} />
@@ -137,10 +149,18 @@ export function LibraryScreen({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Color.black },
+  screen: { flex: 1, backgroundColor: Color.surface },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: Space.lg, gap: Space.lg },
-  title: { ...Type.largeTitle, color: Color.text },
+  content: { paddingHorizontal: Space.lg, gap: Space.xl },
+  contentWide: { paddingHorizontal: Space.xxl },
+  intro: { gap: Space.sm, marginBottom: Space.sm },
+  title: { ...Type.display, color: Color.text },
+  titleWide: { ...Type.displayWide, color: Color.text },
+  lede: {
+    ...Type.body,
+    color: Color.secondaryText,
+    maxWidth: Layout.introWidth,
+  },
   section: { gap: Space.md, marginTop: Space.sm },
   gridRow: { flexDirection: 'row', gap: Space.md, alignItems: 'stretch' },
   gridSpacer: { flex: 1 },

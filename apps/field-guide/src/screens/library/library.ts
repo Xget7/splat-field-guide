@@ -5,6 +5,7 @@ import {
 } from '../../features/pack/catalog';
 import { findProcedure, type Procedure } from '../../features/pack/pack';
 import type { Progress } from '../../features/guide/progress';
+import { TOUR_ID } from '../../features/guide/tour';
 import { stepLabel } from '../../ui/readout';
 
 export interface ContinueRow {
@@ -41,4 +42,18 @@ export function continueRowFor(
     stepLabel: stepLabel(stepNumber, procedure.steps.length),
     fraction: stepNumber / procedure.steps.length,
   };
+}
+
+const counted = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+/** What a guide holds: its parts, then its authored procedures without the tour. */
+export function factsFor(guide: ReadyGuide): readonly string[] {
+  const procedures = guide.pack.procedures.filter(
+    procedure => procedure.id !== TOUR_ID,
+  );
+  return [
+    counted(guide.pack.parts.length, 'part'),
+    counted(procedures.length, 'procedure'),
+  ];
 }

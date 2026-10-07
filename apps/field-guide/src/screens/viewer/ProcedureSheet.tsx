@@ -110,8 +110,8 @@ const styles = StyleSheet.create({
   done: {
     minHeight: MIN_TOUCH,
     justifyContent: 'center',
-    paddingHorizontal: Space.sm,
-    borderRadius: Radius.sm,
+    paddingHorizontal: Space.md,
+    borderRadius: Radius.round,
   },
   doneText: { ...Type.headline, color: Color.accent },
   pressed: { backgroundColor: Color.pressed },
