@@ -1,7 +1,8 @@
 import type { Env } from "./index.ts";
-import { Header, NO_STORE, errorResponse, limitRequest } from "./http.ts";
+import { Header, NO_STORE, cancelUpstreamBody, errorResponse, limitRequest } from "./http.ts";
 
 const SIGNED_URL_ENDPOINT = "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url";
+const UpstreamStatus = { unauthorized: 401, forbidden: 403, quota: 429 } as const;
 const VoiceError = {
   notConfigured: "voice not configured",
   auth: "voice auth",
@@ -25,9 +26,11 @@ export async function handleVoiceSession(request: Request, env: Env): Promise<Re
       signal: request.signal,
     });
     if (!upstream.ok) {
-      void upstream.body?.cancel().catch(() => {});
-      if (upstream.status === 401 || upstream.status === 403) return errorResponse(502, VoiceError.auth);
-      if (upstream.status === 429) return errorResponse(429, VoiceError.quota);
+      cancelUpstreamBody(upstream);
+      if (upstream.status === UpstreamStatus.unauthorized || upstream.status === UpstreamStatus.forbidden) {
+        return errorResponse(502, VoiceError.auth);
+      }
+      if (upstream.status === UpstreamStatus.quota) return errorResponse(UpstreamStatus.quota, VoiceError.quota);
       return errorResponse(502, VoiceError.unavailable);
     }
     const body = await upstream.json() as { signed_url?: unknown } | null;

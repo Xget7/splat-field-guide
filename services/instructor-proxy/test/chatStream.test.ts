@@ -32,7 +32,7 @@ async function chunks(input: ReadableStream<Uint8Array>) {
 const choice = (delta, finish_reason = null) => ({ index: 0, delta, finish_reason });
 const finish = (reason: string) => sse("message_delta", { delta: { stop_reason: reason } });
 
-test("text streams as ordered OpenAI chunks with a single terminal DONE", async () => {
+test("text streams in order and every stop reason finishes with DONE only after message_stop", async () => {
   assert.deepEqual(await chunks(source([
     sse("message_start"), sse("content_block_start", { index: 0, content_block: { type: "text", text: "" } }),
     sse("content_block_delta", { delta: { type: "text_delta", text: "Check " } }),
@@ -40,6 +40,15 @@ test("text streams as ordered OpenAI chunks with a single terminal DONE", async 
     finish("end_turn"), sse("message_stop"), sse("message_stop"),
   ])), [choice({ role: "assistant", content: "" }), choice({ content: "Check " }),
     choice({ content: "the oil." }), choice({}, "stop"), "[DONE]"]);
+
+  for (const [reason, expected] of [
+    ["end_turn", "stop"], ["stop_sequence", "stop"], ["tool_use", "tool_calls"],
+    ["max_tokens", "length"], ["refusal", "content_filter"], ["pause_turn", "stop"],
+    ["future_reason", "stop"], ["", "stop"],
+  ]) {
+    assert.deepEqual(await chunks(source([finish(reason), sse("message_stop")])), [choice({}, expected), "[DONE]"]);
+    assert.deepEqual(await chunks(source([finish(reason)])), [choice({}, expected)]);
+  }
 });
 
 test("tool indices count tools instead of text blocks and JSON fragments stay in order", async () => {
@@ -77,7 +86,7 @@ test("split CRLF, bare CR, multiline JSON and split UTF-8 parse correctly", asyn
   assert.deepEqual(await chunks(source(Array.from(encoder.encode(events), (byte) => Uint8Array.of(byte)))), [
     choice({ role: "assistant", content: "" }), choice({ content: "Café 🔧" }), choice({}, "stop"), "[DONE]",
   ]);
-  assert.deepEqual(await chunks(source([finish("max_tokens"), sse("message_stop")])), [choice({}, "length"), "[DONE]"]);
+
 });
 
 test("text arrives before EOF and consumer cancellation releases the upstream", async () => {

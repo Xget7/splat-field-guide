@@ -43,6 +43,37 @@ export function errorResponse(status: number, error: string, headers = {}) {
   );
 }
 
+export function cancelUpstreamBody(upstream: Response) {
+  void upstream.body?.cancel().catch(() => {});
+}
+
+export async function requestAnthropic(
+  request: Request, env: Pick<Env, "ANTHROPIC_API_KEY">, body: object,
+): Promise<{ body: ReadableStream<Uint8Array> } | { error: Response }> {
+  if (!env.ANTHROPIC_API_KEY) return { error: errorResponse(500, RequestError.missingKey) };
+  let upstream: Response;
+  try {
+    upstream = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        [Header.anthropicKey]: env.ANTHROPIC_API_KEY,
+        [Header.anthropicVersion]: ANTHROPIC_VERSION,
+        [Header.contentType]: ContentType.json,
+      },
+      body: JSON.stringify(body),
+      signal: request.signal,
+    });
+  } catch {
+    return { error: errorResponse(502, RequestError.upstreamDown) };
+  }
+  if (!upstream.ok) {
+    cancelUpstreamBody(upstream);
+    return { error: errorResponse(502, `upstream ${upstream.status}`) };
+  }
+  if (!upstream.body) return { error: errorResponse(502, RequestError.noUpstreamStream) };
+  return { body: upstream.body };
+}
+
 export async function limitRequest(request: Request, env: Env): Promise<Response | undefined> {
   try {
     const key = request.headers.get(Header.clientIp) || UNKNOWN_CLIENT;

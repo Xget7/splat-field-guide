@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handleRequest } from "../src/index.ts";
+import { assertError } from "./helpers.ts";
 
 function makeEnv(overrides = {}) {
   const keys: string[] = [];
@@ -16,12 +17,6 @@ function request() {
   return new Request("https://worker.example/v1/voice/session", {
     method: "POST", headers: { "CF-Connecting-IP": "203.0.113.7" },
   });
-}
-
-async function assertError(response: Response, status: number, error: string) {
-  assert.equal(response.status, status);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await response.json(), { error });
 }
 
 test("voice sessions issue uncached signed URLs using the agent id and server key", async (t) => {

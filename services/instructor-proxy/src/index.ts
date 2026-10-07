@@ -1,9 +1,9 @@
 import { handleVoiceSession } from "./voice.ts";
 import { handleChatCompletion } from "./chat.ts";
 import {
-  ANTHROPIC_URL, ANTHROPIC_VERSION, ContentType, Header, NO_STORE,
-  RequestError, errorResponse, limitRequest,
+  ContentType, Header, NO_STORE, RequestError, errorResponse, limitRequest, requestAnthropic,
 } from "./http.ts";
+import { CACHE_CONTROL_TYPE, Role } from "./protocol.ts";
 import { sseToNdjson } from "./stream.ts";
 
 export { RequestError } from "./http.ts";
@@ -25,7 +25,6 @@ export interface Env {
   ELEVENLABS_API_KEY: string;
   AGENT_ID: string;
   AGENT_LLM_SECRET: string;
-  /** Agent turns omit extended thinking so speech starts quickly. */
   VOICE_MODEL: string;
   LIMITER: RateLimit;
 }
@@ -63,9 +62,9 @@ export function buildUpstreamBody(input: AnswerInput, env: Env) {
     max_tokens: MAX_OUTPUT_TOKENS,
     stream: true,
     system: [
-      { type: "text", text: input.system, cache_control: { type: "ephemeral" } },
+      { type: "text", text: input.system, cache_control: { type: CACHE_CONTROL_TYPE } },
     ],
-    messages: [{ role: "user", content: input.prompt }],
+    messages: [{ role: Role.user, content: input.prompt }],
     thinking: { type: "adaptive" },
     output_config: { effort: env.EFFORT },
   };
@@ -83,28 +82,8 @@ async function handleAnswer(request: Request, env: Env): Promise<Response> {
   }
   const input = validateInput(value);
   if ("error" in input) return errorResponse(input.status, input.error);
-  if (!env.ANTHROPIC_API_KEY) return errorResponse(500, RequestError.missingKey);
-
-  let upstream: Response;
-  try {
-    upstream = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        [Header.anthropicKey]: env.ANTHROPIC_API_KEY,
-        [Header.anthropicVersion]: ANTHROPIC_VERSION,
-        [Header.contentType]: ContentType.json,
-      },
-      body: JSON.stringify(buildUpstreamBody(input, env)),
-      signal: request.signal,
-    });
-  } catch {
-    return errorResponse(502, RequestError.upstreamDown);
-  }
-  if (!upstream.ok) {
-    void upstream.body?.cancel().catch(() => {});
-    return errorResponse(502, `upstream ${upstream.status}`);
-  }
-  if (!upstream.body) return errorResponse(502, RequestError.noUpstreamStream);
+  const upstream = await requestAnthropic(request, env, buildUpstreamBody(input, env));
+  if ("error" in upstream) return upstream.error;
 
   return new Response(sseToNdjson(upstream.body), {
     status: 200,

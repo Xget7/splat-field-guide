@@ -1,3 +1,4 @@
+import { StopReason } from "./protocol.ts";
 import { createSseReader, type SseMessage } from "./sse.ts";
 
 const SseEvent = {
@@ -8,7 +9,7 @@ const SseEvent = {
   error: "error",
 } as const;
 const TEXT_DELTA = "text_delta";
-const COMPLETE_STOP_REASONS = new Set(["end_turn", "stop_sequence"]);
+const COMPLETE_STOP_REASONS = new Set<string>([StopReason.endTurn, StopReason.stopSequence]);
 
 export const StreamError = {
   upstream: "upstream error",

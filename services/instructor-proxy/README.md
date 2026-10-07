@@ -16,10 +16,10 @@ Answers complete only on `end_turn` or `stop_sequence`, omit thinking/signatures
 Chat streams include text and tool-call deltas and end with `[DONE]` only after `message_stop`; failed or truncated streams close without `[DONE]`.
 A final user message prefixed with `[narrate] ` streams the remaining text verbatim in chunks of at most 120 characters without a model call.
 
-Use an ignored `.dev.vars` for `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `AGENT_LLM_SECRET` and `AGENT_ID`, then run `npm run dev` locally.
-The agent sync in [`services/voice-agent`](../voice-agent) prints the agent id and stores the same `AGENT_LLM_SECRET` as the agent's custom LLM key.
+Copy [`.dev.vars.example`](.dev.vars.example) to an ignored `.dev.vars`, fill in `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `AGENT_LLM_SECRET` and `AGENT_ID`, then run `npm run dev` locally.
+The agent sync in `services/voice-agent` prints the agent id and stores the same `AGENT_LLM_SECRET` as the agent's custom LLM key.
 The agent connects to this Worker's `/v1/chat/completions`; `VOICE_MODEL` is independent of the typed-answer `MODEL` and `EFFORT`.
-The user sets the new deployment secrets from this directory:
+The user sets the deployment secrets from this directory:
 
 ```sh
 npx wrangler secret put ELEVENLABS_API_KEY
