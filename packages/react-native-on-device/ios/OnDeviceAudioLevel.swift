@@ -50,14 +50,14 @@ final class OnDeviceVoiceActivity {
 
   // Levels are 0 to 1 over 40 dB, so 0.2 is 8 dB.
   private static let margin = 0.2
-  // The absolute threshold is about -40 dBFS.
-  private static let minimumVoice = 0.25
+  // The absolute threshold is about -42 dBFS, low enough for a voice from arm's length.
+  private static let minimumVoice = 0.2
   // Only quiet samples enter this window, so sustained speech cannot raise its own threshold.
   private static let floorWindow: TimeInterval = 3
   // Sustained onset excludes clicks and knocks.
   private static let onset: TimeInterval = 0.1
-  // The pause must outlast gaps between words.
-  static let endPause: TimeInterval = 0.7
+  // The pause must outlast gaps between words and a breath between phrases.
+  static let endPause: TimeInterval = 0.9
   private static let longestTurn: TimeInterval = 20
 
   private var recent: [(time: TimeInterval, level: Double)] = []

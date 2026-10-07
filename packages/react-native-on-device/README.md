@@ -11,7 +11,7 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 | --- | --- |
 | [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)`/`install(locale)` and continuous `listen`; platform recognition with contextual hints |
 | Input callbacks | Partial text, settled nonempty `onTurn`, acoustic `onVoice`, smoothed 0-1 `onLevel` capped at 30 Hz, and one `onStopped` on spontaneous loss |
-| iOS turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
+| iOS turn boundary | 0.9 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
 | Input cancellation | Discard the current turn, reject stale callbacks and allow restart; concurrent listening/missing permission rejects |
 | [SpeechOutput](src/SpeechOutput.nitro.ts) | `speak` replaces output and resolves on completion/stop; `stop` cancels synthesis, playback and callbacks |
 | Output voice | `speak` takes `kokoro` or `system` after `onWord`; awaited `prepare(voice)` returns the voice actually ready, with system fallback when Kokoro cannot run |

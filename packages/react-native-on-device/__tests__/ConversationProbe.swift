@@ -138,6 +138,17 @@ struct ConversationProbe {
       print(String(decoding: try JSONSerialization.data(withJSONObject: events), as: UTF8.self))
       return
     }
+    if CommandLine.arguments.last == "soft" {
+      // About -41 dBFS, a voice from arm's length, with a 0.8 s breath between two phrases.
+      let phrases = [20..<50, 66..<96]
+      for current in 0..<126 {
+        tick = current
+        audio.feed(level: phrases.contains { $0.contains(current) } ? 0.225 : 0, tick: current)
+      }
+      models[0].pendingTurn?("Check the coolant level")
+      print(String(decoding: try JSONSerialization.data(withJSONObject: events), as: UTF8.self))
+      return
+    }
     models[0].onChange("Check coolant")
     for current in 0..<200 {
       tick = current

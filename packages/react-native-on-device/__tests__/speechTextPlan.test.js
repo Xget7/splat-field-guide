@@ -141,8 +141,19 @@ nativeSuite('native conversation', () => {
     );
     const ended = events.filter(event => event.startsWith('voice:false'));
     expect(ended).toHaveLength(1);
-    expect(Number(ended[0].split(':')[2])).toBeGreaterThanOrEqual(214);
+    expect(Number(ended[0].split(':')[2])).toBeGreaterThanOrEqual(218);
     expect(events.at(-1)).toBe('turn:Check coolant:229');
+  });
+
+  test('hears a soft voice and keeps a breath between phrases in one turn', () => {
+    const events = conversation('soft');
+    expect(events.filter(event => event.startsWith('voice:true'))).toHaveLength(
+      1,
+    );
+    const ended = events.filter(event => event.startsWith('voice:false'));
+    expect(ended).toHaveLength(1);
+    expect(Number(ended[0].split(':')[2])).toBeGreaterThanOrEqual(96);
+    expect(events.at(-1)).toBe('turn:Check the coolant level:125');
   });
 
   test('stops on audio loss once, rejects late results and can restart listening', () => {
