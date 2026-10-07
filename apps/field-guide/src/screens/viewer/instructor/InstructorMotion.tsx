@@ -13,11 +13,16 @@ import Animated, {
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
+  useReducedMotion,
   withRepeat,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { IconButton, IconButtonVariant } from '../../../ui/Button';
+import { InstructorMode } from '../../../features/events/types';
+import { useInstructorMode } from '../../../features/events/useAppEvent';
+import { ModeNoticeCopy } from '../../../features/instructor/mode/modeCopy';
+import { switchTitleFor } from './SwitchingCard';
 import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import {
@@ -90,6 +95,7 @@ const MicStatus = {
   muted: 'Muted',
   starting: 'Starting',
 } as const;
+const STATUS_FADE_OUT = FadeOut.duration(Motion.base);
 function statusColor(status: string | null) {
   if (status === MicStatus.muted) {
     return Color.caution;
@@ -146,22 +152,46 @@ export function InstructorStatus({
   voice,
   step,
   live,
+  minimized = false,
 }: {
   voice: InstructorVoice;
   step: string | null;
   live: boolean;
+  minimized?: boolean;
 }) {
+  const mode = useInstructorMode();
+  const reducedMotion = useReducedMotion();
   const thinking = voice.state === VoiceState.thinking;
-  const status = live ? voiceStatus(voice) : thinking ? STATUS.thinking : step;
+  const switching =
+    minimized &&
+    (mode.mode === InstructorMode.switchingToOffline ||
+      mode.mode === InstructorMode.switchingToOnline);
+  const offline =
+    minimized &&
+    mode.mode === InstructorMode.offline &&
+    voice.state === VoiceState.idle &&
+    (!live || !voice.muted);
+  const status = switching
+    ? switchTitleFor(mode)
+    : offline
+    ? ModeNoticeCopy.offlineTitle
+    : live
+    ? voiceStatus(voice)
+    : thinking
+    ? STATUS.thinking
+    : step;
   return (
     <Animated.View
       key={status}
-      entering={FADE_IN}
-      exiting={FADE_OUT}
+      entering={reducedMotion ? undefined : FADE_IN}
+      exiting={reducedMotion ? undefined : STATUS_FADE_OUT}
       style={styles.status}
     >
       {status !== null && (
-        <Label testID="instructor-status" color={statusColor(status)}>
+        <Label
+          testID="instructor-status"
+          color={offline ? Color.caution : statusColor(status)}
+        >
           {status}
         </Label>
       )}

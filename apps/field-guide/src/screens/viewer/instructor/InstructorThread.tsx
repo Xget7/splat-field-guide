@@ -24,7 +24,11 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-import { SpokenSection } from '../../../features/instructor/voice/speechPresentation';
+import {
+  speechTextFor,
+  SpokenSection,
+} from '../../../features/instructor/voice/speechPresentation';
+import { InterruptedLabel } from '../../../features/instructor/mode/modeCopy';
 import {
   VoiceState,
   type InstructorVoice,
@@ -104,6 +108,7 @@ interface SaidProps {
   voice: InstructorVoice;
   streaming?: boolean;
   reducedMotion?: boolean;
+  interrupted?: boolean;
 }
 
 function Said({
@@ -114,20 +119,36 @@ function Said({
   voice,
   streaming = false,
   reducedMotion = true,
+  interrupted = false,
 }: SaidProps) {
   const speaking = live && voice.state === VoiceState.speaking;
+  const answer =
+    reply === '' ? null : (
+      <InstructorAnswer
+        id={live ? 'instructor-reply' : `thread-reply-${index}`}
+        reply={reply}
+        streaming={streaming && live}
+        reducedMotion={reducedMotion}
+        speaking={speaking && voice.section === SpokenSection.reply}
+        word={voice.word}
+        live={live}
+      />
+    );
   return (
     <>
-      {reply !== '' && (
-        <InstructorAnswer
-          id={live ? 'instructor-reply' : `thread-reply-${index}`}
-          reply={reply}
-          streaming={streaming && live}
-          reducedMotion={reducedMotion}
-          speaking={speaking && voice.section === SpokenSection.reply}
-          word={voice.word}
-          live={live}
-        />
+      {interrupted ? (
+        <View
+          accessible
+          accessibilityLabel={[speechTextFor(reply), InterruptedLabel]
+            .filter(Boolean)
+            .join(' ')}
+          style={styles.interruptedAnswer}
+        >
+          {answer}
+          <Text style={styles.interrupted}>{InterruptedLabel}</Text>
+        </View>
+      ) : (
+        answer
       )}
       {caution !== '' &&
         (live ? (
@@ -262,7 +283,9 @@ export function InstructorThread({
                 >
                   {entry.exchange.question}
                 </Text>
-                {entry.exchange.reply === '' && index === live ? (
+                {entry.exchange.reply === '' &&
+                index === live &&
+                !entry.exchange.interrupted ? (
                   <Thinking still={reducedMotion} />
                 ) : (
                   <Said
@@ -273,6 +296,7 @@ export function InstructorThread({
                     voice={voice}
                     streaming={entry.exchange.phase === ExchangePhase.streaming}
                     reducedMotion={reducedMotion}
+                    interrupted={entry.exchange.interrupted}
                   />
                 )}
               </>
@@ -300,6 +324,8 @@ const styles = StyleSheet.create({
     paddingVertical: Space.xs,
   },
   entry: { gap: Space.xs },
+  interruptedAnswer: { gap: Space.xs },
+  interrupted: { ...Type.footnote, color: Color.muted },
   title: { ...Type.headline, color: Color.text },
   pastTitle: { color: Color.muted },
   divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
