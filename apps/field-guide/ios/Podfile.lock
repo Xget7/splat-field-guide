@@ -2439,7 +2439,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 13d2ebfe2d8f1200052509b4fc4abf7a6825a7fc
   ReactCommon: 749169e12aa3461a3df3656a00e48dbe0456b2d6
   ReactNativeDependencies: 94c922c39e0e6150ee9ad05e2ca1946e0ef55783
-  ReactNativeOnDevice: 63a1fb7c76520e7d3fa817c9a3a941e483fa3ab2
+  ReactNativeOnDevice: d61f56883916d39a2805fab45692f3e40d33724b
   ReactNativeSplat: daf596dec73f2b214bf14a02e5f2d80eec8f121b
   RNGestureHandler: eb4c031b22e791851742d29384ddcad30f3ee49d
   RNReanimated: 03d30327bc1ec6e611c283c7fb24572e416f7a03
