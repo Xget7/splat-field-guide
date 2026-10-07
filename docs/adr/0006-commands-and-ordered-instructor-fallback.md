@@ -1,6 +1,6 @@
 # Commands first with ordered instructor fallback
 
-Status: accepted.
+Status: accepted; amended by [0009](0009-elevenlabs-agent-online-pipeline-offline.md) for spoken turns online.
 
 Commands need deterministic session actions, while free questions need grounded answers with offline continuity.
 Route commands locally, then try Claude through the Worker, Apple Foundation Models and scripted pack guidance through one text-reply interface.

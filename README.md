@@ -12,7 +12,7 @@ It is tested on a physical iPhone and the iPad simulator; the Android build runs
 
 ## Architecture
 
-A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions.
+A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
 
 ```mermaid
 flowchart LR
@@ -30,10 +30,12 @@ flowchart LR
   subgraph Device["iPhone, iPad, Android"]
     direction TB
     app["React Native app"] --> splat["react-native-splat<br/>C++ core, Metal, Vulkan"]
-    app --> ondevice["react-native-on-device<br/>speech, Apple model"]
+    app --> ondevice["react-native-on-device<br/>speech, audio link, Apple model"]
   end
   prepare --> app
-  app -->|"open questions, online"| worker["Cloudflare Worker"]
+  app -->|"typed questions,<br/>voice session URL"| worker["Cloudflare Worker"]
+  app -->|"spoken turns, online"| agent["ElevenLabs agent"]
+  agent -->|"custom LLM"| worker
   worker --> claude["Claude API"]
 ```
 
@@ -68,7 +70,7 @@ flowchart LR
 
 ### Instructor turn
 
-Commands never wait on a model, and every model shares one text-reply interface with ordered fallback.
+Typed questions and offline speech meet the command router first, so commands never wait on a model, and every model shares one text-reply interface with ordered fallback.
 
 ```mermaid
 flowchart LR
@@ -86,6 +88,24 @@ flowchart LR
 Replies stay provisional until they complete, so a failure or interruption leaves the session untouched.
 Android has no on-device model, so offline it answers open questions from the scripted pack guidance.
 Commands, procedures and specifications work offline the same way on both platforms.
+Online speech goes to the ElevenLabs agent instead: Claude writes its answers through the Worker, and client tools run the same session actions as the router.
+
+### Instructor modes
+
+A mode controller picks online or offline voice from the network and a Worker ping, with hysteresis, and lets the user force either mode.
+
+```mermaid
+flowchart LR
+  signal["Network path<br/>and Worker ping"] --> controller{"Mode controller"}
+  user["Mode toggle and<br/>weak-signal suggestion"] --> controller
+  controller -->|online| agent["ElevenLabs agent<br/>WebSocket, Claude as custom LLM"]
+  controller -->|offline| pipeline["On-device pipeline<br/>speech recognition, Apple model<br/>or script, Kokoro on iOS"]
+  agent -->|"quota, auth or<br/>lost connection"| fallback["Device speech<br/>system voice, with a notice"]
+```
+
+- Every voice session sits behind one `VoiceSession` port, so only the composition root knows which mode runs ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)).
+- The Worker signs each agent session URL, so no ElevenLabs key ships in the app.
+- Switching shows each piece as it gets ready, and offline answers say they are limited by the device.
 
 ## Decisions
 
@@ -98,8 +118,9 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 | SPZ v3 cloud, label sidecar and SHA-256 manifest ([0004](docs/adr/0004-verified-offline-pack.md)) | 63 MB instead of the 636 MB trained PLY, one label byte per splat, and every byte verified before use | Raw PLY: too large to bundle. Streaming: the guide must open offline. |
 | Commands first, then Claude, Apple Foundation Models and scripted answers ([0006](docs/adr/0006-commands-and-ordered-instructor-fallback.md)) | Navigation stays deterministic, answers are best online, and something useful remains offline | Cloud only: fails offline. On-device only: the Apple model needs eligible hardware and has no Android version. |
 | No on-device model on Android | Offline, the scripted guidance already covers commands, procedures and specifications | Gemini Nano through ML Kit: only on a few recent phones. A bundled model such as Gemma: hundreds of MB in the app. |
-| Cloudflare Worker in front of Claude | Keeps the API key off devices and rate limits per IP | Calling the API from the app: leaks the key. |
-| Voice: SpeechAnalyzer and Kokoro on iOS ([0008](docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md)), system speech on Android | On-device and offline; Kokoro sounds natural and runs in the simulator | AVSpeechSynthesizer alone: robotic, kept as fallback. Core ML Kokoro: crash advisories. Kokoro on Android: another 105 MB. |
+| Cloudflare Worker in front of Claude and ElevenLabs | Keeps both keys off devices, signs agent sessions and rate limits per IP | Calling the APIs from the app: leaks the keys. |
+| ElevenLabs agent online, on-device pipeline offline ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)) | Natural turn-taking, barge-in and fast first audio online, with Claude still writing every answer; offline keeps working | OpenAI Realtime: answers must come from Claude. ElevenLabs speech-to-text with our own turn-taking: rebuilds what the agent does. Kokoro online: latency and a second voice. |
+| Offline voice: SpeechAnalyzer and Kokoro on iOS ([0008](docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md)), system speech on Android | On-device and offline; Kokoro sounds natural and runs in the simulator | AVSpeechSynthesizer alone: robotic, kept as fallback. Core ML Kokoro: crash advisories. Kokoro on Android: another 105 MB. |
 | COLMAP, Brush and SAM 3.1 on Modal ([0007](docs/adr/0007-local-pipeline-with-colmap-and-modal-sam.md)) | Polycam's camera poses were unusable; Brush trains on the Mac GPU; SAM needs CUDA | CUDA-only trainers: no NVIDIA GPU locally. |
 | One repository with two native packages ([0001](docs/adr/0001-one-repository.md)) | The pipeline validates packs with the app's own parser; the viewer and speech packages have unrelated native dependencies | A separate pipeline repository: contract drift. |
 
@@ -136,7 +157,8 @@ Preparation downloads the pack release with `gh` and verifies it, builds or reus
 | Testing | iOS on a physical iPhone and the iPad simulator, shipped through TestFlight; Android on the API 36 tablet emulator only |
 | Checks | Tests for the app, both native packages, the C interface, Metal drawing, the pipeline and the proxy, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
 | Offline | Viewer, procedures, commands and scripted answers work in airplane mode |
-| Secrets | The Claude key lives only in the Worker, behind a per-IP rate limit and a spend cap |
+| Online voice | Mode switching and the device fallback are checked on the iPad simulator and Android emulator; a live agent conversation waits on the Worker deploy and agent sync |
+| Secrets | The Claude and ElevenLabs keys live only in the Worker, behind a per-IP rate limit; upstream spend limits are set in each provider's console |
 | Open before a store release | Physical Android testing, crash reporting, caller attestation on the Worker, a Play listing, a privacy policy, and the AR check on the real engine, which is hidden behind `AR_CHECK_ENABLED` ([TASKS.md](TASKS.md)) |
 
 ## Read next

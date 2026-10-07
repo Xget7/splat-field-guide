@@ -16,7 +16,7 @@ flowchart TB
     direction LR
     pack["pack<br/>parse, catalog"]
     guide["guide<br/>session, tour, progress"]
-    instructor["instructor<br/>router, grounding, models, voice"]
+    instructor["instructor<br/>router, grounding, models, voice, modes"]
     viewport["viewport<br/>gestures, framing, markers"]
   end
   viewport --> splatPkg["react-native-splat"]
@@ -63,8 +63,8 @@ Missing transcription/model assets affect offline input and generation; [speech 
 
 ## Configuration and checks
 
-[INSTRUCTOR_PROXY_URL](src/features/instructor/models/cloudModel.ts) selects the Worker base URL; set it to `null` for offline-only generation.
-The checked-in endpoint is the author's demo Worker; its access policy is in the [service README](../../services/instructor-proxy/README.md).
+`instructor.config.json` sets `proxyUrl`, the Worker base URL that [proxy.ts](src/features/instructor/proxy.ts) reads; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
+The example's `null` runs offline only; deploy your own Worker with the [service README](../../services/instructor-proxy/README.md) and the agent with the [voice agent README](../../services/voice-agent/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
 App tests sit beside their source with fakes in `src/testing`; commands are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).
 [Open acceptance](../../TASKS.md) includes physical performance, voice and AR checks.
