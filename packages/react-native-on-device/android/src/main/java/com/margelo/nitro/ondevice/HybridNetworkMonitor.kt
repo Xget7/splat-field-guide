@@ -71,7 +71,7 @@ class HybridNetworkMonitor : HybridNetworkMonitorSpec() {
     } catch (_: SecurityException) { UNKNOWN }
     return NetworkPath(satisfied, transport,
       !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED), false,
-      capabilities.linkDownstreamBandwidthKbps.toDouble(), signal)
+      capabilities.linkDownstreamBandwidthKbps.takeIf { it > 0 }?.toDouble() ?: UNKNOWN, signal)
   }
 
   private fun stopOnMain() {
