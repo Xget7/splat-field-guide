@@ -80,6 +80,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   // Encode only: draw() commits these in dependency order after validation succeeds.
   id<MTLCommandBuffer> encodeVisibilityAndSort(const Frame& frame, uint32_t slot);
   void encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot);
+  void encodeBackdrop(id<MTLCommandBuffer> cmd);
   void encodeOutput(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture);
   id<MTLBuffer> encodeCapture(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture,
                               CaptureHandler* onCapture);
@@ -90,10 +91,12 @@ class MetalSplatRenderer final : public SplatRenderer {
   id<MTLDevice> device_ = nil;
   id<MTLCommandQueue> queue_ = nil;
   id<MTLLibrary> library_ = nil;
-  id<MTLRenderPipelineState> blitPipeline_ = nil;
+  id<MTLRenderPipelineState> compositePipeline_ = nil;
   id<MTLRenderPipelineState> projectedPipeline_ = nil;
   id<MTLRenderPipelineState> maskPipeline_ = nil;
-  id<MTLRenderPipelineState> backgroundPipeline_ = nil;
+  id<MTLRenderPipelineState> reducePipeline_ = nil;
+  id<MTLRenderPipelineState> pushPipeline_ = nil;
+  id<MTLRenderPipelineState> blurPipeline_ = nil;
   id<MTLDepthStencilState> splatDepth_ = nil;  // pass unless masked, never write
   id<MTLDepthStencilState> maskDepth_ = nil;   // always write
   id<MTLTexture> depth_ = nil;                 // GPU-private, the size of the colour target
@@ -106,6 +109,11 @@ class MetalSplatRenderer final : public SplatRenderer {
   uint32_t width_ = 0;
   uint32_t height_ = 0;
   id<MTLTexture> target_ = nil;  // half floats: front to back coverage needs more than 8 bits
+  // The backdrop behind the capture, at a fraction of the target's size: the target averaged into a
+  // mip pyramid, the fill drawn from it, and the scratch its blur passes through.
+  id<MTLTexture> pyramid_ = nil;
+  id<MTLTexture> backdrop_ = nil;
+  id<MTLTexture> backdropScratch_ = nil;
   std::unique_ptr<MetalWorld> world_;
   float renderScale_ = 1.0f;
   uint32_t generation_ = 0;

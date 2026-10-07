@@ -1,4 +1,5 @@
 #include "SplatRaster.metal"
+#include "SplatBackdrop.metal"
 #include "SplatVisibility.metal"
 #include "PrepareIndirect.metalh"
 #include "SplatRadixSort.metal"

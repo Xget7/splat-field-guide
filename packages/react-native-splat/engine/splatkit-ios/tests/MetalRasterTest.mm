@@ -88,6 +88,21 @@ TEST_F(MetalRasterTest, ASplatReachesThePresentedPixels) {
   EXPECT_EQ(renderer->lastDrawCount(), 1u);
 }
 
+TEST_F(MetalRasterTest, TheBackdropTakesTheCapturesColourAndIsBlackWithoutOne) {
+  constexpr size_t kCorner = 0;    // BGRA of the top-left pixel, far from the splat
+  constexpr uint8_t kDither = 1;   // the composite's dither moves a channel by at most this
+  constexpr uint8_t kTinted = 30;  // how far red must lead green to read as the capture's colour
+  attach(64, 64);
+  SplatRenderer::Frame frame;
+  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  const auto empty = drawAndCapture(frame);
+  EXPECT_LE(empty[kCorner + 2], kDither);
+  ASSERT_TRUE(renderer->uploadWorld(redSplat(), 0));
+  const auto filled = drawAndCapture(frame);
+  EXPECT_GT(filled[kCorner + 2], filled[kCorner + 1] + kTinted);
+  EXPECT_GT(filled[kCorner + 2], filled[kCorner] + kTinted);
+}
+
 TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   constexpr uint8_t kPart = 3;
   constexpr uint8_t kOtherPart = 4;

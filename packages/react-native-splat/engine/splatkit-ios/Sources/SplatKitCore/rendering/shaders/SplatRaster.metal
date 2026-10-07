@@ -26,18 +26,9 @@ vertex BlitVertex blitVertex(uint vertexId [[vertex_id]]) {
   return out;
 }
 
-fragment float4 blitFragment(BlitVertex in [[stage_in]], texture2d<float> source [[texture(0)]]) {
-  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  return source.sample(linearSampler, in.uv);
-}
-
 fragment MaskOut saturationMask(BlitVertex in [[stage_in]], float4 dst [[color(0)]]) {
   if (dst.a < kSaturated) discard_fragment();
   MaskOut out;
   out.depth = kMaskDepth;
   return out;
-}
-
-fragment float4 backgroundFragment(BlitVertex in [[stage_in]], constant float4& color [[buffer(0)]]) {
-  return color;
 }

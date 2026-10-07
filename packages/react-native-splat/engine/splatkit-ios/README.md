@@ -8,7 +8,8 @@ Each frame the GPU does the whole pipeline:
 1. `visibility` projects every splat, drops what is behind the camera, outside the view or below a pixel, and appends the rest keyed by squared distance.
 2. A 32-bit radix sort orders them nearest first.
 3. Seven indirect draws composite them front to back ("under") into a half-float target, with a mask between draws so saturated pixels stop shading.
-4. The background goes under everything and a blit takes the target to the drawable.
+4. The backdrop fills what the capture leaves empty: the target is averaged into a small mip pyramid, each pixel takes the colour of the nearest covered area (a pull-push fill), and two blur passes soften it.
+5. A last pass composites the target over the backdrop into the drawable.
 
 The shaders are compiled at run time from source embedded by [`cmake/`](cmake), so the library is a plain static archive with no metallib to ship.
 

@@ -21,10 +21,36 @@ constexpr MTLPixelFormat kDepthFormat = MTLPixelFormatDepth16Unorm;
 constexpr MTLPixelFormat kPixelFormat = MTLPixelFormatBGRA8Unorm;
 // Front to back coverage accumulates in half floats, which 8 bits would round away.
 constexpr MTLPixelFormat kTargetFormat = MTLPixelFormatRGBA16Float;
-// Black like the view before its first frame, so neither loading nor the app around it shows a seam.
-constexpr float kBackground[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+// The backdrop's resolution divides the target's; it is blurred anyway, so it costs little.
+constexpr uint32_t kBackdropDownscale = 8;
+// Blur tap spacing in backdrop texels; wider than one, as the fill it softens is already smooth.
+constexpr float kBackdropBlurSpacing = 1.5f;
 // The simulator lacks framebuffer fetch, so it skips saturation masking and redraws opaque pixels.
 constexpr bool kSaturationMask = !TARGET_OS_SIMULATOR;
+
+// Mipmap generation halves each level and drops the odd texel, so the pyramid is a power of two
+// for its coarsest level to hold every pixel.
+NSUInteger floorPowerOfTwo(NSUInteger value) {
+  NSUInteger power = 1;
+  while (power * 2 <= value) power *= 2;
+  return power;
+}
+
+// One full-screen triangle from `source` into `destination`, with optional fragment bytes.
+void encodePass(id<MTLCommandBuffer> cmd, id<MTLRenderPipelineState> pipeline,
+                id<MTLTexture> source, id<MTLTexture> destination, const void* bytes = nullptr,
+                size_t length = 0) {
+  MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
+  pass.colorAttachments[0].texture = destination;
+  pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+  id<MTLRenderCommandEncoder> encoder = [cmd renderCommandEncoderWithDescriptor:pass];
+  [encoder setRenderPipelineState:pipeline];
+  [encoder setFragmentTexture:source atIndex:0];
+  if (bytes != nullptr) [encoder setFragmentBytes:bytes length:length atIndex:0];
+  [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+  [encoder endEncoding];
+}
 }
 
 std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
@@ -135,6 +161,9 @@ bool MetalSplatRenderer::createDepth(NSUInteger width, NSUInteger height) {
 
 bool MetalSplatRenderer::createTarget() {
   target_ = nil;
+  pyramid_ = nil;
+  backdrop_ = nil;
+  backdropScratch_ = nil;
   if (width_ == 0 || height_ == 0) return true;
   MTLTextureDescriptor* desc = [MTLTextureDescriptor
       texture2DDescriptorWithPixelFormat:kTargetFormat
@@ -147,8 +176,23 @@ bool MetalSplatRenderer::createTarget() {
   if (target_ == nil) {
     LOGE("render target %lux%lu failed", static_cast<unsigned long>(desc.width),
          static_cast<unsigned long>(desc.height));
+    return false;
   }
-  return target_ != nil;
+  desc.width = (desc.width + kBackdropDownscale - 1) / kBackdropDownscale;
+  desc.height = (desc.height + kBackdropDownscale - 1) / kBackdropDownscale;
+  backdrop_ = [device_ newTextureWithDescriptor:desc];
+  backdropScratch_ = [device_ newTextureWithDescriptor:desc];
+  desc.width = floorPowerOfTwo(desc.width);
+  desc.height = floorPowerOfTwo(desc.height);
+  desc.mipmapLevelCount = 1 + static_cast<NSUInteger>(std::log2(std::max(desc.width, desc.height)));
+  pyramid_ = [device_ newTextureWithDescriptor:desc];
+  if (pyramid_ == nil || backdrop_ == nil || backdropScratch_ == nil) {
+    LOGE("backdrop %lux%lu failed", static_cast<unsigned long>(desc.width),
+         static_cast<unsigned long>(desc.height));
+    target_ = nil;
+    return false;
+  }
+  return true;
 }
 
 bool MetalSplatRenderer::createPipelines() {
@@ -168,13 +212,6 @@ bool MetalSplatRenderer::createPipelines() {
   projectedPipeline_ = [device_ newRenderPipelineStateWithDescriptor:under error:&error];
   if (projectedPipeline_ == nil) {
     LOGE("projected pipeline: %s", error.localizedDescription.UTF8String);
-    return false;
-  }
-  under.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
-  under.fragmentFunction = [library_ newFunctionWithName:@"backgroundFragment"];
-  backgroundPipeline_ = [device_ newRenderPipelineStateWithDescriptor:under error:&error];
-  if (backgroundPipeline_ == nil) {
-    LOGE("background pipeline: %s", error.localizedDescription.UTF8String);
     return false;
   }
   if (kSaturationMask) {
@@ -200,14 +237,22 @@ bool MetalSplatRenderer::createPipelines() {
 
   MTLRenderPipelineDescriptor* blit = [MTLRenderPipelineDescriptor new];
   blit.vertexFunction = [library_ newFunctionWithName:@"blitVertex"];
-  blit.fragmentFunction = [library_ newFunctionWithName:@"blitFragment"];
-  blit.colorAttachments[0].pixelFormat = kPixelFormat;
-  blitPipeline_ = [device_ newRenderPipelineStateWithDescriptor:blit error:&error];
-  if (blitPipeline_ == nil) {
-    LOGE("blit pipeline: %s", error.localizedDescription.UTF8String);
-    return false;
-  }
-  return true;
+  auto fullScreen = [&](NSString* fragment, MTLPixelFormat format) {
+    blit.fragmentFunction = [library_ newFunctionWithName:fragment];
+    blit.colorAttachments[0].pixelFormat = format;
+    id<MTLRenderPipelineState> pipeline = [device_ newRenderPipelineStateWithDescriptor:blit
+                                                                                  error:&error];
+    if (pipeline == nil) {
+      LOGE("%s pipeline: %s", fragment.UTF8String, error.localizedDescription.UTF8String);
+    }
+    return pipeline;
+  };
+  reducePipeline_ = fullScreen(@"backdropReduce", kTargetFormat);
+  pushPipeline_ = fullScreen(@"backdropPush", kTargetFormat);
+  blurPipeline_ = fullScreen(@"backdropBlur", kTargetFormat);
+  compositePipeline_ = fullScreen(@"compositeFragment", kPixelFormat);
+  return reducePipeline_ != nil && pushPipeline_ != nil && blurPipeline_ != nil &&
+         compositePipeline_ != nil;
 }
 
 
@@ -262,6 +307,7 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
 
   id<MTLCommandBuffer> cmd = [queue_ commandBuffer];
   encodeRaster(cmd, drewWorld ? slot : kFramesInFlight);
+  encodeBackdrop(cmd);
   encodeOutput(cmd, drawable.texture);
   CaptureHandler onCapture;
   id<MTLBuffer> captured = encodeCapture(cmd, drawable.texture, &onCapture);
@@ -354,11 +400,21 @@ void MetalSplatRenderer::encodeRaster(id<MTLCommandBuffer> cmd, uint32_t slot) {
           indirectBufferOffset:batch * MetalVisibility::kDrawArgumentBytes];
     }
   }
-  [encoder setRenderPipelineState:backgroundPipeline_];
-  [encoder setDepthStencilState:splatDepth_];
-  [encoder setFragmentBytes:kBackground length:sizeof(kBackground) atIndex:0];
-  [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
   [encoder endEncoding];
+}
+
+void MetalSplatRenderer::encodeBackdrop(id<MTLCommandBuffer> cmd) {
+  const float footprint[2] = {static_cast<float>(target_.width) / pyramid_.width,
+                              static_cast<float>(target_.height) / pyramid_.height};
+  encodePass(cmd, reducePipeline_, target_, pyramid_, footprint, sizeof(footprint));
+  id<MTLBlitCommandEncoder> mips = [cmd blitCommandEncoder];
+  [mips generateMipmapsForTexture:pyramid_];
+  [mips endEncoding];
+  encodePass(cmd, pushPipeline_, pyramid_, backdrop_);
+  const float across[2] = {kBackdropBlurSpacing / backdrop_.width, 0};
+  const float down[2] = {0, kBackdropBlurSpacing / backdrop_.height};
+  encodePass(cmd, blurPipeline_, backdrop_, backdropScratch_, across, sizeof(across));
+  encodePass(cmd, blurPipeline_, backdropScratch_, backdrop_, down, sizeof(down));
 }
 
 void MetalSplatRenderer::encodeOutput(id<MTLCommandBuffer> cmd, id<MTLTexture> drawableTexture) {
@@ -367,8 +423,9 @@ void MetalSplatRenderer::encodeOutput(id<MTLCommandBuffer> cmd, id<MTLTexture> d
   blit.colorAttachments[0].loadAction = MTLLoadActionDontCare;
   blit.colorAttachments[0].storeAction = MTLStoreActionStore;
   id<MTLRenderCommandEncoder> scale = [cmd renderCommandEncoderWithDescriptor:blit];
-  [scale setRenderPipelineState:blitPipeline_];
+  [scale setRenderPipelineState:compositePipeline_];
   [scale setFragmentTexture:target_ atIndex:0];
+  [scale setFragmentTexture:backdrop_ atIndex:1];
   [scale drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
   [scale endEncoding];
 }
