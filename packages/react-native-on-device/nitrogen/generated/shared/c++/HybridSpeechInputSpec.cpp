@@ -16,6 +16,7 @@ namespace margelo::nitro::ondevice {
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("requestPermission", &HybridSpeechInputSpec::requestPermission);
       prototype.registerHybridMethod("prepare", &HybridSpeechInputSpec::prepare);
+      prototype.registerHybridMethod("install", &HybridSpeechInputSpec::install);
       prototype.registerHybridMethod("listen", &HybridSpeechInputSpec::listen);
       prototype.registerHybridMethod("cancel", &HybridSpeechInputSpec::cancel);
     });

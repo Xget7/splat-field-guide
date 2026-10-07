@@ -9,7 +9,7 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 
 | Interface | Contract |
 | --- | --- |
-| [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)` and continuous `listen`; platform recognition with contextual hints |
+| [SpeechInput](src/SpeechInput.nitro.ts) | Permission, awaited `prepare(locale)`/`install(locale)` and continuous `listen`; platform recognition with contextual hints |
 | Input callbacks | Partial text, settled nonempty `onTurn`, acoustic `onVoice`, smoothed 0-1 `onLevel` capped at 30 Hz, and one `onStopped` on spontaneous loss |
 | iOS turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
 | Input cancellation | Discard the current turn, reject stale callbacks and allow restart; concurrent listening/missing permission rejects |
@@ -24,7 +24,8 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 ## Android
 
 [Speech input](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechInput.kt) uses `android.speech.SpeechRecognizer`, preferring on-device recognition when available and requesting offline recognition from the system service otherwise.
-`prepare(locale)` checks installed language support where the API permits and requests model preparation; unavailable assets remain unavailable until ready.
+`prepare(locale)` checks installed language support where the API permits without showing system UI.
+`install(locale)` may request a model download; scheduled downloads and errors report unavailable until assets are ready.
 Recognition-service results settle turns, and listening restarts after each completed turn while preserving the shared callback and cancellation contract.
 Microphone permission is required, and a service's offline request does not guarantee offline availability.
 [Speech output](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechOutput.kt) uses `android.speech.tts.TextToSpeech` with an installed voice that requires no network, bounded text chunks and UTF-16 range callbacks.

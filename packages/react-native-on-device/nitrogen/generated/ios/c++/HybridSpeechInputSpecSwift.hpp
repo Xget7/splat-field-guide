@@ -90,6 +90,14 @@ namespace margelo::nitro::ondevice {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline std::shared_ptr<Promise<SpeechInputAvailability>> install(const std::string& locale) override {
+      auto __result = _swiftPart.install(locale);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
     inline std::shared_ptr<Promise<void>> listen(const std::string& locale, const std::vector<std::string>& hints, const std::function<void(const std::string& /* transcript */)>& onPartial, const std::function<void(const std::string& /* transcript */)>& onTurn, const std::function<void(double /* level */)>& onLevel, const std::function<void(bool /* speaking */)>& onVoice, const std::function<void(const std::string& /* reason */)>& onStopped) override {
       auto __result = _swiftPart.listen(locale, hints, onPartial, onTurn, onLevel, onVoice, onStopped);
       if (__result.hasError()) [[unlikely]] {

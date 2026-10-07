@@ -92,6 +92,22 @@ namespace margelo::nitro::ondevice {
       return __promise;
     }();
   }
+  std::shared_ptr<Promise<SpeechInputAvailability>> JHybridSpeechInputSpec::install(const std::string& locale) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* locale */)>("install");
+    auto __result = method(_javaPart, jni::make_jstring(locale));
+    return [&]() {
+      auto __promise = Promise<SpeechInputAvailability>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
+        auto __result = jni::static_ref_cast<JSpeechInputAvailability>(__boxedResult);
+        __promise->resolve(__result->toCpp());
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
   std::shared_ptr<Promise<void>> JHybridSpeechInputSpec::listen(const std::string& locale, const std::vector<std::string>& hints, const std::function<void(const std::string& /* transcript */)>& onPartial, const std::function<void(const std::string& /* transcript */)>& onTurn, const std::function<void(double /* level */)>& onLevel, const std::function<void(bool /* speaking */)>& onVoice, const std::function<void(const std::string& /* reason */)>& onStopped) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* locale */, jni::alias_ref<jni::JArrayClass<jni::JString>> /* hints */, jni::alias_ref<JFunc_void_std__string::javaobject> /* onPartial */, jni::alias_ref<JFunc_void_std__string::javaobject> /* onTurn */, jni::alias_ref<JFunc_void_double::javaobject> /* onLevel */, jni::alias_ref<JFunc_void_bool::javaobject> /* onVoice */, jni::alias_ref<JFunc_void_std__string::javaobject> /* onStopped */)>("listen_cxx");
     auto __result = method(_javaPart, jni::make_jstring(locale), [&](auto&& __input) {

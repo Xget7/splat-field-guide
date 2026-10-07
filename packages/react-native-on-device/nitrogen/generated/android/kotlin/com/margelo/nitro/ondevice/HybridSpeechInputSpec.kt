@@ -38,6 +38,10 @@ abstract class HybridSpeechInputSpec: HybridObject() {
   @Keep
   abstract fun prepare(locale: String): Promise<SpeechInputAvailability>
   
+  @DoNotStrip
+  @Keep
+  abstract fun install(locale: String): Promise<SpeechInputAvailability>
+  
   abstract fun listen(locale: String, hints: Array<String>, onPartial: (transcript: String) -> Unit, onTurn: (transcript: String) -> Unit, onLevel: (level: Double) -> Unit, onVoice: (speaking: Boolean) -> Unit, onStopped: (reason: String) -> Unit): Promise<Unit>
   
   @DoNotStrip

@@ -15,6 +15,7 @@ public protocol HybridSpeechInputSpec_protocol: HybridObject {
   // Methods
   func requestPermission() throws -> Promise<SpeechPermission>
   func prepare(locale: String) throws -> Promise<SpeechInputAvailability>
+  func install(locale: String) throws -> Promise<SpeechInputAvailability>
   func listen(locale: String, hints: [String], onPartial: @escaping (_ transcript: String) -> Void, onTurn: @escaping (_ transcript: String) -> Void, onLevel: @escaping (_ level: Double) -> Void, onVoice: @escaping (_ speaking: Bool) -> Void, onStopped: @escaping (_ reason: String) -> Void) throws -> Promise<Void>
   func cancel() throws -> Void
 }

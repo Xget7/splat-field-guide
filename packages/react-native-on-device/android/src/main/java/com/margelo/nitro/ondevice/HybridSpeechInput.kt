@@ -30,7 +30,11 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
 
   override fun requestPermission(): Promise<SpeechPermission> = MicrophonePermission.request()
 
-  override fun prepare(locale: String): Promise<SpeechInputAvailability> {
+  override fun prepare(locale: String): Promise<SpeechInputAvailability> = prepareLocale(locale, install = false)
+
+  override fun install(locale: String): Promise<SpeechInputAvailability> = prepareLocale(locale, install = true)
+
+  private fun prepareLocale(locale: String, install: Boolean): Promise<SpeechInputAvailability> {
     val promise = Promise<SpeechInputAvailability>()
     main.post {
       preparation?.destroy()
@@ -64,7 +68,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
           override fun onSupportResult(support: RecognitionSupport) {
             if (token != preparationGeneration) return
             if (containsLanguage(support.installedOnDeviceLanguages)) finish(true)
-            else if (Build.VERSION.SDK_INT >= 34 && containsLanguage(support.supportedOnDeviceLanguages)) {
+            else if (install && Build.VERSION.SDK_INT >= 34 && containsLanguage(support.supportedOnDeviceLanguages)) {
               try {
                 speech.triggerModelDownload(intent, context.mainExecutor, object : ModelDownloadListener {
                   override fun onProgress(progress: Int) {}

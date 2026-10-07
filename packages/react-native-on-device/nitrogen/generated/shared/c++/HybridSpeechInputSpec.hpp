@@ -58,6 +58,7 @@ namespace margelo::nitro::ondevice {
       // Methods
       virtual std::shared_ptr<Promise<SpeechPermission>> requestPermission() = 0;
       virtual std::shared_ptr<Promise<SpeechInputAvailability>> prepare(const std::string& locale) = 0;
+      virtual std::shared_ptr<Promise<SpeechInputAvailability>> install(const std::string& locale) = 0;
       virtual std::shared_ptr<Promise<void>> listen(const std::string& locale, const std::vector<std::string>& hints, const std::function<void(const std::string& /* transcript */)>& onPartial, const std::function<void(const std::string& /* transcript */)>& onTurn, const std::function<void(double /* level */)>& onLevel, const std::function<void(bool /* speaking */)>& onVoice, const std::function<void(const std::string& /* reason */)>& onStopped) = 0;
       virtual void cancel() = 0;
 

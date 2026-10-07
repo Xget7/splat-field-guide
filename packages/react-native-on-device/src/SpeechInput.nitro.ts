@@ -12,9 +12,11 @@ export interface SpeechInput
   /** Asks for microphone and speech recognition access; once answered, later calls just report it. */
   requestPermission(): Promise<SpeechPermission>;
   /**
-   * Prepares locale assets where supported; await readiness before `listen`.
+   * Reports locale readiness without system UI on Android; iOS prepares its locale assets.
    */
   prepare(locale: string): Promise<SpeechInputAvailability>;
+  /** May request a system model download; await readiness before `listen`. */
+  install(locale: string): Promise<SpeechInputAvailability>;
   /**
    * Listens until `cancel` or audio/recognition loss; `hints` bias recognition toward supplied words.
    * iOS shares Kokoro playback for echo cancellation; system speech needs caller-side echo filtering.

@@ -34,6 +34,10 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     return promise
   }
 
+  func install(locale: String) throws -> Promise<SpeechInputAvailability> {
+    try prepare(locale: locale)
+  }
+
   func listen(locale: String, hints: [String], onPartial: @escaping (String) -> Void,
     onTurn: @escaping (String) -> Void, onLevel: @escaping (Double) -> Void,
     onVoice: @escaping (Bool) -> Void, onStopped: @escaping (String) -> Void) throws
