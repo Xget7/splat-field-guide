@@ -16,9 +16,12 @@ import {
 } from './theme';
 import { Icon, type IconName } from './Icon';
 
+const BUTTON_ICON_SIZE = 18;
+
 export const ButtonVariant = {
   primary: 'primary',
   secondary: 'secondary',
+  quiet: 'quiet',
 } as const;
 export type ButtonVariant = (typeof ButtonVariant)[keyof typeof ButtonVariant];
 
@@ -38,6 +41,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const primary = variant === ButtonVariant.primary;
+  const quiet = variant === ButtonVariant.quiet;
   const ink = disabled ? Color.faint : primary ? Color.actionText : Color.text;
   return (
     <Pressable
@@ -47,14 +51,30 @@ export function Button({
       {...props}
       style={({ pressed }) => [
         styles.button,
-        primary ? styles.primary : styles.secondary,
-        pressed && (primary ? styles.primaryPressed : styles.secondaryPressed),
-        disabled && styles.disabled,
+        BUTTON_STYLE[variant],
+        pressed && BUTTON_PRESSED_STYLE[variant],
+        disabled && !quiet && styles.disabled,
         style,
       ]}
     >
-      {icon && <Icon name={icon} size={18} color={ink} />}
-      <Text style={[styles.text, { color: ink }]}>{label}</Text>
+      {({ pressed }) => (
+        <>
+          {!quiet && icon && (
+            <Icon name={icon} size={BUTTON_ICON_SIZE} color={ink} />
+          )}
+          <Text
+            style={[
+              styles.text,
+              { color: ink },
+              quiet && styles.quietText,
+              quiet && pressed && styles.quietTextPressed,
+              disabled && styles.disabledText,
+            ]}
+          >
+            {label}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -137,12 +157,31 @@ const styles = StyleSheet.create({
   activePressed: { backgroundColor: Color.accentPressed },
   disabled: { backgroundColor: Color.surface, borderColor: Color.line },
   text: { ...Type.headline },
+  quiet: {
+    height: MIN_TOUCH,
+    minWidth: MIN_TOUCH,
+    paddingHorizontal: Space.sm,
+  },
+  quietText: { ...Type.label, color: Color.secondaryText },
+  quietTextPressed: { color: Color.text },
+  disabledText: { color: Color.faint },
   iconButton: {
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
+
+const BUTTON_STYLE = {
+  primary: styles.primary,
+  secondary: styles.secondary,
+  quiet: styles.quiet,
+} as const;
+const BUTTON_PRESSED_STYLE = {
+  primary: styles.primaryPressed,
+  secondary: styles.secondaryPressed,
+  quiet: undefined,
+} as const;
 
 const VARIANT_STYLE = StyleSheet.create({
   overlay: {

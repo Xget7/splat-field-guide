@@ -1,60 +1,38 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  useReducedMotion,
-} from 'react-native-reanimated';
 import { useSwitchSteps } from '../../../features/events/useAppEvent';
-import {
-  InstructorMode,
-  ModeCause,
-  SwitchStepState,
-  type ModeStatus,
-} from '../../../features/events/types';
-import { SwitchTitle } from '../../../features/instructor/mode/modeCopy';
+import { SwitchStepState } from '../../../features/events/types';
 import { Icon, IconName } from '../../../ui/Icon';
-import { Color, Motion, Space, Type } from '../../../ui/theme';
+import { Color, Space, Type } from '../../../ui/theme';
+import { ModeBanner } from './ModeBanner';
 
-const RULE = 2;
-const ICON_SIZE = 16;
-const ENTER = FadeIn.duration(Motion.base);
-const EXIT = FadeOut.duration(Motion.base);
+const INDICATOR_SIZE = 20;
 
-export function switchTitleFor(status: ModeStatus): string {
-  return status.mode === InstructorMode.switchingToOffline
-    ? status.cause === ModeCause.network
-      ? SwitchTitle.lostConnection
-      : SwitchTitle.toOffline
-    : status.cause === ModeCause.recovered
-    ? SwitchTitle.toOnline
-    : SwitchTitle.toOnlineByUser;
-}
-
-export function SwitchingCard({ status }: { status: ModeStatus }) {
+export function SwitchingCard({ title }: { title: string | null }) {
   const steps = useSwitchSteps();
-  const reducedMotion = useReducedMotion();
   return (
-    <Animated.View
-      entering={reducedMotion ? undefined : ENTER}
-      exiting={reducedMotion ? undefined : EXIT}
-      style={styles.switching}
-    >
+    <ModeBanner ruleColor={Color.accent}>
       <Text accessibilityLiveRegion="polite" style={styles.title}>
-        {switchTitleFor(status)}
+        {title}
       </Text>
       {steps.map(step => (
         <View key={step.piece} style={styles.step}>
-          {step.state === SwitchStepState.starting ? (
-            <ActivityIndicator
-              size="small"
-              color={Color.muted}
-              accessible={false}
-            />
-          ) : step.state === SwitchStepState.ready ? (
-            <Icon name={IconName.check} size={ICON_SIZE} color={Color.muted} />
-          ) : null}
+          <View style={styles.indicator}>
+            {step.state === SwitchStepState.starting && (
+              <ActivityIndicator
+                size="small"
+                color={Color.muted}
+                accessible={false}
+              />
+            )}
+            {step.state === SwitchStepState.ready && (
+              <Icon
+                name={IconName.check}
+                size={INDICATOR_SIZE}
+                color={Color.muted}
+              />
+            )}
+          </View>
           <Text
-            accessibilityLiveRegion="polite"
             style={[
               styles.detail,
               step.state === SwitchStepState.fallback && styles.fallback,
@@ -64,20 +42,19 @@ export function SwitchingCard({ status }: { status: ModeStatus }) {
           </Text>
         </View>
       ))}
-    </Animated.View>
+    </ModeBanner>
   );
 }
 
 const styles = StyleSheet.create({
-  switching: {
-    borderLeftWidth: RULE,
-    borderLeftColor: Color.accent,
-    paddingLeft: Space.md,
-    paddingVertical: Space.sm,
-    gap: Space.xs,
-  },
   title: { ...Type.calloutStrong, color: Color.text },
   step: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
+  indicator: {
+    width: INDICATOR_SIZE,
+    height: INDICATOR_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   detail: { ...Type.footnote, color: Color.secondaryText, flexShrink: 1 },
   fallback: { color: Color.caution },
 });

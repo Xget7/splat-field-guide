@@ -2,9 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
+import { MODE_RULE_WIDTH } from './ModeBanner';
 
 const ICON_SIZE = 16;
-const RULE = 2;
 
 export function CautionNote({
   text,
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
     paddingVertical: Space.sm,
     paddingHorizontal: Space.md,
     borderRadius: Radius.sm,
-    borderLeftWidth: RULE,
+    borderLeftWidth: MODE_RULE_WIDTH,
     borderLeftColor: Color.caution,
     backgroundColor: Color.cautionWash,
   },

@@ -16,7 +16,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
+import {
+  Button,
+  ButtonVariant,
+  IconButton,
+  IconButtonVariant,
+} from '../../../ui/Button';
 import { Icon, IconName } from '../../../ui/Icon';
 import { stepLabel } from '../../../ui/readout';
 import {
@@ -34,15 +39,8 @@ import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { InstructorThread } from './InstructorThread';
 import { ModeArea } from './ModeArea';
 import { appEvents } from '../../../features/events/bus';
-import {
-  InstructorMode,
-  ModeRequestType,
-} from '../../../features/events/types';
-import { useInstructorMode } from '../../../features/events/useAppEvent';
-import {
-  ModeToggleCopy,
-  SwitchTitle,
-} from '../../../features/instructor/mode/modeCopy';
+import { isSwitching } from '../../../features/events/mode';
+import { toggleFor, useModeView } from './useModeView';
 import {
   speechTextFor,
   SpokenSection,
@@ -155,10 +153,9 @@ export function InstructorPanel({
       ? last.exchange
       : { id: null, reply: last.card.body });
   const reducedMotion = useReducedMotion();
-  const instructorMode = useInstructorMode();
-  const switching =
-    instructorMode.mode === InstructorMode.switchingToOffline ||
-    instructorMode.mode === InstructorMode.switchingToOnline;
+  const instructorMode = useModeView();
+  const switching = isSwitching(instructorMode.mode);
+  const modeToggle = toggleFor(instructorMode.forced);
   const minimized = !docked && mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
@@ -344,37 +341,16 @@ export function InstructorPanel({
               )}
             </Pressable>
             {!minimized && !switching && (
-              <Pressable
-                testID="instructor-mode-toggle"
-                accessibilityRole="button"
-                accessibilityHint={
-                  instructorMode.forced
-                    ? SwitchTitle.toOnlineByUser
-                    : SwitchTitle.toOffline
-                }
+              <Button
+                label={modeToggle.label}
+                variant={ButtonVariant.quiet}
+                accessibilityHint={modeToggle.hint}
                 onPress={() =>
                   appEvents.emit('modeRequest', {
-                    type: instructorMode.forced
-                      ? ModeRequestType.allowOnline
-                      : ModeRequestType.forceOffline,
+                    type: modeToggle.requestType,
                   })
                 }
-                style={styles.modeToggle}
-              >
-                {({ pressed }) => (
-                  <Text
-                    testID="instructor-mode-toggle-label"
-                    style={[
-                      styles.modeToggleLabel,
-                      pressed && styles.modeTogglePressed,
-                    ]}
-                  >
-                    {instructorMode.forced
-                      ? ModeToggleCopy.goOnline
-                      : ModeToggleCopy.goOffline}
-                  </Text>
-                )}
-              </Pressable>
+              />
             )}
             {!minimized && canStop && (
               <Animated.View entering={FADE_IN} exiting={FADE_OUT}>
@@ -547,13 +523,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
-  modeToggle: {
-    minHeight: MIN_TOUCH,
-    minWidth: MIN_TOUCH,
-    justifyContent: 'center',
-  },
-  modeToggleLabel: { ...Type.label, color: Color.secondaryText },
-  modeTogglePressed: { color: Color.text },
   headerButton: {
     flex: 1,
     minHeight: MIN_TOUCH,

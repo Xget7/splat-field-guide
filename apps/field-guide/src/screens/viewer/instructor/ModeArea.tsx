@@ -1,23 +1,19 @@
-import {
-  useInstructorMode,
-  useModeSuggestion,
-} from '../../../features/events/useAppEvent';
+import { useModeSuggestion } from '../../../features/events/useAppEvent';
 import { InstructorMode } from '../../../features/events/types';
+import { isSwitching } from '../../../features/events/mode';
+import { useModeView } from './useModeView';
 import { ModeNotice } from './ModeNotice';
 import { ModeSuggestion } from './ModeSuggestion';
 import { SwitchingCard } from './SwitchingCard';
 
 export function ModeArea() {
-  const status = useInstructorMode();
+  const view = useModeView();
   const suggestion = useModeSuggestion();
-  if (
-    status.mode === InstructorMode.switchingToOffline ||
-    status.mode === InstructorMode.switchingToOnline
-  ) {
-    return <SwitchingCard status={status} />;
+  if (isSwitching(view.mode)) {
+    return <SwitchingCard title={view.switchTitle} />;
   }
-  if (suggestion !== null && status.mode === InstructorMode.online) {
+  if (suggestion !== null && view.mode === InstructorMode.online) {
     return <ModeSuggestion />;
   }
-  return <ModeNotice status={status} />;
+  return <ModeNotice notice={view.notice} />;
 }

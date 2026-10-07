@@ -20,9 +20,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { IconButton, IconButtonVariant } from '../../../ui/Button';
 import { InstructorMode } from '../../../features/events/types';
-import { useInstructorMode } from '../../../features/events/useAppEvent';
-import { ModeNoticeCopy } from '../../../features/instructor/mode/modeCopy';
-import { switchTitleFor } from './SwitchingCard';
+import { isSwitching } from '../../../features/events/mode';
+import { useModeView } from './useModeView';
 import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import {
@@ -95,7 +94,6 @@ const MicStatus = {
   muted: 'Muted',
   starting: 'Starting',
 } as const;
-const STATUS_FADE_OUT = FadeOut.duration(Motion.base);
 function statusColor(status: string | null) {
   if (status === MicStatus.muted) {
     return Color.caution;
@@ -159,32 +157,29 @@ export function InstructorStatus({
   live: boolean;
   minimized?: boolean;
 }) {
-  const mode = useInstructorMode();
+  const mode = useModeView();
   const reducedMotion = useReducedMotion();
   const thinking = voice.state === VoiceState.thinking;
-  const switching =
-    minimized &&
-    (mode.mode === InstructorMode.switchingToOffline ||
-      mode.mode === InstructorMode.switchingToOnline);
+  const switching = minimized && isSwitching(mode.mode);
   const offline =
     minimized &&
     mode.mode === InstructorMode.offline &&
     voice.state === VoiceState.idle &&
     (!live || !voice.muted);
-  const status = switching
-    ? switchTitleFor(mode)
-    : offline
-    ? ModeNoticeCopy.offlineTitle
-    : live
-    ? voiceStatus(voice)
-    : thinking
-    ? STATUS.thinking
-    : step;
+  let status = step;
+  if (live) {
+    status = voiceStatus(voice);
+  } else if (thinking) {
+    status = STATUS.thinking;
+  }
+  if (switching || offline) {
+    status = mode.minimizedStatusText;
+  }
   return (
     <Animated.View
       key={status}
       entering={reducedMotion ? undefined : FADE_IN}
-      exiting={reducedMotion ? undefined : STATUS_FADE_OUT}
+      exiting={reducedMotion ? undefined : FADE_OUT}
       style={styles.status}
     >
       {status !== null && (
@@ -345,6 +340,7 @@ interface KaraokeProps {
   leadLength?: number;
   style?: TextStyle;
   numberOfLines?: number;
+  accessibilityLabel?: string;
 }
 
 export function KaraokeText({
@@ -357,6 +353,7 @@ export function KaraokeText({
   leadLength = 0,
   style,
   numberOfLines,
+  accessibilityLabel = text,
 }: KaraokeProps) {
   const spans = karaokeSpans(text, word, speaking, location, speechLength);
   const withLead = (words: string, start: number) => {
@@ -375,7 +372,7 @@ export function KaraokeText({
     <Text
       testID={id}
       numberOfLines={numberOfLines}
-      accessibilityLabel={text}
+      accessibilityLabel={accessibilityLabel}
       accessibilityLiveRegion="polite"
       style={[styles.reply, style]}
     >
