@@ -13,9 +13,12 @@ import {
 
 export const ModeTiming = {
   RECOVERY_MS: 10000,
+  SUGGESTION_DELAY_MS: 5000,
   SUGGESTION_SNOOZE_MS: 300000,
 } as const;
-export const SuggestionReason = { weak: 'Weak signal' } as const;
+export const SuggestionReason = { weak: 'weak' } as const;
+export type SuggestionReason =
+  (typeof SuggestionReason)[keyof typeof SuggestionReason];
 export interface ModeControllerOptions {
   readonly emitMode: (status: ModeStatus) => void;
   readonly emitSuggestion: (suggestion: ModeSuggestion | null) => void;
@@ -25,6 +28,7 @@ export interface ModeControllerOptions {
 }
 export interface ModeController {
   current(): ModeStatus;
+  dispose(): void;
   network(status: NetworkStatus): void;
   request(request: ModeRequest): void;
   setIdle(idle: boolean): void;
@@ -48,10 +52,16 @@ export function createModeController(
     forced: false,
   };
   let initialized = false;
+  let disposed = false;
   let quality: NetworkQuality = NetworkQuality.good;
   let idle = true;
   let available = true;
   let suggestion = false;
+  let weakSince: number | null = null;
+  let goodSince: number | null = null;
+  let suggestionTimer: ReturnType<typeof setTimeout> | null = null;
+  let withdrawalTimer: ReturnType<typeof setTimeout> | null = null;
+  let snoozeTimer: ReturnType<typeof setTimeout> | null = null;
   let snoozedUntil = 0;
   let recovery: ReturnType<typeof setTimeout> | null = null;
   let recovered = false;
@@ -83,6 +93,54 @@ export function createModeController(
         : null,
     );
   }
+  function clearSuggestionTimers() {
+    if (suggestionTimer !== null) {
+      cancel(suggestionTimer);
+      suggestionTimer = null;
+    }
+    if (withdrawalTimer !== null) {
+      cancel(withdrawalTimer);
+      withdrawalTimer = null;
+    }
+  }
+  function updateSuggestion() {
+    if (quality === NetworkQuality.weak) {
+      if (withdrawalTimer !== null) {
+        cancel(withdrawalTimer);
+        withdrawalTimer = null;
+      }
+      if (suggestion || now() < snoozedUntil) {
+        return;
+      }
+      const remaining =
+        ModeTiming.SUGGESTION_DELAY_MS - (now() - (weakSince ?? now()));
+      if (remaining <= 0) {
+        suggest(true);
+      } else if (suggestionTimer === null) {
+        suggestionTimer = schedule(() => {
+          suggestionTimer = null;
+          evaluate();
+        }, remaining);
+      }
+    } else {
+      if (suggestionTimer !== null) {
+        cancel(suggestionTimer);
+        suggestionTimer = null;
+      }
+      if (suggestion && withdrawalTimer === null) {
+        const remaining =
+          ModeTiming.RECOVERY_MS - (now() - (goodSince ?? now()));
+        if (remaining <= 0) {
+          suggest(false);
+        } else {
+          withdrawalTimer = schedule(() => {
+            withdrawalTimer = null;
+            evaluate();
+          }, remaining);
+        }
+      }
+    }
+  }
   function cancelRecovery() {
     if (recovery !== null) {
       cancel(recovery);
@@ -97,13 +155,14 @@ export function createModeController(
     cause: ModeCause,
   ) {
     suggest(false);
+    clearSuggestionTimers();
     cancelRecovery();
     userOnline = false;
     userOffline = false;
     emit({ ...status, mode, cause });
   }
   function evaluate() {
-    if (!initialized || switching()) {
+    if (disposed || !initialized || switching()) {
       return;
     }
     if (status.mode === InstructorMode.online) {
@@ -113,11 +172,12 @@ export function createModeController(
       } else if (quality === NetworkQuality.offline) {
         begin(InstructorMode.switchingToOffline, ModeCause.network);
       } else {
-        suggest(quality === NetworkQuality.weak && now() >= snoozedUntil);
+        updateSuggestion();
       }
       return;
     }
     suggest(false);
+    clearSuggestionTimers();
     userOffline = false;
     const onlineRequested = userOnline;
     userOnline = false;
@@ -148,7 +208,23 @@ export function createModeController(
   }
   return {
     current: () => status,
+    dispose() {
+      disposed = true;
+      cancelRecovery();
+      clearSuggestionTimers();
+      if (snoozeTimer !== null) {
+        cancel(snoozeTimer);
+        snoozeTimer = null;
+      }
+    },
     network(next) {
+      if (disposed) {
+        return;
+      }
+      if (next.quality !== quality || !initialized) {
+        weakSince = next.quality === NetworkQuality.weak ? now() : null;
+        goodSince = next.quality === NetworkQuality.good ? now() : null;
+      }
       quality = next.quality;
       if (!initialized) {
         initialized = true;
@@ -168,11 +244,21 @@ export function createModeController(
       evaluate();
     },
     request(request) {
+      if (disposed) {
+        return;
+      }
       switch (request.type) {
         case ModeRequestType.dismissSuggestion:
           suggest(false);
+          clearSuggestionTimers();
           snoozedUntil = now() + ModeTiming.SUGGESTION_SNOOZE_MS;
-          schedule(evaluate, ModeTiming.SUGGESTION_SNOOZE_MS);
+          if (snoozeTimer !== null) {
+            cancel(snoozeTimer);
+          }
+          snoozeTimer = schedule(() => {
+            snoozeTimer = null;
+            evaluate();
+          }, ModeTiming.SUGGESTION_SNOOZE_MS);
           break;
         case ModeRequestType.acceptSuggestion:
           suggest(false);
@@ -194,10 +280,16 @@ export function createModeController(
       evaluate();
     },
     setIdle(value) {
+      if (disposed) {
+        return;
+      }
       idle = value;
       evaluate();
     },
     agentAvailable(value) {
+      if (disposed) {
+        return;
+      }
       available = value;
       if (status.mode === InstructorMode.online) {
         emit({
@@ -207,6 +299,9 @@ export function createModeController(
       }
     },
     switched(mode, sources) {
+      if (disposed) {
+        return;
+      }
       emit({
         ...status,
         mode,

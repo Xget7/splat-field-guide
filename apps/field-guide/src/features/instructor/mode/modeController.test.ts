@@ -42,18 +42,22 @@ test('startup selects the mode and loss switches even during a reply', () => {
 test('weak signal can be snoozed for five minutes or accepted', () => {
   const { controller, emitSuggestion } = setup();
   controller.network(network(NetworkQuality.weak));
+  jest.advanceTimersByTime(ModeTiming.SUGGESTION_DELAY_MS);
   expect(emitSuggestion).toHaveBeenLastCalledWith({
     mode: 'offline',
-    reason: 'Weak signal',
+    reason: 'weak',
   });
   controller.request({ type: ModeRequestType.dismissSuggestion });
   expect(emitSuggestion).toHaveBeenLastCalledWith(null);
+  jest.advanceTimersByTime(1000);
+  controller.request({ type: ModeRequestType.dismissSuggestion });
+  expect(jest.getTimerCount()).toBe(1);
   jest.advanceTimersByTime(ModeTiming.SUGGESTION_SNOOZE_MS - 1);
   expect(emitSuggestion).toHaveBeenCalledTimes(2);
   jest.advanceTimersByTime(1);
   expect(emitSuggestion).toHaveBeenLastCalledWith({
     mode: 'offline',
-    reason: 'Weak signal',
+    reason: 'weak',
   });
   controller.request({ type: ModeRequestType.acceptSuggestion });
   expect(controller.current()).toMatchObject({
@@ -134,4 +138,81 @@ test('allow online during a busy turn still waits for the recovery window', () =
     mode: 'switchingToOnline',
     cause: 'recovered',
   });
+});
+
+test('a brief weak signal cannot show a suggestion or switch the conversation', () => {
+  const { controller, emitMode, emitSuggestion } = setup();
+  controller.network(network(NetworkQuality.weak));
+  jest.advanceTimersByTime(1000);
+  controller.network(network(NetworkQuality.good));
+  jest.advanceTimersByTime(1000);
+  expect(emitSuggestion).not.toHaveBeenCalled();
+  expect(emitMode.mock.calls.map(([status]) => status.mode)).toEqual([
+    'online',
+  ]);
+});
+
+test('a held weak signal shows a suggestion until good quality stays recovered', () => {
+  const { controller, emitSuggestion } = setup();
+  controller.network(network(NetworkQuality.weak));
+  jest.advanceTimersByTime(ModeTiming.SUGGESTION_DELAY_MS - 1);
+  expect(emitSuggestion).not.toHaveBeenCalled();
+  jest.advanceTimersByTime(1);
+  expect(emitSuggestion).toHaveBeenLastCalledWith({
+    mode: 'offline',
+    reason: 'weak',
+  });
+  controller.network(network(NetworkQuality.good));
+  jest.advanceTimersByTime(1000);
+  controller.network(network(NetworkQuality.weak));
+  expect(emitSuggestion.mock.calls.map(([value]) => value)).toEqual([
+    { mode: 'offline', reason: 'weak' },
+  ]);
+  controller.network(network(NetworkQuality.good));
+  jest.advanceTimersByTime(ModeTiming.RECOVERY_MS - 1);
+  expect(emitSuggestion).toHaveBeenLastCalledWith({
+    mode: 'offline',
+    reason: 'weak',
+  });
+  jest.advanceTimersByTime(1);
+  expect(emitSuggestion).toHaveBeenLastCalledWith(null);
+});
+
+test('dispose cancels suggestion, withdrawal, snooze and recovery callbacks', () => {
+  const cases = [
+    () => {
+      const value = setup();
+      value.controller.network(network(NetworkQuality.weak));
+      return value;
+    },
+    () => {
+      const value = setup();
+      value.controller.network(network(NetworkQuality.weak));
+      jest.advanceTimersByTime(ModeTiming.SUGGESTION_DELAY_MS);
+      value.controller.network(network(NetworkQuality.good));
+      return value;
+    },
+    () => {
+      const value = setup();
+      value.controller.request({ type: ModeRequestType.dismissSuggestion });
+      value.controller.request({ type: ModeRequestType.dismissSuggestion });
+      return value;
+    },
+    () => {
+      const value = setup(NetworkQuality.offline);
+      value.controller.network(network(NetworkQuality.good));
+      return value;
+    },
+  ];
+  for (const prepare of cases) {
+    const { controller, emitMode, emitSuggestion } = prepare();
+    controller.dispose();
+    expect(jest.getTimerCount()).toBe(0);
+    const modes = [...emitMode.mock.calls];
+    const suggestions = [...emitSuggestion.mock.calls];
+    jest.runAllTimers();
+    expect(emitMode.mock.calls).toEqual(modes);
+    expect(emitSuggestion.mock.calls).toEqual(suggestions);
+    expect(jest.getTimerCount()).toBe(0);
+  }
 });

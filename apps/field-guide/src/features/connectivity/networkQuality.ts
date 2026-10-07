@@ -7,7 +7,9 @@ export const QualityRule = {
   WEAK_FAILURES: 2,
   OFFLINE_FAILURES_IN_ROW: 3,
   WEAK_KBPS: 1000,
+  GOOD_KBPS: 2000,
   WEAK_SIGNAL_LEVEL: 1,
+  SIGNAL_RECOVERY_MARGIN: 1,
 } as const;
 export interface PathInfo {
   readonly satisfied: boolean;
@@ -91,6 +93,15 @@ export function createQualityEstimator(): QualityEstimator {
     ) {
       quality = NetworkQuality.weak;
       reason = Reason.signal;
+    } else if (
+      status.quality === NetworkQuality.weak &&
+      ((path.downstreamKbps >= 0 &&
+        path.downstreamKbps <= QualityRule.GOOD_KBPS) ||
+        (path.signalLevel >= 0 &&
+          path.signalLevel <=
+            QualityRule.WEAK_SIGNAL_LEVEL + QualityRule.SIGNAL_RECOVERY_MARGIN))
+    ) {
+      quality = NetworkQuality.weak;
     } else if (
       trips.length === 0 ||
       (median !== null && median < QualityRule.GOOD_RTT_MS && failures === 0)

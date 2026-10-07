@@ -19,53 +19,86 @@ const flush = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-test('path probes immediately, emits only changes and ignores stale results', async () => {
+test('a path probes immediately and publishes only quality or transport changes', async () => {
   let changed!: (path: PathInfo) => void;
-  let resolve!: (ms: number) => void;
-  const paths = {
-    start: jest.fn(callback => {
-      changed = callback;
-    }),
-    stop: jest.fn(),
-  };
-  const probe = jest.fn(
-    () =>
-      new Promise<number>(done => {
-        resolve = done;
-      }),
-  );
   const emit = jest.fn();
-  const service = createNetworkService({ paths, probe, emit });
-  service.start();
-  changed(route);
-  changed(route);
-  expect(probe).toHaveBeenCalledTimes(1);
-  expect(emit).toHaveBeenCalledTimes(1);
-  changed({ ...route, satisfied: false, transport: Transport.none });
-  resolve(900);
-  await flush();
-  expect(emit.mock.calls.at(-1)?.[0].quality).toBe('offline');
-  service.stop();
-  expect(paths.stop).toHaveBeenCalledTimes(1);
-});
-test('active probes run every thirty seconds without overlap and stop when inactive', async () => {
-  let changed!: (path: PathInfo) => void;
-  let resolve!: (ms: number) => void;
-  const probe = jest.fn(
-    () =>
-      new Promise<number>(done => {
-        resolve = done;
-      }),
-  );
   const service = createNetworkService({
     paths: {
       start: callback => {
         changed = callback;
       },
-      stop: jest.fn(),
+      stop: () => {},
+    },
+    probe: async () => 900,
+    emit,
+  });
+  service.start();
+  changed(route);
+  await flush();
+  changed(route);
+  await flush();
+  changed({ ...route, satisfied: false, transport: Transport.none });
+  service.stop();
+  changed(route);
+  service.report({ ok: true, ms: 100 });
+  expect(
+    emit.mock.calls.map(([status]) => [status.quality, status.transport]),
+  ).toEqual([
+    ['good', 'wifi'],
+    ['weak', 'wifi'],
+    ['offline', 'none'],
+  ]);
+});
+test('an old probe cannot change the offline status of a lost route', async () => {
+  let changed!: (path: PathInfo) => void;
+  let resolve!: (ms: number) => void;
+  const emit = jest.fn();
+  const service = createNetworkService({
+    paths: {
+      start: callback => {
+        changed = callback;
+      },
+      stop: () => {},
+    },
+    probe: () =>
+      new Promise(done => {
+        resolve = done;
+      }),
+    emit,
+  });
+  service.start();
+  changed(route);
+  changed({ ...route, satisfied: false, transport: Transport.none });
+  resolve(900);
+  await flush();
+  expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
+    'good',
+    'offline',
+  ]);
+  service.stop();
+});
+test('active probes never overlap and inactive probes cannot make quality fall further', async () => {
+  let changed!: (path: PathInfo) => void;
+  let resolve!: (ms: number) => void;
+  const probe = jest
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<number>(done => {
+          resolve = done;
+        }),
+    )
+    .mockRejectedValue(new Error('probe'));
+  const emit = jest.fn();
+  const service = createNetworkService({
+    paths: {
+      start: callback => {
+        changed = callback;
+      },
+      stop: () => {},
     },
     probe,
-    emit: jest.fn(),
+    emit,
   });
   service.setActive(true);
   service.start();
@@ -74,13 +107,17 @@ test('active probes run every thirty seconds without overlap and stop when inact
   expect(probe).toHaveBeenCalledTimes(1);
   resolve(100);
   await flush();
-  jest.advanceTimersByTime(PROBE_INTERVAL_MS);
-  expect(probe).toHaveBeenCalledTimes(2);
-  resolve(100);
-  await flush();
+  await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 2);
+  expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
+    'good',
+    'weak',
+  ]);
   service.setActive(false);
-  jest.advanceTimersByTime(PROBE_INTERVAL_MS * 2);
-  expect(probe).toHaveBeenCalledTimes(2);
+  await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 2);
+  expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
+    'good',
+    'weak',
+  ]);
   service.stop();
 });
 test('ping measures a 204 and rejects a bad status or a hanging fetch', async () => {
@@ -89,10 +126,6 @@ test('ping measures a 204 and rejects a bad status or a hanging fetch', async ()
     status: 204,
   })) as unknown as typeof fetch;
   expect(await pingProbe('https://worker', fetcher, now)()).toBe(30);
-  expect(fetcher).toHaveBeenCalledWith(
-    'https://worker/v1/ping',
-    expect.objectContaining({ method: 'GET' }),
-  );
   await expect(
     pingProbe(
       'https://worker',

@@ -50,3 +50,29 @@ test('the middle latency band preserves good or weak quality', () => {
     expect(quality.current().quality).toBe(previous);
   }
 });
+
+test('bandwidth around the weak boundary cannot make the connection flap', () => {
+  const quality = createQualityEstimator();
+  quality.path(route);
+  for (const downstreamKbps of [900, 1100, 950, 1500, 2000]) {
+    expect(quality.path({ ...route, downstreamKbps }).quality).toBe(
+      NetworkQuality.weak,
+    );
+  }
+  expect(quality.path({ ...route, downstreamKbps: 2100 }).quality).toBe(
+    NetworkQuality.good,
+  );
+});
+
+test('a weak signal must recover past the middle level before returning to good', () => {
+  const quality = createQualityEstimator();
+  expect(quality.path({ ...route, signalLevel: 1 }).quality).toBe(
+    NetworkQuality.weak,
+  );
+  expect(quality.path({ ...route, signalLevel: 2 }).quality).toBe(
+    NetworkQuality.weak,
+  );
+  expect(quality.path({ ...route, signalLevel: 3 }).quality).toBe(
+    NetworkQuality.good,
+  );
+});
