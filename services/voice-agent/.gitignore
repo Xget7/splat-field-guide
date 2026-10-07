@@ -1,0 +1,5 @@
+node_modules/
+.npm-cache/
+.env
+agent.json
+agent.json.tmp

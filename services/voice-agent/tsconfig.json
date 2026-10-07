@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "../../apps/field-guide/node_modules/@types"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

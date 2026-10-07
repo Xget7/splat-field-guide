@@ -1,0 +1,18 @@
+{
+  "name": "field-guide-voice-agent",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "sync": "tsx --env-file=.env src/sync.ts",
+    "plan": "tsx src/sync.ts --dry-run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
