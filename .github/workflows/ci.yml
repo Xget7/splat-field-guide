@@ -17,10 +17,10 @@ env:
 jobs:
   app:
     name: App
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Install
@@ -40,7 +40,7 @@ jobs:
 
   native-package:
     name: ${{ matrix.package }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -49,8 +49,8 @@ jobs:
       run:
         working-directory: packages/${{ matrix.package }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: npm ci
@@ -60,7 +60,7 @@ jobs:
 
   engine:
     name: Engine C interface (${{ matrix.sha256 }} SHA-256)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +70,7 @@ jobs:
           - sha256: portable
             portable: ON
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install toolchain
         run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev libssl-dev
       - name: Configure
@@ -85,13 +85,13 @@ jobs:
 
   pipeline:
     name: Pipeline
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: '3.12'
       - name: Install the app parser
@@ -105,15 +105,30 @@ jobs:
 
   proxy:
     name: Instructor proxy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: services/instructor-proxy
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: npm ci
       - run: npm test
       - run: npx tsc --noEmit -p .
+
+  voice-agent:
+    name: Voice agent
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: services/voice-agent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
