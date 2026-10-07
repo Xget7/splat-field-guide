@@ -11,6 +11,7 @@
 #import <type_traits>
 
 #include "HybridARGuideViewSpecSwift.hpp"
+#include "HybridModelViewSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 
@@ -27,6 +28,13 @@
     "ARGuideView",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridARGuideViewSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createARGuideView();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "ModelView",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridModelViewSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createModelView();
       return hybridObject;
     }
   );

@@ -19,6 +19,12 @@
         "implementationClassName": "HybridARGuideView"
       }
     },
+    "ModelView": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridModelView"
+      }
+    },
     "SplatView": {
       "ios": {
         "language": "swift",

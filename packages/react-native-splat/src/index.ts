@@ -1,8 +1,10 @@
 import { getHostComponent } from 'react-native-nitro-modules';
 import type { HybridViewMethods } from 'react-native-nitro-modules';
 import ARGuideViewConfig from '../nitrogen/generated/shared/json/ARGuideViewConfig.json';
+import ModelViewConfig from '../nitrogen/generated/shared/json/ModelViewConfig.json';
 import SplatViewConfig from '../nitrogen/generated/shared/json/SplatViewConfig.json';
 import type { ARGuideViewProps } from './ARGuideView.nitro';
+import type { ModelViewProps } from './ModelView.nitro';
 import type { SplatViewMethods, SplatViewProps } from './SplatView.nitro';
 
 export type {
@@ -13,6 +15,10 @@ export type {
   ARTrackingTelemetry,
   ARTrackingEvent,
 } from './ARGuideView.nitro';
+export type {
+  ModelView as ModelViewSpec,
+  ModelViewProps,
+} from './ModelView.nitro';
 export type {
   Bounds,
   CameraLimits,
@@ -36,3 +42,9 @@ export const ARGuideView = getHostComponent<
   ARGuideViewProps,
   HybridViewMethods
 >('ARGuideView', () => ARGuideViewConfig);
+
+/** iOS only: a bundled USDZ model turning on a transparent background. */
+export const ModelView = getHostComponent<ModelViewProps, HybridViewMethods>(
+  'ModelView',
+  () => ModelViewConfig,
+);

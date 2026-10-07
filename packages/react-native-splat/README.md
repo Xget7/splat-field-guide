@@ -46,6 +46,7 @@ The podspec rejects missing/stale artifacts and directs the caller to repository
 | `project`, `drawnDirection` | Synchronous last-drawn-frame reads; float32 projection buffers, NaN behind the camera |
 | [C interface](engine/splatkit-engine/include/splatkit/sfg.h) | `sfg_begin_load` reserves ownership; `sfg_load_request` validates optional identity and rejects stale work; `sfg_load` performs unverified standalone loading |
 | [ARGuideView](src/ARGuideView.nitro.ts) | iOS only; local reference/landmarks and torch request; typed recognition, actual torch and optional telemetry events |
+| [ModelView](src/ModelView.nitro.ts) | iOS only; a bundled USDZ turning on a transparent background, all the way round or swaying either side of its front; reports whether it loaded and holds still under Reduce Motion |
 
 Drawing sleeps when unchanged and pauses while inactive.
 The loader checks mapped-file digests and decoded source count on its worker before accepting content.

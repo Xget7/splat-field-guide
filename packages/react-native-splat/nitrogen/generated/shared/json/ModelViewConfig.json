@@ -1,0 +1,13 @@
+{
+  "uiViewClassName": "ModelView",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "modelPath": true,
+    "sweep": true,
+    "period": true,
+    "onLoaded": true,
+    "hybridRef": true
+  }
+}

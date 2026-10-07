@@ -9,6 +9,7 @@
 
 // Include C++ implementation defined types
 #include "HybridARGuideViewSpecSwift.hpp"
+#include "HybridModelViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
@@ -37,6 +38,30 @@ namespace margelo::nitro::splat::bridge::swift {
     }
     #endif
     ReactNativeSplat::HybridARGuideViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+
+  // pragma MARK: std::function<void(bool /* loaded */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeSplat::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool loaded) mutable -> void {
+      swiftClosure.call(loaded);
+    };
+  }
+
+  // pragma MARK: std::shared_ptr<HybridModelViewSpec>
+  std::shared_ptr<HybridModelViewSpec> create_std__shared_ptr_HybridModelViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeSplat::HybridModelViewSpec_cxx swiftPart = ReactNativeSplat::HybridModelViewSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::splat::HybridModelViewSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridModelViewSpec_(std__shared_ptr_HybridModelViewSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::splat::HybridModelViewSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridModelViewSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridModelViewSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeSplat::HybridModelViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
 

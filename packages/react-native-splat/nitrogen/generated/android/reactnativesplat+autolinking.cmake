@@ -35,6 +35,8 @@ target_sources(
   # Shared Nitrogen C++ sources
   ../nitrogen/generated/shared/c++/HybridARGuideViewSpec.cpp
   ../nitrogen/generated/shared/c++/views/HybridARGuideViewComponent.cpp
+  ../nitrogen/generated/shared/c++/HybridModelViewSpec.cpp
+  ../nitrogen/generated/shared/c++/views/HybridModelViewComponent.cpp
   ../nitrogen/generated/shared/c++/HybridSplatDiagnosticsSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSplatViewSpec.cpp
   ../nitrogen/generated/shared/c++/views/HybridSplatViewComponent.cpp
