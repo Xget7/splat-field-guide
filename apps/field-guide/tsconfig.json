@@ -1,8 +1,13 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
+    "paths": {
+      "react-native": ["./node_modules/react-native/types_generated/index.d.ts"],
+      "*": ["./node_modules/@types/*", "./node_modules/*"]
+    },
+    "typeRoots": ["./node_modules/@types"],
     "moduleSuffixes": ["", ".example"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "../../tests/**/*.ts", "../../tests/**/*.tsx"],
   "exclude": ["**/node_modules", "**/Pods"]
 }

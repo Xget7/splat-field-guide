@@ -112,7 +112,7 @@ Verified resources total 104901281 bytes, including a 92361116-byte ONNX model a
 Output is mono float32 at 24000 Hz, with original UTF-16 word ranges and estimated timing.
 Synthesis runs on a worker, plans bounded sentences, prewarms and discards cancelled results; the audio graph coordinates playback with continuous transcription.
 Full Core ML Kokoro has crash advisories, MLX cannot execute on the iOS simulator, and standard sherpa Kokoro links GPL eSpeak; these are rejected synthesis paths.
-Swift harnesses check text ranges, speech loss, cancellation and audio interruptions; the smoke tool is [kokoro-smoke-test.js](../apps/field-guide/scripts/kokoro-smoke-test.js).
+Swift harnesses check text ranges, speech loss, cancellation and audio interruptions; the smoke tool is [kokoro-smoke-test.js](../tests/kokoro-smoke-test.js).
 Physical pronunciation, cold/warm latency, interruption/echo, Release size and prepared-device airplane-mode behaviour remain unverified.
 
 ## AR reference

@@ -118,7 +118,7 @@ The AR reference has no pipeline stage; it is trained in the Create ML app, as [
 - Apply the deletion test: useful modules keep complexity from spreading into callers.
 - Two adapters justify a seam; one is hypothetical.
 - Import implementations directly, with dependency directions enforced by app ESLint.
-- Put tests beside their code and shared app fakes/setup in `src/testing`.
+- Put app tests and shared fakes/setup in the root `tests` folder; other units retain their own test folders.
 - Reproduce bugs with a failing screen, module-interface or C-interface test, then fix and rerun it.
 - Extend essential behaviour tests and remove implementation-only tests when interface coverage replaces them.
 - Match surrounding naming and idiom; comments explain why in plain sentences.

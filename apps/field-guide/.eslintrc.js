@@ -15,7 +15,6 @@ module.exports = {
   overrides: [
     {
       files: ['src/features/{pack,guide}/**/*.{ts,tsx}'],
-      excludedFiles: ['**/*.test.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
           'error',

@@ -5,10 +5,10 @@ module.exports = {
     'instructor\\.config\\.json$': '<rootDir>/instructor.config.example.json',
   },
   preset: '@react-native/jest-preset',
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/../../tests'],
   testMatch: ['**/*.test.[jt]s?(x)'],
   modulePaths: ['<rootDir>/node_modules'],
-  setupFiles: ['<rootDir>/src/testing/setup.js'],
+  setupFiles: ['<rootDir>/../../tests/setup.js'],
   transform: {
     '^.+\\.(js|ts|tsx)$': [
       'babel-jest',
