@@ -32,6 +32,8 @@ export function createFallbackVoiceSession({
   let restarted = false;
   let muted = false;
   let pending: string | null = null;
+  // The question a dropped conversation left unanswered, kept apart from the viewer's updates until it is asked again.
+  let recovering: string | null = null;
   const current = (id: number) => running && generation === id;
   async function startFallback(
     id: number,
@@ -45,7 +47,7 @@ export function createFallbackVoiceSession({
     await fallback.start(
       {
         ...context,
-        pendingQuestion: pending,
+        pendingQuestion: question ?? pending,
         allowSpeechInstall: automatic ? false : context.allowSpeechInstall,
       },
       events,
@@ -53,19 +55,21 @@ export function createFallbackVoiceSession({
     if (!current(id)) {
       return;
     }
+    recovering = null;
     onFallbackStarted?.();
     fallback.setMuted(muted);
-    if (question !== null && pending !== null) {
-      events.question(pending);
+    if (question !== null) {
+      events.question(question);
     }
   }
-  async function recoverOnDevice(id: number) {
+  async function recoverOnDevice(id: number, question: string | null) {
     try {
-      await startFallback(id, pending, true);
+      await startFallback(id, question, true);
     } catch {
       if (current(id)) {
         running = false;
-        events.ended(VoiceEnd.lost, pending);
+        recovering = null;
+        events.ended(VoiceEnd.lost, question);
       }
     }
   }
@@ -77,16 +81,17 @@ export function createFallbackVoiceSession({
     if (!current(id)) {
       return;
     }
-    pending = question;
+    recovering = question;
     if (reason === VoiceEnd.quota || reason === VoiceEnd.auth) {
       primary.stop();
       onPrimaryFailure(reason);
-      await recoverOnDevice(id);
+      await recoverOnDevice(id, question);
       return;
     }
     if (reason !== VoiceEnd.network || networkOffline()) {
       running = false;
-      events.ended(reason, pending);
+      recovering = null;
+      events.ended(reason, question);
       return;
     }
     primary.stop();
@@ -95,9 +100,10 @@ export function createFallbackVoiceSession({
       try {
         await primary.start(context, primaryEvents(id));
         if (current(id)) {
+          recovering = null;
           primary.setMuted(muted);
-          if (pending !== null) {
-            primaryQuestions.ask(pending);
+          if (question !== null) {
+            primaryQuestions.ask(question);
           }
         }
         return;
@@ -108,7 +114,7 @@ export function createFallbackVoiceSession({
         onPrimaryFailure(voiceFailure(error));
       }
     }
-    await recoverOnDevice(id);
+    await recoverOnDevice(id, question);
   }
   function primaryEvents(id: number): VoiceSessionEvents {
     return {
@@ -129,6 +135,7 @@ export function createFallbackVoiceSession({
       running = true;
       restarted = false;
       muted = false;
+      recovering = null;
       pending = initial.pendingQuestion ?? null;
       const id = ++generation;
       try {
@@ -164,7 +171,8 @@ export function createFallbackVoiceSession({
     stop() {
       running = false;
       generation++;
-      pending = active.stop() ?? pending;
+      pending = active.stop() ?? recovering ?? pending;
+      recovering = null;
       return pending;
     },
   };

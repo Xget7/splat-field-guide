@@ -1,4 +1,4 @@
-import { fakeAgentTransport } from './agentTransport';
+import { AGENT_METADATA, fakeAgentTransport } from './agentTransport';
 import { Platform } from 'react-native';
 import {
   AppEvent,
@@ -90,7 +90,7 @@ test.each(['online', 'offline'] as const)(
     allow();
     await jest.advanceTimersByTimeAsync(0);
     if (mode === 'online') {
-      transport.current.onopen?.();
+      transport.ready();
     }
     await started;
     expect(changed.listening.mock.calls.at(-1)).toEqual([true]);
@@ -292,7 +292,7 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
     send: jest.fn(),
     close: jest.fn(),
     onopen: null as (() => void) | null,
-    onmessage: null,
+    onmessage: null as ((event: { data: unknown }) => void) | null,
     onerror: null,
     onclose: null,
   }));
@@ -346,7 +346,9 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
     voiceEvents(),
   );
   await jest.advanceTimersByTimeAsync(0);
-  connect.mock.results[0].value.onopen?.();
+  const socket = connect.mock.results[0].value;
+  socket.onopen?.();
+  socket.onmessage?.({ data: JSON.stringify(AGENT_METADATA) });
   await started;
   expect(
     fetchImpl.mock.calls.filter(([address]) =>
@@ -474,7 +476,7 @@ test('backgrounding closes the conversation without reconnecting', async () => {
     changed,
   );
   await jest.advanceTimersByTimeAsync(0);
-  transport.current.onopen?.();
+  transport.ready();
   await started;
   background('background');
   expect(changed.listening.mock.calls.at(-1)).toEqual([false]);
@@ -520,7 +522,7 @@ test('active quota marks the agent unavailable and keeps this conversation and t
   });
   const started = voice.session.start(context, changed);
   await jest.advanceTimersByTimeAsync(0);
-  transport.current.onopen?.();
+  transport.ready();
   await started;
   voice.questions!.ask('Why check the battery?');
   transport.current.onclose?.({ code: 1000, reason: 'quota exceeded' });

@@ -28,11 +28,19 @@ test('tool schemas enumerate this pack and step numbers are one based', () => {
   expect(
     specs.find(spec => spec.name === AgentTool.showPart)?.parameters.properties
       .part_id,
-  ).toEqual({ type: 'string', enum: pack.parts.map(item => item.id) });
+  ).toEqual({
+    type: 'string',
+    enum: pack.parts.map(item => item.id),
+    description: expect.any(String),
+  });
   expect(
     specs.find(spec => spec.name === AgentTool.startProcedure)?.parameters
       .properties.procedure_id,
-  ).toEqual({ type: 'string', enum: pack.procedures.map(item => item.id) });
+  ).toEqual({
+    type: 'string',
+    enum: pack.procedures.map(item => item.id),
+    description: expect.any(String),
+  });
   expect(specs.map(spec => spec.name)).toEqual(Object.values(AgentTool));
   const outcome = runAgentTool(
     AgentTool.goToStep,

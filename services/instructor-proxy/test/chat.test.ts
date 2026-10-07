@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setImmediate } from "node:timers/promises";
 import { buildChatUpstreamBody, VOICE_MAX_TOKENS, MAX_CHAT_BODY_CHARS } from "../src/chat.ts";
 import { NARRATION_CHUNK_CHARS } from "../src/narration.ts";
 import { assertError } from "./helpers.ts";
@@ -120,7 +121,7 @@ test("authorized chat normalizes generation options and streams Claude with the 
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(url, "https://api.anthropic.com/v1/messages");
     assert.equal(options.method, "POST");
-    assert.equal(options.signal, input.signal);
+    assert.equal(options.signal.aborted, false);
     assert.deepEqual(options.headers, {
       "x-api-key": "test-api-key", "anthropic-version": "2023-06-01", "content-type": "application/json",
     });
@@ -136,6 +137,7 @@ test("authorized chat normalizes generation options and streams Claude with the 
   for (const [tokens, temperature, outputTokens, outputTemperature] of [
     [undefined, undefined, VOICE_MAX_TOKENS, undefined], [null, null, VOICE_MAX_TOKENS, undefined],
     [75, 0.3, 75, 0.3], [VOICE_MAX_TOKENS + 1, 0, VOICE_MAX_TOKENS, 0],
+    [75, 1.5, 75, 1], [75, -0.5, 75, 0],
     [0, "warm", VOICE_MAX_TOKENS, undefined], [-1, {}, VOICE_MAX_TOKENS, undefined],
     [1.5, NaN, VOICE_MAX_TOKENS, undefined], ["75", Infinity, VOICE_MAX_TOKENS, undefined],
     [NaN, -Infinity, VOICE_MAX_TOKENS, undefined], [Infinity, true, VOICE_MAX_TOKENS, undefined],
@@ -202,4 +204,61 @@ test("chat upstream failures use the answer route's sanitized errors", async (t)
   upstream = async () => { throw new Error("private detail"); };
   await assertError(await handleRequest(chatRequest(), endpointEnv), 502, "upstream unavailable");
   await assertError(await handleRequest(chatRequest(), { ...endpointEnv, ANTHROPIC_API_KEY: "" }), 500, "missing API key");
+});
+
+test("a stalled chat connection aborts upstream and returns one SSE error after ten seconds", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal: AbortSignal;
+  let started: () => void;
+  const connecting = new Promise<void>(resolve => { started = resolve; });
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    signal = options.signal;
+    started();
+    return new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("private detail")), { once: true });
+    });
+  });
+  const pending = handleRequest(chatRequest(), endpointEnv);
+  await connecting;
+  t.mock.timers.tick(9999);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  assert.equal(signal.aborted, true);
+  const response = await pending;
+  assert.equal(response.headers.get("content-type"), "text/event-stream; charset=utf-8");
+  assert.deepEqual(await chatChunks(response), [
+    { error: { message: "upstream stream failed", type: "upstream_error" } },
+  ]);
+});
+
+test("chat inactivity expires after fifteen seconds without bytes and cancels upstream", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let controller: ReadableStreamDefaultController<Uint8Array>;
+  let cancelled = false;
+  let signal: AbortSignal;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    signal = options.signal;
+    return new Response(new ReadableStream<Uint8Array>({
+      start(value) { controller = value; value.enqueue(new TextEncoder().encode('event: message_start\ndata: {}\n\n')); },
+      cancel() { cancelled = true; },
+    }));
+  });
+  const response = await handleRequest(chatRequest(), endpointEnv);
+  const reader = response.body!.getReader();
+  assert.match(new TextDecoder().decode((await reader.read()).value), /"role":"assistant"/);
+  const pending = reader.read();
+  await setImmediate();
+  t.mock.timers.tick(14999);
+  assert.equal(signal.aborted, false);
+  assert.equal(cancelled, false);
+  controller.enqueue(new TextEncoder().encode(': ping\n\n'));
+  await setImmediate();
+  t.mock.timers.tick(14999);
+  assert.equal(cancelled, false);
+  t.mock.timers.tick(1);
+  await setImmediate();
+  assert.equal(cancelled, true);
+  assert.equal(new TextDecoder().decode((await pending).value),
+    'data: {"error":{"message":"upstream stream failed","type":"upstream_error"}}\n\n');
+  assert.equal((await reader.read()).done, true);
 });
