@@ -14,6 +14,7 @@ export function chunkDurationMs(base64: string, sampleRate: number): number {
 }
 export interface WordTimeline {
   add(alignment: Alignment, offsetMs: number): void;
+  replaceText(text: string): void;
   text(): string;
   wordAt(ms: number): WordRange | null;
 }
@@ -22,38 +23,47 @@ interface TimedRange extends WordRange {
   readonly end: number;
 }
 export function createWordTimeline(): WordTimeline {
-  let text = '';
+  let alignedText = '';
+  let replacement: string | null = null;
+  const text = () => replacement ?? alignedText;
   const characters: TimedRange[] = [];
   let words: TimedRange[] = [];
+  function updateWords() {
+    words = [...text().matchAll(/\S+/g)].map(match => {
+      const location = match.index!;
+      const length = match[0].length;
+      const spans = characters.filter(
+        char =>
+          char.location < location + length &&
+          char.location + char.length > location,
+      );
+      return {
+        location,
+        length,
+        start: Math.min(...spans.map(span => span.start)),
+        end: Math.max(...spans.map(span => span.end)),
+      };
+    });
+  }
   return {
     add(alignment, offsetMs) {
       alignment.chars.forEach((char, index) => {
         characters.push({
-          location: text.length,
+          location: alignedText.length,
           length: char.length,
           start: offsetMs + alignment.startsMs[index],
           end:
             offsetMs + alignment.startsMs[index] + alignment.durationsMs[index],
         });
-        text += char;
+        alignedText += char;
       });
-      words = [...text.matchAll(/\S+/g)].map(match => {
-        const location = match.index!;
-        const length = match[0].length;
-        const spans = characters.filter(
-          char =>
-            char.location < location + length &&
-            char.location + char.length > location,
-        );
-        return {
-          location,
-          length,
-          start: Math.min(...spans.map(span => span.start)),
-          end: Math.max(...spans.map(span => span.end)),
-        };
-      });
+      updateWords();
     },
-    text: () => text,
+    replaceText(value) {
+      replacement = value;
+      updateWords();
+    },
+    text,
     wordAt(ms) {
       const word = words.find(value => ms >= value.start && ms < value.end);
       return word ? { location: word.location, length: word.length } : null;

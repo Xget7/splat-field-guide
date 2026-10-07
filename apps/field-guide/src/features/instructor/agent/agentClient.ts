@@ -7,6 +7,13 @@ import {
   type AgentServerEvent,
 } from './agentProtocol';
 import { chunkDurationMs, createWordTimeline } from './wordTimeline';
+import {
+  closeFailure,
+  clientFailure,
+  connectionFailure,
+  sessionUrl,
+} from './agentFailure';
+import { AgentToolCopy } from './agentCopy';
 
 export const AgentAudio = { INPUT_RATE: 16000, OUTPUT_RATE: 24000 } as const;
 export const AgentTiming = {
@@ -92,27 +99,8 @@ export interface AgentClient {
   stop(): void;
 }
 
-const CloseCode = {
-  normal: 1000,
-  policy: 1008,
-  authFirst: 4001,
-  authLast: 4003,
-} as const;
 const NO_EVENT_ID = -1;
-const TOOL_FAILED = 'The guide could not apply that tool.';
-function failureFor(code: number, reason: string): AgentFailure | null {
-  if (/quota|limit/i.test(reason)) {
-    return AgentFailure.quota;
-  }
-  if (
-    code === CloseCode.policy ||
-    (code >= CloseCode.authFirst && code <= CloseCode.authLast) ||
-    /auth|unauthorized|forbidden/i.test(reason)
-  ) {
-    return AgentFailure.auth;
-  }
-  return null;
-}
+const NEXT_EVENT_ID = 1;
 export function createAgentClient(options: AgentClientOptions): AgentClient {
   const { audio, handlers } = options;
   const schedule = options.setTimeout ?? setTimeout;
@@ -132,9 +120,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let playbackStartMs = 0;
   let speaking = false;
   let responseText = '';
-  let dropping = false;
   let lastInterruptionId = NO_EVENT_ID;
-  let lastAudioId = NO_EVENT_ID;
+  let currentEventId = NO_EVENT_ID;
+  let responseEventId: number | null = null;
   function finishSpeaking() {
     if (tick !== null) {
       cancelRepeat(tick);
@@ -151,6 +139,17 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     timeline = createWordTimeline();
     queuedMs = 0;
     responseText = '';
+    responseEventId = null;
+  }
+  function acceptResponse(eventId: number): boolean {
+    if (eventId < lastInterruptionId) {
+      return false;
+    }
+    if (responseEventId !== eventId) {
+      resetResponse();
+      responseEventId = eventId;
+    }
+    return true;
   }
   function end(
     reason: AgentEnd,
@@ -198,6 +197,17 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     });
     handlers.ended(reason);
   }
+  function endFailure(failure: AgentFailure) {
+    end(
+      failure === AgentFailure.quota
+        ? AgentEnd.quota
+        : failure === AgentFailure.auth
+        ? AgentEnd.auth
+        : failure === AgentFailure.network
+        ? AgentEnd.network
+        : AgentEnd.error,
+    );
+  }
   function send(message: string) {
     if (!running || !socket) {
       return;
@@ -213,7 +223,13 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     if (played >= queuedMs) {
       finishSpeaking();
     } else {
-      handlers.word(timeline.wordAt(played));
+      const range = timeline.wordAt(played);
+      const length = range
+        ? Math.min(range.length, responseText.length - range.location)
+        : 0;
+      handlers.word(
+        range && length > 0 ? { location: range.location, length } : null,
+      );
     }
   }
   function receive(event: AgentServerEvent) {
@@ -224,37 +240,38 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         handlers.userTranscript(event.text);
         break;
       case 'responsePart':
-        if (event.part === 'start') {
-          dropping = false;
-          resetResponse();
-        }
-        if (!dropping) {
-          responseText += event.text;
+        if (acceptResponse(event.eventId)) {
+          responseText =
+            event.part === 'start' ? event.text : responseText + event.text;
+          timeline.replaceText(responseText);
           handlers.responseText(responseText);
+          words();
         }
         break;
       case 'response':
-        if (!dropping) {
+        if (acceptResponse(event.eventId)) {
+          currentEventId = event.eventId;
           responseText = event.text;
+          timeline.replaceText(responseText);
           handlers.response(event.text);
+          words();
         }
         break;
       case 'correction':
-        if (!dropping) {
+        if (event.eventId >= lastInterruptionId) {
+          responseText = event.corrected;
+          timeline.replaceText(responseText);
           handlers.correction(event.corrected);
+          words();
         }
         break;
       case 'responseComplete':
         break;
       case 'audio': {
-        lastAudioId = Math.max(lastAudioId, event.eventId);
-        if (dropping) {
-          lastInterruptionId = Math.max(lastInterruptionId, event.eventId);
+        if (!acceptResponse(event.eventId)) {
           return;
         }
-        if (event.eventId <= lastInterruptionId) {
-          return;
-        }
+        currentEventId = event.eventId;
         if (queuedMs === 0) {
           playbackStartMs = audio.playedMs();
         }
@@ -273,7 +290,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         break;
       }
       case 'interruption':
-        lastInterruptionId = Math.max(lastInterruptionId, event.eventId);
+        lastInterruptionId = event.eventId;
         audio.clear();
         resetResponse();
         handlers.interruption();
@@ -289,7 +306,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         try {
           result = handlers.toolCall(event.name, event.parameters);
         } catch {
-          result = { result: TOOL_FAILED, isError: true };
+          result = { result: AgentToolCopy.failed, isError: true };
         }
         if (event.expectsResponse) {
           send(
@@ -298,20 +315,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         }
         break;
       }
-      case 'error': {
-        const failure = failureFor(
-          event.code,
-          `${event.name} ${event.message}`,
-        );
-        end(
-          failure === AgentFailure.quota
-            ? AgentEnd.quota
-            : failure === AgentFailure.auth
-            ? AgentEnd.auth
-            : AgentEnd.error,
-        );
+      case 'error':
+        endFailure(clientFailure(event.code, event.name, event.message));
         break;
-      }
     }
   }
   return {
@@ -321,9 +327,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       }
       running = true;
       connected = false;
-      dropping = false;
+      muted = false;
       lastInterruptionId = NO_EVENT_ID;
-      lastAudioId = NO_EVENT_ID;
+      currentEventId = NO_EVENT_ID;
       const currentGeneration = ++generation;
       const current = () => running && generation === currentGeneration;
       handlers.status({ state: AgentState.connecting, reason: null });
@@ -414,30 +420,18 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
               if (!current()) {
                 return;
               }
-              const failure = failureFor(event.code, event.reason);
-              end(
-                failure === AgentFailure.quota
-                  ? AgentEnd.quota
-                  : failure === AgentFailure.auth
-                  ? AgentEnd.auth
-                  : event.code === CloseCode.normal
-                  ? AgentEnd.silence
-                  : AgentEnd.network,
-              );
+              const failure = closeFailure(event.code, event.reason);
+              if (failure) {
+                endFailure(failure);
+              } else {
+                end(AgentEnd.silence);
+              }
             };
           } catch (error) {
             if (!current()) {
               return;
             }
-            const reason =
-              error instanceof Error ? error.message : AgentFailure.network;
-            end(
-              reason === AgentFailure.quota
-                ? AgentEnd.quota
-                : reason === AgentFailure.auth
-                ? AgentEnd.auth
-                : AgentEnd.network,
-            );
+            endFailure(connectionFailure(error));
           }
         }
         open();
@@ -460,8 +454,10 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       if (!running) {
         return;
       }
-      dropping = true;
-      lastInterruptionId = Math.max(lastInterruptionId, lastAudioId);
+      lastInterruptionId = Math.max(
+        lastInterruptionId,
+        currentEventId + NEXT_EVENT_ID,
+      );
       audio.clear();
       resetResponse();
     },
@@ -471,8 +467,6 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   };
 }
 const VOICE_SESSION_PATH = '/v1/voice/session';
-const HttpStatus = { ok: 200, quota: 429, unavailable: 503 } as const;
-const WorkerError = { quota: 'voice quota', auth: 'voice auth' } as const;
 export async function fetchSignedUrl(
   baseUrl: string,
   fetchImpl: typeof fetch = fetch,
@@ -491,28 +485,5 @@ export async function fetchSignedUrl(
   } catch {
     throw new Error(AgentFailure.network);
   }
-  const fields =
-    body !== null && typeof body === 'object'
-      ? (body as Record<string, unknown>)
-      : {};
-  if (
-    response.status === HttpStatus.ok &&
-    typeof fields.signedUrl === 'string' &&
-    fields.signedUrl !== ''
-  ) {
-    return fields.signedUrl;
-  }
-  if (
-    response.status === HttpStatus.quota &&
-    fields.error === WorkerError.quota
-  ) {
-    throw new Error(AgentFailure.quota);
-  }
-  if (
-    response.status === HttpStatus.unavailable ||
-    fields.error === WorkerError.auth
-  ) {
-    throw new Error(AgentFailure.auth);
-  }
-  throw new Error(AgentFailure.network);
+  return sessionUrl(response.status, body);
 }

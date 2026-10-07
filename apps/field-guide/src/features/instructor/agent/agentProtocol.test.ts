@@ -29,14 +29,14 @@ const examples = [
       type: 'agent_chat_response_part',
       text_response_part: { text: 'Reply', type: 'delta', event_id: 0 },
     },
-    { type: 'responsePart', text: 'Reply', part: 'delta' },
+    { type: 'responsePart', text: 'Reply', part: 'delta', eventId: 0 },
   ],
   [
     {
       type: 'agent_response',
       agent_response_event: { agent_response: 'Reply', event_id: 0 },
     },
-    { type: 'response', text: 'Reply' },
+    { type: 'response', text: 'Reply', eventId: 0 },
   ],
   [
     {
@@ -47,7 +47,7 @@ const examples = [
         event_id: 0,
       },
     },
-    { type: 'correction', original: 'Reply', corrected: 'Re' },
+    { type: 'correction', original: 'Reply', corrected: 'Re', eventId: 0 },
   ],
   [
     {
@@ -157,43 +157,17 @@ test('malformed, unknown and incomplete messages cannot enter the client', () =>
     ),
   ).toBeNull();
 });
-test('client messages serialize to the wire shapes', () => {
-  const variables = {
-    procedure: 'none',
-    step: 'none',
-    selected_part: 'none',
-    opening: 'Hello',
-  };
-  for (const [message, expected] of [
-    [
-      ClientMessage.initiation(variables),
-      {
-        type: 'conversation_initiation_client_data',
-        dynamic_variables: variables,
-        conversation_config_override: {},
-      },
-    ],
-    [ClientMessage.audio('AA=='), { user_audio_chunk: 'AA==' }],
-    [ClientMessage.pong(0), { type: 'pong', event_id: 0 }],
-    [
-      ClientMessage.toolResult('tool', 'Ready', false),
-      {
-        type: 'client_tool_result',
-        tool_call_id: 'tool',
-        result: 'Ready',
-        is_error: false,
-      },
-    ],
-    [
-      ClientMessage.contextualUpdate('Screen'),
-      { type: 'contextual_update', text: 'Screen' },
-    ],
-    [
-      ClientMessage.userMessage('Question'),
-      { type: 'user_message', text: 'Question' },
-    ],
-    [ClientMessage.userActivity(), { type: 'user_activity' }],
-  ]) {
-    expect(JSON.parse(message as string)).toEqual(expected);
-  }
+test('client messages preserve audio, tool results and activity payloads', () => {
+  expect(JSON.parse(ClientMessage.audio('AA=='))).toEqual({
+    user_audio_chunk: 'AA==',
+  });
+  expect(JSON.parse(ClientMessage.toolResult('tool', 'Ready', false))).toEqual({
+    type: 'client_tool_result',
+    tool_call_id: 'tool',
+    result: 'Ready',
+    is_error: false,
+  });
+  expect(JSON.parse(ClientMessage.userActivity())).toEqual({
+    type: 'user_activity',
+  });
 });

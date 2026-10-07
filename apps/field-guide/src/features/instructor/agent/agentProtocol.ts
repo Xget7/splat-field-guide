@@ -16,12 +16,18 @@ export type AgentServerEvent =
   | { readonly type: 'userTranscript'; readonly text: string }
   | {
       readonly type: 'responsePart';
+      readonly eventId: number;
       readonly part: 'start' | 'delta' | 'stop';
       readonly text: string;
     }
-  | { readonly type: 'response'; readonly text: string }
+  | {
+      readonly type: 'response';
+      readonly text: string;
+      readonly eventId: number;
+    }
   | {
       readonly type: 'correction';
+      readonly eventId: number;
       readonly original: string;
       readonly corrected: string;
     }
@@ -125,13 +131,22 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
         (value.type === 'start' ||
           value.type === 'delta' ||
           value.type === 'stop')
-        ? { type: 'responsePart', text: value.text, part: value.type }
+        ? {
+            type: 'responsePart',
+            text: value.text,
+            part: value.type,
+            eventId: value.event_id,
+          }
         : null;
     }
     case 'agent_response': {
       const value = fields('agent_response_event');
       return value && text(value.agent_response) && eventId(value.event_id)
-        ? { type: 'response', text: value.agent_response }
+        ? {
+            type: 'response',
+            text: value.agent_response,
+            eventId: value.event_id,
+          }
         : null;
     }
     case 'agent_response_correction': {
@@ -142,6 +157,7 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
         eventId(value.event_id)
         ? {
             type: 'correction',
+            eventId: value.event_id,
             original: value.original_agent_response,
             corrected: value.corrected_agent_response,
           }

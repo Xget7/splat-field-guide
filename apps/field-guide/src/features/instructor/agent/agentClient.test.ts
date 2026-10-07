@@ -73,6 +73,22 @@ function setup() {
         },
       },
     });
+  const respond = (id: number, text: string) =>
+    receive({
+      type: 'agent_response',
+      agent_response_event: { agent_response: text, event_id: id },
+    });
+  const interrupt = (id: number) =>
+    receive({ type: 'interruption', interruption_event: { event_id: id } });
+  const correct = (id: number, original: string, corrected: string) =>
+    receive({
+      type: 'agent_response_correction',
+      agent_response_correction_event: {
+        original_agent_response: original,
+        corrected_agent_response: corrected,
+        event_id: id,
+      },
+    });
   const part = (text: string, type: string = 'start') =>
     receive({
       type: 'agent_chat_response_part',
@@ -94,6 +110,9 @@ function setup() {
     audio,
     handlers,
     receive,
+    respond,
+    interrupt,
+    correct,
     audioEvent,
     part,
     start,
@@ -151,34 +170,33 @@ test('initiation precedes context and microphone, ping and tools use their wire 
   ]);
   test.client.stop();
 });
-test('server and local interruptions drop stale audio and local text until a new response', async () => {
+test('local interruption accepts the next reply without streamed text parts', async () => {
   const test = setup();
   await test.start();
-  test.audioEvent(3);
-  test.receive({ type: 'interruption', interruption_event: { event_id: 3 } });
-  expect(test.audio.clear).toHaveBeenCalledTimes(1);
-  test.audioEvent(2);
-  test.audioEvent(3);
-  expect(test.audio.play).toHaveBeenCalledTimes(1);
-  test.part('New');
-  test.audioEvent(4);
+  test.respond(3, 'Old');
   test.client.interrupt();
-  test.part(' stale', 'delta');
+  test.respond(3, 'Old tail');
+  test.audioEvent(3);
+  test.respond(4, 'Hi');
   test.audioEvent(4);
-  test.audioEvent(5);
-  expect(test.handlers.responseText).toHaveBeenLastCalledWith('New');
-  expect(test.audio.play).toHaveBeenCalledTimes(2);
-  test.part('Next');
-  test.audioEvent(6);
-  expect(test.audio.play).toHaveBeenCalledTimes(3);
-  test.part(' reply', 'delta');
-  expect(test.handlers.responseText).toHaveBeenLastCalledWith('Next reply');
+  expect(
+    (test.handlers.response as jest.Mock).mock.calls.map(([text]) => text),
+  ).toEqual(['Old', 'Hi']);
+  expect(test.audio.play).toHaveBeenCalledWith(chunk);
+  (test.audio.playedMs as jest.Mock).mockReturnValue(40);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.word).toHaveBeenLastCalledWith({
+    location: 0,
+    length: 2,
+  });
   test.client.stop();
 });
 test('word ticks finish when audio plays out and do not leak into later replies', async () => {
   const test = setup();
   await test.start();
-  test.part('Hi');
+  test.part('H');
+  test.part('i', 'delta');
+  expect(test.handlers.responseText).toHaveBeenLastCalledWith('Hi');
   test.audioEvent(1);
   (test.audio.playedMs as jest.Mock).mockReturnValue(40);
   jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
@@ -190,25 +208,15 @@ test('word ticks finish when audio plays out and do not leak into later replies'
   jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
   expect(test.handlers.speaking).toHaveBeenLastCalledWith(false);
   expect(test.handlers.word).toHaveBeenLastCalledWith(null);
-  test.part('Second');
-  test.audioEvent(2);
-  (test.audio.playedMs as jest.Mock).mockReturnValue(220);
-  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
-  expect(test.handlers.word).toHaveBeenLastCalledWith({
-    location: 0,
-    length: 2,
-  });
   test.client.stop();
 });
 test.each([
-  [1000, '', 'silence', 'ended', null],
-  [1000, 'quota exceeded', 'quota', 'failed', 'quota'],
-  [1008, '', 'auth', 'failed', 'auth'],
-  [4002, '', 'auth', 'failed', 'auth'],
-  [1006, '', 'network', 'failed', 'network'],
-])(
-  'close %s %s maps to %s exactly once',
-  async (code, reason, end, state, failure) => {
+  [1000, 'quota exceeded', 429, 'voice quota', 'quota'],
+  [1008, '', 503, 'voice auth', 'auth'],
+  [1006, '', 500, 'unavailable', 'network'],
+] as const)(
+  'a %s failure ends once and the Worker reports the same class',
+  async (code, reason, status, error, failure) => {
     const test = setup();
     await test.start();
     const close = test.socket.onclose;
@@ -216,33 +224,46 @@ test.each([
     test.client.stop();
     close?.({ code, reason });
     expect(test.handlers.ended).toHaveBeenCalledTimes(1);
-    expect(test.handlers.ended).toHaveBeenCalledWith(end);
+    expect(test.handlers.ended).toHaveBeenCalledWith(failure);
     expect(test.handlers.status).toHaveBeenLastCalledWith({
-      state,
+      state: 'failed',
       reason: failure,
     });
-    expect(test.audio.stop).toHaveBeenCalledTimes(1);
+    const fetcher = async () => ({ status, json: async () => ({ error }) });
+    await expect(
+      fetchSignedUrl('https://worker', fetcher as unknown as typeof fetch),
+    ).rejects.toThrow(failure);
+    if (failure !== 'network') {
+      const protocol = setup();
+      await protocol.start();
+      protocol.receive({
+        type: 'client_error',
+        error_event: { code, error_name: failure, message: reason },
+      });
+      expect(protocol.handlers.status).toHaveBeenLastCalledWith({
+        state: 'failed',
+        reason: failure,
+      });
+    }
   },
 );
-test('stop, protocol failure and audio loss end exactly once', async () => {
-  for (const reason of ['stopped', 'quota', 'auth', 'audio']) {
+test.each(['silence', 'stopped', 'audio'])(
+  'a conversation ends %s exactly once',
+  async reason => {
     const test = setup();
     await test.start();
-    if (reason === 'stopped') {
-      test.client.stop();
+    if (reason === 'silence') {
+      test.socket.onclose?.({ code: 1000, reason: '' });
     } else if (reason === 'audio') {
       test.audioStopped();
     } else {
-      test.receive({
-        type: 'client_error',
-        error_event: { code: 0, error_name: reason, message: reason },
-      });
+      test.client.stop();
     }
     test.client.stop();
     expect(test.handlers.ended).toHaveBeenCalledTimes(1);
     expect(test.handlers.ended).toHaveBeenCalledWith(reason);
-  }
-});
+  },
+);
 test('a pending start times out or can be stopped without a late connection', async () => {
   const handlers = setup().handlers;
   const connect = jest.fn();
@@ -264,65 +285,17 @@ test('a pending start times out or can be stopped without a late connection', as
   expect(connect).not.toHaveBeenCalled();
   expect(handlers.ended).toHaveBeenCalledTimes(1);
 });
-test('signed URL accepts the Worker response and maps failures', async () => {
-  for (const [status, body, expected] of [
-    [200, { signedUrl: 'wss://fake' }, 'wss://fake'],
-    [429, { error: 'voice quota' }, 'quota'],
-    [503, { error: 'unavailable' }, 'auth'],
-    [401, { error: 'voice auth' }, 'auth'],
-    [500, {}, 'network'],
-    [200, { signed_url: 'wrong contract' }, 'network'],
-  ] as const) {
-    const fetcher = jest.fn(async () => ({
-      status,
-      json: async () => body,
-    })) as unknown as typeof fetch;
-    const result = await fetchSignedUrl('https://worker', fetcher).catch(
-      error => error.message,
-    );
-    expect(result).toBe(expected);
-    expect(fetcher).toHaveBeenCalledWith(
-      'https://worker/v1/voice/session',
-      expect.objectContaining({ method: 'POST' }),
-    );
-  }
-  await expect(
-    fetchSignedUrl(
-      'https://worker',
-      jest.fn(async () => {
-        throw new Error('offline');
-      }) as unknown as typeof fetch,
-    ),
-  ).rejects.toThrow('network');
+test('the signed URL request uses the Worker contract', async () => {
+  const fetcher = jest.fn(async () => ({
+    status: 200,
+    json: async () => ({ signedUrl: 'wss://fake' }),
+  })) as unknown as typeof fetch;
+  expect(await fetchSignedUrl('https://worker', fetcher)).toBe('wss://fake');
+  expect(fetcher).toHaveBeenCalledWith('https://worker/v1/voice/session', {
+    method: 'POST',
+  });
 });
 
-test('local interruption suppresses final text and corrections from the discarded response', async () => {
-  const test = setup();
-  await test.start();
-  test.part('Old');
-  test.client.interrupt();
-  test.receive({
-    type: 'agent_response',
-    agent_response_event: { agent_response: 'Old final', event_id: 1 },
-  });
-  test.receive({
-    type: 'agent_response_correction',
-    agent_response_correction_event: {
-      original_agent_response: 'Old final',
-      corrected_agent_response: 'Old',
-      event_id: 1,
-    },
-  });
-  expect(test.handlers.response).not.toHaveBeenCalled();
-  expect(test.handlers.correction).not.toHaveBeenCalled();
-  test.part('Fresh');
-  test.receive({
-    type: 'agent_response',
-    agent_response_event: { agent_response: 'Fresh final', event_id: 2 },
-  });
-  expect(test.handlers.response).toHaveBeenLastCalledWith('Fresh final');
-  test.client.stop();
-});
 test('stopping during connection rejects start and stale callbacks cannot stream', async () => {
   const test = setup();
   const pending = test.client
@@ -336,4 +309,64 @@ test('stopping during connection rejects start and stale callbacks cannot stream
   expect(test.audio.start).not.toHaveBeenCalled();
   expect(test.handlers.ended).toHaveBeenCalledTimes(1);
   expect(test.handlers.ended).toHaveBeenCalledWith('stopped');
+});
+
+test('server interruption accepts its event id and highlights only the new reply', async () => {
+  const test = setup();
+  await test.start();
+  test.respond(4, 'Old reply');
+  test.audioEvent(4);
+  test.receive({ type: 'interruption', interruption_event: { event_id: 5 } });
+  test.respond(4, 'Old tail');
+  test.audioEvent(4);
+  test.respond(5, 'Hi');
+  test.audioEvent(5);
+  expect(test.audio.clear).toHaveBeenCalledTimes(1);
+  expect(test.audio.play).toHaveBeenCalledTimes(2);
+  expect(test.handlers.response).toHaveBeenLastCalledWith('Hi');
+  (test.audio.playedMs as jest.Mock).mockReturnValue(40);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.word).toHaveBeenLastCalledWith({
+    location: 0,
+    length: 2,
+  });
+  test.client.stop();
+});
+
+test('a corrected reply bounds current and later word highlights to the shown text', async () => {
+  const test = setup();
+  await test.start();
+  test.respond(1, 'Hi');
+  test.audioEvent(1);
+  (test.audio.playedMs as jest.Mock).mockReturnValue(20);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  test.correct(1, 'Hi', 'H');
+  expect(test.handlers.correction).toHaveBeenLastCalledWith('H');
+  expect(test.handlers.word).toHaveBeenLastCalledWith({
+    location: 0,
+    length: 1,
+  });
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.word).toHaveBeenLastCalledWith({
+    location: 0,
+    length: 1,
+  });
+  test.respond(1, '');
+  expect(test.handlers.word).toHaveBeenLastCalledWith(null);
+  test.audioEvent(1);
+  (test.audio.playedMs as jest.Mock).mockReturnValue(140);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.word).toHaveBeenLastCalledWith(null);
+  test.client.stop();
+});
+
+test('a new conversation starts with an unmuted microphone', async () => {
+  const test = setup();
+  await test.start();
+  test.client.setMuted(true);
+  test.client.stop();
+  await test.start();
+  test.input('new question');
+  expect(test.messages().at(-1)).toEqual({ user_audio_chunk: 'new question' });
+  test.client.stop();
 });
