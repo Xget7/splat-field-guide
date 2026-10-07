@@ -5,6 +5,10 @@ You orbit a Gaussian splat of the machine, tap a part to see what it is, follow 
 The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
 It is tested on a physical iPhone and the iPad simulator; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
+
+https://github.com/user-attachments/assets/df2a6cb5-4d6e-41db-90a3-94d02e50936d
+
+
 ## System architecture
 
 A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
