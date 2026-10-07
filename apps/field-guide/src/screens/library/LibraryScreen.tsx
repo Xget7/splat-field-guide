@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GuideStatus,
@@ -15,8 +15,10 @@ import { SectionHeader } from '../../ui/SectionHeader';
 import { Backdrop } from '../../ui/Gradients';
 import { Color, Space, Type } from '../../ui/theme';
 import { continueRowFor } from './library';
+import { AssemblyBanner } from './AssemblyBanner';
 import { ContinueCard, ReadyCard, SoonCard } from './GuideCards';
 import { useWideLayout } from '../../ui/useWideLayout';
+import V8_CAPTURE from '../../../assets/ar/v8-engine.json';
 
 const Layout = {
   columns: 2,
@@ -126,6 +128,18 @@ export function LibraryScreen({
                 }
               />
             ))}
+          </View>
+        )}
+        {Platform.OS === 'ios' && (
+          <View style={styles.section}>
+            <SectionHeader title="Spatial assembly" />
+            <AssemblyBanner
+              title="Assemble a V8 in AR"
+              caption="Place a V8 engine in your space and bring its pieces together, step by step."
+              model={V8_CAPTURE.modelPath}
+              wide={wide}
+              onPress={() => navigation.navigate(Route.assembly)}
+            />
           </View>
         )}
         {soon.length > 0 && (

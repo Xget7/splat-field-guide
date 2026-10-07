@@ -39,9 +39,29 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 | `src/features/instructor` | Command routing, turns, authored grounding, model adapters and voice |
 | `src/features/viewport` | Native viewer readiness, gestures, camera conversion, framing and projected markers |
 | `src/screens`, `src/ui` | Screen composition and view models, then business-free presentation primitives |
-| `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views and iOS-only provisional AR alignment |
+| `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views, iOS spatial placement/assembly and provisional AR alignment |
 | `react-native-on-device` | Platform speech, iOS Apple generation/Kokoro and audio coordination |
 | `instructor-proxy`, `pipeline` | Cloud request policy/stream translation, then pack preparation |
 
 Screens compose the lower units; pack/guide remain free of React and native imports, and UI imports no business code.
 The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; it stays hidden unless `AR_CHECK_ENABLED` is set, and physical alignment and semantic camera masks remain open.
+
+## Spatial assembly
+
+The library opens a standalone V8 assembly tour on iOS, separate from the Gol guide and its procedures.
+[ADR 0010](../adr/0010-spatial-assembly-uses-authored-usdz-parts.md) records the representation and ownership.
+The prepared USDZ retains 128 named parts; the visual tour groups them into 12 steps with fasteners included alongside their assemblies.
+The tour starts with the crankshaft already installed; large parts enter one at a time and repeated fasteners or valve springs enter together.
+Going back reverses that sequence while retaining the crankshaft.
+The native assembly state machine owns the completed prefix, playback phase and command identity.
+RealityKit playback completion from every controller in the active group advances the completed prefix.
+Next remains available during forward assembly and completes the current step immediately before animating the following step.
+Later parts remain hidden; only the upcoming part or repeated group appears after the preceding movement completes or is explicitly skipped.
+Part translations take 1.35 seconds, and the complete preview preserves the current step when returning to the tour.
+Compact native glass controls keep the next action above the bottom safe area and secondary actions in an optional menu.
+The camera detects horizontal surfaces, and placement rechecks the centre ray against detected plane geometry before creating an anchor.
+Scale and rotation apply to the equipment while part animations and the anchor preserve their positions.
+The tour starts 50 centimetres above the detected surface, with adjustable elevation from zero to two metres independent of model scale.
+Tracking loss hides the equipment until tracking recovers; interruption recovery requests a fresh placement.
+This visual sequence is not a reviewed mechanical assembly procedure.
+The assembly screen credits little.bucket and the capture's CC BY-NC 4.0 license.

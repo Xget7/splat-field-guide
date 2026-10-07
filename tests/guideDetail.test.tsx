@@ -173,7 +173,7 @@ describe('Guide detail screen', () => {
     );
   });
 
-  test('a shared build offers the viewer without an AR entry point', async () => {
+  test('a shared build keeps the physical alignment check hidden', async () => {
     await mount();
     expect(renderer.root.findAllByProps({ testID: 'open-ar' })).toHaveLength(0);
     await press('start-tour');

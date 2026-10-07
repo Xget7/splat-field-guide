@@ -34,6 +34,7 @@ flowchart TB
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
 | Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/app/arCheck.ts) |
 | Library model preview | iOS and the local engine-bay capture in `data/ar-reference`; without it the card shows the guide's photo |
+| Spatial assembly | Physical iPhone/iPad, the prepared V8 USDZ and the library's "Assemble a V8 in AR" entry |
 
 Use the [root quickstart](../../README.md#quickstart) to prepare resources and run the app.
 The CLI starts Metro; for Xcode, run `npm start` here and open `ios/FieldGuide.xcworkspace` with the FieldGuide scheme.
@@ -69,3 +70,13 @@ The example's `null` runs offline only; deploy your own Worker with the [service
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
 App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).
 [Open acceptance](../../TASKS.md) includes physical performance, voice and AR checks.
+
+## Spatial assembly
+
+The V8 visual tour places 128 separate parts on a detected table or floor and assembles them in 12 steps, with reverse steps, complete preview, pinch sizing and two-finger rotation.
+Large parts enter one at a time; repeated fasteners and valve springs enter together, and future parts stay hidden until their turn.
+Next during forward assembly finishes the current step immediately and starts the following step.
+The crankshaft starts installed, and the engine starts 50 centimetres above the detected surface; the menu adjusts height from zero to two metres in 25-centimetre increments.
+Compact native glass controls sit above the bottom safe area; matching native playback completion advances the sequence automatically.
+The supplied model is credited to little.bucket under CC BY-NC 4.0; its sequence is a visual tour, not reviewed mechanical instructions.
+Prepare the local USDZ with [the resource command](../../AGENTS.md#spatial-assembly-resources); missing resources show an unavailable state.

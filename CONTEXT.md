@@ -161,6 +161,24 @@ _Avoid_: segmentation, matte
 The assignment of part labels to splats from the masks of the capture's photographs.
 _Avoid_: projection, voting, 3D segmentation
 
+### Spatial assembly
+
+**Assembly tour**:
+A visual sequence that brings separate parts back into their assembled positions.
+_Avoid_: maintenance procedure, mechanical assembly instructions
+
+**Assembly batch**:
+A group of parts brought together in one assembly tour step.
+_Avoid_: individual part step, mechanical subassembly
+
+**Exploded view**:
+A view that separates the equipment's parts while retaining their relationship to the assembled equipment.
+_Avoid_: disassembly procedure, cutaway
+
+**Placement**:
+The position on a real surface where virtual equipment stays while a person moves around it.
+_Avoid_: registration, recognition
+
 ### Provisional AR alignment
 
 **Reference**:

@@ -132,3 +132,57 @@ The app's [landmarks.json](../apps/field-guide/assets/ar/landmarks.json) holds f
 A photo-screen measurement on 2026-10-02 recorded 49 one-second samples, 60.1 camera FPS on average, 46 normal-tracking samples, zero object anchors and zero session/load errors.
 The owner reported an unsuccessful real-engine test without retained states, leaving detection, tracking and display undiagnosed.
 Verify current-reference recognition, landmark pixel error, drift, recovery, illumination, negative scenes and actual torch behaviour on a physical iPhone before choosing the semantic overlay renderer.
+
+## V8 spatial assembly
+
+The supplied `V8_Engine.usdz` is little.bucket's CC BY-NC 4.0 capture, separate from the Gol pack and AR reference.
+[The pinned receipt](../apps/field-guide/assets/ar/v8-engine.json) records the source/prepared SHA-256 identities, 128 named parts and their original animation's visual assembly order.
+[Preparation](../scripts/prepare_ar_assembly.py) samples time code 3250 and retains the original hierarchy, geometry and five textures while baking 331 animated attributes into a fixed pose.
+The prepared archive is reproducible and 3710456 bytes; its imported RealityKit bounds are about 0.480 x 0.361 x 0.488 m, without establishing the physical engine's dimensions.
+On 2026-10-07 the native RealityKit harness loaded the actual prepared USDZ and passed all 129 forward and 129 reverse assembly states.
+Every assembled part restored its authored transform, all 128 parts retained finite geometry, and preview return, scale and rotation preserved the equipment hierarchy.
+The first glass iteration grouped the source order into 11 contiguous batches with cumulative boundaries 1, 47, 53, 73, 89, 91, 109, 119, 122, 126 and 128.
+The native harness also verifies next-batch opacity across all forward/reverse states, boundary changes without movement, original textures and opacity restoration after complete preview.
+That iteration used ten percent opacity for later batches and 1.35-second translations, pending physical visibility and motion review.
+App/package lint and types, the existing 650 app tests, package checks and Debug simulator/device builds passed.
+A signed Release containing JavaScript and verified V8 bytes passed signature/provision checks and was installed and launched on xgetphone over the local network.
+The updated Release bundles compact native Liquid Glass controls, a bottom next action and the 11-batch tour; app/package lint and types, signature and bundled-byte checks passed before installation and launch on xgetphone.
+Simulator navigation verified the library entry, visible little.bucket credit and the physical-device requirement; an explicit Debug Metro host kept this workspace separate from another app's server.
+The phone was launched without UI automation; physical placement, tracking, visible assembly animation and mechanical correctness remain unchecked in [TASKS.md](../TASKS.md).
+
+### Sequential assembly
+
+The tour now groups the same 128 names into 34 steps, separating large parts from their bolts and nuts while the preparation receipt retains the original animation order.
+The native state machine reports a settled prefix, request identity and idle, assembling, separating or previewing phase.
+Matching RealityKit playback completion advances one part at a time; later parts are disabled and the next part appears only after the prior movement finishes.
+The UI has no assembly timer and accepts only the current command's completion before enabling the next action.
+The actual V8 harness passed all forward/reverse prefixes and a rendered macOS RealityKit scene verified sequential playback, reverse playback, complete-preview return and cancellation.
+Playback controllers require value equality for matching completion; object-reference identity misses the returned controller wrapper.
+RealityKit retains a stopped Transform binding, so cancellation replaces that component with the stored pose before reporting idle.
+Full-preview cancellation, including cancellation in the same frame it starts, preserves the requested view and actual settled prefix.
+App/package lint and types, the signed Release build, signature verification and bundled-model checks passed for the sequential version.
+A generated React Native header was briefly unavailable during a concurrent simulator build; the subsequent build passed with the generated inputs present.
+The sequential Release was installed and launched on xgetphone over the local network, without phone UI automation.
+
+### Initial component and elevation
+
+The tour starts and restarts at its first completed step, retaining the crankshaft when moving backwards.
+Replacing a native command no longer publishes the previous command's idle snapshot before applying the new target.
+The actual V8 harness verifies one initial idle acknowledgement with the crankshaft already at its authored transform, alongside the existing sequential playback and cancellation checks.
+The tour sets elevation to one metre above the detected plane and provides zero-to-two-metre controls in 25-centimetre increments inside the glass menu.
+Elevation translates the equipment root independently of its uniform scale and is preserved when relocating the engine.
+App/package lint and types and the real RealityKit harness passed for this change.
+The signed Release build, signature verification and bundled V8 byte checks passed, and the elevation version was installed and launched on xgetphone over the local network.
+Physical height, placement and viewing from below remain unchecked without phone UI automation.
+
+### Compact assembly and interruptible Next
+
+The current tour has 12 steps including the initially installed crankshaft and starts 50 centimetres above the detected surface.
+Its cumulative boundaries are 1, 9, 49, 73, 74, 89, 91, 109, 119, 122, 126 and 128.
+Large parts remain sequential; authored contiguous piston bolts/nuts, bearing bolts, side bolts, head bolts and valve springs animate as repeated groups.
+The settled prefix advances only after every playback controller in a group completes.
+Next during forward assembly completes the current requested step immediately and begins the following step, while Next on the final animation completes the tour.
+The UI accepts a skip only for the current command's native assembling phase and rejects another skip until its new request is acknowledged.
+The actual V8 harness passed bootstrap, every static forward/reverse prefix, real grouped playback, partial reverse, grouped cancellation, preview return and interruption into the following step.
+App/package lint and types, the signed Release build, signature verification and bundled V8 byte checks passed for this version.
+The 12-step version was installed and launched on xgetphone over the local network; physical grouped animation, Next interruption and elevation remain unchecked without phone UI automation.

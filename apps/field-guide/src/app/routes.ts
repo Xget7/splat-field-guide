@@ -5,6 +5,8 @@ export const Route = {
   guide: 'Guide',
   viewer: 'Viewer',
   ar: 'AR',
+  placement: 'ARPlacement',
+  assembly: 'ARAssembly',
 } as const;
 export type Route = (typeof Route)[keyof typeof Route];
 
@@ -18,6 +20,8 @@ export type RootStackParamList = {
   [Route.library]: undefined;
   [Route.guide]: { guideId: string };
   [Route.ar]: { guideId: string };
+  [Route.placement]: { guideId: string };
+  [Route.assembly]: undefined;
   [Route.viewer]: {
     guideId: string;
     procedureId: string;

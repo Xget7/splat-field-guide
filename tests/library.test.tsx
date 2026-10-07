@@ -125,6 +125,8 @@ describe('Library screen', () => {
       'Tactical truck, Engine bay, coming soon',
     );
     expect(node(`soon-card-${catalog[1].id}`).props.onPress).toBeUndefined();
+    await press('open-ar-assembly');
+    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.assembly);
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);

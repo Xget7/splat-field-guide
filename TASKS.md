@@ -3,6 +3,9 @@
 These items require the inputs or hardware listed below; source and simulator checks do not establish physical acceptance.
 Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
 
+- [ ] Verify V8 horizontal-surface placement, all 12 assembly/reverse steps, grouped fasteners and valve springs, Next during forward assembly, the initially installed crankshaft, adjustable elevation and viewing from below, complete preview, compact glass controls, hidden future parts, playback completion, pinch/rotation, relocation, camera permissions, background/interruption recovery and visibility on the physical iPhone (R22-R27).
+- [ ] Review the V8 source animation's visual order before using it for mechanical assembly instruction (R23).
+
 - [ ] Verify Android gestures, all picks/procedures, idle drawing, frame/load time, memory and thermal behaviour on physical Vulkan hardware (R4-R10, R12-R14).
 - [ ] Verify Android recognition readiness, installed offline TTS, commands, interruption/echo, cancellation and airplane-mode fallback on physical hardware (R14-R18).
 - [ ] Verify or correct fuse-box/battery masks using the capture, accepted annotations and the real engine (R6).

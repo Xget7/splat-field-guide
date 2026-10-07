@@ -39,6 +39,18 @@ Reading and voice must both support the guidance flow, with interruption in voic
 - R20. Deliver a TestFlight build.
 - R21. Provide reproducible repository preparation, current documentation, decisions and provenance.
 
+## Spatial assembly
+
+- R22. Place the supplied V8 capture on a detected horizontal surface on iOS, with scale and rotation.
+- R23. Assemble all 128 parts in 12 steps, install large parts sequentially and repeated fasteners or valve springs together, and support reverse separation and a complete preview that preserves the current step.
+- R24. Credit little.bucket and retain CC BY-NC 4.0 attribution in the screen and bundled notices.
+- R25. Keep the next action near the bottom in compact native glass controls, hide future parts and reveal only the upcoming part or repeated group after the preceding movement completes or is explicitly skipped.
+- R26. Drive automatic assembly with a native state machine and matching playback completion; allow Next during forward assembly to finish the current step immediately and start the following step.
+- R27. Start and restart with the crankshaft installed, and allow viewing from below with an initial elevation of 50 centimetres above the detected surface and height controls from zero to two metres.
+
+The V8 is separate from the Gol guide; its visual sequence does not establish mechanical assembly correctness.
+Native source checks establish part ordering and transform restoration; physical placement, tracking recovery and visible animation remain unchecked.
+
 Fresh-device offline transcription is unmet when system assets require downloading.
 The AR landmark check remains provisional and hidden by default; physical recognition, alignment and full semantic camera masks are open.
 The Android emulator verifies the full-tier viewer, picking/highlight, procedure framing and scripted instructor fallback.

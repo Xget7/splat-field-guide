@@ -5,6 +5,7 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
+import { Platform } from 'react-native';
 import { catalogFor } from '../features/pack/catalog';
 import { offersArCheck } from './arCheck';
 import { CatalogProvider } from './CatalogContext';
@@ -13,6 +14,8 @@ import { GuideDetailScreen } from '../screens/guide-detail/GuideDetailScreen';
 import { LibraryScreen } from '../screens/library/LibraryScreen';
 import { ViewerScreen } from '../screens/viewer/ViewerScreen';
 import { ARScreen } from '../screens/ar/ARScreen';
+import { ARPlacementScreen } from '../screens/ar/ARPlacementScreen';
+import { ARAssemblyScreen } from '../screens/ar/ARAssemblyScreen';
 import { Color } from '../ui/theme';
 import { Route, type RootStackParamList } from './routes';
 
@@ -55,6 +58,20 @@ export function RootNavigator({ pack }: { pack: Pack }) {
             <Stack.Screen
               name={Route.ar}
               component={ARScreen}
+              options={VIEWER_OPTIONS}
+            />
+          )}
+          {Platform.OS === 'ios' && (
+            <Stack.Screen
+              name={Route.placement}
+              component={ARPlacementScreen}
+              options={VIEWER_OPTIONS}
+            />
+          )}
+          {Platform.OS === 'ios' && (
+            <Stack.Screen
+              name={Route.assembly}
+              component={ARAssemblyScreen}
               options={VIEWER_OPTIONS}
             />
           )}
