@@ -167,6 +167,21 @@ test('returning from the background leaves voice off until the user taps', async
   await act(async () => renderer.unmount());
 });
 
+test('a conversation the agent closes turns voice off without a hint', async () => {
+  const fake = fakeVoiceSession();
+  const h = harness(
+    fakeVoiceRuntime({ session: fake.session, questions: null }).runtime,
+  );
+  let renderer!: Renderer.ReactTestRenderer;
+  await act(async () => {
+    renderer = Renderer.create(<h.Harness />);
+  });
+  await act(async () => fake.events.ended(VoiceEnd.goodbye, null));
+  expect(h.voice.on).toBe(false);
+  expect(h.voice.hint).toBe('');
+  await act(async () => renderer.unmount());
+});
+
 test('microphone denial shows the permission hint with voice off', async () => {
   const fake = fakeVoiceSession();
   jest

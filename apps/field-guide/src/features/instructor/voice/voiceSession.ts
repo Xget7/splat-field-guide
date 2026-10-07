@@ -44,6 +44,7 @@ export class VoiceStartError extends Error {
 }
 export const VoiceEnd = {
   silence: 'silence',
+  goodbye: 'goodbye',
   stopped: 'stopped',
   ...ConnectionFailure,
   audio: 'audio',

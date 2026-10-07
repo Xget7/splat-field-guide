@@ -279,6 +279,24 @@ test.each(['silence', 'stopped', 'audio'])(
     expect(test.handlers.ended).toHaveBeenCalledWith(reason);
   },
 );
+test('the agent ends with a goodbye only after its last words play out', async () => {
+  const test = setup();
+  await test.start();
+  test.audioEvent(1);
+  test.receive({
+    type: 'agent_tool_response',
+    agent_tool_response: { tool_name: 'end_call' },
+  });
+  test.socket.onclose?.({ code: 1000, reason: '' });
+  test.input('mic');
+  expect(test.handlers.ended).not.toHaveBeenCalled();
+  expect(test.audio.stop).not.toHaveBeenCalled();
+  jest.runOnlyPendingTimers();
+  expect(test.handlers.ended).toHaveBeenCalledWith('goodbye');
+  expect(test.messages()).not.toContainEqual(
+    expect.objectContaining({ user_audio_chunk: 'mic' }),
+  );
+});
 test('a pending start times out or can be stopped without a late connection', async () => {
   const handlers = setup().handlers;
   const connect = jest.fn();

@@ -12,9 +12,9 @@ Claude answers through the [instructor proxy](../instructor-proxy/README.md).
 | Recognition | High quality, pack recognition hints, `pcm_16000` |
 | Voice | English Flash v2 (`eleven_flash_v2`), owner-provided `VOICE_ID`, `pcm_24000`, ElevenLabs number normalization so transcripts keep `5W-40` |
 | Pronunciation | Authored alias dictionary pinned to its synced version |
-| Tools | Client tools with pack part/check enums, responses required, five-second timeout |
+| Tools | Client tools with pack part/check enums, responses required, five-second timeout, plus the built-in end_call system tool |
 | Turn | Normal eagerness, end after twenty seconds of silence |
-| Conversation | Five-minute maximum; audio, interruption, transcript, response/correction/parts/completion, tool, ping, VAD, initiation metadata and client-error events |
+| Conversation | Five-minute maximum; audio, interruption, transcript, response/correction/parts/completion, tool call, tool response, ping, VAD, initiation metadata and client-error events |
 | Authentication | Enabled; the app connects with signed URLs from the Worker |
 
 Use Node 26 or newer.

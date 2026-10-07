@@ -4,7 +4,7 @@ import { agentVariables } from '../../../apps/field-guide/src/features/instructo
 import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/session.ts';
 import {
   buildAgentConfig, LLM_BASE_PATH, LLM, MODEL_ID, CHAT_COMPLETIONS_API_TYPE,
-  TTS_MODEL_ID, TEXT_NORMALISATION_TYPE, INPUT_AUDIO_FORMAT, OUTPUT_AUDIO_FORMAT,
+  END_CALL_TOOL, TTS_MODEL_ID, TEXT_NORMALISATION_TYPE, INPUT_AUDIO_FORMAT, OUTPUT_AUDIO_FORMAT,
 } from '../src/agentConfig.ts';
 import { pack } from './pack.ts';
 
@@ -18,6 +18,8 @@ test('the agent carries the pack, screen variables and owner voice through a sec
   for (const procedure of pack.procedures) assert.ok(agent.prompt.prompt.includes(procedure.title));
   assert.deepEqual(agent.dynamic_variables.dynamic_variable_placeholders, agentVariables(INITIAL_SESSION, pack, false));
   assert.deepEqual(agent.prompt.tool_ids, ['show-tool', 'next-tool']);
+  assert.equal(agent.prompt.built_in_tools[END_CALL_TOOL].params.system_tool_type, END_CALL_TOOL);
+  assert.ok(config.conversation_config.conversation.client_events.includes('agent_tool_response'));
   assert.deepEqual(agent.prompt.custom_llm.api_key, { secret_id: 'llm-secret-id' });
   assert.equal(agent.prompt.llm, LLM);
   assert.equal(agent.prompt.custom_llm.model_id, MODEL_ID);

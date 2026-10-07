@@ -215,8 +215,17 @@ export function useInstructorVoice(options: Options) {
         session.current = null;
         setReady(false);
         quiet();
-        if (reason === VoiceEnd.audio || reason === VoiceEnd.lost) {
+        const lost = reason === VoiceEnd.audio || reason === VoiceEnd.lost;
+        // A conversation the agent closed is over, so voice mode closes with it.
+        if (
+          lost ||
+          reason === VoiceEnd.goodbye ||
+          reason === VoiceEnd.silence
+        ) {
           setOn(false);
+          setMuted(false);
+        }
+        if (lost) {
           setHint(VoiceHint.lost);
         }
       },

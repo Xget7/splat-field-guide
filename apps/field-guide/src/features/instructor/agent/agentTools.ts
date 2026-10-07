@@ -29,7 +29,8 @@ export interface AgentToolSpec {
   };
 }
 const Description = {
-  [AgentTool.showPart]: 'Call when the user asks to see a named part.',
+  [AgentTool.showPart]:
+    'Call when the user asks about one named part: to see or find it, or how to check, fill or change it.',
   [AgentTool.startProcedure]:
     'Call when the user asks to begin a guided check or the parts tour.',
   [AgentTool.nextStep]:

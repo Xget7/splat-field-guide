@@ -1,5 +1,7 @@
 import type { AgentVariables } from './agentVariables';
 
+export const SystemTool = { endCall: 'end_call' } as const;
+
 export interface Alignment {
   readonly chars: readonly string[];
   readonly startsMs: readonly number[];
@@ -51,6 +53,7 @@ export type AgentServerEvent =
       readonly expectsResponse: boolean;
     }
   | { readonly type: 'responseComplete' }
+  | { readonly type: 'agentTool'; readonly name: string }
   | {
       readonly type: 'error';
       readonly code: number;
@@ -217,6 +220,12 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
             parameters: value.parameters,
             expectsResponse: value.expects_response !== false,
           }
+        : null;
+    }
+    case 'agent_tool_response': {
+      const value = fields('agent_tool_response');
+      return value && text(value.tool_name)
+        ? { type: 'agentTool', name: value.tool_name }
         : null;
     }
     case 'agent_response_complete': {

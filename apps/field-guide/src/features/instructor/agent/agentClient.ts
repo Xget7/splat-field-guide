@@ -5,6 +5,7 @@ import {
   ClientMessage,
   parseServerMessage,
   pcmRate,
+  SystemTool,
   type AgentServerEvent,
 } from './agentProtocol';
 import { chunkDurationMs, createWordTimeline } from './wordTimeline';
@@ -19,6 +20,7 @@ import { AgentToolCopy } from './agentCopy';
 export const AgentTiming = {
   CONNECT_TIMEOUT_MS: 8000,
   WORD_TICK_MS: 50,
+  PLAYOUT_MARGIN_MS: 300,
 } as const;
 
 /** Mirrors the native AudioLink. */
@@ -47,6 +49,7 @@ export interface SocketPort {
 
 export const AgentEnd = {
   silence: 'silence',
+  goodbye: 'goodbye',
   stopped: 'stopped',
   network: 'network',
   quota: 'quota',
@@ -128,6 +131,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let outputRate = NO_RATE;
   // Events that arrive before the microphone and speaker are ready, replayed in order once they are.
   let held: AgentServerEvent[] | null = null;
+  let goodbye = false;
   function finishSpeaking() {
     if (tick !== null) {
       cancelRepeat(tick);
@@ -224,13 +228,31 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       end(AgentEnd.network);
     }
   }
-  function words() {
+  function playedMs() {
     const now = audio.playedMs();
     if (now < playbackStartMs) {
       // Clearing playback restarts the native clock, sometimes only after the next reply began.
       playbackStartMs = 0;
     }
-    const played = Math.max(0, now - playbackStartMs);
+    return Math.max(0, now - playbackStartMs);
+  }
+  // The server closes right after the last audio arrives, so the agent's last words play out first.
+  function endAfterPlayback(reason: AgentEnd) {
+    socket = null;
+    const remaining = queuedMs - playedMs();
+    if (remaining <= 0) {
+      end(reason);
+      return;
+    }
+    const owner = generation;
+    schedule(() => {
+      if (generation === owner) {
+        end(reason);
+      }
+    }, remaining + AgentTiming.PLAYOUT_MARGIN_MS);
+  }
+  function words() {
+    const played = playedMs();
     if (played >= queuedMs) {
       finishSpeaking();
     } else {
@@ -277,6 +299,11 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         words();
         break;
       case 'responseComplete':
+        break;
+      case 'agentTool':
+        if (event.name === SystemTool.endCall) {
+          goodbye = true;
+        }
         break;
       case 'audio': {
         if (!acceptResponse(event.eventId)) {
@@ -348,6 +375,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       currentEventId = NO_EVENT_ID;
       outputRate = NO_RATE;
       held = [];
+      goodbye = false;
       const currentGeneration = ++generation;
       const current = () => running && generation === currentGeneration;
       handlers.status({ state: AgentState.connecting, reason: null });
@@ -470,7 +498,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
               if (failure) {
                 endFailure(failure);
               } else {
-                end(AgentEnd.silence);
+                endAfterPlayback(goodbye ? AgentEnd.goodbye : AgentEnd.silence);
               }
             };
           } catch (error) {

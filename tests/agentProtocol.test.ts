@@ -109,6 +109,13 @@ const examples = [
   ],
   [
     {
+      type: 'agent_tool_response',
+      agent_tool_response: { tool_name: 'end_call', tool_call_id: 'call' },
+    },
+    { type: 'agentTool', name: 'end_call' },
+  ],
+  [
+    {
       type: 'client_error',
       error_event: { code: 429, error_name: 'quota', message: 'limit' },
     },

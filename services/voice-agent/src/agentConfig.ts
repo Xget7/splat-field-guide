@@ -27,10 +27,13 @@ export const SILENCE_END_CALL_SECONDS = 20;
 export const MAX_DURATION_SECONDS = 300;
 export const ASR_QUALITY = 'high';
 export const TURN_EAGERNESS = 'normal';
+export const END_CALL_TOOL = 'end_call';
+export const SYSTEM_TOOL_TYPE = 'system';
+export const END_CALL_DESCRIPTION = 'Call when the user says goodbye or wants to stop talking.';
 export const CLIENT_EVENTS = [
   'audio', 'interruption', 'user_transcript', 'agent_response',
   'agent_response_correction', 'agent_chat_response_part', 'agent_response_complete',
-  'client_tool_call', 'ping', 'vad_score', 'conversation_initiation_metadata', 'client_error',
+  'client_tool_call', 'agent_tool_response', 'ping', 'vad_score', 'conversation_initiation_metadata', 'client_error',
 ];
 
 const VoiceStyle = [
@@ -39,10 +42,12 @@ const VoiceStyle = [
   'Write numbers, grades and units as the notes write them, for example 5W-40.',
 ] as const;
 const ToolInstructions = [
-  'When the user asks to see or find a part, call show_part.',
+  'When the user asks about one specific part, such as where it is, what it does, or how to check, fill or change it, call show_part for it before you answer, even if they did not ask to see it.',
+  'Match everyday words to the closest part, for example engine water means the coolant.',
   'When they ask to start a check, call start_procedure.',
   'For next, back, repeat, a step number or stopping, call the matching step tool.',
   'After a tool call, say its result in one short sentence and do not read the step again.',
+  'When the user says goodbye or is done, say one short goodbye and call end_call with only a reason.',
   'A message that starts with [narrate] is read aloud by the app; never answer it.',
 ] as const;
 const ScreenContext = [
@@ -84,6 +89,12 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
             api_type: CHAT_COMPLETIONS_API_TYPE,
           },
           tool_ids: [...ids.toolIds],
+          built_in_tools: {
+            [END_CALL_TOOL]: {
+              type: SYSTEM_TOOL_TYPE, name: END_CALL_TOOL, description: END_CALL_DESCRIPTION,
+              params: { system_tool_type: END_CALL_TOOL },
+            },
+          },
         },
       },
       asr: {
