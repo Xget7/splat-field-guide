@@ -24,11 +24,7 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-import {
-  speechTextFor,
-  SpokenSection,
-} from '../../../features/instructor/voice/speechPresentation';
-import { InterruptedLabel } from '../../../features/instructor/mode/modeCopy';
+import { SpokenSection } from '../../../features/instructor/voice/speechPresentation';
 import {
   VoiceState,
   type InstructorVoice,
@@ -123,33 +119,21 @@ function Said({
 }: SaidProps) {
   const speaking = live && voice.state === VoiceState.speaking;
   const answer =
-    reply === '' ? null : (
+    reply === '' && !interrupted ? null : (
       <InstructorAnswer
         id={live ? 'instructor-reply' : `thread-reply-${index}`}
         reply={reply}
-        streaming={streaming && live}
+        streaming={streaming && live && !interrupted}
         reducedMotion={reducedMotion}
         speaking={speaking && voice.section === SpokenSection.reply}
         word={voice.word}
         live={live}
+        interrupted={interrupted}
       />
     );
   return (
     <>
-      {interrupted ? (
-        <View
-          accessible
-          accessibilityLabel={[speechTextFor(reply), InterruptedLabel]
-            .filter(Boolean)
-            .join(' ')}
-          style={styles.interruptedAnswer}
-        >
-          {answer}
-          <Text style={styles.interrupted}>{InterruptedLabel}</Text>
-        </View>
-      ) : (
-        answer
-      )}
+      {answer}
       {caution !== '' &&
         (live ? (
           <CautionNote text={caution}>
@@ -324,8 +308,6 @@ const styles = StyleSheet.create({
     paddingVertical: Space.xs,
   },
   entry: { gap: Space.xs },
-  interruptedAnswer: { gap: Space.xs },
-  interrupted: { ...Type.footnote, color: Color.muted },
   title: { ...Type.headline, color: Color.text },
   pastTitle: { color: Color.muted },
   divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },

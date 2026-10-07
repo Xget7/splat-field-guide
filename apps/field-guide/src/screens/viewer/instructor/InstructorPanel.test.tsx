@@ -7,7 +7,6 @@ import {
   AnswerSource,
   InstructorMode,
   ModeCause,
-  ModeRequestType,
   VoiceSource,
   type ModeStatus,
 } from '../../../features/events/types';
@@ -78,6 +77,45 @@ function Panel({
   );
 }
 
+function readout(
+  node:
+    | ReactTestRenderer.ReactTestRendererJSON
+    | ReactTestRenderer.ReactTestRendererJSON[]
+    | string
+    | null,
+): string[] {
+  if (node === null) {
+    return [];
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap(readout);
+  }
+  if (typeof node === 'string') {
+    return [node];
+  }
+  if (node.props.accessible === false) {
+    return [];
+  }
+  // Accessible native parents group their children for the screen reader.
+  if (
+    node.props.accessibilityLabel &&
+    (node.props.accessible || node.type === 'Text')
+  ) {
+    return [node.props.accessibilityLabel];
+  }
+  return (node.children ?? []).flatMap(readout);
+}
+
+const INTERRUPTED_EXCHANGE: Exchange = {
+  id: EXCHANGE_ID,
+  question: 'What should I do?',
+  reply: '1. Check the cap.\n2. Turn it slowly.',
+  caution: '',
+  part: null,
+  phase: ExchangePhase.done,
+  interrupted: true,
+};
+
 describe('instructor panel modes', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const mode = async (status: Partial<ModeStatus>) => {
@@ -88,13 +126,16 @@ describe('instructor panel modes', () => {
       renderer = ReactTestRenderer.create(<Panel {...props} />);
     });
   };
-  const text = (testID: string) =>
-    renderer.root.findAllByProps({ testID }).find(node => node.type === Text)!
-      .props.children;
-  const toggle = () =>
+  const hasText = (text: string) =>
     renderer.root
-      .findAllByProps({ testID: 'instructor-mode-toggle' })
-      .find(node => node.props.accessibilityRole === 'button')!;
+      .findAllByType(Text)
+      .some(node => node.props.children === text);
+  const button = (label: string) =>
+    renderer.root.findAll(
+      node =>
+        node.props.accessibilityRole === 'button' &&
+        node.findAllByType(Text).some(text => text.props.children === label),
+    )[0];
 
   beforeEach(async () => {
     jest.mocked(useReducedMotion).mockReturnValue(false);
@@ -105,131 +146,141 @@ describe('instructor panel modes', () => {
     await act(() => renderer?.unmount());
   });
 
-  test('the open header lets the user force offline and allow online, hiding the toggle during switches', async () => {
+  test('Go offline explains and requests on-device voice and answers', async () => {
     const requests: string[] = [];
     const unsubscribe = appEvents.on('modeRequest', request =>
       requests.push(request.type),
     );
     try {
       await mount();
-      expect(text('instructor-mode-toggle-label')).toBe('Go offline');
-      expect(toggle().props.accessibilityHint).toBeTruthy();
-      await act(() => toggle().props.onPress());
-      await mode({
-        mode: InstructorMode.offline,
-        forced: true,
-        answers: AnswerSource.script,
-      });
-      expect(
-        renderer.root
-          .findAllByType(Text)
-          .some(node => node.props.children === 'Offline'),
-      ).toBe(true);
-      expect(text('instructor-mode-toggle-label')).toBe('Go online');
-      await act(() => toggle().props.onPress());
-      expect(requests).toEqual([
-        ModeRequestType.forceOffline,
-        ModeRequestType.allowOnline,
-      ]);
-      for (const switching of [
-        InstructorMode.switchingToOnline,
-        InstructorMode.switchingToOffline,
-      ]) {
-        await mode({ mode: switching });
-        expect(toggle()).toBeUndefined();
-      }
+      expect(button('Go offline').props.accessibilityHint).toBe(
+        'Uses the on-device voice and answers until you go online.',
+      );
+      await act(() => button('Go offline').props.onPress());
+      expect(requests).toEqual(['forceOffline']);
     } finally {
       unsubscribe();
     }
   });
 
-  test('the minimized header shows Offline when idle and switch titles while preserving active voice status', async () => {
-    await mount({ mode: PanelMode.minimized });
-    expect(toggle()).toBeUndefined();
-    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
-    expect(text('instructor-status')).toBe('Offline');
-    await act(() =>
-      renderer.update(
-        <Panel
-          mode={PanelMode.minimized}
-          voice={{ on: true, state: VoiceState.speaking }}
-        />,
-      ),
+  test('Go online explains and requests automatic online recovery', async () => {
+    const requests: string[] = [];
+    const unsubscribe = appEvents.on('modeRequest', request =>
+      requests.push(request.type),
     );
-    expect(text('instructor-status')).toBe('Speaking');
-    await mode({
-      mode: InstructorMode.switchingToOffline,
-      cause: ModeCause.network,
-    });
-    expect(text('instructor-status')).toBe(
-      'Connection lost. Switching to offline.',
-    );
-    await mode({
-      mode: InstructorMode.switchingToOnline,
-      cause: ModeCause.recovered,
-    });
-    expect(text('instructor-status')).toBe(
-      'Back online. Switching to online voice.',
-    );
-    await mode({});
-    expect(text('instructor-status')).toBe('Speaking');
+    try {
+      await mode({
+        mode: InstructorMode.offline,
+        forced: true,
+        answers: AnswerSource.script,
+      });
+      await mount();
+      expect(button('Go online').props.accessibilityHint).toBe(
+        'Uses the online voice again when the connection is good.',
+      );
+      await act(() => button('Go online').props.onPress());
+      expect(requests).toEqual(['allowOnline']);
+    } finally {
+      unsubscribe();
+    }
   });
 
-  test('a cut-off reply keeps its words and includes Interrupted in the answer accessibility label', async () => {
-    const exchange: Exchange = {
-      id: EXCHANGE_ID,
-      question: 'What does it do?',
-      reply: 'It supplies the starter.',
-      caution: '',
-      part: null,
-      phase: ExchangePhase.done,
-      interrupted: true,
-    };
-    await mount({ exchange });
-    expect(
-      renderer.root
-        .findAllByType(Text)
-        .some(node => node.props.children === 'Interrupted'),
-    ).toBe(true);
-    expect(
-      renderer.root
-        .findAllByProps({
-          accessibilityLabel: 'It supplies the starter. Interrupted',
-        })
-        .some(node => node.props.accessible),
-    ).toBe(true);
-    await act(() =>
-      renderer.update(
-        <Panel thread={[{ kind: EntryKind.exchange, exchange }]} />,
-      ),
+  test.each([
+    InstructorMode.switchingToOffline,
+    InstructorMode.switchingToOnline,
+  ])('the toggle is hidden during %s', async switching => {
+    await mode({ mode: switching });
+    await mount();
+    expect(button('Go offline')).toBeUndefined();
+    expect(button('Go online')).toBeUndefined();
+  });
+
+  test('the minimized panel has no mode toggle', async () => {
+    await mount({ mode: PanelMode.minimized });
+    expect(button('Go offline')).toBeUndefined();
+  });
+
+  test('an idle minimized panel reads Offline', async () => {
+    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
+    await mount({ mode: PanelMode.minimized });
+    expect(hasText('Offline')).toBe(true);
+  });
+
+  test.each([
+    { state: VoiceState.speaking, label: 'Speaking' },
+    { state: VoiceState.thinking, label: 'Thinking' },
+    { state: VoiceState.listening, label: 'Listening' },
+  ])(
+    'an offline minimized panel keeps $label while voice is active',
+    async ({ state, label }) => {
+      await mode({
+        mode: InstructorMode.offline,
+        answers: AnswerSource.script,
+      });
+      await mount({ mode: PanelMode.minimized, voice: { on: true, state } });
+      expect(hasText(label)).toBe(true);
+    },
+  );
+
+  test.each([
+    {
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.network,
+      title: 'Connection lost. Switching to offline.',
+    },
+    {
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.user,
+      title: 'Switching to offline.',
+    },
+    {
+      mode: InstructorMode.switchingToOnline,
+      cause: ModeCause.recovered,
+      title: 'Back online. Switching to online voice.',
+    },
+    {
+      mode: InstructorMode.switchingToOnline,
+      cause: ModeCause.user,
+      title: 'Switching to online voice.',
+    },
+  ])(
+    'the minimized panel reads $title',
+    async ({ mode: nextMode, cause, title }) => {
+      await mode({ mode: nextMode, cause });
+      await mount({ mode: PanelMode.minimized });
+      expect(hasText(title)).toBe(true);
+    },
+  );
+
+  test('an interrupted reply keeps separate spoken item labels', async () => {
+    await mount({ exchange: INTERRUPTED_EXCHANGE });
+    expect(readout(renderer.toJSON())).toEqual(
+      expect.arrayContaining(['Check the cap.', 'Turn it slowly. Interrupted']),
     );
-    expect(
-      renderer.root
-        .findAllByType(Text)
-        .some(node => node.props.children === 'Interrupted'),
-    ).toBe(true);
-    await act(() =>
-      renderer.update(<Panel exchange={{ ...exchange, interrupted: false }} />),
-    );
-    expect(
-      renderer.root
-        .findAllByType(Text)
-        .some(node => node.props.children === 'Interrupted'),
-    ).toBe(false);
-    await act(() =>
-      renderer.update(
-        <Panel
-          exchange={{ ...exchange, reply: '', phase: ExchangePhase.pending }}
-        />,
-      ),
-    );
-    expect(
-      renderer.root
-        .findAllByProps({ accessibilityLabel: 'Interrupted' })
-        .some(node => node.props.accessible),
-    ).toBe(true);
-    expect(
-      renderer.root.findAllByProps({ testID: 'instructor-thinking' }),
-    ).toHaveLength(0);
+    expect(hasText('Interrupted')).toBe(true);
+  });
+
+  test('an earlier interrupted exchange keeps its visible label', async () => {
+    await mount({
+      thread: [{ kind: EntryKind.exchange, exchange: INTERRUPTED_EXCHANGE }],
+    });
+    expect(hasText('Interrupted')).toBe(true);
+  });
+
+  test('a completed reply has no interrupted label', async () => {
+    await mount({ exchange: { ...INTERRUPTED_EXCHANGE, interrupted: false } });
+    expect(hasText('Interrupted')).toBe(false);
+  });
+
+  test('an interruption before the first word reads Interrupted', async () => {
+    await mount({
+      exchange: {
+        ...INTERRUPTED_EXCHANGE,
+        reply: '',
+        phase: ExchangePhase.pending,
+      },
+    });
+    expect(readout(renderer.toJSON())).toContain('Interrupted');
+    expect(readout(renderer.toJSON())).not.toContain('Thinking');
   });
 });
