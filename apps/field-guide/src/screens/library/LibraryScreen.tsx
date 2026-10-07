@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GuideStatus,
@@ -13,6 +14,7 @@ import { type Progress } from '../../features/guide/progress';
 import { loadProgress } from '../../app/progressStorage';
 import { SectionHeader } from '../../ui/SectionHeader';
 import { Backdrop } from '../../ui/Gradients';
+import { ScrollEdge, useScrollOffset } from '../../ui/ScrollEdge';
 import { Color, Space, Type } from '../../ui/theme';
 import { continueRowFor } from './library';
 import { AssemblyBanner } from './AssemblyBanner';
@@ -40,6 +42,7 @@ export function LibraryScreen({
   const wide = useWideLayout();
   const columns = wide ? Layout.wideColumns : Layout.columns;
   const [progress, setProgress] = useState<Progress | null>(null);
+  const scroll = useScrollOffset();
 
   useFocusEffect(
     useCallback(() => {
@@ -85,7 +88,7 @@ export function LibraryScreen({
   return (
     <View style={styles.screen}>
       <Backdrop />
-      <ScrollView
+      <Animated.ScrollView
         testID="library-screen"
         style={styles.scroll}
         contentContainerStyle={[
@@ -97,6 +100,7 @@ export function LibraryScreen({
           },
         ]}
         contentInsetAdjustmentBehavior="never"
+        onScroll={scroll.onScroll}
       >
         <View style={styles.intro}>
           <Text
@@ -157,7 +161,8 @@ export function LibraryScreen({
             ))}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+      <ScrollEdge offset={scroll.offset} />
     </View>
   );
 }

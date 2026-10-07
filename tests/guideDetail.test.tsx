@@ -1,7 +1,10 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { catalogFor } from '../apps/field-guide/src/features/pack/catalog';
+import {
+  catalogFor,
+  type ReadyGuide,
+} from '../apps/field-guide/src/features/pack/catalog';
 import { CatalogProvider } from '../apps/field-guide/src/app/CatalogContext';
 import { TOUR_ID } from '../apps/field-guide/src/features/guide/tour';
 import {
@@ -12,7 +15,11 @@ import {
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 import { procedureRowsFor } from '../apps/field-guide/src/features/guide/procedureRows';
 import { GuideDetailScreen } from '../apps/field-guide/src/screens/guide-detail/GuideDetailScreen';
-import { Space } from '../apps/field-guide/src/ui/theme';
+
+jest.mock('react-native-splat', () => ({ ModelView: 'ModelView' }));
+jest.mock('react-native-nitro-modules', () => ({
+  callback: (fn: unknown) => fn,
+}));
 
 if (!bundledPack.ok) {
   throw new Error(bundledPack.error.message);
@@ -183,17 +190,10 @@ describe('Guide detail screen', () => {
     );
   });
 
-  test('scroll clearance follows the measured safety bar height', async () => {
+  test('the hero turns the model from the library card', async () => {
     await mount();
-    const height = 180;
-    const bar = renderer.root.findByProps({ testID: 'guide-start-bar' });
-    await act(() =>
-      bar.props.onLayout({ nativeEvent: { layout: { height } } }),
-    );
-    expect(
-      renderer.root.findByType(ScrollView).props.contentContainerStyle
-        .paddingBottom,
-    ).toBe(height + Space.xl);
+    const model = renderer.root.findByType('ModelView' as never);
+    expect(model.props.modelPath).toBe((catalog[0] as ReadyGuide).model);
   });
 
   test.each(['missing', catalog[1].id])(

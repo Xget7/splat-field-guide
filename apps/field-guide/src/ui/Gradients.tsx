@@ -134,6 +134,18 @@ export function Spotlight({ id }: { id: string }) {
   );
 }
 
+/** Gradient stops that hold a colour down to `start`, then fade it out to the bottom without an edge at either end. */
+export function fadeOutStops(color: string, start: number, opacity = 1) {
+  return Ease.map(step => (
+    <Stop
+      key={step}
+      offset={start + (1 - start) * step}
+      stopColor={color}
+      stopOpacity={opacity * (1 - step * step * (3 - 2 * step))}
+    />
+  ));
+}
+
 /** Fades the lower part of a photo into the canvas so text over it stays legible. */
 export function Scrim({
   id,
@@ -193,14 +205,7 @@ export function FadingPhoto({
         <>
           <Defs>
             <LinearGradient id={alpha} x1="0" y1="0" x2="0" y2="1">
-              {Ease.map(step => (
-                <Stop
-                  key={step}
-                  offset={start + (1 - start) * step}
-                  stopColor={MASK_OPAQUE}
-                  stopOpacity={1 - step * step * (3 - 2 * step)}
-                />
-              ))}
+              {fadeOutStops(MASK_OPAQUE, start)}
             </LinearGradient>
             <Mask
               id={id}

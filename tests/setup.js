@@ -42,6 +42,7 @@ jest.mock('react-native-svg', () => ({
 jest.mock('@sbaiahmed1/react-native-blur', () => ({
   __esModule: true,
   BlurView: 'BlurView',
+  ProgressiveBlurView: 'ProgressiveBlurView',
 }));
 
 // The viewer's part markers animate on the UI thread, which jest does not have.

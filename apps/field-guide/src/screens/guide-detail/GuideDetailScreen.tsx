@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,7 +15,9 @@ import type { ProcedureId } from '../../features/pack/pack';
 import { TOUR_ID } from '../../features/guide/tour';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { Button, IconButton, IconButtonVariant } from '../../ui/Button';
-import { Backdrop, FadingPhoto } from '../../ui/Gradients';
+import { ModelPreview, Turns } from '../../features/viewport/ModelPreview';
+import { Backdrop, FadingPhoto, Spotlight } from '../../ui/Gradients';
+import { ScrollEdge, useScrollOffset } from '../../ui/ScrollEdge';
 import { Icon, IconName } from '../../ui/Icon';
 import { READOUT_SEPARATOR } from '../../ui/readout';
 import { SectionHeader } from '../../ui/SectionHeader';
@@ -36,11 +37,10 @@ import { ProcedureList } from '../ProcedureList';
 import { useWideLayout } from '../../ui/useWideLayout';
 
 const Layout = {
-  heroHeight: 220,
-  wideHeroHeight: 420,
-  titleOverlap: 44,
+  heroHeight: 300,
+  // On a tablet in portrait the model gets the room a phone gives the content.
+  tallHeroShare: 0.45,
   segmentHeight: 44,
-  warningIcon: 16,
   rowIcon: 20,
   toggleWidth: 44,
   toggleHeight: 26,
@@ -55,8 +55,7 @@ const VOICE_TITLE = 'Voice assistant';
 const TOGGLE_MOTION = LinearTransition.duration(Motion.fast);
 const VOICE_CAPTION =
   'Reads each step aloud and listens. Talk over it to cut in.';
-const INITIAL_BAR_HEIGHT =
-  Space.md + Type.footnote.lineHeight + Space.md + BUTTON_HEIGHT + Space.sm;
+const BAR_HEIGHT = Space.md + BUTTON_HEIGHT + Space.sm;
 
 export function GuideDetailScreen({
   navigation,
@@ -70,9 +69,12 @@ export function GuideDetailScreen({
   const [mode, setMode] = useState<LearnMode>(LearnMode.instructor);
   const [voice, setVoice] = useState(false);
   const instructor = mode === LearnMode.instructor;
-  const [barHeight, setBarHeight] = useState(
-    INITIAL_BAR_HEIGHT + insets.bottom,
-  );
+  const [headingHeight, setHeadingHeight] = useState(0);
+  const scroll = useScrollOffset();
+  // Each layout mounts its own scroll view, which starts at the top.
+  useEffect(() => {
+    scroll.offset.value = 0;
+  }, [sideBySide, scroll.offset]);
   const back = (
     <IconButton
       testID="guide-back"
@@ -211,53 +213,70 @@ export function GuideDetailScreen({
     </>
   );
   const start = (
-    <>
-      <View style={styles.safetyRow}>
-        <Icon
-          name={IconName.warn}
-          color={Color.caution}
-          size={Layout.warningIcon}
-        />
-        <Text style={styles.safety}>{guide.safety}</Text>
-      </View>
-      <Button
-        testID="start-tour"
-        label="Start parts tour"
-        accessibilityLabel="Start parts tour"
-        onPress={() => openProcedure(TOUR_ID)}
-      />
-    </>
+    <Button
+      testID="start-tour"
+      label="Start parts tour"
+      accessibilityLabel="Start parts tour"
+      onPress={() => openProcedure(TOUR_ID)}
+    />
   );
+  // The model from the library card turns on, below the back button and clear of the title.
+  const hero = (fadeFrom: number, clearance: number) => {
+    const stage = [
+      styles.stage,
+      { top: insets.top + Space.sm + MIN_TOUCH, bottom: clearance },
+    ];
+    return (
+      <>
+        <View style={stage}>
+          <Spotlight id="detail-stage" />
+        </View>
+        <ModelPreview
+          path={guide.model}
+          turn={Turns.sway}
+          style={stage}
+          fallback={
+            <FadingPhoto
+              id="detail-hero"
+              source={guide.image}
+              start={fadeFrom}
+            />
+          }
+        />
+      </>
+    );
+  };
 
   if (sideBySide) {
     return (
       <View testID="guide-detail-screen" style={[styles.screen, styles.split]}>
         <Backdrop />
         <View style={styles.wideHero}>
-          <FadingPhoto
-            id="detail-hero"
-            source={guide.image}
-            start={Layout.wideFadeFrom}
-          />
+          {hero(Layout.wideFadeFrom, headingHeight)}
           <View
             style={[
               styles.wideHeading,
               { paddingBottom: insets.bottom + Space.xl },
             ]}
+            onLayout={event =>
+              setHeadingHeight(event.nativeEvent.layout.height)
+            }
           >
             {heading}
           </View>
         </View>
         <View style={styles.wideColumn}>
-          <ScrollView
+          <Animated.ScrollView
             contentContainerStyle={[
               styles.wideContent,
               { paddingTop: insets.top + Space.lg },
             ]}
             contentInsetAdjustmentBehavior="never"
+            onScroll={scroll.onScroll}
           >
             {choices}
-          </ScrollView>
+          </Animated.ScrollView>
+          <ScrollEdge offset={scroll.offset} />
           <View
             style={[
               styles.wideBar,
@@ -275,29 +294,32 @@ export function GuideDetailScreen({
   return (
     <View testID="guide-detail-screen" style={styles.screen}>
       <Backdrop />
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: barHeight + Space.xl }}
+        contentContainerStyle={{
+          paddingBottom: BAR_HEIGHT + insets.bottom + Space.xl,
+        }}
         contentInsetAdjustmentBehavior="never"
+        onScroll={scroll.onScroll}
       >
-        <View style={[styles.hero, wide && styles.tallHero]}>
-          <FadingPhoto
-            id="detail-hero"
-            source={guide.image}
-            start={Layout.fadeFrom}
-          />
+        <View
+          style={[
+            styles.hero,
+            wide && { height: window.height * Layout.tallHeroShare },
+          ]}
+        >
+          {hero(Layout.fadeFrom, 0)}
         </View>
         <View style={styles.content}>
           {heading}
           {choices}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+      <ScrollEdge offset={scroll.offset} />
       {back}
       <View
         testID="guide-start-bar"
         style={[styles.bottomBar, { paddingBottom: insets.bottom + Space.sm }]}
-        // Measure the wrapped safety text so larger text never covers the final row.
-        onLayout={event => setBarHeight(event.nativeEvent.layout.height)}
       >
         {start}
       </View>
@@ -310,9 +332,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   back: { position: 'absolute', left: Space.lg },
   hero: { height: Layout.heroHeight, overflow: 'hidden' },
-  tallHero: { height: Layout.wideHeroHeight },
+  stage: { position: 'absolute', left: 0, right: 0 },
   content: {
-    marginTop: -Layout.titleOverlap,
     paddingHorizontal: Space.lg,
     gap: Space.xl,
   },
@@ -408,7 +429,6 @@ const styles = StyleSheet.create({
     borderColor: Color.line,
     paddingHorizontal: Space.lg,
     paddingTop: Space.md,
-    gap: Space.md,
   },
   split: { flexDirection: 'row' },
   wideHero: { flex: 1, overflow: 'hidden' },
@@ -429,9 +449,6 @@ const styles = StyleSheet.create({
     borderColor: Color.line,
     paddingHorizontal: Space.lg,
     paddingTop: Space.md,
-    gap: Space.md,
   },
-  safetyRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  safety: { ...Type.footnote, color: Color.caution, flex: 1 },
   missing: { ...Type.callout, color: Color.muted, marginHorizontal: Space.xl },
 });
