@@ -16,6 +16,8 @@ export interface Exchange {
   readonly id: number;
   readonly phase: ExchangePhase;
   readonly part: PartId | null;
+  /** The reply was cut off when the user spoke or the connection dropped. */
+  readonly interrupted?: boolean;
 }
 
 export const TurnEventType = {
@@ -50,4 +52,10 @@ export function sessionForExchange(
         pack,
       )
     : session;
+}
+
+let exchangeId = 0;
+/** Shared by every source of exchanges so ids never collide in the thread. */
+export function nextExchangeId(): number {
+  return ++exchangeId;
 }

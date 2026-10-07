@@ -10,6 +10,7 @@ import {
 import type { InstructorModel, ModelRequest } from './InstructorModel';
 import {
   ExchangePhase,
+  nextExchangeId,
   TurnEventType,
   type Exchange,
   type TurnEvent,
@@ -17,7 +18,6 @@ import {
 
 /** Owns one turn, including routing, fallback and the lifetime of its provisional presentation. */
 export function createModelInstructor(models: readonly InstructorModel[]) {
-  let request = 0;
   let active: { id: number; changed: (event: TurnEvent) => void } | null = null;
   const readyModels = () => models.filter(model => model.isReady());
 
@@ -44,7 +44,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
       cancel();
     }
     const { state, pack, history } = input;
-    const id = ++request;
+    const id = nextExchangeId();
     active = { id, changed };
     const exchange: Exchange = {
       id,

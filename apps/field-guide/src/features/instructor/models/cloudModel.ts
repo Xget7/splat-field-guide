@@ -1,5 +1,6 @@
 import type { Pack } from '../../pack/pack';
 import { promptFor, PromptNotes, ReplyFormat, rulesFor } from '../grounding';
+import { packKnowledge } from '../knowledge';
 import type { InstructorModel } from './InstructorModel';
 
 /** A null proxy URL disables cloud generation. */
@@ -15,35 +16,10 @@ export const CLOUD_HISTORY_TURNS = 4;
 
 /** Cache the full pack instructions upstream so the model can reason across parts. */
 export function cloudInstructions(pack: Pack): string {
-  const parts = pack.parts.map(part =>
-    [
-      `Part: ${part.name}${
-        part.aliases.length > 0
-          ? ` (also called ${part.aliases.join(', ')})`
-          : ''
-      }`,
-      part.summary,
-      ...part.notes.map(note => `${note.topic}: ${note.text}`),
-    ].join('\n'),
-  );
-  const procedures = pack.procedures.map(
-    procedure =>
-      `${procedure.title}: ${procedure.steps
-        .map(step =>
-          [step.text, step.caution === '' ? '' : `Caution: ${step.caution}`]
-            .filter(Boolean)
-            .join(' '),
-        )
-        .join(' ')}`,
-  );
   return [
     ...rulesFor(pack, ReplyFormat.structured),
     '',
-    'Notes:',
-    parts.join('\n\n'),
-    '',
-    'Guided checks in this guide:',
-    procedures.join('\n'),
+    packKnowledge(pack),
   ].join('\n');
 }
 
