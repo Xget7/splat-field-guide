@@ -166,7 +166,6 @@ function PlacedCard({ part, stage, clear, folded, onFold }: PlacedProps) {
         scheduleOnRN(setShown, true);
       }
     },
-    [projection, index, reducedMotion],
   );
 
   const placement = useAnimatedStyle(() => {
