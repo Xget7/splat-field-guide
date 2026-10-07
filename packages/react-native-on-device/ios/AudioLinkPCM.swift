@@ -33,6 +33,9 @@ enum AudioLinkPCM {
     private var completed: Int64 = 0
     private var end: Int64 = 0
 
+    /// Frames the player rendered with nothing queued since the last chunk ran out.
+    func gap(at rendered: Int64) -> Int64 { end > 0 ? max(0, rendered - end) : 0 }
+
     mutating func queue(frames: Int64, at rendered: Int64) {
       let start = max(end, rendered)
       end = start + frames

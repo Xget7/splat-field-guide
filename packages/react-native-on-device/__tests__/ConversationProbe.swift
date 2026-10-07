@@ -7,7 +7,10 @@ struct OnDeviceError: Error {
 }
 
 // Substitute the iOS-only session notifications while retaining the real, unstarted AVAudioEngine.
-enum OnDeviceAudioSession { static func activate() throws {} }
+enum OnDeviceAudioSession {
+  static func activate() throws {}
+  static let route = ""
+}
 enum AVAudioSession {
   static let interruptionNotification = Notification.Name("AVAudioSessionInterruptionNotification")
   enum InterruptionType: UInt { case began = 1, ended = 0 }
@@ -17,6 +20,7 @@ let AVAudioSessionInterruptionTypeKey = "AVAudioSessionInterruptionTypeKey"
 enum OnDeviceLog {
   static func speechOutput(_ message: String) {}
   static func speechMeasurement(_ message: String) {}
+  static func voice(_ message: String) {}
 }
 
 final class KokoroCancellation {

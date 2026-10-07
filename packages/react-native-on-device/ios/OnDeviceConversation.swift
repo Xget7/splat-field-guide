@@ -26,6 +26,9 @@ final class OnDeviceConversation {
     let onTurn: (String) -> Void
     let onVoice: (Bool) -> Void
     let onStopped: (String) -> Void
+    // The loudest level since the last log line, and when that line was written.
+    var peak = 0.0
+    var loggedAt: TimeInterval = 0
 
     init(onPartial: @escaping (String) -> Void, onTurn: @escaping (String) -> Void,
       onVoice: @escaping (Bool) -> Void, onStopped: @escaping (String) -> Void) {
@@ -66,9 +69,11 @@ final class OnDeviceConversation {
         transcription.append(buffer)
         guard let level = levels.update(buffer, at: time.hostTime) else { return }
         let change = voice.update(level, at: AVAudioTime.seconds(forHostTime: time.hostTime))
+        let threshold = voice.threshold
         DispatchQueue.main.async {
           guard let self, let current, self.listening === current else { return }
           onLevel(level)
+          Self.logLevel(level, threshold: threshold, in: current)
           if let change { self.voiceChanged(change, in: current) }
         }
       }
@@ -89,6 +94,7 @@ final class OnDeviceConversation {
 
   private func stopped(_ current: Listening?, reason: String) {
     guard let current, listening === current else { return }
+    OnDeviceLog.voice("Listening stopped: \(reason)")
     cancel()
     current.onVoice(false)
     current.onStopped(reason)
@@ -97,14 +103,28 @@ final class OnDeviceConversation {
   private func voiceChanged(_ change: OnDeviceVoiceActivity.Change, in current: Listening) {
     switch change {
     case .started:
+      OnDeviceLog.voice("Voice started")
       current.onVoice(true)
     case .ended:
+      OnDeviceLog.voice("Voice ended, finalizing the turn")
       current.onVoice(false)
       current.transcription?.endTurn { [weak self, weak current] said in
         guard let self, let current, self.listening === current else { return }
         let text = said.trimmingCharacters(in: .whitespacesAndNewlines)
+        OnDeviceLog.voice(text.isEmpty ? "Turn had no words" : "Turn: \(text)")
         if !text.isEmpty { current.onTurn(text) }
       }
     }
+  }
+
+  private static let levelLogInterval: TimeInterval = 1
+
+  private static func logLevel(_ level: Double, threshold: Double, in current: Listening) {
+    current.peak = max(current.peak, level)
+    let now = ProcessInfo.processInfo.systemUptime
+    guard now - current.loggedAt >= levelLogInterval else { return }
+    OnDeviceLog.voice(String(format: "Level peak %.2f, voice threshold %.2f", current.peak, threshold))
+    current.peak = 0
+    current.loggedAt = now
   }
 }

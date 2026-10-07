@@ -6,6 +6,7 @@ enum OnDeviceAudioSession { static func activate() throws {} }
 enum OnDeviceLog {
   static func speechOutput(_ message: String) {}
   static func speechMeasurement(_ message: String) {}
+  static func voice(_ message: String) {}
 }
 
 // Keep the platform audio sink unopened while exercising voice preparation.

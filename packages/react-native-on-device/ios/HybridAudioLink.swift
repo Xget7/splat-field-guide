@@ -106,6 +106,7 @@ final class HybridAudioLink: HybridAudioLinkSpec {
           }
         }
         self.session.linked = true
+        OnDeviceLog.voice("Agent audio linked, \(Int(inputRate)) Hz in, \(Int(outputRate)) Hz out")
         self.session.observer = NotificationCenter.default.addObserver(
           forName: OnDeviceAudioGraph.didInterruptPlayback, object: self.graph, queue: .main
         ) { [weak self] _ in
@@ -153,7 +154,13 @@ final class HybridAudioLink: HybridAudioLinkSpec {
     }
     guard output.frameLength > 0 else { return }
     let render = graph.player.lastRenderTime
-    let frame = render.flatMap { graph.player.playerTime(forNodeTime: $0) }?.sampleTime ?? 0
+    let time = render.flatMap { graph.player.playerTime(forNodeTime: $0) }
+    let frame = time?.sampleTime ?? 0
+    let gap = playback.gap(at: frame)
+    if gap > 0, let rate = time?.sampleRate, rate > 0 {
+      OnDeviceLog.voice(String(format: "Agent audio resumed after %.0f ms of silence",
+        Double(gap) / rate * Self.millisecondsPerSecond))
+    }
     playback.queue(frames: Int64(output.frameLength), at: frame)
     graph.player.scheduleBuffer(output)
     if !graph.player.isPlaying { graph.player.play() }
@@ -163,6 +170,7 @@ final class HybridAudioLink: HybridAudioLinkSpec {
   func clear() throws {
     DispatchQueue.main.async {
       guard self.session.linked else { return }
+      OnDeviceLog.voice("Agent audio cleared")
       self.graph.player.stop()
       self.resetPlayback()
       self.graph.player.play()
@@ -197,6 +205,7 @@ final class HybridAudioLink: HybridAudioLinkSpec {
 
   private func lost(_ reason: String, token: Int) {
     guard session.linked, token == session.generation else { return }
+    OnDeviceLog.voice("Agent audio lost: \(reason)")
     let callback = session.onStopped
     stopOnMain()
     callback?(reason)
@@ -204,6 +213,7 @@ final class HybridAudioLink: HybridAudioLinkSpec {
 
   private func stopOnMain() {
     guard session.linked else { return }
+    OnDeviceLog.voice("Agent audio stopped")
     if let observer = session.observer { NotificationCenter.default.removeObserver(observer) }
     session = Session(generation: session.generation + 1)
     playbackTimer?.cancel()

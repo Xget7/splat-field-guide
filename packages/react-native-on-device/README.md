@@ -54,6 +54,13 @@ Installed English output reads those bundled files.
 | Shared audio graph | Engine and interruption/configuration-loss observers; pending synthesis/playback cancels on loss |
 | Echo | Kokoro shares the voice-processed microphone graph; Apple playback requires caller-side filtering |
 | Scheduling | Conversation/playback/callbacks on main; level processing and conversion on the audio tap |
+| Voice log | Route, engine changes, levels against the voice threshold, recognized text, turns and agent audio, in the `Voice` log category and a bounded `VoiceLog.txt` in the app's caches |
 
 Swift harnesses use controlled recognition/audio adapters for cancellation, settlement, loss and restart.
 Acoustic echo, model quality and hardware interruptions remain [device acceptance](../../TASKS.md).
+To read a device session, copy the log out of the installed app:
+
+```sh
+xcrun devicectl device copy from --device <udid> --domain-type appDataContainer \
+  --domain-identifier dev.splatfieldguide.app --source Library/Caches/VoiceLog.txt --destination VoiceLog.txt
+```

@@ -121,6 +121,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
         promise.resolve()
         return
       }
+      OnDeviceLog.voice("Speaking with \(voice == .system ? "Apple speech" : "Kokoro"): \(text)")
       let utterance = Utterance(text: text, locale: locale, promise: promise, onWord: onWord)
       self.active = utterance
       if voice == .system {
@@ -135,7 +136,12 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     return promise
   }
 
-  func stop() throws { DispatchQueue.main.async { self.stopCurrent() } }
+  func stop() throws {
+    DispatchQueue.main.async {
+      if self.active != nil { OnDeviceLog.voice("Speech stopped") }
+      self.stopCurrent()
+    }
+  }
 
   private func stopCurrent() {
     let previous = active
@@ -240,8 +246,9 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
       guard heard >= 0 else { return }
       if !utterance.firstAudioReported {
         utterance.firstAudioReported = true
-        OnDeviceLog.speechMeasurement(String(format: "first_audio_ms=%.1f",
-          (ProcessInfo.processInfo.systemUptime - utterance.requestedAt) * 1000))
+        let waited = (ProcessInfo.processInfo.systemUptime - utterance.requestedAt) * 1000
+        OnDeviceLog.speechMeasurement(String(format: "first_audio_ms=%.1f", waited))
+        OnDeviceLog.voice(String(format: "First speech audio after %.0f ms", waited))
       }
       while nextWord < starts.count, starts[nextWord] <= heard {
         let range = sentence.words[nextWord]

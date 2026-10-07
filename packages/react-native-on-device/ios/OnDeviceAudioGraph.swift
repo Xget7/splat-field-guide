@@ -23,12 +23,16 @@ final class OnDeviceAudioGraph: ConversationAudio {
       center.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil,
         queue: .main) { [weak self] notification in
         guard let self, notification.object as AnyObject? === self.engine else { return }
+        OnDeviceLog.voice("Engine configuration changed, listening \(self.listening), "
+          + "running \(self.engine.isRunning): \(OnDeviceAudioSession.route)")
         self.audioLost(Self.engineChanged)
       },
       center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil,
         queue: .main) { [weak self] notification in
-        guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-          type == AVAudioSession.InterruptionType.began.rawValue else { return }
+        guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
+        let began = type == AVAudioSession.InterruptionType.began.rawValue
+        OnDeviceLog.voice("Audio session interruption \(began ? "began" : "ended")")
+        guard began else { return }
         self?.audioLost(Self.audioInterrupted)
       },
     ]
@@ -72,6 +76,7 @@ final class OnDeviceAudioGraph: ConversationAudio {
       stopListening()
       throw error
     }
+    OnDeviceLog.voice("Listening at \(Int(format.sampleRate)) Hz: \(OnDeviceAudioSession.route)")
     return format
   }
 

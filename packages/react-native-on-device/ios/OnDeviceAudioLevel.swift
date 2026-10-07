@@ -65,6 +65,8 @@ final class OnDeviceVoiceActivity {
   private var speakingSince: TimeInterval?
   private var lastVoice: TimeInterval = 0
   private var noiseFloor = 0.0
+  /// The level a voice must reach, read on the tap thread for the conversation log.
+  private(set) var threshold = minimumVoice
 
   // time is in seconds.
   func update(_ level: Double, at time: TimeInterval) -> Change? {
@@ -72,7 +74,8 @@ final class OnDeviceVoiceActivity {
       recent.removeAll { time - $0.time > Self.floorWindow }
       noiseFloor = recent.map(\.level).min() ?? level
     }
-    let voice = level >= max(noiseFloor + Self.margin, Self.minimumVoice)
+    threshold = max(noiseFloor + Self.margin, Self.minimumVoice)
+    let voice = level >= threshold
 
     guard let since = speakingSince else {
       guard voice else {

@@ -68,7 +68,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
 
   // Results from audio before this time belong to an earlier turn.
   private var since = CMTime.zero
-  private var ending: (through: CMTime, done: (String) -> Void)?
+  private var ending: (through: CMTime, done: (String) -> Void, began: TimeInterval)?
   // Settled words heard after the turn being finalised, which start the next one.
   private var next: [String] = []
   private var finalized: [String] = []
@@ -120,7 +120,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
     guard ending == nil else { return }
     let through = CMTime(value: fedLock.withLock { fedFrames },
       timescale: CMTimeScale(format.sampleRate))
-    ending = (through, done)
+    ending = (through, done, ProcessInfo.processInfo.systemUptime)
     Task { [weak self, analyzer] in
       try? await analyzer.finalize(through: through)
       // Results the model sent just before returning are still on their way to main.
@@ -160,6 +160,7 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
       }
       DispatchQueue.main.async {
         guard let self, !self.closed else { return }
+        OnDeviceLog.voice("Recognition ended: \(failure?.localizedDescription ?? "no error")")
         self.closed = true
         self.onEnd(failure)
       }
@@ -167,7 +168,14 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
   }
 
   private func take(_ piece: String, range: CMTimeRange, isFinal: Bool, settled: CMTime) {
-    guard !closed, CMTimeCompare(range.start, since) >= 0 else { return }
+    guard !closed else { return }
+    if isFinal {
+      OnDeviceLog.voice(String(format: "Heard %.2f-%.2f s: ", range.start.seconds, range.end.seconds) + piece)
+    }
+    guard CMTimeCompare(range.start, since) >= 0 else {
+      if isFinal { OnDeviceLog.voice("Dropped a result from before this turn: \(piece)") }
+      return
+    }
     if let ending, CMTimeCompare(range.start, ending.through) >= 0 {
       // Keep settled next-turn words while this turn finishes.
       if isFinal { next.append(piece) }
@@ -196,6 +204,8 @@ final class OnDeviceTranscription: ConversationTranscription, @unchecked Sendabl
   private func settle(_ through: CMTime) {
     guard !closed, let ending, ending.through == through else { return }
     let said = text
+    OnDeviceLog.voice(String(format: "Turn settled in %.0f ms",
+      (ProcessInfo.processInfo.systemUptime - ending.began) * 1000))
     self.ending = nil
     since = through
     finalized = next

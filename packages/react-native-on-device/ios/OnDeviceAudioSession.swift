@@ -8,7 +8,31 @@ enum OnDeviceAudioSession {
       .defaultToSpeaker, .allowBluetoothA2DP,
     ])
     try session.setActive(true)
+    _ = observers
   }
+
+  /// The current inputs, outputs, hardware rate and mode, for the conversation log.
+  static var route: String {
+    let session = AVAudioSession.sharedInstance()
+    let ports = { (ports: [AVAudioSessionPortDescription]) in
+      ports.map(\.portType.rawValue).joined(separator: "+")
+    }
+    return "in \(ports(session.currentRoute.inputs)), out \(ports(session.currentRoute.outputs)), "
+      + "\(Int(session.sampleRate)) Hz, mode \(session.mode.rawValue)"
+  }
+
+  private static let observers: [NSObjectProtocol] = {
+    let center = NotificationCenter.default
+    return [
+      center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil,
+        queue: .main) { notification in
+        let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
+        OnDeviceLog.voice("Route changed (reason \(reason)): \(route)")
+      },
+      center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil,
+        queue: .main) { _ in OnDeviceLog.voice("Media services were reset") },
+    ]
+  }()
 }
 
 struct OnDeviceError: LocalizedError {
