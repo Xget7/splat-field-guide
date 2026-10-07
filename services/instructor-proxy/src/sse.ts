@@ -1,7 +1,9 @@
 const SseField = { event: "event", data: "data" } as const;
+const INVALID_SSE_EVENT = "invalid SSE event";
+const SSE_INACTIVITY_TIMEOUT = "upstream stream inactive";
 export interface SseMessage { name: string; data: string }
 
-export function createSseReader(source: ReadableStream<Uint8Array>) {
+export function createSseReader(source: ReadableStream<Uint8Array>, inactivityTimeoutMs?: number) {
   const reader = source.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -9,6 +11,21 @@ export function createSseReader(source: ReadableStream<Uint8Array>) {
   let data: string[] = [];
   let ended = false;
   let cancelled = false;
+
+  async function read() {
+    if (inactivityTimeoutMs === undefined) return reader.read();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        reader.read(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(SSE_INACTIVITY_TIMEOUT)), inactivityTimeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
 
   return {
     async next(): Promise<SseMessage | undefined> {
@@ -20,6 +37,7 @@ export function createSseReader(source: ReadableStream<Uint8Array>) {
           const width = buffer[boundary] === "\r" && buffer[boundary + 1] === "\n" ? 2 : 1;
           buffer = buffer.slice(boundary + width);
           if (line === "") {
+            if (eventName && !data.length) throw new Error(INVALID_SSE_EVENT);
             const event = data.length ? { name: eventName, data: data.join("\n") } : undefined;
             eventName = "";
             data = [];
@@ -35,7 +53,7 @@ export function createSseReader(source: ReadableStream<Uint8Array>) {
           continue;
         }
         if (ended) return;
-        const chunk = await reader.read();
+        const chunk = await read();
         if (cancelled) return;
         ended = chunk.done;
         buffer += ended ? decoder.decode() : decoder.decode(chunk.value, { stream: true });

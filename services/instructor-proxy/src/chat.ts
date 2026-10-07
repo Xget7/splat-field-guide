@@ -1,12 +1,14 @@
 import type { Env } from "./index.ts";
 import { ContentType, Header, NO_STORE, RequestError, errorResponse, requestAnthropic } from "./http.ts";
 import { authorized } from "./auth.ts";
-import { anthropicToOpenAiStream } from "./chatStream.ts";
+import { anthropicToOpenAiStream, openAiStreamError } from "./chatStream.ts";
 import { NARRATE_PREFIX, narrationStream } from "./narration.ts";
 import { CACHE_CONTROL_TYPE, FUNCTION_TYPE, Role, ToolChoiceType } from "./protocol.ts";
 
 export const MAX_CHAT_BODY_CHARS = 200000;
 export const VOICE_MAX_TOKENS = 600;
+const ANTHROPIC_CONNECTION_TIMEOUT_MS = 10000;
+const ANTHROPIC_TEMPERATURE_RANGE = { min: 0, max: 1 } as const;
 const MILLISECONDS_PER_SECOND = 1000;
 const COMPLETION_ID_PREFIX = "chatcmpl-";
 const CONVERSATION_START = "(The conversation starts.)";
@@ -192,7 +194,9 @@ export function buildChatUpstreamBody(request: ChatRequest, env: Pick<Env, "VOIC
       input_schema: tool.parameters ?? { type: "object", properties: {} },
     })) } : {}),
     ...(request.tool_choice != null ? { tool_choice: toolChoice(request.tool_choice) } : {}),
-    ...(isFiniteNumber(request.temperature) ? { temperature: request.temperature } : {}),
+    ...(isFiniteNumber(request.temperature) ? {
+      temperature: Math.max(ANTHROPIC_TEMPERATURE_RANGE.min, Math.min(request.temperature, ANTHROPIC_TEMPERATURE_RANGE.max)),
+    } : {}),
   };
 }
 
@@ -218,7 +222,9 @@ export async function handleChatCompletion(request: Request, env: Env): Promise<
   if (lastMessage?.role === Role.user && text.startsWith(NARRATE_PREFIX)) {
     return new Response(narrationStream(text.slice(NARRATE_PREFIX.length), metadata), { headers });
   }
-  const upstream = await requestAnthropic(request, env, buildChatUpstreamBody(input, env));
-  if ("error" in upstream) return upstream.error;
+  const upstream = await requestAnthropic(request, env, buildChatUpstreamBody(input, env), ANTHROPIC_CONNECTION_TIMEOUT_MS);
+  if ("error" in upstream) {
+    return upstream.timedOut ? new Response(openAiStreamError(), { headers }) : upstream.error;
+  }
   return new Response(anthropicToOpenAiStream(upstream.body, metadata), { headers });
 }

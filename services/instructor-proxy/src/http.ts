@@ -49,8 +49,15 @@ export function cancelUpstreamBody(upstream: Response) {
 
 export async function requestAnthropic(
   request: Request, env: Pick<Env, "ANTHROPIC_API_KEY">, body: object,
-): Promise<{ body: ReadableStream<Uint8Array> } | { error: Response }> {
+  connectionTimeoutMs?: number,
+): Promise<{ body: ReadableStream<Uint8Array> } | { error: Response; timedOut?: boolean }> {
   if (!env.ANTHROPIC_API_KEY) return { error: errorResponse(500, RequestError.missingKey) };
+  const deadline = new AbortController();
+  let timedOut = false;
+  const timer = connectionTimeoutMs === undefined ? undefined : setTimeout(() => {
+    timedOut = true;
+    deadline.abort();
+  }, connectionTimeoutMs);
   let upstream: Response;
   try {
     upstream = await fetch(ANTHROPIC_URL, {
@@ -61,10 +68,12 @@ export async function requestAnthropic(
         [Header.contentType]: ContentType.json,
       },
       body: JSON.stringify(body),
-      signal: request.signal,
+      signal: connectionTimeoutMs === undefined ? request.signal : AbortSignal.any([request.signal, deadline.signal]),
     });
   } catch {
-    return { error: errorResponse(502, RequestError.upstreamDown) };
+    return { error: errorResponse(502, RequestError.upstreamDown), timedOut };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
   if (!upstream.ok) {
     cancelUpstreamBody(upstream);

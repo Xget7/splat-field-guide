@@ -22,6 +22,7 @@ async function chunks(input: ReadableStream<Uint8Array>) {
     const data = line.slice(6);
     if (data === "[DONE]") return data;
     const chunk = JSON.parse(data);
+    if (chunk.error) return chunk;
     assert.deepEqual({ id: chunk.id, model: chunk.model, created: chunk.created }, metadata);
     assert.equal(chunk.object, "chat.completion.chunk");
     assert.equal(chunk.choices.length, 1);
@@ -31,6 +32,20 @@ async function chunks(input: ReadableStream<Uint8Array>) {
 }
 const choice = (delta, finish_reason = null) => ({ index: 0, delta, finish_reason });
 const finish = (reason: string) => sse("message_delta", { delta: { stop_reason: reason } });
+const streamError = { error: { message: "upstream stream failed", type: "upstream_error" } };
+
+test("parameterless tools finish with valid empty-object arguments", async () => {
+  for (const deltas of [[], [sse("content_block_delta", {
+    index: 0, delta: { type: "input_json_delta", partial_json: "" },
+  })]]) {
+    const result = await chunks(source([
+      sse("content_block_start", { index: 0, content_block: { type: "tool_use", id: "call-1", name: "next_step", input: {} } }),
+      ...deltas, sse("content_block_stop", { index: 0 }), finish("tool_use"), sse("message_stop"),
+    ]));
+    const argumentsText = result.slice(0, -2).map(chunk => chunk.delta.tool_calls[0].function.arguments).join("");
+    assert.equal(argumentsText, "{}");
+  }
+});
 
 test("text streams in order and every stop reason finishes with DONE only after message_stop", async () => {
   assert.deepEqual(await chunks(source([
@@ -47,7 +62,7 @@ test("text streams in order and every stop reason finishes with DONE only after 
     ["future_reason", "stop"], ["", "stop"],
   ]) {
     assert.deepEqual(await chunks(source([finish(reason), sse("message_stop")])), [choice({}, expected), "[DONE]"]);
-    assert.deepEqual(await chunks(source([finish(reason)])), [choice({}, expected)]);
+    assert.deepEqual(await chunks(source([finish(reason)])), [choice({}, expected), streamError]);
   }
 });
 
@@ -57,8 +72,10 @@ test("tool indices count tools instead of text blocks and JSON fragments stay in
     sse("content_block_start", { index: 1, content_block: { type: "tool_use", id: "call-1", name: "show_part", input: {} } }),
     sse("content_block_delta", { index: 1, delta: { type: "input_json_delta", partial_json: '{"part_id":' } }),
     sse("content_block_delta", { index: 1, delta: { type: "input_json_delta", partial_json: '"oil"}' } }),
+    sse("content_block_stop", { index: 1 }),
     sse("content_block_start", { index: 3, content_block: { type: "tool_use", id: "call-2", name: "next_step", input: {} } }),
     sse("content_block_delta", { index: 3, delta: { type: "input_json_delta", partial_json: "{}" } }),
+    sse("content_block_stop", { index: 3 }),
     finish("tool_use"), sse("message_stop"),
   ]));
   assert.deepEqual(result, [
@@ -72,11 +89,18 @@ test("tool indices count tools instead of text blocks and JSON fragments stay in
   assert.equal(result.slice(1, 3).map((chunk) => chunk.delta.tool_calls[0].function.arguments).join(""), '{"part_id":"oil"}');
 });
 
-test("upstream errors, unreadable JSON and premature EOF close without DONE", async () => {
-  for (const terminal of [sse("error", { error: { message: "private detail" } }),
-    "event: content_block_delta\ndata: {\n\n", ""]) {
-    assert.deepEqual(await chunks(source([sse("message_start"), terminal])), [choice({ role: "assistant", content: "" })]);
+test("failed streams emit one sanitized error and never DONE", async () => {
+  for (const terminal of [sse("error", { error: { message: "private secret", type: "overloaded_error" } }),
+    "event: content_block_delta\ndata: {\n\n", sse("content_block_delta", []),
+    sse("content_block_delta", { delta: { type: "text_delta", text: 7 } }),
+    sse("message_delta", { delta: { stop_reason: 7 } }),
+    sse("content_block_delta", {}), "event: content_block_delta\n\n", ""]) {
+    assert.deepEqual(await chunks(source([
+      sse("message_start"), terminal, ...(terminal ? [sse("message_stop")] : []),
+    ])), [choice({ role: "assistant", content: "" }), streamError]);
   }
+  const failedRead = new ReadableStream<Uint8Array>({ start(controller) { controller.error(new Error("private secret")); } });
+  assert.deepEqual(await chunks(failedRead), [streamError]);
 });
 
 test("split CRLF, bare CR, multiline JSON and split UTF-8 parse correctly", async () => {
