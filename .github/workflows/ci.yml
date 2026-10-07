@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -15,77 +16,11 @@ env:
   NODE_VERSION: 26
 
 jobs:
-  app:
-    name: App
+  checks:
+    name: Checks
     runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Install
-        run: |
-          npm ci --prefix packages/react-native-splat
-          npm ci --prefix packages/react-native-on-device
-          npm ci --prefix apps/field-guide
-      - name: Lint
-        working-directory: apps/field-guide
-        run: npm run lint
-      - name: Types
-        working-directory: apps/field-guide
-        run: npm run typecheck
-      - name: Tests
-        working-directory: apps/field-guide
-        run: npm test -- --runInBand
-
-  native-package:
-    name: ${{ matrix.package }}
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [react-native-splat, react-native-on-device]
-    defaults:
-      run:
-        working-directory: packages/${{ matrix.package }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-
-  engine:
-    name: Engine C interface (${{ matrix.sha256 }} SHA-256)
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sha256: OpenSSL
-            portable: OFF
-          - sha256: portable
-            portable: ON
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install toolchain
-        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev libssl-dev
-      - name: Configure
-        run: >
-          cmake -S packages/react-native-splat/engine/splatkit-engine -B build/tests -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
-          -DSPLAT_CORE_PORTABLE_SHA256=${{ matrix.portable }}
-      - name: Build
-        run: cmake --build build/tests
-      - name: Test
-        run: ctest --test-dir build/tests --output-on-failure
-
-  pipeline:
-    name: Pipeline
-    runs-on: ubuntu-24.04
+    # A stuck download fails the run instead of holding it for an hour.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -94,41 +29,39 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: '3.12'
-      - name: Install the app parser
-        run: npm ci --ignore-scripts --prefix apps/field-guide
-      - name: Tests
-        run: uv run --project pipeline python -m pytest pipeline/tests -q
-      - name: Marking page
-        run: node --test pipeline/tests/test_mark_page.cjs
-      - name: Lint
-        run: uvx ruff check --select F,E9 pipeline scripts
-
-  proxy:
-    name: Instructor proxy
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: services/instructor-proxy
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: npm ci
-      - run: npm test
-      - run: npx tsc --noEmit -p .
-
-  voice-agent:
-    name: Voice agent
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: services/voice-agent
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
+      - name: Install
+        id: install
+        run: |
+          for project in packages/react-native-splat packages/react-native-on-device apps/field-guide services/instructor-proxy services/voice-agent; do
+            npm ci --prefix "$project"
+          done
+      # Each check runs after a failed one, so a single run reports every failure.
+      - name: App
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: apps/field-guide
+        run: npm run lint && npm run typecheck && npm test -- --runInBand
+      - name: Native packages
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          for package in react-native-splat react-native-on-device; do
+            (cd "packages/$package" && npm run lint && npm run typecheck && npm test)
+          done
+      - name: Services
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          (cd services/instructor-proxy && npm test && npx tsc --noEmit -p .)
+          (cd services/voice-agent && npm test && npm run typecheck)
+      - name: Pipeline
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          uv run --project pipeline python -m pytest pipeline/tests -q
+          node --test pipeline/tests/test_mark_page.cjs
+          uvx ruff check --select F,E9 pipeline scripts
+      # The runner image already has CMake, Make and zlib, so nothing is downloaded from apt.
+      # Android ships the portable SHA-256 and iOS uses CommonCrypto; no device uses the OpenSSL path.
+      - name: Engine
+        if: ${{ !cancelled() }}
+        run: |
+          cmake -S packages/react-native-splat/engine/splatkit-engine -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON -DSPLAT_CORE_PORTABLE_SHA256=ON
+          cmake --build build/tests --parallel
+          ctest --test-dir build/tests --output-on-failure

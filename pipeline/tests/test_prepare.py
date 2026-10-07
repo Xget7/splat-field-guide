@@ -26,12 +26,9 @@ class PreparationTests(unittest.TestCase):
             scripts.mkdir()
             for file in (ROOT / 'scripts').glob('copy_bundled_packs.py'):
                 shutil.copyfile(file, scripts / file.name)
-            app_scripts = ios.parent / 'scripts'
-            app_scripts.mkdir()
-            shutil.copy2(ROOT / 'apps/field-guide/scripts/copy_ar_reference.sh', app_scripts / 'copy_ar_reference.sh')
-            landmarks = ios.parent / 'assets/ar/landmarks.json'
-            landmarks.parent.mkdir(parents=True)
-            landmarks.write_text('{}')
+            # The same phase bundles the AR resources through the app's helper scripts.
+            shutil.copytree(ROOT / 'apps/field-guide/scripts', ios.parent / 'scripts')
+            shutil.copytree(ROOT / 'apps/field-guide/assets/ar', ios.parent / 'assets/ar')
             pack = repo / 'data/pack/gol-trend-engine-bay/1'
             (pack / 'high').mkdir(parents=True)
             manifest = {'packId': 'gol-trend-engine-bay', 'packVersion': 1, 'tiers': [
