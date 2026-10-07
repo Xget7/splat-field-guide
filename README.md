@@ -3,7 +3,7 @@
 Field Guide turns a 3D capture of real equipment into a mobile maintenance guide.
 You orbit a Gaussian splat of the machine, tap a part to see what it is, follow step-by-step checks with each part highlighted, and ask an instructor by text or voice.
 The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
-It is tested on iPhone and iPad; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
+It is tested on a physical iPhone and the iPad simulator; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
 <p>
   <img src="docs/images/ipad-parts-tour.jpg" alt="Parts tour on iPad with the coolant reservoir highlighted" width="38%">
