@@ -77,22 +77,34 @@ Android has no on-device model, so offline it answers open questions from the sc
 Commands, procedures and specifications work offline the same way on both platforms.
 Online speech goes to the ElevenLabs agent instead: Claude writes its answers through the Worker, and client tools run the same session actions as the router.
 
-### Instructor modes
+### Online and offline
 
-A mode controller picks online or offline voice from the network and a Worker ping, with hysteresis, and lets the user force either mode.
+Online, the instructor speaks through the ElevenLabs agent; offline, listening, answers and voice all run on the device.
+The app switches between the two on its own, and on phones the instructor panel can also force either mode.
 
 ```mermaid
-flowchart TB
-  signal["Network and<br/>Worker ping"] --> controller{"Mode controller"}
-  user["User toggle"] --> controller
-  controller -->|online| agent["ElevenLabs agent"]
-  controller -->|offline| device["On-device pipeline"]
-  agent -->|"quota, auth or<br/>connection lost"| fallback["System voice<br/>with a notice"]
+stateDiagram-v2
+  direction TB
+  Online: Online
+  Online: ElevenLabs voice, Claude answers
+  Offline: Offline
+  Offline: Kokoro or system voice
+  Offline: Apple model or guide script
+  state weak <<choice>>
+  [*] --> Online
+  Online --> Offline: connection lost
+  Online --> weak: weak for 5 s
+  weak --> Offline: Switch
+  weak --> Online: Keep online
+  Offline --> Online: good for 10 s<br/>between turns
 ```
 
+- The app reads the system network path and pings the Worker: no route or three failed pings in a row is a lost connection; slow or failed pings, low bandwidth or low signal is a weak one.
+- A switch shows a card with voice, answers and listening as each gets ready; a piece not ready within 8 seconds falls back, such as Kokoro to the system voice or the Apple model to the guide script.
+- After a lost connection, the offline voice says where answers now come from.
+- If ElevenLabs refuses the session for quota or auth, the app stays online with the on-device voice and shows a notice.
 - Every voice session sits behind one `VoiceSession` port, so only the composition root knows which mode runs ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)).
-- The Worker signs each agent session URL, so no ElevenLabs key ships in the app.
-- Switching shows each piece as it gets ready, and offline answers say they are limited by the device.
+- The Worker gets a signed, single-use URL from ElevenLabs for each agent session, so no ElevenLabs key ships in the app.
 
 ## Decisions
 
