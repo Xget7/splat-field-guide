@@ -1,0 +1,17 @@
+{
+  "agentId": "<agent id>",
+  "toolIds": {
+    "show_part": "<show_part tool id>",
+    "start_procedure": "<start_procedure tool id>",
+    "next_step": "<next_step tool id>",
+    "previous_step": "<previous_step tool id>",
+    "repeat_step": "<repeat_step tool id>",
+    "go_to_step": "<go_to_step tool id>",
+    "end_procedure": "<end_procedure tool id>"
+  },
+  "dictionary": {
+    "id": "<dictionary id>",
+    "versionId": "<dictionary version id>"
+  },
+  "secretId": "<workspace secret id>"
+}
