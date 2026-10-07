@@ -26,6 +26,7 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 [Speech input](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechInput.kt) uses `android.speech.SpeechRecognizer`, preferring on-device recognition when available and requesting offline recognition from the system service otherwise.
 `prepare(locale)` checks installed language support where the API permits without showing system UI.
 `install(locale)` may request a model download; scheduled downloads and errors report unavailable until assets are ready.
+While listening, preparation returns readiness for the active locale; another locale reports unavailable until listening ends.
 Recognition-service results settle turns, and listening restarts after each completed turn while preserving the shared callback and cancellation contract.
 Microphone permission is required, and a service's offline request does not guarantee offline availability.
 [Speech output](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechOutput.kt) uses `android.speech.tts.TextToSpeech` with an installed voice that requires no network, bounded text chunks and UTF-16 range callbacks.
