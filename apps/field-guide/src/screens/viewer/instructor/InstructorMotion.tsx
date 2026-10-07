@@ -11,12 +11,8 @@ import Animated, {
   cancelAnimation,
   Easing,
   FadeIn,
-  FadeInDown,
   FadeOut,
-  FadeOutDown,
   LinearTransition,
-  SlideInRight,
-  SlideOutRight,
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
@@ -67,17 +63,6 @@ export const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(
 export const FADE_OUT = FadeOut.duration(Motion.fast).reduceMotion(
   ReduceMotion.Never,
 );
-export const SIDEBAR_IN = SlideInRight.springify()
-  .mass(Motion.spring.mass)
-  .damping(Motion.spring.damping)
-  .stiffness(Motion.spring.stiffness);
-export const SIDEBAR_OUT = SlideOutRight.duration(Motion.base);
-export const DOCK_IN = FadeInDown.springify()
-  .mass(Motion.spring.mass)
-  .damping(Motion.spring.damping)
-  .stiffness(Motion.spring.stiffness)
-  .delay(Motion.fast);
-export const DOCK_OUT = FadeOutDown.duration(Motion.fast);
 const SCAN_SHARE = 1 / 3;
 const SCAN_WIDTH = '33.333333%';
 const SCAN_HEIGHT = 2;

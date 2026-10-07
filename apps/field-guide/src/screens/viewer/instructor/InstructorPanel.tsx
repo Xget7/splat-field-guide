@@ -73,7 +73,6 @@ import {
 
 // Cap the conversation height to keep the splat visible above it.
 const CHAT_SHARE = '50%';
-const DOCKED_SHARE = '60%';
 const SIDE_SIZE = MIN_TOUCH;
 const GRABBER_WIDTH = 36;
 const GRABBER_HEIGHT = 4;
@@ -124,8 +123,6 @@ interface Props {
   onModeChange: (mode: PanelMode) => void;
   onBack: () => void;
   onNext: () => void;
-  /** Docked panels remain open because they share the sidebar with the step list. */
-  docked?: boolean;
 }
 
 export function InstructorPanel({
@@ -139,7 +136,6 @@ export function InstructorPanel({
   onModeChange,
   onBack,
   onNext,
-  docked = false,
 }: Props) {
   const [draft, setDraft] = useState('');
   const [typing, setTyping] = useState(false);
@@ -157,7 +153,7 @@ export function InstructorPanel({
   const instructorMode = useModeView();
   const switching = isSwitching(instructorMode.mode);
   const modeToggle = toggleFor(instructorMode);
-  const minimized = !docked && mode === PanelMode.minimized;
+  const minimized = mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
     ? stepLabel(content.stepNumber, content.stepCount)
@@ -177,11 +173,10 @@ export function InstructorPanel({
     },
     [onModeChange],
   );
-  const heading = !minimized && !docked && step !== null ? step : 'Instructor';
+  const heading = !minimized && step !== null ? step : 'Instructor';
   const toggle = () => changeMode(togglePanel(mode));
   const toggleLabel = minimized ? 'Expand instructor' : 'Minimize instructor';
   const pan = usePanGesture({
-    enabled: !docked,
     maxPointers: 1,
     activeOffsetY: [-PanelPan.activation, PanelPan.activation],
     failOffsetX: [-PanelPan.horizontalTolerance, PanelPan.horizontalTolerance],
@@ -272,7 +267,6 @@ export function InstructorPanel({
       style={[
         styles.panel,
         minimized && styles.minimized,
-        docked && styles.docked,
         { paddingBottom: bottomInset + Space.md },
         panelStyle,
       ]}
@@ -284,28 +278,23 @@ export function InstructorPanel({
       />
       <GestureDetector gesture={pan}>
         <View collapsable={false} testID="instructor-handle">
-          {!docked && (
-            <Pressable
-              testID="instructor-grabber"
-              accessibilityRole="button"
-              accessibilityLabel={toggleLabel}
-              accessibilityState={{ expanded: !minimized }}
-              onPress={toggle}
-              hitSlop={GRABBER_SLOP}
-              style={styles.grabberArea}
-            >
-              <View style={styles.grabber} />
-            </Pressable>
-          )}
+          <Pressable
+            testID="instructor-grabber"
+            accessibilityRole="button"
+            accessibilityLabel={toggleLabel}
+            accessibilityState={{ expanded: !minimized }}
+            onPress={toggle}
+            hitSlop={GRABBER_SLOP}
+            style={styles.grabberArea}
+          >
+            <View style={styles.grabber} />
+          </Pressable>
           <View style={styles.headerRow}>
             <Pressable
               testID="instructor-header"
-              // A docked header cannot be minimized.
-              accessible={!docked}
-              accessibilityRole={docked ? undefined : 'button'}
-              accessibilityLabel={docked ? undefined : toggleLabel}
-              accessibilityState={docked ? undefined : { expanded: !minimized }}
-              disabled={docked}
+              accessibilityRole="button"
+              accessibilityLabel={toggleLabel}
+              accessibilityState={{ expanded: !minimized }}
               onPress={toggle}
               style={styles.headerButton}
             >
@@ -384,7 +373,6 @@ export function InstructorPanel({
             transcript={transcript}
             voice={voice}
             reducedMotion={reducedMotion}
-            compact={docked}
           />
           <ContentFade contentKey={voice.hint || null}>
             {voice.hint !== '' ? (
@@ -498,13 +486,6 @@ const styles = StyleSheet.create({
     borderTopColor: Color.line,
   },
   minimized: { gap: Space.xs },
-  // Without a grabber, the docked header needs its own top margin.
-  docked: {
-    maxHeight: DOCKED_SHARE,
-    flexShrink: 1,
-    paddingTop: Space.md,
-    gap: Space.md,
-  },
   grabberArea: {
     height: Space.lg,
     alignItems: 'center',

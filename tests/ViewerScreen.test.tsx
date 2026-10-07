@@ -300,7 +300,9 @@ describe('viewer screen', () => {
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
-      expect(has('viewer-sidebar')).toBe(true);
+      await press('assistant-expand');
+      expect(has('viewer-rail')).toBe(true);
+      expect(has('viewer-drawer')).toBe(true);
       expect(has('instructor-grabber')).toBe(false);
       expect(node('step-row-0').props.accessibilityState).toEqual({
         selected: true,
@@ -342,6 +344,7 @@ describe('viewer screen', () => {
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
       await mount({ procedureId: TOUR_ID, mode: LearnMode.instructor });
+      await press('assistant-expand');
       const question = 'check the coolant';
       await act(async () => debug().ask(question));
       const step = procedure('check-coolant').steps[0];
@@ -349,14 +352,11 @@ describe('viewer screen', () => {
       expect(
         [text('step-current-text'), text('step-current-detail')].join(' '),
       ).toBe(step.text);
-      expect(node('thread-entry-0').findByType(Text).props.children).toBe(
-        'Coolant reservoir',
-      );
-      expect(text('instructor-question')).toBe(question);
-      expect(has('instructor-reply')).toBe(false);
       expect(
-        node('instructor-thread').findAllByProps({ testID: 'caution' }),
-      ).toEqual([]);
+        node('instructor-thread')
+          .findAllByType(Text)
+          .map(item => item.props.children),
+      ).toEqual([question]);
     } finally {
       await act(async () => Dimensions.set({ window: phone, screen: phone }));
     }
@@ -368,7 +368,7 @@ describe('viewer screen', () => {
     try {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
       await press('step-row-2');
-      await press('tool-explore');
+      await press('viewer-rail-explore');
       expect(continueRowFor(catalog, await loadProgress())).toMatchObject({
         stepIndex: 2,
       });
@@ -379,11 +379,15 @@ describe('viewer screen', () => {
         stepIndex: 0,
         selectedPart: 'battery',
       });
-      await press('tool-full-view');
-      expect(has('viewer-sidebar')).toBe(false);
-      expect(has('viewer-dock')).toBe(true);
-      await press('tool-guide');
-      expect(has('viewer-dock')).toBe(false);
+      await act(() =>
+        node('viewer-stage').props.onLayout({
+          nativeEvent: { layout: IPAD_WINDOW },
+        }),
+      );
+      await press('viewer-rail-explore');
+      expect(has('viewer-drawer')).toBe(false);
+      expect(has('stage-part-card')).toBe(true);
+      await press('viewer-rail-guide');
       expect(has('part-list')).toBe(false);
       expect(debug().getState().stepIndex).toBe(2);
       expect(node('step-row-2').props.accessibilityState).toEqual({

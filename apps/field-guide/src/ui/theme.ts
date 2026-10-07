@@ -34,8 +34,8 @@ export const Color = {
   drawer: '#16181C',
   field: 'rgba(255, 255, 255, 0.06)',
   // Tints over a native blur; the strong one carries reading text.
-  glass: 'rgba(20, 22, 26, 0.55)',
-  glassStrong: 'rgba(20, 22, 26, 0.78)',
+  glass: 'rgba(20, 22, 26, 0.2)',
+  glassStrong: 'rgba(20, 22, 26, 0.4)',
   glassLine: 'rgba(255, 255, 255, 0.14)',
 } as const;
 
@@ -60,7 +60,8 @@ export const Radius = {
   round: 999,
 } as const;
 
-export const BLUR_AMOUNT = 24;
+// The blur library scales the system effect by this percentage; anything less reads as a flat tint.
+export const BLUR_AMOUNT = 100;
 
 export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;

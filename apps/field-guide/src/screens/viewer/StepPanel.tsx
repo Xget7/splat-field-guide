@@ -21,8 +21,6 @@ interface Props {
   onBack: () => void;
   onNext: () => void;
   onRepeat: () => void;
-  /** The sidebar step list already shows progress. */
-  docked?: boolean;
 }
 
 export function StepPanel({
@@ -31,7 +29,6 @@ export function StepPanel({
   onBack,
   onNext,
   onRepeat,
-  docked = false,
 }: Props) {
   const swipe = usePanGesture({
     runOnJS: true,
@@ -66,11 +63,7 @@ export function StepPanel({
     <GestureDetector gesture={swipe}>
       <View
         testID="step-panel"
-        style={[
-          styles.panel,
-          docked && styles.docked,
-          { paddingBottom: bottomInset + Space.md },
-        ]}
+        style={[styles.panel, { paddingBottom: bottomInset + Space.md }]}
       >
         <View style={styles.header}>
           <Label testID="step-counter" color={Color.accent}>
@@ -84,7 +77,7 @@ export function StepPanel({
             <Label color={Color.muted}>Selected</Label>
           )}
         </View>
-        {hasStep && !docked && (
+        {hasStep && (
           <StepSegments
             count={content.stepCount}
             current={content.stepNumber - 1}
@@ -147,7 +140,6 @@ const styles = StyleSheet.create({
     borderTopWidth: HAIRLINE,
     borderTopColor: Color.line,
   },
-  docked: { marginTop: 'auto' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

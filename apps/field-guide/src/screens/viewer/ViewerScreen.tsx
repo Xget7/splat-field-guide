@@ -23,26 +23,28 @@ import type { InstructorRuntime } from '../../app/instructorRuntime';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
-import { Color, HAIRLINE, Space, Type } from '../../ui/theme';
-import { stepRowsFor } from './guideContent';
+import { Color, Space, Type } from '../../ui/theme';
+import { cardPartFor, partTrailFor, stepRowsFor } from './guideContent';
+import { AssistantDock } from './assistant/AssistantDock';
+import { ExploreDrawer } from './shell/ExploreDrawer';
+import { GuideDrawer } from './shell/GuideDrawer';
+import { Capability, DRAWER_IN, DRAWER_OUT } from './shell/layout';
+import { ViewerRail } from './shell/ViewerRail';
+import { Breadcrumb } from './stage/Breadcrumb';
+import { PartCard } from './stage/PartCard';
+import { ToolDock } from './stage/ToolDock';
+import { stageDocksFor } from './stage/stageDocks';
+import type { Size } from '../../features/viewport/PartMarkers';
 import { InstructorPanel } from './instructor/InstructorPanel';
 import { ProcedureSheet } from './ProcedureSheet';
 import { SplatViewport } from '../../features/viewport/SplatViewport';
-import { PartList } from './PartList';
-import { StepList } from './StepList';
 import { StepPanel } from './StepPanel';
-import { ToolsLayout, ViewerTools } from './ViewerTools';
+import { ViewerTools } from './ViewerTools';
 import { ViewerTopBar } from './ViewerTopBar';
 import { useKeyboardVisible } from '../../ui/useKeyboardVisible';
 import { useWideLayout } from '../../ui/useWideLayout';
 import { PanelMode } from './instructor/panelMotion';
-import {
-  DOCK_IN,
-  DOCK_OUT,
-  panelLayout,
-  SIDEBAR_IN,
-  SIDEBAR_OUT,
-} from './instructor/InstructorMotion';
+import { FADE_IN, FADE_OUT, panelLayout } from './instructor/InstructorMotion';
 import { useViewerSession } from './useViewerSession';
 
 /** Development-only interface for Metro checks of the live viewer. */
@@ -55,8 +57,8 @@ export interface FieldGuideDebug {
 
 const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
-// Leave room for the splat while allowing a step to wrap in two lines.
-const SIDEBAR_WIDTH = 400;
+const BREADCRUMB_HEIGHT = 40;
+const NO_SIZE: Size = { width: 0, height: 0 };
 
 export function ViewerScreen({
   navigation,
@@ -130,12 +132,25 @@ function Viewer({
   });
   const [pickerVisible, setPickerVisible] = useState(false);
   const [fullView, setFullView] = useState(false);
+  const [labelsOn, setLabelsOn] = useState(true);
+  // Recentering frames the step again without asking the instructor to repeat it.
+  const [recenters, setRecenters] = useState(0);
+  const [stage, setStage] = useState<Size>(NO_SIZE);
+  const [toolsWidth, setToolsWidth] = useState(0);
+  const docks = stageDocksFor(stage.width, toolsWidth);
+  const [assistantExpanded, setAssistantExpanded] = useState(false);
   const [instructorMode, setInstructorMode] = useState<PanelMode>(
     PanelMode.expanded,
   );
   const keyboardVisible = useKeyboardVisible();
   const wide = useWideLayout();
   const steps = useMemo(() => stepRowsFor(session, pack), [session, pack]);
+  const trail = useMemo(() => partTrailFor(session, pack), [session, pack]);
+  const cardPart = useMemo(() => cardPartFor(session, pack), [session, pack]);
+  const alreadyShown = useMemo(
+    () => [card.title, card.body, card.caution, cardPart?.summary ?? ''],
+    [card, cardPart],
+  );
   const reducedMotion = useReducedMotion();
   const viewportTransition = useMemo(() => panelLayout(), []);
   const sessionRef = useRef(session);
@@ -202,16 +217,32 @@ function Viewer({
     setFullView(false);
     explore();
   }, [explore]);
-  const tools = (layout: ToolsLayout) => (
-    <ViewerTools
-      exploring={exploring}
-      onGuide={onGuide}
-      onExplore={onExplore}
-      layout={layout}
-      fullView={fullView}
-      onFullView={wide ? () => setFullView(full => !full) : undefined}
-    />
+  const capability = exploring ? Capability.explore : Capability.guide;
+  const onCapability = useCallback(
+    (next: Capability) => {
+      if (next === capability) {
+        setFullView(full => !full);
+      } else if (next === Capability.explore) {
+        onExplore();
+      } else {
+        onGuide();
+      }
+    },
+    [capability, onExplore, onGuide],
   );
+  const onAssistantExpanded = useCallback((expanded: boolean) => {
+    setAssistantExpanded(expanded);
+    if (expanded) {
+      setInstructorOpen(true);
+    }
+  }, []);
+  const leave = useCallback(() => {
+    voice.stop();
+    onExit();
+  }, [voice, onExit]);
+  const procedureTitle =
+    currentProcedure(session, pack)?.title ??
+    (exploring && canResume ? EXPLORE_TITLE : NO_PROCEDURE_TITLE);
   const onChooseProcedure = useCallback(
     (id: ProcedureId) => {
       dispatch({ type: SessionEventType.start, procedureId: id });
@@ -220,30 +251,101 @@ function Viewer({
     [dispatch],
   );
 
+  const stageOverlays = wide && (
+    <>
+      <View
+        pointerEvents="box-none"
+        style={[styles.breadcrumb, { top: insets.top + Space.sm }]}
+      >
+        <Breadcrumb
+          area={guide.area}
+          trail={trail}
+          onArea={() => onSelectPart(null)}
+          onPart={onSelectPart}
+        />
+      </View>
+      <PartCard
+        part={cardPart}
+        stage={stage}
+        insetTop={insets.top + Space.sm + BREADCRUMB_HEIGHT + Space.lg}
+        insetRight={Space.lg}
+      />
+      {!(assistantExpanded && docks.toolsCovered) && (
+        <Animated.View
+          entering={FADE_IN}
+          exiting={FADE_OUT}
+          pointerEvents="box-none"
+          style={[
+            styles.toolDock,
+            {
+              right: docks.toolsRight,
+              bottom: insets.bottom + Space.lg + docks.toolsLift,
+            },
+          ]}
+        >
+          <View
+            onLayout={event => setToolsWidth(event.nativeEvent.layout.width)}
+          >
+            <ToolDock
+              labelsOn={labelsOn}
+              fullView={fullView}
+              canRepeat={!exploring}
+              onRecenter={() => setRecenters(count => count + 1)}
+              onToggleLabels={() => setLabelsOn(on => !on)}
+              onRepeat={onRepeat}
+              onToggleFullView={() => setFullView(full => !full)}
+            />
+          </View>
+        </Animated.View>
+      )}
+      <View
+        pointerEvents="box-none"
+        style={[styles.assistant, { bottom: insets.bottom + Space.lg }]}
+      >
+        <AssistantDock
+          thread={thread}
+          exchange={exchange}
+          alreadyShown={alreadyShown}
+          onAsk={ask}
+          voice={voice}
+          expanded={assistantExpanded}
+          onExpandedChange={onAssistantExpanded}
+          collapsedWidth={docks.assistantWidth}
+          expandedWidth={docks.assistantExpandedWidth}
+          bottomInset={0}
+          maxHeight={Math.max(
+            0,
+            stage.height -
+              insets.top -
+              insets.bottom -
+              BREADCRUMB_HEIGHT -
+              Space.xxl * 2,
+          )}
+        />
+      </View>
+    </>
+  );
   const viewportView = (
     <SplatViewport
       pack={pack}
       session={session}
-      frameRequest={frameRequest}
+      frameRequest={frameRequest + recenters}
       closeUp={session.selectedPart !== null || exchange !== null}
       accessibilityLabel={`${guide.title}, ${guide.area}`}
       resizeTransition={animatedResize ? viewportTransition : undefined}
+      markers={labelsOn}
       onSelect={onSelectPart}
     >
       {!wide && (
-        <View style={styles.toolsTop}>{tools(ToolsLayout.floating)}</View>
+        <View style={styles.toolsTop}>
+          <ViewerTools
+            exploring={exploring}
+            onGuide={onGuide}
+            onExplore={onExplore}
+          />
+        </View>
       )}
-      {wide && fullView && (
-        <Animated.View
-          testID="viewer-dock"
-          entering={DOCK_IN}
-          exiting={DOCK_OUT}
-          pointerEvents="box-none"
-          style={[styles.toolsBottom, { bottom: insets.bottom + Space.md }]}
-        >
-          {tools(ToolsLayout.floating)}
-        </Animated.View>
-      )}
+      {stageOverlays}
     </SplatViewport>
   );
   const panel = instructorOpen ? (
@@ -254,11 +356,10 @@ function Viewer({
       bottomInset={bottomInset}
       onAsk={ask}
       voice={voice}
-      mode={wide ? PanelMode.expanded : instructorMode}
+      mode={instructorMode}
       onModeChange={setInstructorMode}
       onBack={onBack}
       onNext={onNext}
-      docked={wide}
     />
   ) : (
     <StepPanel
@@ -267,7 +368,6 @@ function Viewer({
       onBack={onBack}
       onNext={onNext}
       onRepeat={onRepeat}
-      docked={wide}
     />
   );
 
@@ -279,63 +379,75 @@ function Viewer({
         { paddingLeft: insets.left, paddingRight: insets.right },
       ]}
     >
-      <ViewerTopBar
-        topInset={insets.top}
-        procedureTitle={
-          currentProcedure(session, pack)?.title ??
-          (exploring && canResume ? EXPLORE_TITLE : NO_PROCEDURE_TITLE)
-        }
-        instructorOpen={instructorOpen}
-        onBack={() => {
-          voice.stop();
-          onExit();
-        }}
-        onChooseProcedure={() => setPickerVisible(true)}
-        onToggleInstructor={() => {
-          voice.stop();
-          setInstructorOpen(open => !open);
-        }}
-      />
       {wide ? (
-        // Skip initial entry animation because the sidebar is present from mount.
+        // Skip initial entry animation because the drawer is present from mount.
         <LayoutAnimationConfig skipEntering>
-          <View style={styles.split}>
-            {viewportView}
+          <View style={styles.shell}>
+            <ViewerRail
+              topInset={insets.top}
+              bottomInset={insets.bottom}
+              capability={capability}
+              drawerOpen={!fullView}
+              onBack={leave}
+              onCapability={onCapability}
+            />
             {!fullView && (
               <Animated.View
-                testID="viewer-sidebar"
-                entering={SIDEBAR_IN}
-                exiting={SIDEBAR_OUT}
-                style={styles.sidebar}
+                entering={DRAWER_IN}
+                exiting={DRAWER_OUT}
+                style={styles.drawer}
               >
-                {tools(ToolsLayout.sidebar)}
                 {exploring ? (
-                  <View style={styles.steps}>
-                    <PartList
-                      parts={pack.parts}
-                      selected={session.selectedPart}
-                      onSelect={onSelectPart}
-                    />
-                  </View>
+                  <ExploreDrawer
+                    topInset={insets.top}
+                    bottomInset={insets.bottom}
+                    parts={pack.parts}
+                    selected={session.selectedPart}
+                    onSelect={onSelectPart}
+                    onClose={() => setFullView(true)}
+                  />
                 ) : (
-                  steps.length > 0 && (
-                    <View style={styles.steps}>
-                      <StepList
-                        rows={steps}
-                        current={session.stepIndex}
-                        onSelect={onGoTo}
-                        expanded={instructorOpen}
-                      />
-                    </View>
-                  )
+                  <GuideDrawer
+                    topInset={insets.top}
+                    bottomInset={insets.bottom}
+                    procedureTitle={procedureTitle}
+                    onChooseProcedure={() => setPickerVisible(true)}
+                    steps={steps}
+                    current={session.stepIndex}
+                    onGoTo={onGoTo}
+                    content={card}
+                    onBack={onBack}
+                    onNext={onNext}
+                    onClose={() => setFullView(true)}
+                  />
                 )}
-                {panel}
               </Animated.View>
             )}
+            <View
+              testID="viewer-stage"
+              style={styles.stage}
+              onLayout={event => {
+                const { width, height } = event.nativeEvent.layout;
+                setStage({ width, height });
+              }}
+            >
+              {viewportView}
+            </View>
           </View>
         </LayoutAnimationConfig>
       ) : (
         <>
+          <ViewerTopBar
+            topInset={insets.top}
+            procedureTitle={procedureTitle}
+            instructorOpen={instructorOpen}
+            onBack={leave}
+            onChooseProcedure={() => setPickerVisible(true)}
+            onToggleInstructor={() => {
+              voice.stop();
+              setInstructorOpen(open => !open);
+            }}
+          />
           {viewportView}
           {panel}
         </>
@@ -368,21 +480,18 @@ function MissingGuide({ onBack }: { onBack: () => void }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
-  split: { flex: 1, flexDirection: 'row' },
-  sidebar: {
-    width: SIDEBAR_WIDTH,
-    borderLeftWidth: HAIRLINE,
-    borderLeftColor: Color.line,
-    backgroundColor: Color.black,
-  },
+  shell: { flex: 1, flexDirection: 'row' },
+  drawer: { flexDirection: 'row' },
+  stage: { flex: 1 },
   toolsTop: { position: 'absolute', top: Space.md, left: Space.md },
-  toolsBottom: {
+  breadcrumb: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
   },
-  steps: { flex: 1 },
+  toolDock: { position: 'absolute', left: 0, alignItems: 'center' },
+  assistant: { position: 'absolute', right: Space.lg },
   missing: {
     flex: 1,
     gap: Space.lg,

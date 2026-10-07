@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -7,15 +7,21 @@ import {
   View,
   type ScrollViewInstance,
 } from 'react-native';
-import { SectionHeader } from '../../ui/SectionHeader';
+import { useReducedMotion } from 'react-native-reanimated';
+import { Icon, IconName } from '../../ui/Icon';
 import { CautionNote } from './instructor/CautionNote';
-import { Color, HAIRLINE, Radius, Space, Type } from '../../ui/theme';
+import { Color, Radius, Space, Type } from '../../ui/theme';
 import type { StepRow } from './guideContent';
 
-const BADGE_SIZE = 28;
-const TEXT_LINES = 2;
+const ROW_HEIGHT = 48;
+const BADGE_SIZE = 22;
+const CHECK_SIZE = 14;
+const SCROLL_EVENT_THROTTLE_MS = 16;
+const SELECT_HINT = 'Show this step';
+const STEP_LABEL = 'Step';
+const SAFETY_LABEL = 'has a safety note';
 
-// Earlier steps may have been skipped, so they do not imply completion.
+// Earlier steps may have been skipped, so the spoken state does not imply completion.
 const StepState = {
   earlier: 'earlier',
   current: 'current',
@@ -31,8 +37,8 @@ const SPOKEN_STATE: Readonly<Record<StepState, string>> = {
 
 const TEXT_COLOR: Readonly<Record<StepState, string>> = {
   earlier: Color.muted,
-  current: Color.text,
-  upcoming: Color.secondaryText,
+  current: Color.accentText,
+  upcoming: Color.text,
 };
 
 function stateOf(index: number, current: number): StepState {
@@ -45,20 +51,20 @@ function stateOf(index: number, current: number): StepState {
 function Badge({ index, state }: { index: number; state: StepState }) {
   return (
     <View
-      style={[
-        styles.badge,
-        state === StepState.earlier && styles.badgeEarlier,
-        state === StepState.current && styles.badgeCurrent,
-      ]}
+      style={[styles.badge, state === StepState.current && styles.badgeCurrent]}
     >
-      <Text
-        style={[
-          styles.number,
-          state !== StepState.upcoming && styles.numberFilled,
-        ]}
-      >
-        {index + 1}
-      </Text>
+      {state === StepState.earlier ? (
+        <Icon name={IconName.check} size={CHECK_SIZE} color={Color.accent} />
+      ) : (
+        <Text
+          style={[
+            styles.number,
+            state === StepState.current && styles.numberCurrent,
+          ]}
+        >
+          {index + 1}
+        </Text>
+      )}
     </View>
   );
 }
@@ -73,7 +79,7 @@ export function StepList({
   /** Zero based. */
   current: number;
   onSelect: (index: number) => void;
-  /** Expanded rows include the safety note because no other panel shows the full step. */
+  /** Include current detail and caution when this list owns the step presentation. */
   expanded?: boolean;
 }) {
   const scroll = useRef<ScrollViewInstance>(null);
@@ -81,82 +87,93 @@ export function StepList({
   const heights = useRef<number[]>([]);
   const offset = useRef(0);
   const visible = useRef(0);
-  useEffect(() => {
+  const reducedMotion = useReducedMotion();
+  const revealCurrent = useCallback(() => {
     const top = tops.current[current];
     const height = heights.current[current];
-    if (top === undefined || height === undefined) {
+    if (top === undefined || height === undefined || visible.current <= 0) {
       return;
     }
-    if (top < offset.current) {
-      scroll.current?.scrollTo({ y: top, animated: true });
+    if (top < offset.current || height > visible.current) {
+      scroll.current?.scrollTo({ y: top, animated: !reducedMotion });
     } else if (top + height > offset.current + visible.current) {
       scroll.current?.scrollTo({
-        y: top + height - visible.current,
-        animated: true,
+        y: Math.max(0, top + height - visible.current),
+        animated: !reducedMotion,
       });
     }
-  }, [current]);
+  }, [current, reducedMotion]);
+  useEffect(revealCurrent, [revealCurrent, rows, expanded]);
 
   return (
     <View testID="step-list" style={styles.list}>
-      <SectionHeader title="Steps" style={styles.header} />
       <ScrollView
         ref={scroll}
         style={styles.scroll}
         contentContainerStyle={styles.rows}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
         onLayout={event => {
           visible.current = event.nativeEvent.layout.height;
+          revealCurrent();
         }}
+        onContentSizeChange={revealCurrent}
         onScroll={event => {
           offset.current = event.nativeEvent.contentOffset.y;
         }}
-        scrollEventThrottle={16}
+        scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS}
       >
         {rows.map((row, index) => {
           const state = stateOf(index, current);
           const whole = expanded && state === StepState.current;
           return (
-            <Pressable
+            <View
               key={row.id}
-              testID={`step-row-${index}`}
-              accessibilityRole="button"
-              accessibilityLabel={`Step ${index + 1} of ${rows.length}, ${
-                SPOKEN_STATE[state]
-              }: ${row.text}${whole ? ` ${row.detail}` : ''}${
-                row.caution !== '' ? ', has a safety note' : ''
-              }`}
-              accessibilityState={{ selected: state === StepState.current }}
+              testID={`step-group-${index}`}
               onLayout={event => {
                 tops.current[index] = event.nativeEvent.layout.y;
                 heights.current[index] = event.nativeEvent.layout.height;
+                if (index === current) {
+                  revealCurrent();
+                }
               }}
-              onPress={() => onSelect(index)}
-              style={({ pressed }) => [
-                styles.row,
-                state === StepState.current && styles.rowCurrent,
-                whole && styles.rowWhole,
-                pressed && styles.rowPressed,
-              ]}
             >
-              <Badge index={index} state={state} />
-              <View style={[styles.words, whole && styles.wordsWhole]}>
+              <Pressable
+                testID={`step-row-${index}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${STEP_LABEL} ${index + 1} of ${
+                  rows.length
+                }, ${SPOKEN_STATE[state]}: ${row.text}${
+                  row.caution !== '' ? `, ${SAFETY_LABEL}` : ''
+                }`}
+                accessibilityHint={SELECT_HINT}
+                accessibilityState={{ selected: state === StepState.current }}
+                onPress={() => onSelect(index)}
+                style={({ pressed }) => [
+                  styles.row,
+                  state === StepState.current && styles.rowCurrent,
+                  pressed && styles.rowPressed,
+                ]}
+              >
+                <Badge index={index} state={state} />
                 <Text
                   testID={whole ? 'step-current-text' : undefined}
-                  numberOfLines={whole ? undefined : TEXT_LINES}
                   style={[styles.text, { color: TEXT_COLOR[state] }]}
                 >
                   {row.text}
                 </Text>
-                {whole && row.detail !== '' && (
-                  <Text testID="step-current-detail" style={styles.detail}>
-                    {row.detail}
-                  </Text>
-                )}
-                {whole && row.caution !== '' && (
-                  <CautionNote text={row.caution} />
-                )}
-              </View>
-            </Pressable>
+              </Pressable>
+              {whole && (row.detail !== '' || row.caution !== '') && (
+                <View style={styles.detailBlock}>
+                  {row.detail !== '' && (
+                    <Text testID="step-current-detail" style={styles.detail}>
+                      {row.detail}
+                    </Text>
+                  )}
+                  {row.caution !== '' && <CautionNote text={row.caution} />}
+                </View>
+              )}
+            </View>
           );
         })}
       </ScrollView>
@@ -165,46 +182,42 @@ export function StepList({
 }
 
 const styles = StyleSheet.create({
-  list: { flexShrink: 1, gap: Space.md, paddingTop: Space.lg },
-  header: { paddingHorizontal: Space.lg },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  rows: { gap: Space.sm, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
+  list: { flex: 1 },
+  scroll: { flex: 1 },
+  rows: { gap: Space.xs, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
   row: {
+    minHeight: ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.md,
-    paddingVertical: Space.md,
+    paddingVertical: Space.xs,
     paddingHorizontal: Space.md,
-    borderRadius: Radius.md,
-    borderWidth: HAIRLINE,
-    borderColor: Color.line,
-    backgroundColor: Color.surface,
+    borderRadius: Radius.control,
   },
-  rowCurrent: { borderColor: Color.accent, backgroundColor: Color.accentWash },
+  rowCurrent: { backgroundColor: Color.accentFill },
   rowPressed: { backgroundColor: Color.pressed },
   badge: {
     width: BADGE_SIZE,
     height: BADGE_SIZE,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.round,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: HAIRLINE,
-    borderColor: Color.lineStrong,
-  },
-  badgeEarlier: {
-    backgroundColor: Color.completed,
-    borderColor: Color.completed,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Color.accent,
   },
   badgeCurrent: {
     backgroundColor: Color.accentFill,
-    borderColor: Color.accentFill,
+    borderColor: Color.accentText,
   },
-  number: { ...Type.data, color: Color.faint },
-  numberFilled: { color: Color.accentText },
-  // Align the first line of wrapped text with the badge.
-  rowWhole: { alignItems: 'flex-start' },
-  words: { flex: 1, gap: Space.sm },
-  wordsWhole: { paddingTop: (BADGE_SIZE - Type.callout.lineHeight) / 2 },
-  text: Type.callout,
+  number: { ...Type.footnote, color: Color.accent },
+  numberCurrent: { color: Color.accentText },
+  text: { ...Type.callout, flex: 1 },
+  detailBlock: {
+    marginLeft: Space.md + BADGE_SIZE + Space.md,
+    marginRight: Space.md,
+    paddingTop: Space.sm,
+    paddingBottom: Space.md,
+    gap: Space.sm,
+  },
   detail: { ...Type.callout, color: Color.secondaryText },
 });

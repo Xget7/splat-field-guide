@@ -1,9 +1,18 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type ScrollViewInstance,
 } from 'react-native';
 import Animated, {
@@ -15,8 +24,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { Label } from '../../../ui/Label';
-import { stepLabel } from '../../../ui/readout';
 import {
   Color,
   HAIRLINE,
@@ -30,7 +37,6 @@ import {
   VoiceState,
   type InstructorVoice,
 } from '../../../features/instructor/voice/useInstructorVoice';
-import { CardKind, type CardContent } from '../guideContent';
 import {
   EntryKind,
   ExchangePhase,
@@ -40,6 +46,12 @@ import {
 import { CautionNote } from './CautionNote';
 import { InstructorAnswer } from './InstructorAnswer';
 import { FADE_IN, KaraokeText } from './InstructorMotion';
+import {
+  assistantBlocks,
+  isRepeatedText,
+  shownWordsFor,
+} from '../assistant/repeatedContent';
+import { parseAnswer } from '../../../features/instructor/answerFormat';
 
 // Follow new words only near the end so reading older entries is not interrupted.
 const FOLLOW_SLOP = Space.xl;
@@ -54,11 +66,24 @@ const ThreadFade = {
   clear: 0,
 } as const;
 
-// Tour steps are parts, so they are named like the tour's step list names them.
-function entryLabel(card: CardContent): string {
-  return card.kind === CardKind.procedure
-    ? stepLabel(card.stepNumber, card.stepCount)
-    : card.title;
+function Bubble({
+  children,
+  question = false,
+  reducedMotion,
+}: {
+  children: ReactNode;
+  question?: boolean;
+  reducedMotion: boolean;
+}) {
+  return (
+    <Animated.View
+      testID="thread-bubble"
+      entering={reducedMotion ? undefined : FADE_IN}
+      style={question ? styles.questionBubble : styles.replyBubble}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 function entryKey(entry: ThreadEntry): string {
@@ -87,13 +112,19 @@ function Dot({ index, still }: { index: number; still: boolean }) {
   return <Animated.View style={[styles.dot, style]} />;
 }
 
-function Thinking({ still }: { still: boolean }) {
+function Thinking({
+  still,
+  assistant = false,
+}: {
+  still: boolean;
+  assistant?: boolean;
+}) {
   return (
     <Animated.View
       testID="instructor-thinking"
       accessible
       accessibilityLabel="Thinking"
-      entering={FADE_IN}
+      entering={assistant && still ? undefined : FADE_IN}
       style={styles.dots}
     >
       {Array.from({ length: DOT_COUNT }, (_, index) => (
@@ -113,6 +144,8 @@ interface SaidProps {
   streaming?: boolean;
   reducedMotion?: boolean;
   interrupted?: boolean;
+  variant?: 'panel' | 'assistant';
+  shownText?: readonly string[];
 }
 
 function Said({
@@ -124,6 +157,8 @@ function Said({
   streaming = false,
   reducedMotion = true,
   interrupted = false,
+  variant = 'panel',
+  shownText,
 }: SaidProps) {
   const speaking = live && voice.state === VoiceState.speaking;
   const answer =
@@ -137,12 +172,17 @@ function Said({
         word={voice.word}
         live={live}
         interrupted={interrupted}
+        variant={variant}
+        shownText={shownText}
       />
     );
   return (
     <>
       {answer}
       {caution !== '' &&
+        !(
+          variant === 'assistant' && isRepeatedText(caution, shownText ?? [])
+        ) &&
         (live ? (
           <CautionNote text={caution}>
             <KaraokeText
@@ -166,11 +206,23 @@ interface ReplyProps {
   index: number;
   voice: InstructorVoice;
   reducedMotion: boolean;
+  variant?: 'panel' | 'assistant';
+  shownText?: readonly string[];
 }
 
-function Reply({ exchange, live, index, voice, reducedMotion }: ReplyProps) {
+function Reply({
+  exchange,
+  live,
+  index,
+  voice,
+  reducedMotion,
+  variant,
+  shownText,
+}: ReplyProps) {
   if (exchange.reply === '' && live && !exchange.interrupted) {
-    return <Thinking still={reducedMotion} />;
+    return (
+      <Thinking still={reducedMotion} assistant={variant === 'assistant'} />
+    );
   }
   return (
     <Said
@@ -182,7 +234,60 @@ function Reply({ exchange, live, index, voice, reducedMotion }: ReplyProps) {
       streaming={exchange.phase === ExchangePhase.streaming}
       reducedMotion={reducedMotion}
       interrupted={exchange.interrupted}
+      variant={variant}
+      shownText={shownText}
     />
+  );
+}
+
+function AssistantEntry({
+  exchange,
+  index,
+  live,
+  voice,
+  reducedMotion,
+  shownText = [],
+}: ReplyProps) {
+  const streaming = exchange.phase === ExchangePhase.streaming;
+  const hasReply = useMemo(
+    () =>
+      assistantBlocks(
+        parseAnswer(exchange.reply, streaming).blocks,
+        shownText,
+        streaming,
+      ).length > 0,
+    [exchange.reply, shownText, streaming],
+  );
+  const hasCaution =
+    exchange.caution !== '' && !isRepeatedText(exchange.caution, shownText);
+  const thinking = live && exchange.reply === '' && !exchange.interrupted;
+  return (
+    <View testID={`thread-entry-${index}`} style={styles.entry}>
+      {exchange.question !== '' && (
+        <Bubble question reducedMotion={reducedMotion}>
+          <Text
+            testID={live ? 'instructor-question' : `thread-question-${index}`}
+            style={styles.assistantQuestion}
+          >
+            {exchange.question}
+          </Text>
+        </Bubble>
+      )}
+      {!exchange.readsStep &&
+        (hasReply || hasCaution || thinking || exchange.interrupted) && (
+          <Bubble reducedMotion={reducedMotion}>
+            <Reply
+              exchange={exchange}
+              live={live}
+              index={index}
+              voice={voice}
+              reducedMotion={reducedMotion}
+              variant="assistant"
+              shownText={shownText}
+            />
+          </Bubble>
+        )}
+    </View>
   );
 }
 
@@ -192,8 +297,9 @@ interface Props {
   transcript: string;
   voice: InstructorVoice;
   reducedMotion: boolean;
-  /** In compact mode, the step list shows the full step: thread steps only mark questions, and replies that read a step stay hidden. */
-  compact?: boolean;
+  variant?: 'panel' | 'assistant';
+  /** Text the drawer and part card already show, which assistant bubbles leave out. */
+  alreadyShown?: readonly string[];
 }
 
 export function InstructorThread({
@@ -202,27 +308,44 @@ export function InstructorThread({
   transcript,
   voice,
   reducedMotion,
-  compact = false,
+  variant = 'panel',
+  alreadyShown = [],
 }: Props) {
   const scroll = useRef<ScrollViewInstance>(null);
   const [scrolled, setScrolled] = useState(false);
   const wasScrolled = useRef(false);
   const gradientId = useId();
   const following = useRef(true);
+  const assistant = variant === 'assistant';
   const entries: readonly ThreadEntry[] =
     exchange === null
       ? thread
       : [...thread, { kind: EntryKind.exchange, exchange }];
   const live = entries.length - 1;
-  const listed = (entry: ThreadEntry) =>
-    compact &&
-    entry.kind === EntryKind.step &&
-    entry.card.stepCount > 0 &&
-    !entry.card.selected;
-  const shown = entries.filter(
-    (entry, index) =>
-      !listed(entry) || entries[index + 1]?.kind === EntryKind.exchange,
+  const shown = assistant
+    ? entries.filter(entry => entry.kind === EntryKind.exchange)
+    : entries;
+  const shownText = useMemo(
+    () =>
+      assistant
+        ? shownWordsFor([
+            ...alreadyShown,
+            ...thread.flatMap(entry =>
+              entry.kind === EntryKind.step
+                ? [entry.card.title, entry.card.body, entry.card.caution]
+                : [],
+            ),
+          ])
+        : [],
+    [assistant, alreadyShown, thread],
   );
+  const follow = ({
+    nativeEvent: { contentOffset, contentSize, layoutMeasurement },
+  }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    following.current =
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - FOLLOW_SLOP;
+  };
   // Bring a new entry into view even when the reader has scrolled back.
   const said = `${entries.length}:${transcript === ''}`;
   const seen = useRef(said);
@@ -232,25 +355,28 @@ export function InstructorThread({
   }
 
   return (
-    <View style={styles.fitted}>
+    <View style={[styles.fitted, assistant && styles.assistantFitted]}>
       <ScrollView
         ref={scroll}
         testID="instructor-thread"
-        style={styles.fitted}
-        contentContainerStyle={styles.content}
+        style={[styles.fitted, assistant && styles.assistantFitted]}
+        contentContainerStyle={[
+          styles.content,
+          assistant && styles.assistantContent,
+        ]}
+        keyboardShouldPersistTaps={assistant ? 'handled' : undefined}
         scrollEventThrottle={16}
-        onScroll={({
-          nativeEvent: { contentOffset, contentSize, layoutMeasurement },
-        }) => {
+        onScroll={({ nativeEvent: { contentOffset } }) => {
           const nextScrolled = contentOffset.y > 0;
           if (nextScrolled !== wasScrolled.current) {
             wasScrolled.current = nextScrolled;
             setScrolled(nextScrolled);
           }
-          following.current =
-            contentOffset.y + layoutMeasurement.height >=
-            contentSize.height - FOLLOW_SLOP;
         }}
+        // Only the reader's own scrolling decides whether to follow: a streamed reply
+        // can outgrow an animated scroll to the end and would otherwise stop it.
+        onScrollEndDrag={follow}
+        onMomentumScrollEnd={follow}
         onLayout={() => {
           if (following.current) {
             scroll.current?.scrollToEnd({ animated: false });
@@ -265,17 +391,17 @@ export function InstructorThread({
         }}
       >
         {entries.map((entry, index) =>
-          !shown.includes(entry) ? null : listed(entry) ? (
-            <View
+          !shown.includes(entry) ? null : assistant &&
+            entry.kind === EntryKind.exchange ? (
+            <AssistantEntry
               key={entryKey(entry)}
-              testID={`thread-entry-${index}`}
-              style={styles.divider}
-            >
-              <Label color={Color.faint}>
-                {entry.kind === EntryKind.step && entryLabel(entry.card)}
-              </Label>
-              <View style={styles.rule} />
-            </View>
+              exchange={entry.exchange}
+              live={index === live}
+              index={index}
+              voice={voice}
+              reducedMotion={reducedMotion}
+              shownText={shownText}
+            />
           ) : (
             <Animated.View
               key={entryKey(entry)}
@@ -315,31 +441,40 @@ export function InstructorThread({
                   >
                     {entry.exchange.question}
                   </Text>
-                  {!(compact && entry.exchange.readsStep) && (
-                    <Reply
-                      exchange={entry.exchange}
-                      live={index === live}
-                      index={index}
-                      voice={voice}
-                      reducedMotion={reducedMotion}
-                    />
-                  )}
+                  <Reply
+                    exchange={entry.exchange}
+                    live={index === live}
+                    index={index}
+                    voice={voice}
+                    reducedMotion={reducedMotion}
+                  />
                 </>
               )}
             </Animated.View>
           ),
         )}
-        {transcript !== '' && (
-          <Text
-            testID="instructor-transcript"
-            accessibilityLabel={`Provisional transcript: ${transcript}`}
-            style={[styles.question, styles.provisional]}
-          >
-            {transcript}
-          </Text>
-        )}
+        {transcript !== '' &&
+          (assistant ? (
+            <Bubble question reducedMotion={reducedMotion}>
+              <Text
+                testID="instructor-transcript"
+                accessibilityLabel={`Provisional transcript: ${transcript}`}
+                style={styles.assistantQuestion}
+              >
+                {transcript}
+              </Text>
+            </Bubble>
+          ) : (
+            <Text
+              testID="instructor-transcript"
+              accessibilityLabel={`Provisional transcript: ${transcript}`}
+              style={[styles.question, styles.provisional]}
+            >
+              {transcript}
+            </Text>
+          ))}
       </ScrollView>
-      {scrolled && (
+      {scrolled && !assistant && (
         <Svg
           testID="instructor-thread-top-fade"
           pointerEvents="none"
@@ -379,6 +514,18 @@ export function InstructorThread({
 
 const styles = StyleSheet.create({
   fitted: { flexGrow: 0, flexShrink: 1 },
+  assistantFitted: { minHeight: 0 },
+  assistantContent: { gap: Space.md },
+  questionBubble: {
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
+    borderRadius: Radius.control,
+    backgroundColor: Color.field,
+  },
+  replyBubble: { gap: Space.sm },
+  assistantQuestion: { ...Type.callout, color: Color.text },
   topFade: { position: 'absolute', top: 0, left: 0 },
   content: {
     gap: Space.lg,
@@ -387,8 +534,6 @@ const styles = StyleSheet.create({
   entry: { gap: Space.xs },
   title: { ...Type.headline, color: Color.text },
   pastTitle: { color: Color.muted },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  rule: { flex: 1, height: HAIRLINE, backgroundColor: Color.line },
   question: {
     ...Type.callout,
     color: Color.secondaryText,

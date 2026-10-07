@@ -53,6 +53,8 @@ interface Props {
   closeUp: boolean;
   accessibilityLabel: string;
   resizeTransition?: LinearTransition;
+  /** Off hides the part labels drawn over the cloud. */
+  markers?: boolean;
   onSelect: (partId: PartId | null) => void;
   children?: ReactNode;
 }
@@ -74,6 +76,7 @@ function Viewport({
   closeUp,
   accessibilityLabel,
   resizeTransition,
+  markers = true,
   onSelect,
   children,
 }: Props) {
@@ -277,7 +280,7 @@ function Viewport({
           </Label>
         </View>
       )}
-      {ready && (
+      {ready && markers && (
         <PartMarkers
           view={activeView}
           parts={parts}

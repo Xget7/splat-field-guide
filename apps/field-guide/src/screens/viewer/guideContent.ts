@@ -1,4 +1,9 @@
-import { findPart, type Pack } from '../../features/pack/pack';
+import {
+  findPart,
+  type Pack,
+  type Part,
+  type PartId,
+} from '../../features/pack/pack';
 import {
   currentProcedure,
   currentStep,
@@ -90,4 +95,35 @@ export function stepRowsFor(
       caution: step.caution,
     };
   });
+}
+
+// A picked part, else the step's first part.
+function focusFor(state: SessionState, pack: Pack): PartId | null {
+  return state.selectedPart ?? currentStep(state, pack)?.parts[0] ?? null;
+}
+
+/** The part in focus and its ancestors, outermost first. */
+export function partTrailFor(state: SessionState, pack: Pack): readonly Part[] {
+  const focus = focusFor(state, pack);
+  const trail: Part[] = [];
+  for (
+    let part = focus === null ? undefined : findPart(pack, focus);
+    part !== undefined;
+    part = part.parent === null ? undefined : findPart(pack, part.parent)
+  ) {
+    trail.unshift(part);
+  }
+  return trail;
+}
+
+/** The part card shows the part in focus, unless the tour's step list already shows its summary. */
+export function cardPartFor(state: SessionState, pack: Pack): Part | null {
+  const focus = focusFor(state, pack);
+  if (focus === null) {
+    return null;
+  }
+  const tourShowsIt =
+    currentProcedure(state, pack)?.id === TOUR_ID &&
+    currentStep(state, pack)?.parts[0] === focus;
+  return tourShowsIt ? null : findPart(pack, focus) ?? null;
 }

@@ -1,6 +1,13 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type KeyboardEvent,
+} from 'react-native';
 import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { appEvents } from '../apps/field-guide/src/features/events/bus';
 import {
@@ -25,6 +32,7 @@ import {
 } from '../apps/field-guide/src/screens/viewer/viewerState';
 import { InstructorPanel } from '../apps/field-guide/src/screens/viewer/instructor/InstructorPanel';
 import { PanelMode } from '../apps/field-guide/src/screens/viewer/instructor/panelMotion';
+import { AssistantDock } from '../apps/field-guide/src/screens/viewer/assistant/AssistantDock';
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
@@ -46,12 +54,9 @@ const THREAD_SCROLLED_Y = 20;
 const noop = () => {};
 type PanelProps = React.ComponentProps<typeof InstructorPanel>;
 
-function Panel({
-  voice: overrides,
-  ...props
-}: Partial<Omit<PanelProps, 'voice'>> & { voice?: Partial<InstructorVoice> }) {
+function useVoice(overrides?: Partial<InstructorVoice>): InstructorVoice {
   const level = useSharedValue(0);
-  const voice: InstructorVoice = {
+  return {
     state: VoiceState.idle,
     on: false,
     muted: false,
@@ -68,6 +73,13 @@ function Panel({
     ask: () => false,
     ...overrides,
   };
+}
+
+function Panel({
+  voice: overrides,
+  ...props
+}: Partial<Omit<PanelProps, 'voice'>> & { voice?: Partial<InstructorVoice> }) {
+  const voice = useVoice(overrides);
   return (
     <InstructorPanel
       thread={[]}
@@ -80,6 +92,28 @@ function Panel({
       onModeChange={noop}
       onBack={noop}
       onNext={noop}
+      {...props}
+    />
+  );
+}
+
+type DockProps = React.ComponentProps<typeof AssistantDock>;
+function Dock({
+  voice: overrides,
+  ...props
+}: Partial<Omit<DockProps, 'voice'>> & { voice?: Partial<InstructorVoice> }) {
+  const voice = useVoice(overrides);
+  return (
+    <AssistantDock
+      thread={[]}
+      exchange={null}
+      alreadyShown={[]}
+      onAsk={noop}
+      voice={voice}
+      expanded={false}
+      onExpandedChange={noop}
+      bottomInset={0}
+      maxHeight={440}
       {...props}
     />
   );
@@ -472,18 +506,22 @@ describe('instructor panel modes', () => {
         thread.props.onLayout({ nativeEvent: { layout: THREAD_WINDOW } }),
       );
     };
+    const atTop = {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 0 },
+        contentSize: THREAD_SIZE,
+        layoutMeasurement: THREAD_WINDOW,
+      },
+    };
     scrollToEnd.mockClear();
     await resize();
     expect(scrollToEnd).toHaveBeenCalledTimes(1);
-    await act(() =>
-      thread.props.onScroll({
-        nativeEvent: {
-          contentOffset: { x: 0, y: 0 },
-          contentSize: THREAD_SIZE,
-          layoutMeasurement: THREAD_WINDOW,
-        },
-      }),
-    );
+    // A reply that outgrows the scroll to the end does not stop the follow.
+    await act(() => thread.props.onScroll(atTop));
+    scrollToEnd.mockClear();
+    await resize();
+    expect(scrollToEnd).toHaveBeenCalledTimes(1);
+    await act(() => thread.props.onScrollEndDrag(atTop));
     scrollToEnd.mockClear();
     await resize();
     expect(scrollToEnd).not.toHaveBeenCalled();
@@ -504,5 +542,270 @@ describe('instructor panel modes', () => {
     });
     expect(readout(renderer.toJSON())).toContain('Interrupted');
     expect(readout(renderer.toJSON())).not.toContain('Thinking');
+  });
+
+  test.each([false, true])(
+    'the assistant expands, sends trimmed questions and retains voice controls (Reduce Motion: %s)',
+    async reducedMotion => {
+      jest.mocked(useReducedMotion).mockReturnValue(reducedMotion);
+      const onExpandedChange = jest.fn();
+      const onAsk = jest.fn();
+      const toggle = jest.fn();
+      const toggleMuted = jest.fn();
+      const stop = jest.fn();
+      const props = {
+        onExpandedChange,
+        onAsk,
+        voice: { toggle, toggleMuted, stop },
+      };
+      await act(() => {
+        renderer = ReactTestRenderer.create(<Dock {...props} />);
+      });
+      const control = (id: string) =>
+        renderer.root.findAll(
+          node =>
+            node.props.testID === id &&
+            typeof node.props.onPress === 'function',
+        )[0];
+      expect(control('assistant-expand').props.accessibilityLabel).toBe(
+        'AI Assistant',
+      );
+      expect(control('assistant-expand').props.accessibilityState).toEqual({
+        expanded: false,
+      });
+      expect(hasText('Tap to talk')).toBe(true);
+      expect(control('assistant-send')).toBeUndefined();
+      await act(() => control('assistant-expand').props.onPress());
+      expect(onExpandedChange).toHaveBeenLastCalledWith(true);
+      await act(() => control('assistant-mic').props.onPress());
+      expect(toggle).toHaveBeenCalledTimes(1);
+      await act(() => renderer.update(<Dock {...props} expanded />));
+      expect(
+        renderer.root.findAll(node => node.props.testID === 'assistant-dock')[0]
+          .props.layout === undefined,
+      ).toBe(reducedMotion);
+      expect(control('assistant-minimize').props.accessibilityState).toEqual({
+        expanded: true,
+      });
+      expect(control('assistant-send').props.accessibilityState.disabled).toBe(
+        true,
+      );
+      const input = renderer.root.findByProps({ testID: 'assistant-input' });
+      await act(() => input.props.onChangeText('  What should I check?  '));
+      await act(() => control('assistant-send').props.onPress());
+      expect(onAsk).toHaveBeenCalledWith('What should I check?');
+      expect(
+        renderer.root.findByProps({ testID: 'assistant-input' }).props.value,
+      ).toBe('');
+      onExpandedChange.mockClear();
+      await act(() =>
+        renderer.update(
+          <Dock
+            {...props}
+            voice={{
+              ...props.voice,
+              on: true,
+              open: true,
+              state: VoiceState.speaking,
+            }}
+          />,
+        ),
+      );
+      expect(onExpandedChange).toHaveBeenCalledWith(true);
+      await act(() =>
+        renderer.update(
+          <Dock
+            {...props}
+            expanded
+            voice={{
+              ...props.voice,
+              on: true,
+              open: true,
+              state: VoiceState.speaking,
+            }}
+          />,
+        ),
+      );
+      expect(hasText('Speaking')).toBe(true);
+      expect(
+        renderer.root.findAllByProps({ testID: 'instructor-meter' }).length,
+      ).toBeGreaterThan(0);
+      await act(() => control('assistant-mic').props.onPress());
+      expect(toggleMuted).toHaveBeenCalledTimes(1);
+      await act(() => control('assistant-stop').props.onPress());
+      expect(stop).toHaveBeenCalledTimes(1);
+      await act(() => control('assistant-end-voice').props.onPress());
+      expect(toggle).toHaveBeenCalledTimes(2);
+      await act(() => control('assistant-minimize').props.onPress());
+      expect(onExpandedChange).toHaveBeenLastCalledWith(false);
+    },
+  );
+
+  test('assistant bubbles omit repeated cards, steps and cautions while preserving spoken word offsets and question order', async () => {
+    const content = {
+      ...CONTENT,
+      title: 'Coolant tank',
+      body: 'Read the level through the tank wall.',
+      caution: 'Wait until the engine is cold.',
+    };
+    const question = {
+      ...INTERRUPTED_EXCHANGE,
+      interrupted: false,
+      readsStep: true,
+      reply: content.body,
+      caution: content.caution,
+    };
+    const reply = {
+      ...INTERRUPTED_EXCHANGE,
+      id: 2,
+      interrupted: false,
+      question: 'What else?',
+      reply: `${content.body} Look for a leak.`,
+      caution: content.caution,
+    };
+    await act(() => {
+      renderer = ReactTestRenderer.create(
+        <Dock
+          expanded
+          alreadyShown={[content.title, content.body, content.caution]}
+          thread={[
+            { kind: EntryKind.step, id: 1, key: 'step', card: content },
+            { kind: EntryKind.exchange, exchange: question },
+          ]}
+          exchange={reply}
+          voice={{
+            on: true,
+            state: VoiceState.speaking,
+            word: {
+              section: SpokenSection.reply,
+              location: content.body.length + 1,
+              length: 4,
+            },
+          }}
+        />,
+      );
+    });
+    const labels = readout(renderer.toJSON());
+    expect(labels).not.toContain(content.title);
+    expect(labels).not.toContain(content.body);
+    expect(labels).not.toContain(`Caution: ${content.caution}`);
+    expect(
+      labels.filter(text =>
+        [question.question, reply.question, 'Look for a leak.'].includes(text),
+      ),
+    ).toEqual([question.question, reply.question, 'Look for a leak.']);
+    const currentWord = renderer.root
+      .findAllByType(Text)
+      .find(node => node.props.testID === 'instructor-reply-current');
+    expect(currentWord?.props.children).toEqual('Look');
+    const bubbles = () =>
+      renderer.root.findAll(
+        node =>
+          typeof node.type === 'string' &&
+          node.props.testID === 'thread-bubble',
+      );
+    expect(bubbles()).toHaveLength(3);
+    await act(() =>
+      renderer.update(
+        <Dock
+          expanded
+          alreadyShown={[content.title, content.body, content.caution]}
+          exchange={{ ...reply, reply: content.body, caution: '' }}
+        />,
+      ),
+    );
+    expect(bubbles()).toHaveLength(1);
+    await act(() =>
+      renderer.update(
+        <Dock
+          expanded
+          alreadyShown={[content.title, content.body, content.caution]}
+          exchange={{
+            ...reply,
+            reply: content.body.slice(0, 20),
+            caution: '',
+            phase: ExchangePhase.streaming,
+          }}
+        />,
+      ),
+    );
+    expect(bubbles()).toHaveLength(1);
+  });
+
+  test('the assistant measures keyboard overlap without offsetting an already resized stage twice', async () => {
+    let update: ((event: KeyboardEvent) => void) | undefined;
+    let hide: ((event: KeyboardEvent) => void) | undefined;
+    const listeners = jest
+      .spyOn(Keyboard, 'addListener')
+      .mockImplementation((name, callback) => {
+        if (name === 'keyboardWillChangeFrame') {
+          update = callback;
+        }
+        if (name === 'keyboardWillHide') {
+          hide = callback;
+        }
+        return { remove: jest.fn() };
+      });
+    let anchorBottom = 900;
+    try {
+      await act(() => {
+        renderer = ReactTestRenderer.create(<Dock expanded />);
+      });
+      const anchor = renderer.root
+        .findAllByType(View)
+        .find(node => node.props.testID === 'assistant-anchor')!;
+      jest
+        .mocked(anchor.instance.measureInWindow)
+        .mockImplementation(
+          (
+            callback: (
+              x: number,
+              y: number,
+              width: number,
+              height: number,
+            ) => void,
+          ) => callback(800, anchorBottom - 440, 380, 440),
+        );
+      const event: KeyboardEvent = {
+        duration: 250,
+        easing: 'keyboard',
+        isEventFromThisApp: true,
+        startCoordinates: {
+          screenX: 0,
+          screenY: 1000,
+          width: 1200,
+          height: 350,
+        },
+        endCoordinates: { screenX: 0, screenY: 650, width: 1200, height: 350 },
+      };
+      await act(() => update?.(event));
+      await act(() => renderer.update(<Dock expanded />));
+      const dockStyle = () =>
+        StyleSheet.flatten(
+          renderer.root
+            .findAllByType(View)
+            .find(node => node.props.testID === 'assistant-dock')!.props.style,
+        );
+      expect(dockStyle().transform).toEqual([{ translateY: -262 }]);
+      expect(dockStyle().maxHeight).toBeLessThanOrEqual(440 - 262);
+      anchorBottom = 1020;
+      await act(() => update?.(event));
+      await act(() => renderer.update(<Dock expanded />));
+      expect(dockStyle().maxHeight).toBe(144);
+      expect(
+        renderer.root.findByProps({ testID: 'assistant-input' }),
+      ).toBeDefined();
+      anchorBottom = 620;
+      await act(() =>
+        renderer.root
+          .findByProps({ testID: 'assistant-anchor' })
+          .props.onLayout(),
+      );
+      await act(() => renderer.update(<Dock expanded />));
+      expect(dockStyle().transform).toEqual([{ translateY: -0 }]);
+      await act(() => hide?.(event));
+    } finally {
+      listeners.mockRestore();
+    }
   });
 });

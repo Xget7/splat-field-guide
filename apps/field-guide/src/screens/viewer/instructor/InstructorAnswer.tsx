@@ -10,6 +10,7 @@ import { InterruptedLabel } from '../../../features/instructor/mode/modeCopy';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
 import { useAnswerReveal } from './useAnswerReveal';
 import { KaraokeText } from './InstructorMotion';
+import { assistantBlocks } from '../assistant/repeatedContent';
 
 const BULLET_SIZE = 4;
 
@@ -22,6 +23,8 @@ interface Props {
   word: WordRange | null;
   live: boolean;
   interrupted?: boolean;
+  variant?: 'panel' | 'assistant';
+  shownText?: readonly string[];
 }
 
 /** One answer owns its reveal; the thread and the splat do not render for each batch of characters. */
@@ -34,18 +37,31 @@ export function InstructorAnswer({
   word,
   live,
   interrupted = false,
+  variant = 'panel',
+  shownText = [],
 }: Props) {
-  const answer = useMemo(
+  const parsed = useMemo(
     () => parseAnswer(reply, streaming),
     [reply, streaming],
   );
+  const answer = useMemo(
+    () =>
+      variant === 'assistant'
+        ? {
+            ...parsed,
+            blocks: assistantBlocks(parsed.blocks, shownText, streaming),
+          }
+        : parsed,
+    [variant, parsed, shownText, streaming],
+  );
   const revealed = useAnswerReveal(answer.speech, streaming, reducedMotion);
-  const style = live ? undefined : styles.earlier;
+  const style = live || variant === 'assistant' ? undefined : styles.earlier;
+  const lastVisible = answer.blocks.length - 1;
   const textFor = (index: number) => {
     const block = answer.blocks[index];
     const text = block.text.slice(0, Math.max(0, revealed - block.location));
     let label = text;
-    if (interrupted && index === answer.blocks.length - 1) {
+    if (interrupted && index === lastVisible) {
       label = `${text} ${InterruptedLabel}`;
     }
     return (
@@ -76,12 +92,18 @@ export function InstructorAnswer({
     return (
       <View
         key={index}
-        style={[styles.item, block.leadLength > 0 && styles.card]}
+        style={[
+          styles.item,
+          block.leadLength > 0 && variant !== 'assistant' && styles.card,
+        ]}
       >
         {block.kind === AnswerKind.step ? (
           <Text
             accessible={false}
-            style={[styles.number, !live && styles.earlier]}
+            style={[
+              styles.number,
+              !live && variant !== 'assistant' && styles.earlier,
+            ]}
           >
             {block.number}
           </Text>
@@ -95,10 +117,13 @@ export function InstructorAnswer({
     );
   };
   const interruptedText = interrupted && (
-    <Text accessible={answer.blocks.length === 0} style={styles.interrupted}>
+    <Text accessible={lastVisible < 0} style={styles.interrupted}>
       {InterruptedLabel}
     </Text>
   );
+  if (variant === 'assistant' && lastVisible < 0) {
+    return interruptedText || null;
+  }
   if (
     answer.blocks.length === 1 &&
     answer.blocks[0].kind === AnswerKind.paragraph
