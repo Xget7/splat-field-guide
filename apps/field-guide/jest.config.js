@@ -1,6 +1,9 @@
 const path = require('path');
 
 module.exports = {
+  moduleNameMapper: {
+    'instructor\\.config\\.json$': '<rootDir>/instructor.config.example.json',
+  },
   preset: '@react-native/jest-preset',
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.[jt]s?(x)'],

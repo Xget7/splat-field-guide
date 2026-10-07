@@ -241,3 +241,25 @@ test.each(['error', 'missing done'])(
     });
   },
 );
+
+test('offline skips the cloud and measures only the first nonempty text', async () => {
+  let online = false;
+  const trip = jest.fn();
+  const cloud = createCloudModel({
+    url: URL,
+    now: () => time,
+    isOnline: () => online,
+    onRoundTrip: trip,
+    Request: FakeRequest as unknown as typeof XMLHttpRequest,
+  });
+  expect(cloud.isReady()).toBe(false);
+  online = true;
+  const reply = cloud.respond(request, jest.fn());
+  time = 120;
+  FakeRequest.last.receive(line({ text: 'It' }));
+  time = 240;
+  FakeRequest.last.receive(line({ text: ' supplies' }));
+  FakeRequest.last.receive(line({ done: true }));
+  await reply;
+  expect(trip.mock.calls).toEqual([[{ ok: true, ms: 120 }]]);
+});

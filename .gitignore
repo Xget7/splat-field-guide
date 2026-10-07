@@ -16,3 +16,6 @@ packages/react-native-splat/ios/Frameworks/
 !.env.example
 !.env.sample
 !.dev.vars.example
+
+# Local instructor endpoint.
+apps/field-guide/instructor.config.json

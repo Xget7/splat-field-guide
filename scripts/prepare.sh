@@ -2,6 +2,9 @@
 PUBLISHED_REPOSITORY='Xget7/splat-field-guide'
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ ! -f "$ROOT/apps/field-guide/instructor.config.json" ]; then
+  cp "$ROOT/apps/field-guide/instructor.config.example.json" "$ROOT/apps/field-guide/instructor.config.json"
+fi
 PACK_TAG='pack-gol-trend-engine-bay-1'
 PACK_ARCHIVE='gol-trend-engine-bay-1.tar.gz'
 PACK_URL=${FIELD_GUIDE_PACK_URL:-https://github.com/$PUBLISHED_REPOSITORY/releases/download/$PACK_TAG/$PACK_ARCHIVE}

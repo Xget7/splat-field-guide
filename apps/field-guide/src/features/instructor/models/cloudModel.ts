@@ -2,10 +2,8 @@ import type { Pack } from '../../pack/pack';
 import { promptFor, PromptNotes, ReplyFormat, rulesFor } from '../grounding';
 import { packKnowledge } from '../knowledge';
 import type { InstructorModel } from './InstructorModel';
-
-/** A null proxy URL disables cloud generation. */
-export const INSTRUCTOR_PROXY_URL: string | null =
-  'https://field-guide-instructor.field-guide-instructor-proxy.workers.dev';
+import { INSTRUCTOR_PROXY_URL } from '../proxy';
+import type { RoundTrip } from '../../connectivity/networkQuality';
 
 // Fall back to on-device generation if the cloud takes too long to begin answering.
 export const FIRST_TEXT_MS = 6000;
@@ -45,6 +43,8 @@ interface ProxyEvent {
 
 export interface CloudModelOptions {
   readonly url: string | null;
+  readonly isOnline?: () => boolean;
+  readonly onRoundTrip?: (trip: RoundTrip) => void;
   readonly now?: () => number;
   readonly Request?: typeof XMLHttpRequest;
 }
@@ -53,13 +53,15 @@ export interface CloudModelOptions {
 export function createCloudModel({
   url,
   now = Date.now,
+  isOnline = () => true,
+  onRoundTrip,
   Request,
 }: CloudModelOptions): InstructorModel {
   let offlineUntil = 0;
   let stopCurrent: (() => void) | null = null;
 
   return {
-    isReady: () => url !== null && now() >= offlineUntil,
+    isReady: () => url !== null && isOnline() && now() >= offlineUntil,
     prewarm() {
       // The first question sends the upstream cache hint; nothing to load here.
     },
@@ -68,6 +70,8 @@ export function createCloudModel({
       return new Promise<string>((resolve, reject) => {
         // Looked up per request: the global only exists where React Native installs it.
         const xhr = new (Request ?? XMLHttpRequest)();
+        const began = now();
+        let measured = false;
         let text = '';
         let consumed = 0;
         let finished = false;
@@ -83,6 +87,7 @@ export function createCloudModel({
           }
           settle();
           if (coolOff) {
+            onRoundTrip?.({ ok: false });
             offlineUntil = now() + COOL_OFF_MS;
           }
           xhr.abort();
@@ -125,6 +130,10 @@ export function createCloudModel({
             } else if (typeof event.text === 'string') {
               text += event.text;
               if (text.trim() !== '') {
+                if (!measured) {
+                  measured = true;
+                  onRoundTrip?.({ ok: true, ms: now() - began });
+                }
                 clearTimeout(timers[0]);
               }
               onText(text);
