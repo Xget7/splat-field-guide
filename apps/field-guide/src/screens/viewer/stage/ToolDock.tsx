@@ -67,14 +67,18 @@ const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 
 const Popover = { help: 'help', dev: 'dev' } as const;
 type Popover = (typeof Popover)[keyof typeof Popover];
-const POPOVER_WIDTH: Record<Popover, number> = {
-  [Popover.help]: HELP_WIDTH,
-  [Popover.dev]: DEV_WIDTH,
-};
-const DISMISS_LABEL: Record<Popover, string> = {
-  [Popover.help]: 'Dismiss help',
-  [Popover.dev]: 'Dismiss developer details',
-};
+interface PopoverPanel {
+  width: number;
+  dismissLabel: string;
+  content: ReactNode;
+}
+/** An open popover and where the dock sat in the window when it opened. */
+interface OpenPopover {
+  kind: Popover;
+  x: number;
+  y: number;
+  width: number;
+}
 
 interface Props {
   labelsOn: boolean;
@@ -166,14 +170,26 @@ export function ToolDock({
 }: Props) {
   const dock = useRef<ComponentRef<typeof View>>(null);
   const window = useWindowDimensions();
-  const [popover, setPopover] = useState<{
-    kind: Popover;
-    x: number;
-    y: number;
-    width: number;
-  } | null>(null);
+  const [popover, setPopover] = useState<OpenPopover | null>(null);
+  const panels: Record<Popover, PopoverPanel> = {
+    [Popover.help]: {
+      width: HELP_WIDTH,
+      dismissLabel: 'Dismiss help',
+      content: HELP_LINES.map(line => (
+        <Text key={line} style={styles.helpLine}>
+          {line}
+        </Text>
+      )),
+    },
+    [Popover.dev]: {
+      width: DEV_WIDTH,
+      dismissLabel: 'Dismiss developer details',
+      content: dev,
+    },
+  };
+  const panel = popover === null ? null : panels[popover.kind];
   const popoverWidth = Math.min(
-    popover === null ? HELP_WIDTH : POPOVER_WIDTH[popover.kind],
+    panel?.width ?? 0,
     Math.max(0, window.width - Space.lg * 2),
   );
   const dismiss = () => setPopover(null);
@@ -267,13 +283,13 @@ export function ToolDock({
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={DISMISS_LABEL[popover?.kind ?? Popover.help]}
+            accessibilityLabel={panel?.dismissLabel}
             accessibilityHint={ToolCopy.dismissHint}
             accessibilityState={{ disabled: false }}
             onPress={dismiss}
             style={StyleSheet.absoluteFill}
           />
-          {popover !== null && (
+          {popover !== null && panel !== null && (
             <Animated.View
               entering={FADE_IN}
               exiting={FADE_OUT}
@@ -300,13 +316,7 @@ export function ToolDock({
                 radius={Radius.card}
                 style={styles.popoverContent}
               >
-                {popover.kind === Popover.dev
-                  ? dev
-                  : HELP_LINES.map(line => (
-                      <Text key={line} style={styles.helpLine}>
-                        {line}
-                      </Text>
-                    ))}
+                {panel.content}
               </Glass>
             </Animated.View>
           )}
