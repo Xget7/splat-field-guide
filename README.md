@@ -111,6 +111,7 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 | [packages/react-native-splat](packages/react-native-splat/README.md) | Nitro viewer views, shared C++ core, Metal and Vulkan renderers |
 | [packages/react-native-on-device](packages/react-native-on-device/README.md) | Nitro speech input and output, Apple Foundation Models |
 | [services/instructor-proxy](services/instructor-proxy/README.md) | Cloudflare Worker for Claude |
+| [services/voice-agent](services/voice-agent/README.md) | ElevenLabs instructor configuration, client tools, pronunciation and owner-run sync |
 | [pipeline](pipeline/README.md) | Capture-to-pack stages in Python |
 | [content](content/gol-trend-engine-bay) | Authored parts, procedures, knowledge and the pinned pack manifest |
 | [docs](docs) | Decisions, design, provenance |

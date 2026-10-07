@@ -27,6 +27,7 @@ Run from the stated directory with `nice -n 19`, using fakes for paid services.
 | `packages/react-native-splat` | Artifact tests | `npm test` |
 | `packages/react-native-on-device` | JS/Swift harnesses | `npm test -- --runInBand` |
 | `services/instructor-proxy` | Tests/types | `npm test`, `npx tsc --noEmit -p .` |
+| `services/voice-agent` | Install, tests, types, config preview (Node 26+) | `npm install`, `npm test`, `npm run typecheck`, `npm run plan` |
 | Root | Pipeline tests | `uv run --project pipeline python -m pytest pipeline/tests` |
 | Root | Pipeline preflight | `uv run --project pipeline python -m pipeline.pack.preflight` |
 | Root | Marking-page test | `node --test pipeline/tests/test_mark_page.cjs` |
