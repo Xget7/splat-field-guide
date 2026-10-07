@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
-import { DRAWER_WIDTH } from './layout';
+import { BOTTOM_BAND_HEIGHT, DRAWER_WIDTH } from './layout';
 
 const CLOSE_LABEL = 'Close panel';
 const CLOSE_HINT = 'Keep the viewer open with more room for the picture';
@@ -99,6 +99,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   body: { flexGrow: 1 },
   footer: {
+    minHeight: BOTTOM_BAND_HEIGHT + Space.lg * 2,
+    justifyContent: 'center',
     padding: Space.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Color.line,

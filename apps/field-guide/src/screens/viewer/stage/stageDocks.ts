@@ -22,9 +22,9 @@ export interface StageDocks {
 }
 
 /**
- * Centres the tool row on the stage, under the breadcrumb, with the collapsed
- * assistant beside it; failing that, centres it in the room left of the
- * assistant, and failing that too, lifts it above the assistant.
+ * Centres the tool row between the stage's left edge and the collapsed
+ * assistant, with the same gap on each side; failing that, lifts it above
+ * the assistant.
  */
 export function stageDocksFor(
   stageWidth: number,
@@ -34,23 +34,6 @@ export function stageDocksFor(
     DOCK_EXPANDED_WIDTH,
     stageWidth - Space.lg * 2,
   );
-  const toolsCovered = (toolsRight: number) =>
-    (stageWidth - toolsRight + toolsWidth) / 2 + Space.lg >
-    stageWidth - Space.lg - assistantExpandedWidth;
-  const besideLift = (DOCK_COLLAPSED.height - TOOL_DIAMETER) / 2;
-  const besideCentred = Math.min(
-    DOCK_COLLAPSED.width,
-    (stageWidth - toolsWidth) / 2 - Space.xl - Space.lg,
-  );
-  if (besideCentred >= MIN_COLLAPSED_WIDTH) {
-    return {
-      assistantWidth: besideCentred,
-      assistantExpandedWidth,
-      toolsRight: 0,
-      toolsLift: besideLift,
-      toolsCovered: toolsCovered(0),
-    };
-  }
   const besideWidth = Math.min(
     DOCK_COLLAPSED.width,
     stageWidth - toolsWidth - Space.lg * 3,
@@ -69,8 +52,10 @@ export function stageDocksFor(
     assistantWidth: besideWidth,
     assistantExpandedWidth,
     toolsRight,
-    toolsLift: besideLift,
-    toolsCovered: toolsCovered(toolsRight),
+    toolsLift: (DOCK_COLLAPSED.height - TOOL_DIAMETER) / 2,
+    toolsCovered:
+      (stageWidth - toolsRight + toolsWidth) / 2 + Space.lg >
+      stageWidth - Space.lg - assistantExpandedWidth,
   };
 }
 

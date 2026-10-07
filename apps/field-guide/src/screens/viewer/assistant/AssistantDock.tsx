@@ -32,9 +32,13 @@ import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { LevelMeter, PANEL_LAYOUT } from '../instructor/InstructorMotion';
 import { InstructorThread } from '../instructor/InstructorThread';
 import { ModeArea } from '../instructor/ModeArea';
+import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
 import { useDockKeyboard } from './useDockKeyboard';
 
-export const DOCK_COLLAPSED = { width: 320, height: 64 } as const;
+export const DOCK_COLLAPSED = {
+  width: 320,
+  height: BOTTOM_BAND_HEIGHT,
+} as const;
 export const DOCK_EXPANDED_WIDTH = 380;
 export const DOCK_EXPANDED_HEIGHT = 640;
 const DockSize = {

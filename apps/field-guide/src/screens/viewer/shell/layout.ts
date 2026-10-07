@@ -4,6 +4,8 @@ import { Motion } from '../../../ui/theme';
 /** The iPad viewer's side column: an icon rail, then the open capability's drawer. */
 export const RAIL_WIDTH = 64;
 export const DRAWER_WIDTH = 320;
+/** The drawer footer, the tool row and the collapsed assistant centre on one band this tall. */
+export const BOTTOM_BAND_HEIGHT = 64;
 
 export const Capability = {
   guide: 'guide',
