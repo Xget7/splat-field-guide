@@ -16,12 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  Button,
-  ButtonVariant,
-  IconButton,
-  IconButtonVariant,
-} from '../../../ui/Button';
+import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
 import { Icon, IconName } from '../../../ui/Icon';
 import { stepLabel } from '../../../ui/readout';
 import {
@@ -38,10 +33,6 @@ import type { CardContent } from '../guideContent';
 import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { InstructorThread } from './InstructorThread';
 import { ModeArea } from './ModeArea';
-import { AppEvent } from '../../../features/events/types';
-import { appEvents } from '../../../features/events/bus';
-import { isSwitching } from '../../../features/events/mode';
-import { toggleFor, useModeView } from './useModeView';
 import {
   speechTextFor,
   SpokenSection,
@@ -150,9 +141,6 @@ export function InstructorPanel({
       ? last.exchange
       : { id: null, reply: last.card.body });
   const reducedMotion = useReducedMotion();
-  const instructorMode = useModeView();
-  const switching = isSwitching(instructorMode.mode);
-  const modeToggle = toggleFor(instructorMode);
   const minimized = mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
@@ -326,18 +314,6 @@ export function InstructorPanel({
                 ) : null}
               </ContentFade>
             </Pressable>
-            {!minimized && !switching && (
-              <Button
-                label={modeToggle.label}
-                variant={ButtonVariant.quiet}
-                accessibilityHint={modeToggle.hint}
-                onPress={() =>
-                  appEvents.emit(AppEvent.modeRequest, {
-                    type: modeToggle.requestType,
-                  })
-                }
-              />
-            )}
             {!minimized && canStop && (
               <Animated.View entering={FADE_IN} exiting={FADE_OUT}>
                 <IconButton

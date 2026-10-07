@@ -60,8 +60,6 @@ export interface ModeSources {
 export interface ModeStatus extends ModeSources {
   readonly mode: InstructorMode;
   readonly cause: ModeCause;
-  /** The user turned offline on, so the app does not return online by itself. */
-  readonly forced: boolean;
 }
 
 export const SwitchPiece = {
@@ -120,8 +118,6 @@ export interface AgentStatus {
 }
 
 export const ModeRequestType = {
-  forceOffline: 'forceOffline',
-  allowOnline: 'allowOnline',
   acceptSuggestion: 'acceptSuggestion',
   dismissSuggestion: 'dismissSuggestion',
 } as const;

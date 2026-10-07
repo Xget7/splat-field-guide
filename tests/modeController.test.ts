@@ -3,12 +3,9 @@ import {
   ModeTiming,
 } from '../apps/field-guide/src/features/instructor/mode/modeController';
 import {
-  AnswerSource,
-  InstructorMode,
   ModeRequestType,
   NetworkQuality,
   Transport,
-  VoiceSource,
 } from '../apps/field-guide/src/features/events/types';
 
 const network = (quality: NetworkQuality) => ({
@@ -16,8 +13,6 @@ const network = (quality: NetworkQuality) => ({
   transport: Transport.wifi,
   reason: 'test',
 });
-const device = { voice: VoiceSource.device, answers: AnswerSource.deviceModel };
-const online = { voice: VoiceSource.agent, answers: AnswerSource.claude };
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 function setup(quality: NetworkQuality = NetworkQuality.good) {
@@ -66,20 +61,6 @@ test('weak signal can be snoozed for five minutes or accepted', () => {
   expect(controller.current()).toMatchObject({
     mode: 'switchingToOffline',
     cause: 'user',
-    forced: false,
-  });
-});
-test('forced offline stays there until allowed online', () => {
-  const { controller } = setup();
-  controller.request({ type: ModeRequestType.forceOffline });
-  controller.switched(InstructorMode.offline, device);
-  jest.advanceTimersByTime(ModeTiming.RECOVERY_MS * 2);
-  expect(controller.current()).toMatchObject({ mode: 'offline', forced: true });
-  controller.request({ type: ModeRequestType.allowOnline });
-  expect(controller.current()).toMatchObject({
-    mode: 'switchingToOnline',
-    cause: 'user',
-    forced: false,
   });
 });
 test('recovery requires uninterrupted good quality and then idle', () => {
@@ -99,25 +80,6 @@ test('recovery requires uninterrupted good quality and then idle', () => {
     cause: 'recovered',
   });
 });
-test('a lost route or user request during a switch is applied after completion', () => {
-  const { controller } = setup(NetworkQuality.offline);
-  controller.network(network(NetworkQuality.good));
-  controller.request({ type: ModeRequestType.allowOnline });
-  controller.network(network(NetworkQuality.offline));
-  expect(controller.current().mode).toBe('switchingToOnline');
-  controller.switched(InstructorMode.online, online);
-  expect(controller.current()).toMatchObject({
-    mode: 'switchingToOffline',
-    cause: 'network',
-  });
-  controller.request({ type: ModeRequestType.allowOnline });
-  controller.network(network(NetworkQuality.good));
-  controller.switched(InstructorMode.offline, device);
-  expect(controller.current()).toMatchObject({
-    mode: 'switchingToOnline',
-    cause: 'user',
-  });
-});
 test('agent availability changes only voice and redundant calls do not emit', () => {
   const { controller, emitMode } = setup();
   const initial = controller.current();
@@ -127,20 +89,6 @@ test('agent availability changes only voice and redundant calls do not emit', ()
   controller.agentAvailable(false);
   controller.network(network(NetworkQuality.good));
   expect(emitMode).toHaveBeenCalledTimes(2);
-});
-
-test('allow online during a busy turn still waits for the recovery window', () => {
-  const { controller } = setup(NetworkQuality.offline);
-  controller.setIdle(false);
-  controller.network(network(NetworkQuality.good));
-  controller.request({ type: ModeRequestType.allowOnline });
-  controller.setIdle(true);
-  expect(controller.current().mode).toBe('offline');
-  jest.advanceTimersByTime(ModeTiming.RECOVERY_MS);
-  expect(controller.current()).toMatchObject({
-    mode: 'switchingToOnline',
-    cause: 'recovered',
-  });
 });
 
 test('a brief weak signal cannot show a suggestion or switch the conversation', () => {

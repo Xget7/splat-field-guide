@@ -270,7 +270,7 @@ export function createInstructorRuntime(
     Request: deps.Request,
     now,
     isOnline: () => controller.current().mode === InstructorMode.online,
-    onRoundTrip: trip => network.report(trip),
+    onFailure: () => network.report({ ok: false }),
   });
   const instructor = createModelInstructor([cloud, model]);
   const sessions = createInstructorSessions({

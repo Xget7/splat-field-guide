@@ -5,7 +5,7 @@ Status: accepted.
 Spoken turns need natural turn-taking, barge-in and fast first audio, which our own endpointing and CPU Kokoro could not give online.
 Online, talk to an ElevenLabs agent over a signed WebSocket, with Claude through the Worker as its custom LLM and client tools that drive the guide.
 Offline, keep the on-device pipeline: platform speech recognition, the Apple model or scripted guidance, and Kokoro on iOS.
-A mode controller picks the mode from network quality with hysteresis, suggests going offline on a weak signal and lets the user force either mode.
+A mode controller picks the mode from network quality with hysteresis and suggests going offline on a weak signal.
 
 - Every voice session sits behind one `VoiceSession` port; the runtime is the only place that knows which mode is running.
 - The Worker signs session URLs and holds the ElevenLabs key, so no key ships in the app.

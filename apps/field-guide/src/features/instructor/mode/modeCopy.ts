@@ -23,7 +23,6 @@ export const ModeNoticeCopy = {
     'Answers come from the on-device model, which this device limits. Keep questions short.',
   offlineScript: "Answers come from the guide's script.",
   offlineRecovery: 'Goes online when the connection returns.',
-  offlineForced: 'Stays offline until you go online.',
   voiceFallbackTitle: 'Online voice unavailable',
   voiceFallback: 'Using on-device voice.',
 } as const;
@@ -33,16 +32,6 @@ export const SuggestionCopy = {
   body: 'Switch to offline?',
   accept: 'Switch',
   dismiss: 'Keep online',
-} as const;
-
-export const ModeToggleCopy = {
-  goOffline: 'Go offline',
-  goOnline: 'Go online',
-  stayOffline: 'Stay offline',
-  goOfflineHint: 'Uses the on-device voice and answers until you go online.',
-  goOnlineHint: 'Uses the online voice again when the connection is good.',
-  stayOfflineHint:
-    'Keeps the on-device voice and answers when the connection returns.',
 } as const;
 
 /** Said by the offline voice after a switch caused by the network. */

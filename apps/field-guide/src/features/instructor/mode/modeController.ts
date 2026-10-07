@@ -51,7 +51,6 @@ export function createModeController(
     cause: ModeCause.startup,
     voice: VoiceSource.agent,
     answers: AnswerSource.claude,
-    forced: false,
   };
   let initialized = false;
   let disposed = false;
@@ -68,7 +67,6 @@ export function createModeController(
   let recovery: ReturnType<typeof setTimeout> | null = null;
   let recovered = false;
   let userOffline = false;
-  let userOnline = false;
   const switching = () =>
     status.mode === InstructorMode.switchingToOffline ||
     status.mode === InstructorMode.switchingToOnline;
@@ -159,7 +157,6 @@ export function createModeController(
     suggest(false);
     clearSuggestionTimers();
     cancelRecovery();
-    userOnline = false;
     userOffline = false;
     emit({ ...status, mode, cause });
   }
@@ -169,7 +166,7 @@ export function createModeController(
     }
     if (status.mode === InstructorMode.online) {
       cancelRecovery();
-      if (status.forced || userOffline) {
+      if (userOffline) {
         begin(InstructorMode.switchingToOffline, ModeCause.user);
       } else if (quality === NetworkQuality.offline) {
         begin(InstructorMode.switchingToOffline, ModeCause.network);
@@ -181,18 +178,7 @@ export function createModeController(
     suggest(false);
     clearSuggestionTimers();
     userOffline = false;
-    const onlineRequested = userOnline;
-    userOnline = false;
-    if (
-      onlineRequested &&
-      !status.forced &&
-      quality === NetworkQuality.good &&
-      idle
-    ) {
-      begin(InstructorMode.switchingToOnline, ModeCause.user);
-      return;
-    }
-    if (status.forced || quality !== NetworkQuality.good) {
+    if (quality !== NetworkQuality.good) {
       cancelRecovery();
       return;
     }
@@ -230,7 +216,7 @@ export function createModeController(
       quality = next.quality;
       if (!initialized) {
         initialized = true;
-        const offline = quality === NetworkQuality.offline || status.forced;
+        const offline = quality === NetworkQuality.offline;
         emit(
           {
             ...status,
@@ -264,18 +250,6 @@ export function createModeController(
         case ModeRequestType.acceptSuggestion:
           suggest(false);
           userOffline = true;
-          userOnline = false;
-          emit({ ...status, forced: false });
-          break;
-        case ModeRequestType.forceOffline:
-          userOffline = true;
-          userOnline = false;
-          emit({ ...status, forced: true });
-          break;
-        case ModeRequestType.allowOnline:
-          userOffline = false;
-          userOnline = true;
-          emit({ ...status, forced: false });
           break;
       }
       evaluate();

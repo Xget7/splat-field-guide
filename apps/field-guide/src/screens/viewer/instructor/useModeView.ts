@@ -3,13 +3,10 @@ import {
   AnswerSource,
   InstructorMode,
   ModeCause,
-  ModeRequestType,
   VoiceSource,
-  type ModeStatus,
 } from '../../../features/events/types';
 import {
   ModeNoticeCopy,
-  ModeToggleCopy,
   SwitchTitle,
 } from '../../../features/instructor/mode/modeCopy';
 import { Color } from '../../../ui/theme';
@@ -82,29 +79,6 @@ const SWITCH_TITLES: Readonly<
   },
 };
 
-const GO_OFFLINE = {
-  label: ModeToggleCopy.goOffline,
-  hint: ModeToggleCopy.goOfflineHint,
-  requestType: ModeRequestType.forceOffline,
-} as const;
-const GO_ONLINE = {
-  label: ModeToggleCopy.goOnline,
-  hint: ModeToggleCopy.goOnlineHint,
-  requestType: ModeRequestType.allowOnline,
-} as const;
-const STAY_OFFLINE = {
-  label: ModeToggleCopy.stayOffline,
-  hint: ModeToggleCopy.stayOfflineHint,
-  requestType: ModeRequestType.forceOffline,
-} as const;
-
-export function toggleFor(status: Pick<ModeStatus, 'mode' | 'forced'>) {
-  if (status.forced) {
-    return GO_ONLINE;
-  }
-  return status.mode === InstructorMode.offline ? STAY_OFFLINE : GO_OFFLINE;
-}
-
 export function useModeView() {
   const status = useInstructorMode();
   const baseNotice = NOTICES[status.mode][status.voice][status.answers];
@@ -112,18 +86,12 @@ export function useModeView() {
     status.mode === InstructorMode.offline && baseNotice !== null
       ? {
           ...baseNotice,
-          detail:
-            baseNotice.detail +
-            ' ' +
-            (status.forced
-              ? ModeNoticeCopy.offlineForced
-              : ModeNoticeCopy.offlineRecovery),
+          detail: baseNotice.detail + ' ' + ModeNoticeCopy.offlineRecovery,
         }
       : baseNotice;
   const switchTitle = SWITCH_TITLES[status.mode][status.cause];
   return {
     mode: status.mode,
-    forced: status.forced,
     notice,
     switchTitle,
     minimizedStatusText: switchTitle ?? notice?.title ?? null,

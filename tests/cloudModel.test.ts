@@ -245,24 +245,24 @@ test.each(['error', 'missing done'])(
   },
 );
 
-test('offline skips the cloud and measures only the first nonempty text', async () => {
+test('offline skips the cloud and a slow first text is not a network failure', async () => {
   let online = false;
-  const trip = jest.fn();
+  const failure = jest.fn();
   const cloud = createCloudModel({
     url: URL,
     now: () => time,
     isOnline: () => online,
-    onRoundTrip: trip,
+    onFailure: failure,
     Request: FakeRequest as unknown as typeof XMLHttpRequest,
   });
   expect(cloud.isReady()).toBe(false);
   online = true;
   const reply = cloud.respond(request, jest.fn());
-  time = 120;
+  time = 5000;
   FakeRequest.last.receive(line({ text: 'It' }));
-  time = 240;
+  time = 6000;
   FakeRequest.last.receive(line({ text: ' supplies' }));
   FakeRequest.last.receive(line({ done: true }));
   await reply;
-  expect(trip.mock.calls).toEqual([[{ ok: true, ms: 120 }]]);
+  expect(failure).not.toHaveBeenCalled();
 });

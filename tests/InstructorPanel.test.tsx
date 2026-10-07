@@ -44,7 +44,6 @@ const ONLINE: ModeStatus = {
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
   answers: AnswerSource.claude,
-  forced: false,
 };
 const CONTENT = cardContentFor(INITIAL_SESSION, fixturePack());
 const EXCHANGE_ID = 1;
@@ -172,13 +171,6 @@ describe('instructor panel modes', () => {
     renderer.root
       .findAllByType(Text)
       .some(node => node.props.children === text);
-  const button = (label: string) =>
-    renderer.root.findAll(
-      node =>
-        node.props.accessibilityRole === 'button' &&
-        node.findAllByType(Text).some(text => text.props.children === label),
-    )[0];
-
   beforeEach(async () => {
     jest.mocked(useReducedMotion).mockReturnValue(false);
     await mode({});
@@ -186,82 +178,6 @@ describe('instructor panel modes', () => {
   });
   afterEach(async () => {
     await act(() => renderer?.unmount());
-  });
-
-  test('Go offline explains and requests on-device voice and answers', async () => {
-    const requests: string[] = [];
-    const unsubscribe = appEvents.on('modeRequest', request =>
-      requests.push(request.type),
-    );
-    try {
-      await mount();
-      expect(button('Go offline').props.accessibilityHint).toBe(
-        'Uses the on-device voice and answers until you go online.',
-      );
-      await act(() => button('Go offline').props.onPress());
-      expect(requests).toEqual(['forceOffline']);
-    } finally {
-      unsubscribe();
-    }
-  });
-
-  test('Go online explains and requests automatic online recovery', async () => {
-    const requests: string[] = [];
-    const unsubscribe = appEvents.on('modeRequest', request =>
-      requests.push(request.type),
-    );
-    try {
-      await mode({
-        mode: InstructorMode.offline,
-        forced: true,
-        answers: AnswerSource.script,
-      });
-      await mount();
-      expect(button('Go online').props.accessibilityHint).toBe(
-        'Uses the online voice again when the connection is good.',
-      );
-      await act(() => button('Go online').props.onPress());
-      expect(requests).toEqual(['allowOnline']);
-    } finally {
-      unsubscribe();
-    }
-  });
-
-  test('Stay offline keeps on-device voice and answers when a lost connection returns', async () => {
-    const requests: string[] = [];
-    const unsubscribe = appEvents.on('modeRequest', request =>
-      requests.push(request.type),
-    );
-    try {
-      await mode({
-        mode: InstructorMode.offline,
-        cause: ModeCause.network,
-        answers: AnswerSource.script,
-      });
-      await mount();
-      expect(button('Stay offline').props.accessibilityHint).toBe(
-        'Keeps the on-device voice and answers when the connection returns.',
-      );
-      await act(() => button('Stay offline').props.onPress());
-      expect(requests).toEqual(['forceOffline']);
-    } finally {
-      unsubscribe();
-    }
-  });
-
-  test.each([
-    InstructorMode.switchingToOffline,
-    InstructorMode.switchingToOnline,
-  ])('the toggle is hidden during %s', async switching => {
-    await mode({ mode: switching });
-    await mount();
-    expect(button('Go offline')).toBeUndefined();
-    expect(button('Go online')).toBeUndefined();
-  });
-
-  test('the minimized panel has no mode toggle', async () => {
-    await mount({ mode: PanelMode.minimized });
-    expect(button('Go offline')).toBeUndefined();
   });
 
   test('Stop instructor has a visible button frame and stops the reply', async () => {

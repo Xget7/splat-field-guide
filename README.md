@@ -62,7 +62,7 @@ Online speech goes to the ElevenLabs agent instead: Claude writes its answers th
 ### Online and offline
 
 Online, the instructor speaks through the ElevenLabs agent; offline, listening, answers and voice all run on the device.
-The app switches between the two on its own, and on phones the instructor panel can also force either mode.
+The app switches between the two on its own.
 
 ```mermaid
 stateDiagram-v2

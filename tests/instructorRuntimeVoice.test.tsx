@@ -238,7 +238,7 @@ test('an offline switch never installs speech assets, but the next Voice tap may
     expect(h.voice.open).toBe(true);
     jest.mocked(speechInput().prepare).mockResolvedValue('unavailable');
     await act(async () =>
-      bus.emit(AppEvent.modeRequest, { type: 'forceOffline' }),
+      bus.emit(AppEvent.modeRequest, { type: 'acceptSuggestion' }),
     );
     await act(async () => {
       await jest.advanceTimersByTimeAsync(600);

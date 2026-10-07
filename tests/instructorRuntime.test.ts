@@ -549,3 +549,71 @@ test('active quota marks the agent unavailable and keeps this conversation and t
   next.session.stop();
   runtime.stop();
 });
+
+test('slow Claude first tokens on a good connection neither weaken the network nor suggest offline', async () => {
+  const FIRST_TOKEN_MS = 1500;
+  const QUESTIONS = 3;
+  const SUGGESTION_WAIT_MS = 6000;
+  const appEvents = createEventBus<AppEvents>();
+  let path!: (value: NetworkPath) => void;
+  class SlowRequest {
+    status = 200;
+    responseText = '';
+    onprogress: (() => void) | null = null;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    open() {}
+    setRequestHeader() {}
+    abort() {}
+    send() {
+      setTimeout(() => {
+        this.responseText =
+          '{"text":"It supplies the starter."}\n{"done":true}\n';
+        this.onprogress?.();
+        this.onload?.();
+      }, FIRST_TOKEN_MS);
+    }
+  }
+  const runtime = createInstructorRuntime({
+    appEvents,
+    appState: foregroundAppState,
+    proxyUrl: 'https://proxy.example',
+    networkMonitor: () => ({
+      start: callback => {
+        path = callback;
+      },
+      stop: jest.fn(),
+    }),
+    fetch: (async () => ({ status: 204 })) as unknown as typeof fetch,
+    Request: SlowRequest as unknown as typeof XMLHttpRequest,
+  });
+  const pack = fixturePack();
+  runtime.setPack(pack);
+  runtime.start();
+  path({
+    satisfied: true,
+    transport: 'wifi',
+    expensive: false,
+    constrained: false,
+    downstreamKbps: -1,
+    signalLevel: -1,
+  });
+  await jest.advanceTimersByTimeAsync(0);
+  for (let asked = 0; asked < QUESTIONS; asked++) {
+    const answer = runtime.instructor.ask(
+      {
+        question: 'Explain the battery',
+        pack,
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+        history: [],
+      },
+      jest.fn(),
+    );
+    await jest.advanceTimersByTimeAsync(FIRST_TOKEN_MS);
+    await answer;
+  }
+  await jest.advanceTimersByTimeAsync(SUGGESTION_WAIT_MS);
+  expect(appEvents.latest('network')?.quality).toBe('good');
+  expect(appEvents.latest('modeSuggestion') ?? null).toBeNull();
+  runtime.stop();
+});

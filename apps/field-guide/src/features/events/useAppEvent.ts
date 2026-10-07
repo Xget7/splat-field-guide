@@ -29,7 +29,6 @@ const STARTUP_MODE: ModeStatus = {
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
   answers: AnswerSource.claude,
-  forced: false,
 };
 const IDLE_AGENT: AgentStatus = { state: AgentState.idle, reason: null };
 

@@ -19,7 +19,6 @@ const ONLINE: ModeStatus = {
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
   answers: AnswerSource.claude,
-  forced: false,
 };
 const SWITCH_ID_INCREMENT = 1;
 const INITIAL_SWITCH_ID = 0;
@@ -130,31 +129,6 @@ describe('instructor mode area', () => {
     expect(hasText('Weak signal')).toBe(true);
     expect(hasText('Switch to offline?')).toBe(true);
     expect(hasText('Online voice unavailable')).toBe(false);
-  });
-
-  test('allowing online recovery changes the offline detail while still offline', async () => {
-    await mode({
-      mode: InstructorMode.offline,
-      answers: AnswerSource.script,
-      forced: true,
-    });
-    await mount();
-    expect(
-      hasText(
-        "Answers come from the guide's script. Stays offline until you go online.",
-      ),
-    ).toBe(true);
-    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
-    expect(
-      hasText(
-        "Answers come from the guide's script. Goes online when the connection returns.",
-      ),
-    ).toBe(true);
-    expect(
-      hasText(
-        "Answers come from the guide's script. Stays offline until you go online.",
-      ),
-    ).toBe(false);
   });
 
   test.each([false, true])(

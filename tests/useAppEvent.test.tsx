@@ -18,7 +18,6 @@ const ONLINE: ModeStatus = {
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
   answers: AnswerSource.claude,
-  forced: false,
 };
 const SWITCH_ID = 1;
 
