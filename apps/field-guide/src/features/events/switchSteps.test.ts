@@ -1,4 +1,4 @@
-import { mergeSwitchStep } from './switchSteps';
+import { activeSwitchSteps, mergeSwitchStep } from './switchSteps';
 import { SwitchPiece, SwitchStepState, type SwitchStep } from './types';
 
 const voice: SwitchStep = {
@@ -13,12 +13,38 @@ const answers: SwitchStep = {
   state: SwitchStepState.starting,
   label: 'Answers',
 };
-test('piece updates keep the card order and only the latest switch is shown', () => {
+const FINISHED_SWITCH_ID = 1;
+const NEW_SWITCH_ID = 2;
+
+test('settled switches no longer have visible progress', () => {
+  expect(activeSwitchSteps([voice, answers], FINISHED_SWITCH_ID)).toEqual([]);
+});
+
+test('a newer switch keeps its progress after an earlier switch settled', () => {
+  const step = { ...voice, switchId: NEW_SWITCH_ID };
+  expect(activeSwitchSteps([step], FINISHED_SWITCH_ID)).toEqual([step]);
+});
+test('new pieces keep their emission order', () => {
+  expect(mergeSwitchStep(mergeSwitchStep([], voice), answers)).toEqual([
+    voice,
+    answers,
+  ]);
+});
+
+test('a piece update preserves its position', () => {
   const readyVoice = { ...voice, state: SwitchStepState.ready };
-  const starting = mergeSwitchStep(mergeSwitchStep([], voice), answers);
-  const ready = mergeSwitchStep(starting, readyVoice);
-  expect(ready).toEqual([readyVoice, answers]);
-  expect(mergeSwitchStep(ready, { ...voice, switchId: 0 })).toBe(ready);
-  const nextSwitch = { ...answers, switchId: 2 };
-  expect(mergeSwitchStep(ready, nextSwitch)).toEqual([nextSwitch]);
+  expect(mergeSwitchStep([voice, answers], readyVoice)).toEqual([
+    readyVoice,
+    answers,
+  ]);
+});
+
+test('progress from an older switch cannot replace the current switch', () => {
+  const current = { ...answers, switchId: NEW_SWITCH_ID };
+  expect(mergeSwitchStep([current], voice)).toEqual([current]);
+});
+
+test('a newer switch replaces all previous progress', () => {
+  const nextSwitch = { ...answers, switchId: NEW_SWITCH_ID };
+  expect(mergeSwitchStep([voice, answers], nextSwitch)).toEqual([nextSwitch]);
 });

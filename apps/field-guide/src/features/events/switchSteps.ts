@@ -1,5 +1,21 @@
 import type { SwitchStep } from './types';
 
+const NO_STEPS: readonly SwitchStep[] = [];
+
+export function activeSwitchSteps(
+  steps: readonly SwitchStep[],
+  settledId: number | null,
+): readonly SwitchStep[] {
+  if (
+    settledId !== null &&
+    steps.length > 0 &&
+    steps[0].switchId <= settledId
+  ) {
+    return NO_STEPS;
+  }
+  return steps;
+}
+
 export function mergeSwitchStep(
   steps: readonly SwitchStep[],
   step: SwitchStep,

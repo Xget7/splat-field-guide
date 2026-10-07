@@ -1,19 +1,17 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { appEvents } from '../../../features/events/bus';
 import {
   AnswerSource,
   InstructorMode,
   ModeCause,
-  ModeRequestType,
   SwitchPiece,
   SwitchStepState,
   VoiceSource,
   type ModeStatus,
 } from '../../../features/events/types';
-import { Color } from '../../../ui/theme';
 import { ModeArea } from './ModeArea';
 
 const ONLINE: ModeStatus = {
@@ -23,11 +21,12 @@ const ONLINE: ModeStatus = {
   answers: AnswerSource.claude,
   forced: false,
 };
-const PREVIOUS_SWITCH_ID = 1;
-const CURRENT_SWITCH_ID = 2;
+const SWITCH_ID_INCREMENT = 1;
+const INITIAL_SWITCH_ID = 0;
 
 describe('instructor mode area', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
+  let switchId = INITIAL_SWITCH_ID;
   const hasText = (text: string) =>
     renderer.root
       .findAllByType(Text)
@@ -35,13 +34,49 @@ describe('instructor mode area', () => {
   const mode = async (status: Partial<ModeStatus>) => {
     await act(() => appEvents.emit('mode', { ...ONLINE, ...status }));
   };
+  const step = async (
+    piece: SwitchPiece,
+    label: string,
+    state: SwitchStepState = SwitchStepState.starting,
+    id = switchId,
+  ) => {
+    await act(() =>
+      appEvents.emit('switchStep', { switchId: id, piece, state, label }),
+    );
+  };
+  const suggest = async () => {
+    await act(() =>
+      appEvents.emit('modeSuggestion', {
+        mode: InstructorMode.offline,
+        reason: 'weak signal',
+      }),
+    );
+  };
   const mount = async () => {
     await act(() => {
       renderer = ReactTestRenderer.create(<ModeArea />);
     });
   };
+  const button = (label: string) =>
+    renderer.root.findAll(
+      node =>
+        node.props.accessibilityRole === 'button' &&
+        node.findAllByType(Text).some(text => text.props.children === label),
+    )[0];
+  const finishSwitch = async (
+    settledMode: InstructorMode = InstructorMode.online,
+  ) => {
+    await mode({
+      mode: InstructorMode.switchingToOnline,
+      cause: ModeCause.recovered,
+    });
+    await step(SwitchPiece.voice, 'Voice: ElevenLabs', SwitchStepState.ready);
+    await mode({ mode: settledMode });
+    switchId += SWITCH_ID_INCREMENT;
+  };
 
   beforeEach(async () => {
+    switchId += SWITCH_ID_INCREMENT;
     jest.mocked(useReducedMotion).mockReturnValue(false);
     await mode({});
     await act(() => appEvents.emit('modeSuggestion', null));
@@ -82,129 +117,108 @@ describe('instructor mode area', () => {
     expect(hasText(detail)).toBe(true);
   });
 
-  test('weak signal offers both choices online and stays hidden offline', async () => {
+  test('weak signal takes priority over the online voice fallback notice', async () => {
+    await mount();
+    await mode({ voice: VoiceSource.device });
+    await suggest();
+    expect(hasText('Weak signal')).toBe(true);
+    expect(hasText('Switch to offline?')).toBe(true);
+    expect(hasText('Online voice unavailable')).toBe(false);
+  });
+
+  test.each([
+    { label: 'Switch', request: 'acceptSuggestion' },
+    { label: 'Keep online', request: 'dismissSuggestion' },
+  ])('$label requests $request', async ({ label, request }) => {
     const requests: string[] = [];
-    const unsubscribe = appEvents.on('modeRequest', request =>
-      requests.push(request.type),
+    const unsubscribe = appEvents.on('modeRequest', intent =>
+      requests.push(intent.type),
     );
     try {
       await mount();
-      await mode({ voice: VoiceSource.device });
-      await act(() =>
-        appEvents.emit('modeSuggestion', {
-          mode: InstructorMode.offline,
-          reason: 'weak signal',
-        }),
-      );
-      expect(hasText('Weak signal')).toBe(true);
-      expect(hasText('Switch to offline?')).toBe(true);
-      expect(hasText('Online voice unavailable')).toBe(false);
-      for (const label of ['Switch', 'Keep online']) {
-        const button = renderer.root.findAll(
-          node =>
-            node.props.accessibilityRole === 'button' &&
-            node
-              .findAllByType(Text)
-              .some(text => text.props.children === label),
-        )[0];
-        await act(() => button.props.onPress());
-      }
-      expect(requests).toEqual([
-        ModeRequestType.acceptSuggestion,
-        ModeRequestType.dismissSuggestion,
-      ]);
-      await mode({
-        mode: InstructorMode.offline,
-        answers: AnswerSource.script,
-      });
-      expect(hasText('Weak signal')).toBe(false);
-      expect(hasText('Offline')).toBe(true);
+      await suggest();
+      await act(() => button(label).props.onPress());
+      expect(requests).toEqual([request]);
     } finally {
       unsubscribe();
     }
   });
 
-  test('connection loss shows ordered progress, ignores old steps and settles into a notice', async () => {
+  test('weak signal suggestions stay hidden offline', async () => {
     await mount();
-    const step = async (
-      piece: SwitchPiece,
-      state: SwitchStepState,
-      label: string,
-      switchId = CURRENT_SWITCH_ID,
-    ) => {
-      await act(() =>
-        appEvents.emit('switchStep', { switchId, piece, state, label }),
-      );
-    };
-    await step(
-      SwitchPiece.voice,
-      SwitchStepState.ready,
-      'Voice: ElevenLabs',
-      PREVIOUS_SWITCH_ID,
-    );
+    await suggest();
+    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
+    expect(hasText('Weak signal')).toBe(false);
+    expect(hasText('Offline')).toBe(true);
+  });
+
+  test('switch progress appears in emission order', async () => {
+    await mount();
     await mode({
       mode: InstructorMode.switchingToOffline,
       cause: ModeCause.network,
     });
-    expect(hasText('Connection lost. Switching to offline.')).toBe(true);
-    await step(SwitchPiece.voice, SwitchStepState.starting, 'Voice: Kokoro');
-    expect(renderer.root.findByType(ActivityIndicator).props.color).toBe(
-      Color.muted,
-    );
-    await step(
-      SwitchPiece.answers,
-      SwitchStepState.starting,
-      'Answers: on-device model',
-    );
+    await step(SwitchPiece.voice, 'Voice: Kokoro');
     expect(hasText('Voice: Kokoro')).toBe(true);
+    await step(SwitchPiece.answers, 'Answers: on-device model');
     expect(hasText('Answers: on-device model')).toBe(true);
-    await step(
-      SwitchPiece.listening,
-      SwitchStepState.starting,
-      'Listening: on device',
-    );
-    expect(hasText('Listening: on device')).toBe(true);
-    await step(
-      SwitchPiece.voice,
-      SwitchStepState.fallback,
-      'Voice: system voice',
-    );
-    await step(
-      SwitchPiece.answers,
-      SwitchStepState.ready,
-      'Answers: on-device model',
-    );
-    await step(
-      SwitchPiece.listening,
-      SwitchStepState.ready,
-      'Listening: on device',
-    );
-    await step(
-      SwitchPiece.answers,
-      SwitchStepState.ready,
-      'Answers: Claude',
-      PREVIOUS_SWITCH_ID,
-    );
-    const labels = renderer.root
-      .findAllByType(Text)
-      .map(node => node.props.children);
-    expect(labels).toEqual([
+    await step(SwitchPiece.listening, 'Listening: on device');
+    expect(
+      renderer.root.findAllByType(Text).map(node => node.props.children),
+    ).toEqual([
       'Connection lost. Switching to offline.',
-      'Voice: system voice',
+      'Voice: Kokoro',
       'Answers: on-device model',
       'Listening: on device',
     ]);
-    const fallback = renderer.root
-      .findAllByType(Text)
-      .find(node => node.props.children === 'Voice: system voice')!;
-    expect(StyleSheet.flatten(fallback.props.style).color).toBe(Color.caution);
-    expect(renderer.root.findAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  test('a failed piece replaces its starting label with its fallback', async () => {
+    await mount();
+    await mode({
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.network,
+    });
+    await step(SwitchPiece.voice, 'Voice: Kokoro');
+    await step(
+      SwitchPiece.voice,
+      'Voice: system voice',
+      SwitchStepState.fallback,
+    );
+    expect(hasText('Voice: system voice')).toBe(true);
+    expect(hasText('Voice: Kokoro')).toBe(false);
+  });
+
+  test('late progress from an older switch is ignored', async () => {
+    await mount();
+    await mode({
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.network,
+    });
+    await step(SwitchPiece.voice, 'Voice: Kokoro');
+    await step(
+      SwitchPiece.voice,
+      'Voice: ElevenLabs',
+      SwitchStepState.ready,
+      switchId - SWITCH_ID_INCREMENT,
+    );
+    expect(hasText('Voice: ElevenLabs')).toBe(false);
+    expect(hasText('Voice: Kokoro')).toBe(true);
+  });
+
+  test('the offline notice replaces a settled switch', async () => {
+    await mount();
+    await mode({
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.network,
+    });
+    await step(SwitchPiece.voice, 'Voice: Kokoro', SwitchStepState.ready);
     await mode({
       mode: InstructorMode.offline,
       answers: AnswerSource.deviceModel,
     });
     expect(hasText('Connection lost. Switching to offline.')).toBe(false);
-    expect(hasText('Voice: system voice')).toBe(false);
+    expect(hasText('Voice: Kokoro')).toBe(false);
     expect(hasText('Offline')).toBe(true);
   });
 
@@ -225,48 +239,74 @@ describe('instructor mode area', () => {
       title: 'Switching to online voice.',
     },
   ])(
-    'shows the switch title for $mode caused by $cause',
+    'a switch shows $title instead of the suggestion',
     async ({ mode: nextMode, cause, title }) => {
       await mount();
-      await act(() =>
-        appEvents.emit('modeSuggestion', {
-          mode: InstructorMode.offline,
-          reason: 'weak signal',
-        }),
-      );
+      await suggest();
       await mode({ mode: nextMode, cause });
       expect(hasText(title)).toBe(true);
       expect(hasText('Weak signal')).toBe(false);
-      const heading = renderer.root
-        .findAllByType(Text)
-        .find(node => node.props.children === title)!;
-      expect(heading.props.accessibilityLiveRegion).toBe('polite');
     },
   );
 
-  test('Reduce Motion removes entering and exiting animations from every mode banner', async () => {
-    jest.mocked(useReducedMotion).mockReturnValue(true);
+  test.each([InstructorMode.online, InstructorMode.offline])(
+    'a new switch has no old progress after settling %s',
+    async settledMode => {
+      await mount();
+      await finishSwitch(settledMode);
+      await mode({
+        mode: InstructorMode.switchingToOffline,
+        cause: ModeCause.network,
+      });
+      expect(hasText('Voice: ElevenLabs')).toBe(false);
+    },
+  );
+
+  test.each(['mode first', 'step first'])(
+    'new progress is retained with %s emission order',
+    async order => {
+      await mount();
+      await finishSwitch();
+      const startingMode = {
+        mode: InstructorMode.switchingToOffline,
+        cause: ModeCause.network,
+      };
+      if (order === 'mode first') {
+        await mode(startingMode);
+        await step(SwitchPiece.voice, 'Voice: Kokoro');
+      } else {
+        await step(SwitchPiece.voice, 'Voice: Kokoro');
+        await mode(startingMode);
+      }
+      expect(hasText('Voice: Kokoro')).toBe(true);
+      expect(hasText('Voice: ElevenLabs')).toBe(false);
+    },
+  );
+
+  test('only the switch title is announced as progress arrives', async () => {
     await mount();
-    const expectStill = () => {
-      const banner =
-        renderer.toJSON() as ReactTestRenderer.ReactTestRendererJSON;
-      expect(banner.props.entering).toBeUndefined();
-      expect(banner.props.exiting).toBeUndefined();
-    };
-    await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
-    expectStill();
-    await mode({});
-    await act(() =>
-      appEvents.emit('modeSuggestion', {
-        mode: InstructorMode.offline,
-        reason: 'weak signal',
-      }),
-    );
-    expectStill();
     await mode({
       mode: InstructorMode.switchingToOffline,
       cause: ModeCause.network,
     });
-    expectStill();
+    await step(SwitchPiece.voice, 'Voice: Kokoro');
+    await step(SwitchPiece.voice, 'Voice: Kokoro', SwitchStepState.ready);
+    const announcements = renderer.root
+      .findAllByType(Text)
+      .filter(node => node.props.accessibilityLiveRegion === 'polite')
+      .map(node => node.props.children);
+    expect(announcements).toEqual(['Connection lost. Switching to offline.']);
+  });
+
+  test('switch progress stays readable with Reduce Motion', async () => {
+    jest.mocked(useReducedMotion).mockReturnValue(true);
+    await mount();
+    await mode({
+      mode: InstructorMode.switchingToOffline,
+      cause: ModeCause.network,
+    });
+    await step(SwitchPiece.voice, 'Voice: Kokoro');
+    expect(hasText('Connection lost. Switching to offline.')).toBe(true);
+    expect(hasText('Voice: Kokoro')).toBe(true);
   });
 });

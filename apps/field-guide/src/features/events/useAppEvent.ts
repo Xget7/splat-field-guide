@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { appEvents } from './bus';
-import { mergeSwitchStep } from './switchSteps';
+import { activeSwitchSteps, mergeSwitchStep } from './switchSteps';
+import { isSwitching } from './mode';
 import {
   AgentState,
   AnswerSource,
@@ -56,14 +57,27 @@ export function useAgentStatus() {
 }
 
 let steps: readonly SwitchStep[] = [];
+let settledSwitchId: number | null = null;
 // Steps arrive before the switching card mounts, so retain them from module load.
 appEvents.on('switchStep', step => {
   steps = mergeSwitchStep(steps, step);
 });
+appEvents.on('mode', status => {
+  if (!isSwitching(status.mode)) {
+    settledSwitchId = steps[0]?.switchId ?? settledSwitchId;
+  }
+});
 export function useSwitchSteps(): readonly SwitchStep[] {
-  const snapshot = () => steps;
+  const snapshot = () => activeSwitchSteps(steps, settledSwitchId);
   return useSyncExternalStore(
-    listener => appEvents.on('switchStep', listener),
+    listener => {
+      const unsubscribeStep = appEvents.on('switchStep', listener);
+      const unsubscribeMode = appEvents.on('mode', listener);
+      return () => {
+        unsubscribeStep();
+        unsubscribeMode();
+      };
+    },
     snapshot,
     snapshot,
   );
