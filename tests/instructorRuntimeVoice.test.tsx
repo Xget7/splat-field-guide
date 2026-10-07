@@ -415,3 +415,72 @@ test('a socket failure before the offline event carries the waiting question thr
   runtime.stop();
   jest.useRealTimers();
 });
+
+test('a conversation that fell back to the device voice reconnects to the agent on a new route', async () => {
+  jest.useFakeTimers();
+  const transport = fakeAgentTransport();
+  const bus = createEventBus<AppEvents>();
+  let path!: (value: NetworkPath) => void;
+  const runtime = createInstructorRuntime({
+    appEvents: bus,
+    appState: foregroundAppState,
+    proxyUrl: 'https://proxy.example',
+    connect: transport.connect,
+    networkMonitor: () => ({
+      start: callback => {
+        path = callback;
+      },
+      stop: () => {},
+    }),
+    fetch: jest.fn(async (address: unknown) =>
+      String(address).endsWith('/v1/voice/session')
+        ? {
+            status: 200,
+            json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+          }
+        : { status: 204 },
+    ) as unknown as typeof fetch,
+  });
+  runtime.setPack(context.pack);
+  runtime.start();
+  const route = {
+    satisfied: true,
+    transport: 'wifi' as const,
+    expensive: false,
+    constrained: false,
+    downstreamKbps: -1,
+    signalLevel: -1,
+  };
+  path(route);
+  const h = harness(runtime);
+  let renderer!: Renderer.ReactTestRenderer;
+  await act(async () => {
+    renderer = Renderer.create(<h.Harness />);
+  });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+    transport.ready();
+  });
+  await act(async () => {
+    transport.current.onerror?.();
+    await jest.advanceTimersByTimeAsync(0);
+    transport.current.onerror?.();
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(bus.latest(AppEvent.mode)?.voice).toBe('device');
+  const connections = transport.connections;
+  await act(async () => {
+    path({ ...route, transport: 'cellular' });
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(transport.connections).toBe(connections + 1);
+  await act(async () => transport.ready());
+  expect(bus.latest(AppEvent.mode)).toMatchObject({
+    mode: InstructorMode.online,
+    voice: 'agent',
+  });
+  expect(h.voice.on).toBe(true);
+  await act(async () => renderer.unmount());
+  runtime.stop();
+  jest.useRealTimers();
+});

@@ -20,11 +20,27 @@ test('path loss clears measurements and three failed probes are offline', () => 
     quality.sample({ ok: false });
   }
   expect(quality.current().quality).toBe(NetworkQuality.offline);
-  expect(quality.sample({ ok: true, ms: 100 }).quality).toBe(
-    NetworkQuality.weak,
-  );
   expect(quality.path({ ...route, satisfied: false }).reason).toBe('no route');
   expect(quality.path(route).quality).toBe(NetworkQuality.good);
+});
+test('an outage ends after two answered probes, and a slower route counts as good', () => {
+  const quality = createQualityEstimator();
+  quality.path(route);
+  for (let i = 0; i < 3; i++) {
+    quality.sample({ ok: false });
+  }
+  expect(quality.sample({ ok: true, ms: 600 }).quality).toBe(
+    NetworkQuality.offline,
+  );
+  expect(quality.sample({ ok: true, ms: 600 }).quality).toBe(
+    NetworkQuality.good,
+  );
+  quality.sample({ ok: false });
+  quality.sample({ ok: false });
+  expect(quality.current().quality).toBe(NetworkQuality.weak);
+  expect(
+    quality.path({ ...route, transport: Transport.cellular }).quality,
+  ).toBe(NetworkQuality.good);
 });
 test('latency, failures, bandwidth and signal identify a weak connection', () => {
   const quality = createQualityEstimator();

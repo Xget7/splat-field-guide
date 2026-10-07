@@ -10,6 +10,8 @@ A mode controller picks the mode from network quality with hysteresis and sugges
 - Every voice session sits behind one `VoiceSession` port; the runtime is the only place that knows which mode is running.
 - The Worker signs session URLs and holds the ElevenLabs key, so no key ships in the app.
 - Agent minutes are paid and limited; quota, auth or a lost connection during a turn continue on the device with the system voice and a notice.
+- Failed probes retry with backoff in the foreground; two answered probes end an outage, and a connection lost again soon after recovering waits longer before the next switch.
+- A conversation that fell back to the device voice reconnects to the agent with backoff, and at once on a new or recovered route.
 - Offline answers are limited by the device, and the panel says so.
 - Typed questions go to the agent while it is talking and follow [0006](0006-commands-and-ordered-instructor-fallback.md) otherwise.
 - Android has the same modes, with system speech offline.

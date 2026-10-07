@@ -2,6 +2,7 @@ import {
   createNetworkService,
   pingProbe,
   PROBE_INTERVAL_MS,
+  PROBE_RETRY_MS,
   PROBE_TIMEOUT_MS,
 } from '../apps/field-guide/src/features/connectivity/networkService';
 import type { PathInfo } from '../apps/field-guide/src/features/connectivity/networkQuality';
@@ -77,18 +78,9 @@ test('an old probe cannot change the offline status of a lost route', async () =
   ]);
   service.stop();
 });
-test('active probes never overlap and inactive probes cannot make quality fall further', async () => {
+test('failed probes retry with backoff in the foreground until the route answers twice', async () => {
   let changed!: (path: PathInfo) => void;
-  let resolve!: (ms: number) => void;
-  const probe = jest
-    .fn()
-    .mockImplementationOnce(
-      () =>
-        new Promise<number>(done => {
-          resolve = done;
-        }),
-    )
-    .mockRejectedValue(new Error('probe'));
+  const probe = jest.fn().mockRejectedValue(new Error('probe'));
   const emit = jest.fn();
   const service = createNetworkService({
     paths: {
@@ -100,25 +92,31 @@ test('active probes never overlap and inactive probes cannot make quality fall f
     probe,
     emit,
   });
-  service.setActive(true);
   service.start();
   changed(route);
-  jest.advanceTimersByTime(PROBE_INTERVAL_MS * 2);
-  expect(probe).toHaveBeenCalledTimes(1);
-  resolve(100);
   await flush();
+  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS);
+  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS * 2);
+  expect(probe).toHaveBeenCalledTimes(3);
+  service.setForeground(false);
   await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 2);
+  expect(probe).toHaveBeenCalledTimes(3);
+  probe.mockResolvedValue(100);
+  service.setForeground(true);
+  await flush();
+  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS);
   expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
     'good',
     'weak',
-  ]);
-  service.setActive(false);
-  await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 2);
-  expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
+    'offline',
     'good',
-    'weak',
   ]);
+  expect(jest.getTimerCount()).toBe(0);
+  service.setActive(true);
+  await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS);
+  expect(probe).toHaveBeenCalledTimes(6);
   service.stop();
+  expect(jest.getTimerCount()).toBe(0);
 });
 test('ping measures a 204 and rejects a bad status or a hanging fetch', async () => {
   const now = jest.fn().mockReturnValueOnce(100).mockReturnValueOnce(130);

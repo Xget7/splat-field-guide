@@ -1,4 +1,4 @@
-import type { NetworkStatus } from '../events/types';
+import { NetworkQuality, type NetworkStatus } from '../events/types';
 import {
   createQualityEstimator,
   type PathInfo,
@@ -7,6 +7,8 @@ import {
 
 export const PROBE_INTERVAL_MS = 30000;
 export const PROBE_TIMEOUT_MS = 3000;
+// Retries double from here up to the interval until the connection is good again.
+export const PROBE_RETRY_MS = 1000;
 export interface PathSource {
   start(onChange: (info: PathInfo) => void): void;
   stop(): void;
@@ -15,28 +17,33 @@ export interface NetworkServiceOptions {
   readonly paths: PathSource;
   readonly probe: () => Promise<number>;
   readonly emit: (status: NetworkStatus) => void;
-  readonly setInterval?: typeof setInterval;
-  readonly clearInterval?: typeof clearInterval;
+  readonly setTimeout?: typeof setTimeout;
+  readonly clearTimeout?: typeof clearTimeout;
 }
 export interface NetworkService {
   start(): void;
   stop(): void;
+  /** While the instructor is open, a good connection is measured every interval. */
   setActive(active: boolean): void;
+  /** Probes run only in the foreground, and each return to it probes once. */
+  setForeground(foreground: boolean): void;
   report(trip: RoundTrip): void;
 }
 export function createNetworkService(
   options: NetworkServiceOptions,
 ): NetworkService {
-  const schedule = options.setInterval ?? setInterval;
-  const cancel = options.clearInterval ?? clearInterval;
+  const schedule = options.setTimeout ?? setTimeout;
+  const cancel = options.clearTimeout ?? clearTimeout;
   const estimator = createQualityEstimator();
   let started = false;
   let active = false;
+  let foreground = true;
   let satisfied = false;
   let generation = 0;
   let probing = false;
   let probeAgain = false;
-  let interval: ReturnType<typeof setInterval> | null = null;
+  let retries = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
   let emitted: NetworkStatus | undefined;
   function publish(status: NetworkStatus) {
     if (
@@ -47,14 +54,50 @@ export function createNetworkService(
       options.emit(status);
     }
   }
+  const healthy = () =>
+    !estimator.failing() && estimator.current().quality === NetworkQuality.good;
+  function record(trip: RoundTrip) {
+    const reached = trip.ok && estimator.failing();
+    publish(estimator.sample(trip));
+    if (reached || healthy()) {
+      retries = 0;
+    }
+  }
+  /** Schedules the next probe: a backoff retry until the connection is good, then the interval while active. */
+  function plan() {
+    if (timer !== null) {
+      cancel(timer);
+      timer = null;
+    }
+    if (!started || !satisfied || !foreground || probing) {
+      return;
+    }
+    const retry = !healthy();
+    const delay = retry
+      ? Math.min(PROBE_RETRY_MS * 2 ** retries, PROBE_INTERVAL_MS)
+      : active
+      ? PROBE_INTERVAL_MS
+      : null;
+    if (delay !== null) {
+      timer = schedule(() => {
+        timer = null;
+        if (retry) {
+          retries++;
+        }
+        probe();
+      }, delay);
+    }
+  }
   async function probe() {
-    if (!started || !satisfied) {
+    if (!started || !satisfied || !foreground) {
       return;
     }
     if (probing) {
+      probeAgain = true;
       return;
     }
     probing = true;
+    plan();
     const currentGeneration = generation;
     let trip: RoundTrip;
     try {
@@ -64,22 +107,13 @@ export function createNetworkService(
     }
     probing = false;
     if (started && currentGeneration === generation) {
-      publish(estimator.sample(trip));
+      record(trip);
     }
     if (probeAgain) {
       probeAgain = false;
       probe();
-    }
-  }
-  function updateInterval() {
-    if (interval !== null) {
-      cancel(interval);
-      interval = null;
-    }
-    if (started && active) {
-      interval = schedule(() => {
-        probe();
-      }, PROBE_INTERVAL_MS);
+    } else {
+      plan();
     }
   }
   return {
@@ -93,17 +127,15 @@ export function createNetworkService(
           return;
         }
         generation++;
+        retries = 0;
         satisfied = info.satisfied;
         publish(estimator.path(info));
         if (satisfied) {
-          if (probing) {
-            probeAgain = true;
-          } else {
-            probe();
-          }
+          probe();
+        } else {
+          plan();
         }
       });
-      updateInterval();
     },
     stop() {
       if (!started) {
@@ -113,15 +145,27 @@ export function createNetworkService(
       generation++;
       probeAgain = false;
       options.paths.stop();
-      updateInterval();
+      plan();
     },
     setActive(value) {
       active = value;
-      updateInterval();
+      plan();
+    },
+    setForeground(value) {
+      const returned = value && !foreground;
+      foreground = value;
+      if (returned) {
+        retries = 0;
+        probe();
+      } else {
+        plan();
+      }
     },
     report(trip) {
-      if (started) {
-        publish(estimator.sample(trip));
+      // Round trips before the first route have nothing to describe.
+      if (started && satisfied) {
+        record(trip);
+        plan();
       }
     },
   };

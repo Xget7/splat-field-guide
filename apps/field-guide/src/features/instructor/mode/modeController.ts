@@ -14,6 +14,9 @@ import {
 
 export const ModeTiming = {
   RECOVERY_MS: 10000,
+  // A connection lost again this soon after recovering doubles the next wait, up to the maximum.
+  STABLE_MS: 120000,
+  MAX_RECOVERY_MS: 120000,
   SUGGESTION_DELAY_MS: 5000,
   SUGGESTION_SNOOZE_MS: 300000,
 } as const;
@@ -66,6 +69,8 @@ export function createModeController(
   let snoozedUntil = 0;
   let recovery: ReturnType<typeof setTimeout> | null = null;
   let recovered = false;
+  let recoveryMs: number = ModeTiming.RECOVERY_MS;
+  let recoveredAt: number | null = null;
   let userOffline = false;
   const switching = () =>
     status.mode === InstructorMode.switchingToOffline ||
@@ -169,6 +174,12 @@ export function createModeController(
       if (userOffline) {
         begin(InstructorMode.switchingToOffline, ModeCause.user);
       } else if (quality === NetworkQuality.offline) {
+        const unstable =
+          recoveredAt !== null && now() - recoveredAt < ModeTiming.STABLE_MS;
+        recoveryMs = unstable
+          ? Math.min(recoveryMs * 2, ModeTiming.MAX_RECOVERY_MS)
+          : ModeTiming.RECOVERY_MS;
+        recoveredAt = null;
         begin(InstructorMode.switchingToOffline, ModeCause.network);
       } else {
         updateSuggestion();
@@ -191,7 +202,7 @@ export function createModeController(
         recovery = null;
         recovered = true;
         evaluate();
-      }, ModeTiming.RECOVERY_MS);
+      }, recoveryMs);
     }
   }
   return {
@@ -287,6 +298,10 @@ export function createModeController(
       if (disposed) {
         return;
       }
+      recoveredAt =
+        mode === InstructorMode.online && status.cause === ModeCause.recovered
+          ? now()
+          : null;
       emit({
         ...status,
         mode,

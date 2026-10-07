@@ -86,6 +86,8 @@ interface RuntimeDependencies {
   setInterval?: typeof setInterval;
   clearInterval?: typeof clearInterval;
 }
+/** Waits before reconnecting a conversation that fell back to the device voice; doubles per attempt. */
+export const AgentRetry = { FIRST_MS: 2000, MAX_MS: 60000 } as const;
 export interface InstructorRuntime extends VoiceRuntime {
   readonly instructor: ModelInstructor;
   setPack(pack: Pack): void;
@@ -123,7 +125,10 @@ export function createInstructorRuntime(
   let disposed = false;
   let switchId = 0;
   let idle = true;
-  let instructorOpen = false;
+  let agentRetryMs: number = AgentRetry.FIRST_MS;
+  let agentRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let agentRetryDue = false;
+  let routeSeen = false;
   let snapshot: VoiceRuntimeState = {
     revision: 0,
     canStart: foreground.isForeground(),
@@ -153,7 +158,47 @@ export function createInstructorRuntime(
       connection.disable();
       controller.agentAvailable(false);
       bus.emit(AppEvent.agent, { state: AgentState.failed, reason: failure });
+    } else if (failure === VoiceStartFailure.network) {
+      network.report({ ok: false });
     }
+  }
+  function cancelAgentRetry() {
+    if (agentRetryTimer !== null) {
+      cancel(agentRetryTimer);
+      agentRetryTimer = null;
+    }
+    agentRetryDue = false;
+  }
+  function scheduleAgentRetry() {
+    if (agentRetryTimer !== null) {
+      return;
+    }
+    const delay = agentRetryMs;
+    agentRetryMs = Math.min(delay * 2, AgentRetry.MAX_MS);
+    agentRetryTimer = schedule(() => {
+      agentRetryTimer = null;
+      agentRetryDue = true;
+      retryAgent();
+    }, delay);
+  }
+  /** Restarts a conversation that fell back to the device voice, so it reconnects to the agent. */
+  function retryAgent() {
+    if (!agentRetryDue || !idle) {
+      return;
+    }
+    agentRetryDue = false;
+    const status = controller.current();
+    if (
+      !started ||
+      !foreground.isForeground() ||
+      status.mode !== InstructorMode.online ||
+      status.voice !== VoiceSource.device ||
+      !connection.available()
+    ) {
+      return;
+    }
+    controller.agentAvailable(true);
+    publishVoice(controller.current());
   }
   const probe =
     url === null
@@ -233,6 +278,7 @@ export function createInstructorRuntime(
     const switched = isSwitching(previousMode);
     previousMode = status.mode;
     if (isSwitching(status.mode)) {
+      cancelAgentRetry();
       sessions.stop();
       connection.clear();
     }
@@ -247,8 +293,8 @@ export function createInstructorRuntime(
       stop: () => paths().stop(),
     },
     probe,
-    setInterval: deps.setInterval,
-    clearInterval: deps.clearInterval,
+    setTimeout: deps.setTimeout,
+    clearTimeout: deps.clearTimeout,
     emit(status) {
       bus.emit(AppEvent.network, status);
       controller.network(status);
@@ -262,6 +308,15 @@ export function createInstructorRuntime(
             ? AnswerSource.deviceModel
             : AnswerSource.script,
         });
+      }
+      // Each later status is a change, so a good one is a new or recovered route.
+      const changed = routeSeen;
+      routeSeen = true;
+      if (changed && status.quality === NetworkQuality.good) {
+        cancelAgentRetry();
+        agentRetryMs = AgentRetry.FIRST_MS;
+        agentRetryDue = true;
+        retryAgent();
       }
     },
   });
@@ -282,7 +337,12 @@ export function createInstructorRuntime(
     agentAvailable: connection.available,
     foreground: foreground.isForeground,
     onPrimaryFailure: primaryFailure,
-    onVoiceStarted: voice => controller.voiceStarted(voice),
+    onVoiceStarted: voice => {
+      controller.voiceStarted(voice);
+      if (voice === VoiceSource.device) {
+        scheduleAgentRetry();
+      }
+    },
     networkOffline: () =>
       bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
     client: handlers =>
@@ -300,6 +360,8 @@ export function createInstructorRuntime(
           ...handlers,
           status: value => {
             if (value.state === AgentState.connected) {
+              cancelAgentRetry();
+              agentRetryMs = AgentRetry.FIRST_MS;
               controller.voiceStarted(VoiceSource.agent);
             }
             bus.emit(AppEvent.agent, value);
@@ -325,12 +387,12 @@ export function createInstructorRuntime(
       pack = value;
     },
     setInstructorOpen(open) {
-      instructorOpen = open;
-      network.setActive(open && foreground.isForeground());
+      network.setActive(open);
     },
     setIdle(value) {
       idle = value;
       controller.setIdle(value && foreground.isForeground());
+      retryAgent();
     },
     start() {
       if (started || disposed) {
@@ -343,11 +405,12 @@ export function createInstructorRuntime(
       );
       foreground.start(active => {
         if (!active) {
+          cancelAgentRetry();
           sessions.stop();
           connection.clear();
           instructor.cancel();
         }
-        network.setActive(instructorOpen && active);
+        network.setForeground(active);
         controller.setIdle(idle && active);
         publishVoice(controller.current());
       });
@@ -368,6 +431,7 @@ export function createInstructorRuntime(
           bus.emit(AppEvent.network, pathQuality.path(path)),
         );
       } else {
+        network.setForeground(foreground.isForeground());
         network.start();
       }
     },
@@ -377,6 +441,7 @@ export function createInstructorRuntime(
       }
       disposed = true;
       started = false;
+      cancelAgentRetry();
       sessions.stop();
       switchId++;
       connection.clear();

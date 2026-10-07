@@ -80,6 +80,20 @@ test('recovery requires uninterrupted good quality and then idle', () => {
     cause: 'recovered',
   });
 });
+test('a connection lost again soon after recovering waits twice as long to recover', () => {
+  const { controller } = setup(NetworkQuality.offline);
+  controller.network(network(NetworkQuality.good));
+  jest.advanceTimersByTime(ModeTiming.RECOVERY_MS);
+  controller.switched('online', { voice: 'agent', answers: 'claude' });
+  jest.advanceTimersByTime(ModeTiming.STABLE_MS - 1);
+  controller.network(network(NetworkQuality.offline));
+  controller.switched('offline', { voice: 'device', answers: 'deviceModel' });
+  controller.network(network(NetworkQuality.good));
+  jest.advanceTimersByTime(ModeTiming.RECOVERY_MS * 2 - 1);
+  expect(controller.current().mode).toBe('offline');
+  jest.advanceTimersByTime(1);
+  expect(controller.current().mode).toBe('switchingToOnline');
+});
 test('agent availability changes only voice and redundant calls do not emit', () => {
   const { controller, emitMode } = setup();
   const initial = controller.current();

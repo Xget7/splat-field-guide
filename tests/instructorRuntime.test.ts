@@ -22,6 +22,12 @@ import { SwitchLabel } from '../apps/field-guide/src/features/instructor/mode/mo
 import { fixturePack } from './fixturePack';
 import { createInstructorRuntime } from '../apps/field-guide/src/app/instructorRuntime';
 import type { NetworkPath } from 'react-native-on-device';
+import {
+  PROBE_INTERVAL_MS,
+  PROBE_RETRY_MS,
+} from '../apps/field-guide/src/features/connectivity/networkService';
+import { ModeTiming } from '../apps/field-guide/src/features/instructor/mode/modeController';
+import { SwitchTiming } from '../apps/field-guide/src/features/instructor/mode/modeSwitcher';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
@@ -356,6 +362,65 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
     ),
   ).toHaveLength(1);
   session.stop();
+  runtime.stop();
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('a Worker that stops answering goes offline within seconds and back online soon after it answers', async () => {
+  const appEvents = createEventBus<AppEvents>();
+  let path!: (value: NetworkPath) => void;
+  let reachable = true;
+  const fetchImpl = jest.fn(async (address: unknown) => {
+    if (!reachable) {
+      throw new Error('Network request failed');
+    }
+    return String(address).endsWith('/v1/voice/session')
+      ? {
+          status: 200,
+          json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+        }
+      : { status: 204 };
+  });
+  const runtime = createInstructorRuntime({
+    appEvents,
+    appState: foregroundAppState,
+    proxyUrl: 'https://proxy.example',
+    networkMonitor: () => ({
+      start: callback => {
+        path = callback;
+      },
+      stop: jest.fn(),
+    }),
+    fetch: fetchImpl as unknown as typeof fetch,
+  });
+  runtime.setPack(fixturePack());
+  runtime.start();
+  runtime.setInstructorOpen(true);
+  path({
+    satisfied: true,
+    transport: 'wifi',
+    expensive: false,
+    constrained: false,
+    downstreamKbps: -1,
+    signalLevel: -1,
+  });
+  await jest.advanceTimersByTimeAsync(0);
+  reachable = false;
+  // The interval notices the loss, and two quick retries confirm it.
+  await jest.advanceTimersByTimeAsync(
+    PROBE_INTERVAL_MS + PROBE_RETRY_MS * 3 + SwitchTiming.MIN_SWITCH_MS,
+  );
+  expect(appEvents.latest('mode')?.mode).toBe('offline');
+  reachable = true;
+  // The next backoff retry and one confirming probe end the outage.
+  await jest.advanceTimersByTimeAsync(
+    PROBE_RETRY_MS * 5 + ModeTiming.RECOVERY_MS + SwitchTiming.MIN_SWITCH_MS,
+  );
+  expect(appEvents.latest('mode')).toMatchObject({
+    mode: 'online',
+    voice: 'agent',
+    answers: 'claude',
+  });
   runtime.stop();
   expect(jest.getTimerCount()).toBe(0);
 });
