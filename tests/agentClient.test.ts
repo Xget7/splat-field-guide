@@ -1,5 +1,4 @@
 import {
-  AgentAudio,
   AgentTiming,
   createAgentClient,
   fetchSignedUrl,
@@ -15,6 +14,8 @@ const variables = {
   opening: 'Hello',
 };
 const chunk = 'AAAA'.repeat(1600);
+const Format = { input: 'pcm_16000', output: 'pcm_24000' } as const;
+const Rate = { input: 16000, output: 24000 } as const;
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 function setup() {
@@ -89,6 +90,18 @@ function setup() {
         event_id: id,
       },
     });
+  const metadata = (
+    inputFormat: string = Format.input,
+    outputFormat: string = Format.output,
+  ) =>
+    receive({
+      type: 'conversation_initiation_metadata',
+      conversation_initiation_metadata_event: {
+        conversation_id: 'conversation',
+        user_input_audio_format: inputFormat,
+        agent_output_audio_format: outputFormat,
+      },
+    });
   const part = (text: string, type: string = 'start') =>
     receive({
       type: 'agent_chat_response_part',
@@ -98,6 +111,7 @@ function setup() {
     const promise = client.start(variables, ['History', 'Screen']);
     await Promise.resolve();
     socket.onopen?.();
+    metadata();
     await promise;
   };
   const messages = () =>
@@ -114,6 +128,7 @@ function setup() {
     interrupt,
     correct,
     audioEvent,
+    metadata,
     part,
     start,
     messages,
@@ -130,8 +145,8 @@ test('initiation precedes context and microphone, ping and tools use their wire 
     'contextual_update',
   ]);
   expect(test.audio.start).toHaveBeenCalledWith(
-    AgentAudio.INPUT_RATE,
-    AgentAudio.OUTPUT_RATE,
+    Rate.input,
+    Rate.output,
     expect.any(Function),
     expect.any(Function),
     expect.any(Function),
@@ -196,7 +211,7 @@ test('word ticks finish when audio plays out and do not leak into later replies'
   await test.start();
   test.part('H');
   test.part('i', 'delta');
-  expect(test.handlers.responseText).toHaveBeenLastCalledWith('Hi');
+  expect(test.handlers.responseText).toHaveBeenLastCalledWith('Hi', 1);
   test.audioEvent(1);
   (test.audio.playedMs as jest.Mock).mockReturnValue(40);
   jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
@@ -323,7 +338,7 @@ test('server interruption accepts its event id and highlights only the new reply
   test.audioEvent(5);
   expect(test.audio.clear).toHaveBeenCalledTimes(1);
   expect(test.audio.play).toHaveBeenCalledTimes(2);
-  expect(test.handlers.response).toHaveBeenLastCalledWith('Hi');
+  expect(test.handlers.response).toHaveBeenLastCalledWith('Hi', 5);
   (test.audio.playedMs as jest.Mock).mockReturnValue(40);
   jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
   expect(test.handlers.word).toHaveBeenLastCalledWith({
@@ -341,7 +356,7 @@ test('a corrected reply bounds current and later word highlights to the shown te
   (test.audio.playedMs as jest.Mock).mockReturnValue(20);
   jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
   test.correct(1, 'Hi', 'H');
-  expect(test.handlers.correction).toHaveBeenLastCalledWith('H');
+  expect(test.handlers.correction).toHaveBeenLastCalledWith('H', 1);
   expect(test.handlers.word).toHaveBeenLastCalledWith({
     location: 0,
     length: 1,
@@ -368,5 +383,101 @@ test('a new conversation starts with an unmuted microphone', async () => {
   await test.start();
   test.input('new question');
   expect(test.messages().at(-1)).toEqual({ user_audio_chunk: 'new question' });
+  test.client.stop();
+});
+
+test('audio waits for the negotiated formats and holds early events until the microphone is ready', async () => {
+  const test = setup();
+  let ready!: () => void;
+  (test.audio.start as jest.Mock).mockImplementationOnce(
+    () =>
+      new Promise<void>(resolve => {
+        ready = resolve;
+      }),
+  );
+  const started = test.client.start(variables, []);
+  await Promise.resolve();
+  test.socket.onopen?.();
+  expect(test.audio.start).not.toHaveBeenCalled();
+  test.metadata(Format.input, Format.input);
+  expect(test.audio.start).toHaveBeenCalledWith(
+    Rate.input,
+    Rate.input,
+    expect.any(Function),
+    expect.any(Function),
+    expect.any(Function),
+  );
+  test.respond(1, 'Hi');
+  test.audioEvent(1);
+  expect(test.audio.play).not.toHaveBeenCalled();
+  ready();
+  await started;
+  expect(test.handlers.response).toHaveBeenCalledWith('Hi', 1);
+  expect(test.audio.play).toHaveBeenCalledWith(chunk);
+  (test.audio.playedMs as jest.Mock).mockReturnValue(120);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.speaking).toHaveBeenLastCalledWith(true);
+  test.client.stop();
+});
+test('an output format the speaker cannot play ends the start', async () => {
+  const test = setup();
+  const started = test.client
+    .start(variables, [])
+    .catch(error => error.message);
+  await Promise.resolve();
+  test.socket.onopen?.();
+  test.metadata(Format.input, 'ulaw_8000');
+  expect(await started).toBe('unknown');
+  expect(test.audio.start).not.toHaveBeenCalled();
+  expect(test.handlers.ended).toHaveBeenCalledWith('error');
+});
+test('a socket error yields to the close that explains it', async () => {
+  const test = setup();
+  await test.start();
+  test.socket.onerror?.();
+  test.socket.onclose?.({ code: 1008, reason: '' });
+  jest.runOnlyPendingTimers();
+  expect(jest.mocked(test.handlers.ended).mock.calls).toEqual([['auth']]);
+  const bare = setup();
+  await bare.start();
+  bare.socket.onerror?.();
+  jest.runOnlyPendingTimers();
+  expect(jest.mocked(bare.handlers.ended).mock.calls).toEqual([['network']]);
+});
+test('a server error ends the conversation only for quota or auth', async () => {
+  const test = setup();
+  await test.start();
+  test.receive({
+    type: 'error',
+    error_event: { error_type: 'llm_error', message: 'Upstream failed' },
+  });
+  expect(test.handlers.ended).not.toHaveBeenCalled();
+  test.receive({
+    type: 'error',
+    error_event: { code: 1011, error_type: 'quota_exceeded' },
+  });
+  expect(jest.mocked(test.handlers.ended).mock.calls).toEqual([['quota']]);
+});
+test('the correction of an interrupted reply still reaches its exchange', async () => {
+  const test = setup();
+  await test.start();
+  test.respond(3, 'Old reply');
+  test.audioEvent(3);
+  test.interrupt(4);
+  test.correct(3, 'Old reply', 'Old');
+  expect(test.handlers.correction).toHaveBeenLastCalledWith('Old', 3);
+});
+test('a playback clock reset after an interruption restarts the reply timing', async () => {
+  const test = setup();
+  await test.start();
+  (test.audio.playedMs as jest.Mock).mockReturnValue(5000);
+  test.respond(1, 'Old');
+  test.audioEvent(1);
+  test.interrupt(2);
+  test.respond(2, 'Hi');
+  test.audioEvent(2);
+  (test.audio.playedMs as jest.Mock).mockReturnValue(200);
+  jest.advanceTimersByTime(AgentTiming.WORD_TICK_MS);
+  expect(test.handlers.speaking).toHaveBeenLastCalledWith(false);
   test.client.stop();
 });

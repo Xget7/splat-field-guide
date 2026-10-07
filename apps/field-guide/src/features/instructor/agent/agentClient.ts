@@ -4,6 +4,7 @@ import type { AgentVariables } from './agentVariables';
 import {
   ClientMessage,
   parseServerMessage,
+  pcmRate,
   type AgentServerEvent,
 } from './agentProtocol';
 import { chunkDurationMs, createWordTimeline } from './wordTimeline';
@@ -15,7 +16,6 @@ import {
 } from './agentFailure';
 import { AgentToolCopy } from './agentCopy';
 
-export const AgentAudio = { INPUT_RATE: 16000, OUTPUT_RATE: 24000 } as const;
 export const AgentTiming = {
   CONNECT_TIMEOUT_MS: 8000,
   WORD_TICK_MS: 50,
@@ -60,9 +60,10 @@ export interface AgentClientHandlers {
   status(status: AgentStatus): void;
   userTranscript(text: string): void;
   /** Cumulative text of the current response. */
-  responseText(text: string): void;
-  response(text: string): void;
-  correction(corrected: string): void;
+  responseText(text: string, eventId: number): void;
+  response(text: string, eventId: number): void;
+  /** The text actually spoken of the response with this event id, after an interruption. */
+  correction(corrected: string, eventId: number): void;
   interruption(): void;
   /** The response's audio started or finished playing. */
   speaking(speaking: boolean): void;
@@ -101,6 +102,7 @@ export interface AgentClient {
 
 const NO_EVENT_ID = -1;
 const NEXT_EVENT_ID = 1;
+const NO_RATE = 0;
 export function createAgentClient(options: AgentClientOptions): AgentClient {
   const { audio, handlers } = options;
   const schedule = options.setTimeout ?? setTimeout;
@@ -123,6 +125,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let lastInterruptionId = NO_EVENT_ID;
   let currentEventId = NO_EVENT_ID;
   let responseEventId: number | null = null;
+  let outputRate = NO_RATE;
+  // Events that arrive before the microphone and speaker are ready, replayed in order once they are.
+  let held: AgentServerEvent[] | null = null;
   function finishSpeaking() {
     if (tick !== null) {
       cancelRepeat(tick);
@@ -160,6 +165,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     }
     running = false;
     connected = false;
+    held = null;
     generation++;
     if (timeout !== null) {
       cancel(timeout);
@@ -219,7 +225,12 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     }
   }
   function words() {
-    const played = Math.max(0, audio.playedMs() - playbackStartMs);
+    const now = audio.playedMs();
+    if (now < playbackStartMs) {
+      // Clearing playback restarts the native clock, sometimes only after the next reply began.
+      playbackStartMs = 0;
+    }
+    const played = Math.max(0, now - playbackStartMs);
     if (played >= queuedMs) {
       finishSpeaking();
     } else {
@@ -244,7 +255,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           responseText =
             event.part === 'start' ? event.text : responseText + event.text;
           timeline.replaceText(responseText);
-          handlers.responseText(responseText);
+          handlers.responseText(responseText, event.eventId);
           words();
         }
         break;
@@ -253,17 +264,17 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           currentEventId = event.eventId;
           responseText = event.text;
           timeline.replaceText(responseText);
-          handlers.response(event.text);
+          handlers.response(event.text, event.eventId);
           words();
         }
         break;
       case 'correction':
-        if (event.eventId >= lastInterruptionId) {
+        if (event.eventId === responseEventId) {
           responseText = event.corrected;
           timeline.replaceText(responseText);
-          handlers.correction(event.corrected);
-          words();
         }
+        handlers.correction(event.corrected, event.eventId);
+        words();
         break;
       case 'responseComplete':
         break;
@@ -278,7 +289,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         if (event.alignment) {
           timeline.add(event.alignment, queuedMs);
         }
-        queuedMs += chunkDurationMs(event.audio, AgentAudio.OUTPUT_RATE);
+        queuedMs += chunkDurationMs(event.audio, outputRate);
         audio.play(event.audio);
         if (queuedMs > 0 && !speaking) {
           speaking = true;
@@ -315,9 +326,14 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         }
         break;
       }
-      case 'error':
-        endFailure(clientFailure(event.code, event.name, event.message));
+      case 'error': {
+        // Other server errors are reported for the turn; the server closes the socket when the conversation cannot go on.
+        const failure = clientFailure(event.code, event.name, event.message);
+        if (failure === AgentFailure.quota || failure === AgentFailure.auth) {
+          endFailure(failure);
+        }
         break;
+      }
     }
   }
   return {
@@ -330,6 +346,8 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       muted = false;
       lastInterruptionId = NO_EVENT_ID;
       currentEventId = NO_EVENT_ID;
+      outputRate = NO_RATE;
+      held = [];
       const currentGeneration = ++generation;
       const current = () => running && generation === currentGeneration;
       handlers.status({ state: AgentState.connecting, reason: null });
@@ -357,13 +375,19 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
                   send(ClientMessage.contextualUpdate(text));
                 }
               }
-              if (!current()) {
+            };
+            const listen = (inputFormat: string, outputFormat: string) => {
+              const inputRate = pcmRate(inputFormat);
+              const playbackRate = pcmRate(outputFormat);
+              if (inputRate === null || playbackRate === null) {
+                end(AgentEnd.error);
                 return;
               }
+              outputRate = playbackRate;
               audio
                 .start(
-                  AgentAudio.INPUT_RATE,
-                  AgentAudio.OUTPUT_RATE,
+                  inputRate,
+                  playbackRate,
                   chunk => {
                     if (current() && !muted) {
                       send(ClientMessage.audio(chunk));
@@ -389,6 +413,16 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
                     cancel(timeout);
                     timeout = null;
                   }
+                  const early = held ?? [];
+                  held = null;
+                  for (const event of early) {
+                    if (current()) {
+                      receive(event);
+                    }
+                  }
+                  if (!current()) {
+                    return;
+                  }
                   rejectStart = null;
                   handlers.status({
                     state: AgentState.connected,
@@ -407,14 +441,26 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
                 return;
               }
               const parsed = parseServerMessage(event.data);
-              if (parsed) {
+              if (!parsed) {
+                return;
+              }
+              if (parsed.type === 'metadata') {
+                if (outputRate === NO_RATE) {
+                  listen(parsed.inputFormat, parsed.outputFormat);
+                }
+              } else if (held) {
+                held.push(parsed);
+              } else {
                 receive(parsed);
               }
             };
+            // The close that usually follows an error says why, so it wins.
             opened.onerror = () => {
-              if (current()) {
-                end(AgentEnd.network);
-              }
+              schedule(() => {
+                if (current()) {
+                  end(AgentEnd.network);
+                }
+              }, 0);
             };
             opened.onclose = event => {
               if (!current()) {

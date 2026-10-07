@@ -12,6 +12,7 @@ import {
   screenUpdate,
 } from '../agent/agentVariables';
 import { runAgentTool } from '../agent/agentTools';
+import { SessionEventType } from '../../guide/session';
 import { normalize } from '../router';
 import {
   ExchangePhase,
@@ -35,6 +36,13 @@ import {
 
 export const AGENT_HISTORY_TURNS = 4;
 export const NARRATE_PREFIX = '[narrate] ';
+const STEP_EVENTS: ReadonlySet<string> = new Set([
+  SessionEventType.start,
+  SessionEventType.next,
+  SessionEventType.back,
+  SessionEventType.repeat,
+  SessionEventType.goTo,
+]);
 export type SessionAgentHandlers = Omit<
   AgentClientHandlers,
   'status' | 'roundTrip'
@@ -56,6 +64,8 @@ export function createAgentVoiceSession({
   let client: AgentClient | null = null;
   let exchange: Exchange | null = null;
   let previous: Exchange | null = null;
+  // The exchange each response event answers, so a late correction finds its own reply.
+  const replies = new Map<number, number>();
   let typed: string | null = null;
   let toolStepKey: string | null = null;
   let running = false;
@@ -64,6 +74,9 @@ export function createAgentVoiceSession({
   let saying = false;
   let generation = 0;
   let stoppedQuestion: string | null = null;
+  // A reply after the exchange is done reads a step the app asked for, which belongs to no question.
+  const answering = () =>
+    exchange !== null && exchange.phase !== ExchangePhase.done;
   function answer(reply: string, interrupted = false) {
     if (!exchange) {
       return;
@@ -118,6 +131,7 @@ export function createAgentVoiceSession({
       started = false;
       exchange = null;
       previous = null;
+      replies.clear();
       typed = null;
       muted = false;
       toolStepKey = null;
@@ -149,10 +163,11 @@ export function createAgentVoiceSession({
           }
           begin(text);
         },
-        responseText(text) {
-          if (!current() || !exchange) {
+        responseText(text, eventId) {
+          if (!current() || !exchange || !answering()) {
             return;
           }
+          replies.set(eventId, exchange.id);
           exchange = {
             ...exchange,
             reply: text,
@@ -160,24 +175,26 @@ export function createAgentVoiceSession({
           };
           events.turn({ type: TurnEventType.partial, exchange });
         },
-        response(text) {
-          if (current()) {
+        response(text, eventId) {
+          if (current() && exchange && answering()) {
+            replies.set(eventId, exchange.id);
             answer(text);
           }
         },
-        correction(text) {
-          if (current()) {
-            if (previous !== null) {
-              previous = { ...previous, reply: text, interrupted: true };
-              events.turn({
-                type: TurnEventType.answer,
-                exchange: previous,
-                answer: { reply: text, caution: '', part: null, event: null },
-              });
-              previous = null;
-            } else {
-              answer(text, true);
-            }
+        correction(text, eventId) {
+          if (!current()) {
+            return;
+          }
+          const owner = replies.get(eventId);
+          if (exchange && exchange.id === owner) {
+            answer(text, true);
+          } else if (previous && previous.id === owner) {
+            previous = { ...previous, reply: text, interrupted: true };
+            events.turn({
+              type: TurnEventType.answer,
+              exchange: previous,
+              answer: { reply: text, caution: '', part: null, event: null },
+            });
           }
         },
         interruption() {
@@ -209,6 +226,13 @@ export function createAgentVoiceSession({
           if (current() && outcome.ok) {
             toolStepKey = stepKeyFor(outcome.state);
             context = { ...context, state: outcome.state };
+            if (
+              exchange &&
+              answering() &&
+              STEP_EVENTS.has(outcome.event.type)
+            ) {
+              exchange = { ...exchange, readsStep: true };
+            }
             events.action(outcome.event);
           }
           return { result: outcome.result, isError: !outcome.ok };

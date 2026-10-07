@@ -1,5 +1,14 @@
 import type { SocketPort } from '../apps/field-guide/src/features/instructor/agent/agentClient';
 
+export const AGENT_METADATA = {
+  type: 'conversation_initiation_metadata',
+  conversation_initiation_metadata_event: {
+    conversation_id: 'conversation',
+    user_input_audio_format: 'pcm_16000',
+    agent_output_audio_format: 'pcm_24000',
+  },
+};
+
 export function fakeAgentTransport() {
   const sockets: SocketPort[] = [];
   const closed = new Set<SocketPort>();
@@ -21,6 +30,10 @@ export function fakeAgentTransport() {
     },
     receive(message: unknown) {
       sockets.at(-1)?.onmessage?.({ data: JSON.stringify(message) });
+    },
+    ready() {
+      sockets.at(-1)?.onopen?.();
+      this.receive(AGENT_METADATA);
     },
     get current() {
       return sockets.at(-1)!;

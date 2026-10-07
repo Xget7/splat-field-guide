@@ -1,6 +1,7 @@
 import {
   ClientMessage,
   parseServerMessage,
+  pcmRate,
 } from '../apps/field-guide/src/features/instructor/agent/agentProtocol';
 
 const examples = [
@@ -113,6 +114,13 @@ const examples = [
     },
     { type: 'error', code: 429, name: 'quota', message: 'limit' },
   ],
+  [
+    {
+      type: 'error',
+      error_event: { code: 1011, error_type: 'quota_exceeded', reason: 'cap' },
+    },
+    { type: 'error', code: 1011, name: 'quota_exceeded', message: 'cap' },
+  ],
 ] as const;
 test('every supported server message preserves its nested fields', () => {
   for (const [message, expected] of examples) {
@@ -131,6 +139,32 @@ test('every supported server message preserves its nested fields', () => {
       JSON.stringify({ type: 'ping', ping_event: { event_id: 1 } }),
     ),
   ).toEqual({ type: 'ping', eventId: 1, pingMs: null });
+  expect(
+    parseServerMessage(
+      JSON.stringify({
+        type: 'error',
+        error_event: { error_type: 'internal' },
+      }),
+    ),
+  ).toEqual({ type: 'error', code: 0, name: 'internal', message: '' });
+  expect(
+    parseServerMessage(
+      JSON.stringify({
+        type: 'client_tool_call',
+        client_tool_call: {
+          tool_name: 'next_step',
+          tool_call_id: 'tool',
+          parameters: {},
+          event_id: 0,
+        },
+      }),
+    ),
+  ).toMatchObject({ type: 'toolCall', expectsResponse: true });
+});
+test('only PCM formats give a sample rate', () => {
+  expect(pcmRate('pcm_24000')).toBe(24000);
+  expect(pcmRate('ulaw_8000')).toBeNull();
+  expect(pcmRate('pcm_')).toBeNull();
 });
 test('malformed, unknown and incomplete messages cannot enter the client', () => {
   for (const data of [

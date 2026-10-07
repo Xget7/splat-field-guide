@@ -232,3 +232,36 @@ test('starting device fallback preserves an existing model question without aski
   expect(changed.question.mock.calls).toEqual([]);
   expect(session.stop()).toBe('Why check the battery?');
 });
+
+test('a reconnect asks the lost question even after the viewer clears it', async () => {
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  const session = createFallbackVoiceSession({
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
+    onPrimaryFailure: jest.fn(),
+    networkOffline: () => false,
+  });
+  await session.start(context, voiceEvents());
+  const startPrimary = jest
+    .mocked(primary.session.start)
+    .getMockImplementation()!;
+  let connect!: () => void;
+  jest
+    .mocked(primary.session.start)
+    .mockImplementationOnce(async (initial, changed) => {
+      await new Promise<void>(resolve => {
+        connect = resolve;
+      });
+      await startPrimary(initial, changed);
+    });
+  primary.events.ended(VoiceEnd.network, 'Why?');
+  session.update({ ...context, pendingQuestion: null });
+  connect();
+  for (let tick = 0; tick < 4; tick++) {
+    await Promise.resolve();
+  }
+  expect(primary.asked).toEqual(['Why?']);
+  session.stop();
+});

@@ -82,14 +82,14 @@ test('streams an exchange and retains a corrected interrupted answer', async () 
     changed,
   );
   heard.userTranscript('What does the battery do?');
-  heard.responseText('It supplies');
-  heard.response('It supplies the starter.');
+  heard.responseText('It supplies', 1);
+  heard.response('It supplies the starter.', 1);
   expect(changed.turn.mock.calls.map(([event]) => event.type)).toEqual([
     'begin',
     'partial',
     'answer',
   ]);
-  heard.correction('It supplies');
+  heard.correction('It supplies', 1);
   expect(changed.turn.mock.calls.at(-1)?.[0].exchange).toMatchObject({
     reply: 'It supplies',
     interrupted: true,
@@ -126,6 +126,11 @@ test('tool navigation is applied without repeating its narration and typed echoe
     result: 'Step 2 of 3 in Check the coolant level: Step locate',
   });
   expect(changed.action).toHaveBeenCalledWith({ type: 'next' });
+  heard.response('Step locate.', 2);
+  expect(changed.turn.mock.calls.at(-1)?.[0].exchange).toMatchObject({
+    reply: 'Step locate.',
+    readsStep: true,
+  });
   transport.sendText.mockClear();
   await session.say({
     id: 'step:1',
@@ -155,6 +160,35 @@ test('tool navigation is applied without repeating its narration and typed echoe
   expect(transport.interrupt).not.toHaveBeenCalled();
 });
 
+test('a step read after an answer leaves that answer as it was', async () => {
+  let heard!: SessionAgentHandlers;
+  const changed = events();
+  const session = createAgentVoiceSession({
+    pack,
+    client: handlers => {
+      heard = handlers;
+      return client();
+    },
+  });
+  await session.start(
+    { pack, state: INITIAL_SESSION, history: [], thinking: false },
+    changed,
+  );
+  heard.userTranscript('What does the battery do?');
+  heard.response('It supplies the starter.', 1);
+  const answered = changed.turn.mock.calls.length;
+  await session.say({
+    id: 'step:0',
+    kind: 'step',
+    reply: 'Read the level.',
+    caution: '',
+    stepKey: 'check-coolant:0:null',
+  });
+  heard.responseText('Read the', 2);
+  heard.response('Read the level.', 2);
+  expect(changed.turn).toHaveBeenCalledTimes(answered);
+});
+
 test.each([
   ['', 'cancel', 'Why?'],
   ['The battery', 'answer', null],
@@ -174,11 +208,11 @@ test.each([
       { pack, state: INITIAL_SESSION, history: [], thinking: false },
       changed,
     );
-    heard.response('Opening narration');
+    heard.response('Opening narration', 0);
     expect(changed.turn).not.toHaveBeenCalled();
     heard.userTranscript('Why?');
     if (reply !== '') {
-      heard.responseText(reply);
+      heard.responseText(reply, 1);
     }
     heard.ended('network');
     expect(changed.turn.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -245,14 +279,14 @@ test.each([false, true])(
       changed,
     );
     heard.userTranscript('What does the battery do?');
-    heard.responseText('It supplies the starter and');
+    heard.responseText('It supplies the starter and', 1);
     if (completed) {
-      heard.response('It supplies the starter and lights.');
+      heard.response('It supplies the starter and lights.', 1);
     }
     const first = changed.turn.mock.calls[0][0].exchange.id;
     heard.userTranscript('How do I check it?');
     const next = changed.turn.mock.calls.at(-1)![0].exchange.id;
-    heard.correction('It supplies the starter.');
+    heard.correction('It supplies the starter.', 1);
     expect(changed.turn.mock.calls.at(-1)?.[0]).toMatchObject({
       type: 'answer',
       exchange: {
@@ -261,9 +295,44 @@ test.each([false, true])(
         interrupted: true,
       },
     });
-    heard.response('Check the terminals.');
+    heard.response('Check the terminals.', 2);
     expect(changed.turn.mock.calls.at(-1)?.[0]).toMatchObject({
       exchange: { id: next, reply: 'Check the terminals.' },
     });
   },
 );
+
+test('a correction belongs to the reply it names, never to an earlier answer', async () => {
+  let heard!: SessionAgentHandlers;
+  const changed = events();
+  const session = createAgentVoiceSession({
+    pack,
+    client: handlers => {
+      heard = handlers;
+      return client();
+    },
+  });
+  await session.start(
+    { pack, state: INITIAL_SESSION, history: [], thinking: false },
+    changed,
+  );
+  heard.userTranscript('What does the battery do?');
+  heard.response('It supplies the starter.', 1);
+  const first = changed.turn.mock.calls.at(-1)![0].exchange.id;
+  heard.userTranscript('How do I check it?');
+  heard.responseText('Check the terminals and', 2);
+  const second = changed.turn.mock.calls.at(-1)![0].exchange.id;
+  heard.correction('Check the terminals.', 2);
+  heard.correction('Unrelated.', 7);
+  expect(
+    changed.turn.mock.calls
+      .map(([event]) => event.exchange)
+      .filter(exchange => exchange?.id === first)
+      .at(-1),
+  ).toMatchObject({ reply: 'It supplies the starter.' });
+  expect(changed.turn.mock.calls.at(-1)?.[0].exchange).toMatchObject({
+    id: second,
+    reply: 'Check the terminals.',
+    interrupted: true,
+  });
+});

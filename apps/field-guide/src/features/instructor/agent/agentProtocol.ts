@@ -69,6 +69,13 @@ const number = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 const eventId = (value: unknown): value is number =>
   number(value) && Number.isInteger(value) && value >= 0;
+const UNKNOWN_ERROR_CODE = 0;
+const PCM_FORMAT = /^pcm_(\d+)$/;
+/** The sample rate of a raw PCM format such as pcm_24000, or null for any other encoding. */
+export function pcmRate(format: string): number | null {
+  const match = PCM_FORMAT.exec(format);
+  return match ? Number(match[1]) : null;
+}
 function alignment(value: unknown): Alignment | null {
   const fields = object(value);
   if (!fields) {
@@ -201,13 +208,14 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
         text(value.tool_call_id) &&
         'parameters' in value &&
         eventId(value.event_id) &&
-        typeof value.expects_response === 'boolean'
+        (value.expects_response === undefined ||
+          typeof value.expects_response === 'boolean')
         ? {
             type: 'toolCall',
             name: value.tool_name,
             id: value.tool_call_id,
             parameters: value.parameters,
-            expectsResponse: value.expects_response,
+            expectsResponse: value.expects_response !== false,
           }
         : null;
     }
@@ -217,19 +225,20 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
         ? { type: 'responseComplete' }
         : null;
     }
+    case 'error':
     case 'client_error': {
       const value = fields('error_event');
-      return value &&
-        number(value.code) &&
-        text(value.error_name) &&
-        text(value.message)
-        ? {
-            type: 'error',
-            code: value.code,
-            name: value.error_name,
-            message: value.message,
-          }
-        : null;
+      if (!value) {
+        return null;
+      }
+      const name = [value.error_type, value.error_name].find(text);
+      const detail = [value.message, value.reason].find(text);
+      return {
+        type: 'error',
+        code: number(value.code) ? value.code : UNKNOWN_ERROR_CODE,
+        name: name ?? '',
+        message: detail ?? '',
+      };
     }
     default:
       return null;

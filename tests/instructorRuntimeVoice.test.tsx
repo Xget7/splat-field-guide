@@ -95,12 +95,14 @@ test.each([
         await jest.advanceTimersByTimeAsync(0);
         if (failure === 'socket open failure') {
           transport.current.onerror?.();
+          await jest.advanceTimersByTimeAsync(0);
         } else if (failure === 'failed reconnect') {
-          transport.current.onopen?.();
+          transport.ready();
           await started;
           transport.current.onerror?.();
           await jest.advanceTimersByTimeAsync(0);
           transport.current.onerror?.();
+          await jest.advanceTimersByTimeAsync(0);
         }
         await started;
       });
@@ -141,7 +143,7 @@ test.each([
       await act(async () => {
         const started = next.session.start(context, voiceEvents());
         await jest.advanceTimersByTimeAsync(0);
-        transport.current.onopen?.();
+        transport.ready();
         await started;
       });
       expect(appEvents.latest(AppEvent.mode)?.voice).toBe('agent');
@@ -231,7 +233,7 @@ test('an offline switch never installs speech assets, but the next Voice tap may
     });
     await act(async () => {
       await jest.advanceTimersByTimeAsync(0);
-      transport.current.onopen?.();
+      transport.ready();
     });
     expect(h.voice.open).toBe(true);
     jest.mocked(speechInput().prepare).mockResolvedValue('unavailable');
@@ -297,7 +299,7 @@ test.each(['active', 'inactive'])(
     });
     await act(async () => {
       await jest.advanceTimersByTimeAsync(0);
-      transport.current?.onopen?.();
+      transport.ready();
     });
     expect(h.voice.open).toBe(true);
     const conversation = transport.current;
@@ -322,7 +324,7 @@ test.each(['active', 'inactive'])(
     await act(async () => h.voice.toggle());
     await act(async () => {
       await jest.advanceTimersByTimeAsync(0);
-      transport.current.onopen?.();
+      transport.ready();
     });
     expect(h.voice.open).toBe(true);
     await act(async () => renderer.unmount());
@@ -378,13 +380,14 @@ test('a socket failure before the offline event carries the waiting question thr
   });
   await act(async () => {
     await jest.advanceTimersByTimeAsync(0);
-    transport.current.onopen?.();
+    transport.ready();
   });
   await act(async () => {
     h.voice.ask('Why check the battery?');
     transport.current.onerror?.();
     await jest.advanceTimersByTimeAsync(0);
     transport.current.onerror?.();
+    await jest.advanceTimersByTimeAsync(0);
   });
   expect(questions).toEqual(['Why check the battery?']);
   expect(h.voice.open).toBe(true);
