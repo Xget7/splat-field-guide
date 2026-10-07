@@ -72,6 +72,7 @@ nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
 ```
 
 Keep xcodebuild DerivedData under `apps/field-guide/ios/build/`, disable compilation caching and delete the temporary build directory afterward.
+For an owned iOS Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebuild, using `localhost` for a simulator or the Mac's reachable address for a phone.
 Verification completes when affected interface tests, lint/types and the relevant build pass, with unresolved hardware/source prerequisites recorded.
 
 ## Android
