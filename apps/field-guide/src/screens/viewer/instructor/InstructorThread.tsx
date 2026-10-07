@@ -316,6 +316,7 @@ export function InstructorThread({
   const wasScrolled = useRef(false);
   const gradientId = useId();
   const following = useRef(true);
+  const readerMomentum = useRef(false);
   const assistant = variant === 'assistant';
   const entries: readonly ThreadEntry[] =
     exchange === null
@@ -346,6 +347,14 @@ export function InstructorThread({
       contentOffset.y + layoutMeasurement.height >=
       contentSize.height - FOLLOW_SLOP;
   };
+  const followMomentumEnd = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    if (readerMomentum.current) {
+      readerMomentum.current = false;
+      follow(event);
+    }
+  };
   // Bring a new entry into view even when the reader has scrolled back.
   const said = `${entries.length}:${transcript === ''}`;
   const seen = useRef(said);
@@ -373,10 +382,16 @@ export function InstructorThread({
             setScrolled(nextScrolled);
           }
         }}
-        // Only the reader's own scrolling decides whether to follow: a streamed reply
-        // can outgrow an animated scroll to the end and would otherwise stop it.
+        // Only the reader's own drag decides whether to follow. Programmatic scrolls
+        // also end with a momentum end, and a streamed reply can outgrow them.
+        onScrollBeginDrag={() => {
+          readerMomentum.current = false;
+        }}
         onScrollEndDrag={follow}
-        onMomentumScrollEnd={follow}
+        onMomentumScrollBegin={() => {
+          readerMomentum.current = true;
+        }}
+        onMomentumScrollEnd={followMomentumEnd}
         onLayout={() => {
           if (following.current) {
             scroll.current?.scrollToEnd({ animated: false });

@@ -437,6 +437,12 @@ describe('instructor panel modes', () => {
     scrollToEnd.mockClear();
     await resize();
     expect(scrollToEnd).toHaveBeenCalledTimes(1);
+    // The end of a programmatic animated scroll is not the reader's momentum.
+    await act(() => thread.props.onMomentumScrollEnd(atTop));
+    scrollToEnd.mockClear();
+    await resize();
+    expect(scrollToEnd).toHaveBeenCalledTimes(1);
+    await act(() => thread.props.onScrollBeginDrag());
     await act(() => thread.props.onScrollEndDrag(atTop));
     scrollToEnd.mockClear();
     await resize();
