@@ -1,12 +1,12 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
-import type { AppStateStatus } from 'react-native';
-import type { NetworkPath } from 'react-native-on-device';
+import { Text, type AppStateStatus } from 'react-native';
+import { speechOutput, type NetworkPath } from 'react-native-on-device';
 import { createInstructorRuntime } from './instructorRuntime';
 import { fakeAgentTransport } from '../testing/agentTransport';
 import { foregroundAppState } from '../testing/voiceSession';
 import { fixturePack } from '../testing/fixturePack';
-import { createEventBus } from '../features/events/bus';
+import { appEvents, createEventBus } from '../features/events/bus';
 import {
   AppEvent,
   InstructorMode,
@@ -18,12 +18,136 @@ import {
   type InstructorVoice,
 } from '../features/instructor/voice/useInstructorVoice';
 import type { VoiceRuntime } from '../features/instructor/voice/voiceSession';
+import { ModeArea } from '../screens/viewer/instructor/ModeArea';
+import { voiceEvents } from '../testing/voiceSession';
+import {
+  SpeechVoice,
+  VOICE_LOCALE,
+} from '../features/instructor/voice/voiceCopy';
 const context = {
   pack: fixturePack(),
   state: INITIAL_SESSION,
   history: [],
   thinking: false,
 };
+
+test.each([
+  'signed URL network failure',
+  'signed URL 404',
+  'socket open failure',
+  'failed reconnect',
+])(
+  '%s shows the device voice notice until a later agent conversation opens',
+  async failure => {
+    jest.useFakeTimers();
+    const transport = fakeAgentTransport();
+    let path!: (value: NetworkPath) => void;
+    let firstRequest = true;
+    const fetchImpl = jest.fn(async (address: unknown) => {
+      if (String(address).endsWith('/v1/ping')) {
+        return { status: 204 };
+      }
+      if (firstRequest) {
+        firstRequest = false;
+        if (failure === 'signed URL network failure') {
+          throw new Error('network');
+        }
+        if (failure === 'signed URL 404') {
+          return { status: 404, json: async () => ({}) };
+        }
+      }
+      return {
+        status: 200,
+        json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+      };
+    });
+    const runtime = createInstructorRuntime({
+      appEvents,
+      appState: foregroundAppState,
+      proxyUrl: 'https://proxy.example',
+      connect: transport.connect,
+      networkMonitor: () => ({
+        start: callback => {
+          path = callback;
+        },
+        stop: () => {},
+      }),
+      fetch: fetchImpl as unknown as typeof fetch,
+    });
+    let renderer!: Renderer.ReactTestRenderer;
+    const text = () =>
+      renderer.root.findAllByType(Text).map(node => node.props.children);
+    try {
+      await act(async () => {
+        runtime.start();
+        renderer = Renderer.create(<ModeArea />);
+      });
+      const fallback = runtime.sessionFor(context.pack)!;
+      await act(async () => {
+        const started = fallback.session.start(context, voiceEvents());
+        await jest.advanceTimersByTimeAsync(0);
+        if (failure === 'socket open failure') {
+          transport.current.onerror?.();
+        } else if (failure === 'failed reconnect') {
+          transport.current.onopen?.();
+          await started;
+          transport.current.onerror?.();
+          await jest.advanceTimersByTimeAsync(0);
+          transport.current.onerror?.();
+        }
+        await started;
+      });
+      await fallback.session.say({
+        id: 'battery-answer',
+        kind: 'answer',
+        reply: 'Check the battery terminals.',
+        caution: '',
+        stepKey: null,
+      });
+      expect(speechOutput().speak).toHaveBeenCalledWith(
+        'Check the battery terminals.',
+        VOICE_LOCALE,
+        expect.any(Function),
+        SpeechVoice.system,
+      );
+      expect(appEvents.latest(AppEvent.mode)).toMatchObject({
+        mode: 'online',
+        voice: 'device',
+      });
+      expect(text()).toEqual([
+        'Online voice unavailable',
+        'Using on-device voice.',
+      ]);
+      await act(async () =>
+        path({
+          satisfied: true,
+          transport: 'wifi',
+          expensive: false,
+          constrained: false,
+          downstreamKbps: -1,
+          signalLevel: -1,
+        }),
+      );
+      expect(text()).toContain('Online voice unavailable');
+      fallback.session.stop();
+      const next = runtime.sessionFor(context.pack)!;
+      await act(async () => {
+        const started = next.session.start(context, voiceEvents());
+        await jest.advanceTimersByTimeAsync(0);
+        transport.current.onopen?.();
+        await started;
+      });
+      expect(appEvents.latest(AppEvent.mode)?.voice).toBe('agent');
+      expect(next.questions).not.toBeNull();
+      expect(renderer.toJSON()).toBeNull();
+      next.session.stop();
+    } finally {
+      await act(async () => renderer?.unmount());
+      runtime.stop();
+      jest.useRealTimers();
+    }
+  },
+);
 
 function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
   let voice!: InstructorVoice;

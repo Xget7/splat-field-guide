@@ -32,6 +32,7 @@ interface SessionDependencies {
   agentAvailable(): boolean;
   foreground(): boolean;
   onPrimaryFailure(failure: VoiceStartFailure): void;
+  onVoiceStarted(voice: VoiceSource): void;
   networkOffline(): boolean;
 }
 export function createInstructorSessions(deps: SessionDependencies) {
@@ -91,7 +92,7 @@ export function createInstructorSessions(deps: SessionDependencies) {
       if (status.mode === InstructorMode.offline) {
         return own(pipeline(SpeechVoice.kokoro));
       }
-      if (status.voice === VoiceSource.device || !deps.agentAvailable()) {
+      if (!deps.agentAvailable()) {
         return own(pipeline(SpeechVoice.system));
       }
       const primary = createAgentVoiceSession({
@@ -104,6 +105,7 @@ export function createInstructorSessions(deps: SessionDependencies) {
         primaryQuestions: primary,
         fallback: pipeline(SpeechVoice.system).session,
         onPrimaryFailure: deps.onPrimaryFailure,
+        onFallbackStarted: () => deps.onVoiceStarted(VoiceSource.device),
         networkOffline: deps.networkOffline,
       });
       return own({

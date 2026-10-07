@@ -270,6 +270,7 @@ export function createInstructorRuntime(
     agentAvailable: connection.available,
     foreground: foreground.isForeground,
     onPrimaryFailure: primaryFailure,
+    onVoiceStarted: voice => controller.voiceStarted(voice),
     networkOffline: () =>
       bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
     client: handlers =>
@@ -285,7 +286,12 @@ export function createInstructorRuntime(
         clearInterval: deps.clearInterval,
         handlers: {
           ...handlers,
-          status: value => bus.emit(AppEvent.agent, value),
+          status: value => {
+            if (value.state === AgentState.connected) {
+              controller.voiceStarted(VoiceSource.agent);
+            }
+            bus.emit(AppEvent.agent, value);
+          },
           roundTrip: ms => network.report({ ok: true, ms }),
         },
       }),

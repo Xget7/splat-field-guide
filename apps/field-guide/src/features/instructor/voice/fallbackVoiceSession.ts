@@ -13,6 +13,7 @@ interface Options {
   primaryQuestions: TypedQuestions;
   fallback: VoiceSession;
   onPrimaryFailure(failure: VoiceStartFailure): void;
+  onFallbackStarted?(): void;
   networkOffline(): boolean;
 }
 export function createFallbackVoiceSession({
@@ -20,6 +21,7 @@ export function createFallbackVoiceSession({
   primaryQuestions,
   fallback,
   onPrimaryFailure,
+  onFallbackStarted,
   networkOffline,
 }: Options): VoiceSession & { readonly questions: TypedQuestions | null } {
   let active = primary;
@@ -40,6 +42,7 @@ export function createFallbackVoiceSession({
     if (!current(id)) {
       return;
     }
+    onFallbackStarted?.();
     fallback.setMuted(muted);
     if (question !== null && pending !== null) {
       events.question(pending);

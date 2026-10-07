@@ -34,6 +34,7 @@ export interface ModeController {
   request(request: ModeRequest): void;
   setIdle(idle: boolean): void;
   agentAvailable(available: boolean): void;
+  voiceStarted(voice: VoiceSource): void;
   switched(
     mode: typeof InstructorMode.online | typeof InstructorMode.offline,
     sources: ModeSources,
@@ -235,8 +236,7 @@ export function createModeController(
             ...status,
             mode: offline ? InstructorMode.offline : InstructorMode.online,
             cause: ModeCause.startup,
-            voice:
-              offline || !available ? VoiceSource.device : VoiceSource.agent,
+            voice: offline || !available ? VoiceSource.device : status.voice,
             answers: offline ? AnswerSource.deviceModel : AnswerSource.claude,
           },
           true,
@@ -298,6 +298,16 @@ export function createModeController(
           voice: available ? VoiceSource.agent : VoiceSource.device,
         });
       }
+    },
+    voiceStarted(voice) {
+      if (
+        disposed ||
+        status.mode !== InstructorMode.online ||
+        (voice === VoiceSource.agent && !available)
+      ) {
+        return;
+      }
+      emit({ ...status, voice });
     },
     switched(mode, sources) {
       if (disposed) {
