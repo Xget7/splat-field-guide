@@ -1,0 +1,21 @@
+{
+  "uiViewClassName": "ARPlacementView",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "modelPath": true,
+    "scale": true,
+    "elevation": true,
+    "scaleRequest": true,
+    "placementRequest": true,
+    "resetRequest": true,
+    "onPlacementChanged": true,
+    "assemblyStep": true,
+    "assemblyRequest": true,
+    "assemblyOrder": true,
+    "exploded": true,
+    "onAssemblyChanged": true,
+    "hybridRef": true
+  }
+}

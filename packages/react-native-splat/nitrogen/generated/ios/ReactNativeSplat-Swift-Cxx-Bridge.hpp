@@ -8,8 +8,18 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `ARAssemblyEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARAssemblyEvent; }
+// Forward declaration of `ARAssemblyPart` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARAssemblyPart; }
+// Forward declaration of `ARAssemblyPhase` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARAssemblyPhase; }
 // Forward declaration of `ARCameraTracking` to properly resolve imports.
 namespace margelo::nitro::splat { enum class ARCameraTracking; }
+// Forward declaration of `ARPlacementEvent` to properly resolve imports.
+namespace margelo::nitro::splat { struct ARPlacementEvent; }
+// Forward declaration of `ARPlacementState` to properly resolve imports.
+namespace margelo::nitro::splat { enum class ARPlacementState; }
 // Forward declaration of `ARTrackingEvent` to properly resolve imports.
 namespace margelo::nitro::splat { struct ARTrackingEvent; }
 // Forward declaration of `ARTrackingState` to properly resolve imports.
@@ -20,6 +30,8 @@ namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `HybridARGuideViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridARGuideViewSpec; }
+// Forward declaration of `HybridARPlacementViewSpec` to properly resolve imports.
+namespace margelo::nitro::splat { class HybridARPlacementViewSpec; }
 // Forward declaration of `HybridModelViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridModelViewSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
@@ -38,6 +50,8 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridARGuideViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridARGuideViewSpec_cxx; }
+// Forward declaration of `HybridARPlacementViewSpec_cxx` to properly resolve imports.
+namespace ReactNativeSplat { class HybridARPlacementViewSpec_cxx; }
 // Forward declaration of `HybridModelViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridModelViewSpec_cxx; }
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.
@@ -46,12 +60,18 @@ namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
+#include "ARAssemblyEvent.hpp"
+#include "ARAssemblyPart.hpp"
+#include "ARAssemblyPhase.hpp"
 #include "ARCameraTracking.hpp"
+#include "ARPlacementEvent.hpp"
+#include "ARPlacementState.hpp"
 #include "ARTrackingEvent.hpp"
 #include "ARTrackingState.hpp"
 #include "ARTrackingTelemetry.hpp"
 #include "CameraLimits.hpp"
 #include "HybridARGuideViewSpec.hpp"
+#include "HybridARPlacementViewSpec.hpp"
 #include "HybridModelViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
@@ -154,6 +174,129 @@ namespace margelo::nitro::splat::bridge::swift {
   using std__weak_ptr_HybridARGuideViewSpec_ = std::weak_ptr<HybridARGuideViewSpec>;
   inline std__weak_ptr_HybridARGuideViewSpec_ weakify_std__shared_ptr_HybridARGuideViewSpec_(const std::shared_ptr<HybridARGuideViewSpec>& strong) noexcept { return strong; }
 
+  // pragma MARK: std::optional<double>
+  /**
+   * Specialized version of `std::optional<double>`.
+   */
+  using std__optional_double_ = std::optional<double>;
+  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
+    return std::optional<double>(value);
+  }
+  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::function<void(const ARPlacementEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const ARPlacementEvent&)>`.
+   */
+  using Func_void_ARPlacementEvent = std::function<void(const ARPlacementEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const ARPlacementEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_ARPlacementEvent_Wrapper final {
+  public:
+    explicit Func_void_ARPlacementEvent_Wrapper(std::function<void(const ARPlacementEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const ARPlacementEvent& /* event */)>>(std::move(func))) {}
+    inline void call(ARPlacementEvent event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const ARPlacementEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_ARPlacementEvent create_Func_void_ARPlacementEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_ARPlacementEvent_Wrapper wrap_Func_void_ARPlacementEvent(Func_void_ARPlacementEvent value) noexcept {
+    return Func_void_ARPlacementEvent_Wrapper(std::move(value));
+  }
+
+  // pragma MARK: std::vector<std::string>
+  /**
+   * Specialized version of `std::vector<std::string>`.
+   */
+  using std__vector_std__string_ = std::vector<std::string>;
+  inline std::vector<std::string> create_std__vector_std__string_(size_t size) noexcept {
+    std::vector<std::string> vector;
+    vector.reserve(size);
+    return vector;
+  }
+
+  // pragma MARK: std::optional<std::vector<std::string>>
+  /**
+   * Specialized version of `std::optional<std::vector<std::string>>`.
+   */
+  using std__optional_std__vector_std__string__ = std::optional<std::vector<std::string>>;
+  inline std::optional<std::vector<std::string>> create_std__optional_std__vector_std__string__(const std::vector<std::string>& value) noexcept {
+    return std::optional<std::vector<std::string>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_std__string__(const std::optional<std::vector<std::string>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<std::string> get_std__optional_std__vector_std__string__(const std::optional<std::vector<std::string>>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::vector<ARAssemblyPart>
+  /**
+   * Specialized version of `std::vector<ARAssemblyPart>`.
+   */
+  using std__vector_ARAssemblyPart_ = std::vector<ARAssemblyPart>;
+  inline std::vector<ARAssemblyPart> create_std__vector_ARAssemblyPart_(size_t size) noexcept {
+    std::vector<ARAssemblyPart> vector;
+    vector.reserve(size);
+    return vector;
+  }
+
+  // pragma MARK: std::function<void(const ARAssemblyEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const ARAssemblyEvent&)>`.
+   */
+  using Func_void_ARAssemblyEvent = std::function<void(const ARAssemblyEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const ARAssemblyEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_ARAssemblyEvent_Wrapper final {
+  public:
+    explicit Func_void_ARAssemblyEvent_Wrapper(std::function<void(const ARAssemblyEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const ARAssemblyEvent& /* event */)>>(std::move(func))) {}
+    inline void call(ARAssemblyEvent event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const ARAssemblyEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_ARAssemblyEvent create_Func_void_ARAssemblyEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_ARAssemblyEvent_Wrapper wrap_Func_void_ARAssemblyEvent(Func_void_ARAssemblyEvent value) noexcept {
+    return Func_void_ARAssemblyEvent_Wrapper(std::move(value));
+  }
+
+  // pragma MARK: std::optional<std::function<void(const ARAssemblyEvent& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const ARAssemblyEvent& / * event * /)>>`.
+   */
+  using std__optional_std__function_void_const_ARAssemblyEvent_____event______ = std::optional<std::function<void(const ARAssemblyEvent& /* event */)>>;
+  inline std::optional<std::function<void(const ARAssemblyEvent& /* event */)>> create_std__optional_std__function_void_const_ARAssemblyEvent_____event______(const std::function<void(const ARAssemblyEvent& /* event */)>& value) noexcept {
+    return std::optional<std::function<void(const ARAssemblyEvent& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_ARAssemblyEvent_____event______(const std::optional<std::function<void(const ARAssemblyEvent& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const ARAssemblyEvent& /* event */)> get_std__optional_std__function_void_const_ARAssemblyEvent_____event______(const std::optional<std::function<void(const ARAssemblyEvent& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::shared_ptr<HybridARPlacementViewSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridARPlacementViewSpec>`.
+   */
+  using std__shared_ptr_HybridARPlacementViewSpec_ = std::shared_ptr<HybridARPlacementViewSpec>;
+  std::shared_ptr<HybridARPlacementViewSpec> create_std__shared_ptr_HybridARPlacementViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridARPlacementViewSpec_(std__shared_ptr_HybridARPlacementViewSpec_ cppType);
+
+  // pragma MARK: std::weak_ptr<HybridARPlacementViewSpec>
+  using std__weak_ptr_HybridARPlacementViewSpec_ = std::weak_ptr<HybridARPlacementViewSpec>;
+  inline std__weak_ptr_HybridARPlacementViewSpec_ weakify_std__shared_ptr_HybridARPlacementViewSpec_(const std::shared_ptr<HybridARPlacementViewSpec>& strong) noexcept { return strong; }
+
   // pragma MARK: std::function<void(bool /* loaded */)>
   /**
    * Specialized version of `std::function<void(bool)>`.
@@ -232,21 +375,6 @@ namespace margelo::nitro::splat::bridge::swift {
     return optional.has_value();
   }
   inline CameraLimits get_std__optional_CameraLimits_(const std::optional<CameraLimits>& optional) noexcept {
-    return optional.value();
-  }
-
-  // pragma MARK: std::optional<double>
-  /**
-   * Specialized version of `std::optional<double>`.
-   */
-  using std__optional_double_ = std::optional<double>;
-  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
-    return std::optional<double>(value);
-  }
-  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
     return optional.value();
   }
 

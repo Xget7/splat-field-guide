@@ -55,6 +55,7 @@ The SAM license restricts military, warfare and ITAR-related uses; review those 
 | Masks | Eight-part reviewed prompts/keyframes; accepted revisions bind captures and imported byte identities have explicit receipt limits |
 | Pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) binds cloud/labels and source identities to the part mapping |
 | AR | Author-supplied Object Capture/Create ML output and reviewed landmark picks, with physical alignment acceptance pending |
+| V8 assembly | "V8 Engine" by little.bucket, CC BY-NC 4.0; [pinned source/prepared identities and order](../apps/field-guide/assets/ar/v8-engine.json), with final-pose baking and original geometry/materials retained |
 
 Exact producing COLMAP/Brush settings and SAM checkpoint identities are required for deterministic reproduction; byte identity alone does not recover execution settings.
 The Vulkan import excludes LOD, streaming, render policy and CPU sorting; its [source receipt](../packages/react-native-splat/engine/splatkit-android/UPSTREAM) identifies the retained files.

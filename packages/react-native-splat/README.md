@@ -1,6 +1,6 @@
 # react-native-splat
 
-Typed Nitro views wrap the shared C++ viewer with Metal on iOS and Vulkan on Android, plus an iOS-only RealityKit AR alignment check.
+Typed Nitro views wrap the shared C++ viewer with Metal on iOS and Vulkan on Android, plus iOS RealityKit placement/assembly and an AR alignment check.
 [ADR 0003](../../docs/adr/0003-shared-core-owns-viewer-behaviour.md) records ownership; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has build, test and codegen commands.
 
 ## How it draws
@@ -47,8 +47,13 @@ The podspec rejects missing/stale artifacts and directs the caller to repository
 | [C interface](engine/splatkit-engine/include/splatkit/sfg.h) | `sfg_begin_load` reserves ownership; `sfg_load_request` validates optional identity and rejects stale work; `sfg_load` performs unverified standalone loading |
 | [ARGuideView](src/ARGuideView.nitro.ts) | iOS only; local reference/landmarks and torch request; typed recognition, actual torch and optional telemetry events |
 | [ModelView](src/ModelView.nitro.ts) | iOS only; a bundled USDZ turning on a transparent background, all the way round or swaying either side of its front; reports whether it loaded and holds still under Reduce Motion |
+| [ARPlacementView](src/ARPlacementView.nitro.ts) | iOS only; local USDZ, uniform scale, optional elevation in metres above the detected surface, placement/reset requests and camera states; optional target assembly prefix, command identity, tour ordering, complete preview and native phase snapshots |
 
 Drawing sleeps when unchanged and pauses while inactive.
+Spatial placement requires detected horizontal plane geometry and normal camera tracking; the equipment stays under one anchor while the person walks, resizes, rotates or assembles it.
+The native assembly state machine preserves the authored hierarchy/transforms and reports the completed prefix, command identity and phase.
+Assembly translations take 1.35 seconds per part or repeated fastener/spring group; every controller in a group must finish before matching playback completion advances the sequence.
+A new forward command during active assembly completes its preceding target immediately before animating the new target; later parts stay hidden until their turn.
 The loader checks mapped-file digests and decoded source count on its worker before accepting content.
 Dropping a view detaches callbacks and stops its render thread; outstanding calls retain the engine until completion.
 C callbacks run on the reporting thread and must not wait for another engine call.
@@ -69,6 +74,7 @@ Android hashing selects ARMv8 SHA-256 instructions when the CPU supports them an
 
 The iOS viewer requires an A14-class GPU or later; Android requires Vulkan and API 29+ with enough memory for the selected tier.
 AR needs a physical iOS 27 iPhone and a separate reference; [acceptance](../../TASKS.md) covers recognition, registration and semantic camera masks.
+Spatial placement uses world tracking on the app's supported iOS versions and needs a physical device; the simulator reports that limitation.
 Camera metadata arrives at 1 Hz and does not measure model confidence or inference speed.
 Debug `FIELD_GUIDE_AR_DIAGNOSTICS=1` enables AR console metadata; viewer counters are exposed by `react-native-splat/src/diagnostics`.
 iOS Release keeps operational errors and disables diagnostic counters/console output; Android records load and frame timings in logcat.

@@ -3,6 +3,19 @@ Field Guide third-party notices
 License texts copied from distributions, vendored sources and version-pinned upstream files.
 
 ========================================================================
+V8 Engine
+Creator: little.bucket (https://sketchfab.com/little.bucket)
+License: Creative Commons Attribution-NonCommercial 4.0 International
+License terms: https://creativecommons.org/licenses/by-nc/4.0/
+Source: https://sketchfab.com/3d-models/v8-engine-90c115119767433fbf6f33dda1302893
+
+Field Guide samples the final assembled pose and replaces the original animation
+with an interactive exploded view and visual assembly tour.
+The original geometry, textures and part names are retained.
+The model license permits attributed noncommercial use.
+========================================================================
+
+========================================================================
 Geist fonts
 License: OFL-1.1
 Source: https://github.com/vercel/geist-font

@@ -76,6 +76,14 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 ONNX Runtime dependency notices are retained as one upstream document, including their individual licenses.
 The speech frontend uses Misaki/BART resources; no eSpeak or phonemizer code/data is bundled.
 
+## V8 spatial assembly capture (iOS)
+
+"V8 Engine" by little.bucket is licensed under [Creative Commons Attribution-NonCommercial 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
+The model's [source page](https://sketchfab.com/3d-models/v8-engine-90c115119767433fbf6f33dda1302893) is recorded in its embedded metadata.
+Field Guide samples the final assembled pose and replaces the original animation with a controllable exploded view and visual assembly tour.
+The capture's original geometry, textures and part names are retained.
+Attribution is visible in the assembly screen and included in the iOS bundled notices.
+
 ## Android inventory
 
 The APK includes the shared Geist, SplatKit, SPZ/zstd, JavaScript, React Native/Hermes and Nitro license sections from the iOS inventory.
