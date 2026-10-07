@@ -58,14 +58,16 @@ export function useAgentStatus() {
 
 let steps: readonly SwitchStep[] = [];
 let settledSwitchId: number | null = null;
+let previousMode = appEvents.latest('mode')?.mode ?? STARTUP_MODE.mode;
 // Steps arrive before the switching card mounts, so retain them from module load.
 appEvents.on('switchStep', step => {
   steps = mergeSwitchStep(steps, step);
 });
 appEvents.on('mode', status => {
-  if (!isSwitching(status.mode)) {
+  if (isSwitching(previousMode) && !isSwitching(status.mode)) {
     settledSwitchId = steps[0]?.switchId ?? settledSwitchId;
   }
+  previousMode = status.mode;
 });
 export function useSwitchSteps(): readonly SwitchStep[] {
   const snapshot = () => activeSwitchSteps(steps, settledSwitchId);
