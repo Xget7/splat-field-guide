@@ -5,11 +5,6 @@ You orbit a Gaussian splat of the machine, tap a part to see what it is, follow 
 The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
 It is tested on a physical iPhone and the iPad simulator; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
-<p>
-  <img src="docs/images/ipad-parts-tour.jpg" alt="Parts tour on iPad with the coolant reservoir highlighted" width="38%">
-  <img src="docs/images/android-explore.jpg" alt="Explore mode on the Android tablet emulator with the valve cover selected" width="60%">
-</p>
-
 ## Architecture
 
 A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
