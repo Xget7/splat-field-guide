@@ -142,6 +142,7 @@ describe('scripted questions', () => {
     'Why does my engine run badly?',
     'How does the coolant tank work?',
     'How do I check the coolant?',
+    'Where is the coolant reservoir and how do I check it?',
   ])('leaves "%s" to the model', question => {
     expect(isScripted(question, pack)).toBe(false);
   });

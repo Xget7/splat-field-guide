@@ -50,6 +50,8 @@ const QUESTION_OPENERS: ReadonlySet<string> = new Set([
   'what',
   'whats',
   'when',
+  'where',
+  'wheres',
   'which',
   'why',
 ]);
