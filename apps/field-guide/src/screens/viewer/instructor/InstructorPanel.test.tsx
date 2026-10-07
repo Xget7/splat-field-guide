@@ -223,6 +223,51 @@ describe('instructor panel modes', () => {
     expect(button('Go offline')).toBeUndefined();
   });
 
+  test.each([
+    {
+      mode: PanelMode.expanded,
+      id: 'instructor-voice-status',
+      reducedMotion: false,
+    },
+    {
+      mode: PanelMode.minimized,
+      id: 'instructor-status',
+      reducedMotion: false,
+    },
+    {
+      mode: PanelMode.expanded,
+      id: 'instructor-voice-status',
+      reducedMotion: true,
+    },
+    { mode: PanelMode.minimized, id: 'instructor-status', reducedMotion: true },
+  ])(
+    '$mode keeps one persistent status label when listening starts (Reduce Motion: $reducedMotion)',
+    async ({ mode: panelMode, id, reducedMotion }) => {
+      jest.mocked(useReducedMotion).mockReturnValue(reducedMotion);
+      await mount({ mode: panelMode, voice: { on: true } });
+      const labels = () =>
+        renderer.root
+          .findAllByType(Text)
+          .filter(node => node.props.testID === id);
+      const label = labels()[0];
+      expect(label.props.children).toBe('Starting');
+      await act(() =>
+        renderer.update(
+          <Panel
+            mode={panelMode}
+            voice={{ on: true, open: true, state: VoiceState.listening }}
+          />,
+        ),
+      );
+      expect(labels()).toHaveLength(1);
+      expect(labels()[0].props.children).toBe('Listening');
+      expect(labels()[0]).toBe(label);
+      await act(() => renderer.update(<Panel mode={panelMode} />));
+      expect(hasText('Starting')).toBe(false);
+      expect(hasText('Listening')).toBe(false);
+    },
+  );
+
   test('an idle minimized panel reads Offline', async () => {
     await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
     await mount({ mode: PanelMode.minimized });

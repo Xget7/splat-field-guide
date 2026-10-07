@@ -114,6 +114,40 @@ function voiceStatus(voice: InstructorVoice): string {
   return voice.open ? MicStatus.open : MicStatus.starting;
 }
 
+function StatusLabel({
+  status,
+  color,
+  id,
+}: {
+  status: string | null;
+  color: string;
+  id: string;
+}) {
+  const reducedMotion = useReducedMotion();
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    cancelAnimation(opacity);
+    opacity.value = reducedMotion ? 1 : 0;
+    if (!reducedMotion) {
+      opacity.value = withTiming(1, {
+        duration: Motion.fast,
+        easing: Easing.out(Easing.exp),
+      });
+    }
+    return () => cancelAnimation(opacity);
+  }, [status, reducedMotion, opacity]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View style={style}>
+      {status !== null && (
+        <Label testID={id} color={color}>
+          {status}
+        </Label>
+      )}
+    </Animated.View>
+  );
+}
+
 const SPAN_COLOR: Readonly<Record<SpanKind, string>> = {
   spoken: Color.text,
   current: Color.accent,
@@ -158,7 +192,6 @@ export function InstructorStatus({
   minimized?: boolean;
 }) {
   const mode = useModeView();
-  const reducedMotion = useReducedMotion();
   const thinking = voice.state === VoiceState.thinking;
   const switching = minimized && isSwitching(mode.mode);
   const idleNotice =
@@ -176,26 +209,18 @@ export function InstructorStatus({
     status = mode.minimizedStatusText;
   }
   return (
-    <Animated.View
-      key={status}
-      entering={reducedMotion ? undefined : FADE_IN}
-      exiting={reducedMotion ? undefined : FADE_OUT}
-      style={styles.status}
-    >
-      {status !== null && (
-        <Label
-          testID="instructor-status"
-          color={
-            idleNotice && mode.mode === InstructorMode.offline
-              ? Color.caution
-              : statusColor(status)
-          }
-        >
-          {status}
-        </Label>
-      )}
+    <View style={styles.status}>
+      <StatusLabel
+        id="instructor-status"
+        status={status}
+        color={
+          idleNotice && mode.mode === InstructorMode.offline
+            ? Color.caution
+            : statusColor(status)
+        }
+      />
       {live && <LevelMeter level={voice.level} />}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -225,16 +250,11 @@ export function VoiceBar({ voice }: { voice: InstructorVoice }) {
         accessibilityLiveRegion="polite"
         style={styles.voiceReadout}
       >
-        <Animated.View
-          key={status}
-          entering={FADE_IN}
-          exiting={FADE_OUT}
-          style={styles.status}
-        >
-          <Label testID="instructor-voice-status" color={statusColor(status)}>
-            {status}
-          </Label>
-        </Animated.View>
+        <StatusLabel
+          id="instructor-voice-status"
+          status={status}
+          color={statusColor(status)}
+        />
         <LevelMeter level={voice.level} />
       </View>
       <MuteButton voice={voice} inset />
