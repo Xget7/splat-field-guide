@@ -1,9 +1,9 @@
 import { stageDocksFor } from '../apps/field-guide/src/screens/viewer/stage/stageDocks';
 import { Space } from '../apps/field-guide/src/ui/theme';
 
-// The stage beside the open drawer on a 13 inch iPad in landscape, and the five-tool row.
+// The stage beside the open drawer on a 13 inch iPad in landscape, and the six-tool row.
 const STAGE_WIDTH = 983;
-const TOOLS_WIDTH = 288;
+const TOOLS_WIDTH = 368;
 
 describe('stage docks', () => {
   test('centres the tool row between the stage edge and the collapsed assistant', () => {

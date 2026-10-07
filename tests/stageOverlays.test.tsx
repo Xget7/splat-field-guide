@@ -3,6 +3,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Text, View } from 'react-native';
 import { Breadcrumb } from '../apps/field-guide/src/screens/viewer/stage/Breadcrumb';
 import { PartCard } from '../apps/field-guide/src/screens/viewer/stage/PartCard';
+import { DevPanel } from '../apps/field-guide/src/screens/viewer/stage/DevPanel';
 import { ToolDock } from '../apps/field-guide/src/screens/viewer/stage/ToolDock';
 import { fixturePack } from './fixturePack';
 
@@ -13,6 +14,7 @@ jest.mock('react-native-gesture-handler', () => ({
 
 const AREA = 'Engine bay';
 const PARTS = fixturePack().parts;
+const LOADED_MS = 1234;
 const STAGE = { width: 900, height: 700 };
 const CLEAR = { top: 100, right: 24, bottom: 100, left: 24 };
 
@@ -93,7 +95,7 @@ describe('stage overlays', () => {
     expect(renderer.toJSON()).toBeNull();
   });
 
-  test('dock actions use controlled toggles, disable repeat and dismiss help', async () => {
+  test('dock actions use controlled toggles, disable repeat and dismiss help and dev', async () => {
     const onRecenter = jest.fn();
     const onToggleLabels = jest.fn();
     const onRepeat = jest.fn();
@@ -103,6 +105,7 @@ describe('stage overlays', () => {
         labelsOn={enabled}
         fullView={enabled}
         canRepeat={enabled}
+        dev={<DevPanel pack={fixturePack()} loadedMs={LOADED_MS} />}
         onRecenter={onRecenter}
         onToggleLabels={onToggleLabels}
         onRepeat={onRepeat}
@@ -117,6 +120,7 @@ describe('stage overlays', () => {
       'Part labels',
       'Repeat step',
       'Help',
+      'Developer details',
       'Full view',
     ]);
     expect(button('Repeat step').props.disabled).toBe(true);
@@ -165,5 +169,18 @@ describe('stage overlays', () => {
     await act(() => button('Dismiss help').props.onPress());
     expect(button('Help').props.accessibilityState.expanded).toBe(false);
     expect(text()).not.toContain('Pinch to zoom.');
+
+    await act(() => button('Help').props.onPress());
+    await act(() => button('Developer details').props.onPress());
+    expect(button('Help').props.accessibilityState.expanded).toBe(false);
+    expect(button('Developer details').props.accessibilityState.expanded).toBe(
+      true,
+    );
+    expect(text()).not.toContain('Pinch to zoom.');
+    expect(text()).toEqual(
+      expect.arrayContaining(['Online', 'Claude', '1.2 s']),
+    );
+    await act(() => button('Dismiss developer details').props.onPress());
+    expect(text()).not.toContain('1.2 s');
   });
 });

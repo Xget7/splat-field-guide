@@ -70,6 +70,8 @@ interface Props {
   /** A part a child card labels in place of its tag, through `useProjection`. */
   carded?: PartId | null;
   onSelect: (partId: PartId | null) => void;
+  /** Reports once how long the cloud took from mounting to its first frame. */
+  onLoaded?: (milliseconds: number) => void;
   children?: ReactNode;
 }
 
@@ -93,6 +95,7 @@ function Viewport({
   markers = true,
   carded = null,
   onSelect,
+  onLoaded,
   children,
 }: Props) {
   const [view, setView] = useState<SplatViewSpec | null>(null);
@@ -124,6 +127,10 @@ function Viewport({
     size,
   });
   currentInputs.current = { session, pack, view, frameRequest, closeUp, size };
+  const mountedAt = useRef(Date.now());
+  const loadReported = useRef(false);
+  const reportLoaded = useRef(onLoaded);
+  reportLoaded.current = onLoaded;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -165,6 +172,10 @@ function Viewport({
   const onReady = useCallback(() => {
     setReady(true);
     setError('');
+    if (!loadReported.current) {
+      loadReported.current = true;
+      reportLoaded.current?.(Date.now() - mountedAt.current);
+    }
   }, []);
   const onError = useCallback((failure: SplatError) => {
     generation.current += 1;

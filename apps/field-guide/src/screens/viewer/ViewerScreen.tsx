@@ -32,6 +32,7 @@ import { Capability, DRAWER_IN, DRAWER_OUT } from './shell/layout';
 import { ViewerRail } from './shell/ViewerRail';
 import { Breadcrumb } from './stage/Breadcrumb';
 import { PartCard } from './stage/PartCard';
+import { DevPanel } from './stage/DevPanel';
 import { ToolDock } from './stage/ToolDock';
 import { cardClearanceFor, stageDocksFor } from './stage/stageDocks';
 import type { Size } from '../../features/viewport/projectedParts';
@@ -135,6 +136,7 @@ function Viewer({
   const [labelsOn, setLabelsOn] = useState(true);
   // Recentering frames the step again without asking the instructor to repeat it.
   const [recenters, setRecenters] = useState(0);
+  const [loadedMs, setLoadedMs] = useState<number | null>(null);
   const [stage, setStage] = useState<Size>(NO_SIZE);
   const [toolsWidth, setToolsWidth] = useState(0);
   const docks = stageDocksFor(stage.width, toolsWidth);
@@ -304,6 +306,7 @@ function Viewer({
               labelsOn={labelsOn}
               fullView={fullView}
               canRepeat={!exploring}
+              dev={<DevPanel pack={pack} loadedMs={loadedMs} />}
               onRecenter={() => setRecenters(count => count + 1)}
               onToggleLabels={() => setLabelsOn(on => !on)}
               onRepeat={onRepeat}
@@ -343,6 +346,7 @@ function Viewer({
       markers={labelsOn}
       carded={wide ? cardPart?.id ?? null : null}
       onSelect={onSelectPart}
+      onLoaded={setLoadedMs}
     >
       {!wide && (
         <View style={styles.toolsTop}>

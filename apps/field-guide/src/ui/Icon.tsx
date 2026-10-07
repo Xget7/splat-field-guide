@@ -31,6 +31,7 @@ export const IconName = {
   tag: 'tag',
   layers: 'layers',
   sidebar: 'sidebar',
+  code: 'code',
 } as const;
 export type IconName = (typeof IconName)[keyof typeof IconName];
 
@@ -133,6 +134,7 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
       <Path d="M9 4v16" />
     </>
   ),
+  code: () => <Path d="M16 18l6-6-6-6M8 6l-6 6 6 6" />,
   stop: color => (
     <Rect
       x={6}

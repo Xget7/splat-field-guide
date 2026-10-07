@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentRef } from 'react';
+import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import {
   Modal,
   Pressable,
@@ -19,28 +19,43 @@ import Animated, {
 import { Glass, GlassTone } from '../../../ui/Glass';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, Motion, Radius, Space, Type } from '../../../ui/theme';
+import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
 
-export const TOOL_DIAMETER = 48;
+/** The tool row fills the bottom band, so it lines up with the collapsed assistant. */
+export const TOOLS_HEIGHT = BOTTOM_BAND_HEIGHT;
+const TOOL_WIDTH = 60;
+const ICON_DIAMETER = 32;
 const ICON_SIZE = 20;
 const PRESSED_SCALE = 0.94;
 const ACTIVE_RING = 1.5;
 const DISABLED_OPACITY = 0.4;
 const HELP_WIDTH = 280;
+const DEV_WIDTH = 320;
 const ToolCopy = {
   recenter: 'Recenter view',
   labels: 'Part labels',
   repeat: 'Repeat step',
   help: 'Help',
+  dev: 'Developer details',
   fullView: 'Full view',
-  dismissHelp: 'Dismiss help',
   recenterHint: 'Return to the starting view',
   labelsOnHint: 'Hide part labels',
   labelsOffHint: 'Show part labels',
   repeatHint: 'Hear the current step again',
   helpHint: 'Show how to move around the picture',
-  dismissHelpHint: 'Return to the viewer',
+  devHint: 'Show what the app is running on',
+  dismissHint: 'Return to the viewer',
   fullViewOnHint: 'Show the drawer',
   fullViewOffHint: 'Give the picture the whole stage',
+} as const;
+// Short names under the icons; the buttons keep their full accessibility labels.
+const Caption = {
+  recenter: 'Recenter',
+  labels: 'Labels',
+  repeat: 'Repeat',
+  help: 'Help',
+  dev: 'Dev',
+  fullView: 'Full view',
 } as const;
 const HELP_LINES = [
   'Drag to turn the model.',
@@ -50,10 +65,23 @@ const HELP_LINES = [
 const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 
+const Popover = { help: 'help', dev: 'dev' } as const;
+type Popover = (typeof Popover)[keyof typeof Popover];
+const POPOVER_WIDTH: Record<Popover, number> = {
+  [Popover.help]: HELP_WIDTH,
+  [Popover.dev]: DEV_WIDTH,
+};
+const DISMISS_LABEL: Record<Popover, string> = {
+  [Popover.help]: 'Dismiss help',
+  [Popover.dev]: 'Dismiss developer details',
+};
+
 interface Props {
   labelsOn: boolean;
   fullView: boolean;
   canRepeat: boolean;
+  /** The Dev button's panel. */
+  dev: ReactNode;
   onRecenter: () => void;
   onToggleLabels: () => void;
   onRepeat: () => void;
@@ -63,6 +91,7 @@ interface Props {
 interface ToolProps {
   icon: IconName;
   label: string;
+  caption: string;
   hint: string;
   selected?: boolean;
   expanded?: boolean;
@@ -73,6 +102,7 @@ interface ToolProps {
 function Tool({
   icon,
   label,
+  caption,
   hint,
   selected,
   expanded,
@@ -89,6 +119,7 @@ function Tool({
       duration: reducedMotion ? 0 : Motion.fast,
     });
   };
+  const active = selected === true || expanded === true;
 
   return (
     <Pressable
@@ -100,20 +131,24 @@ function Tool({
       onPress={onPress}
       onPressIn={() => press(true)}
       onPressOut={() => press(false)}
-      style={styles.touch}
+      style={styles.tool}
     >
-      <Animated.View style={[pressedStyle, disabled && styles.disabled]}>
-        <Glass
-          tone={GlassTone.clear}
-          radius={Radius.round}
-          style={[styles.button, selected && styles.active]}
-        >
+      <Animated.View
+        style={[styles.toolBody, pressedStyle, disabled && styles.disabled]}
+      >
+        <View style={[styles.icon, active && styles.active]}>
           <Icon
             name={icon}
             size={ICON_SIZE}
-            color={selected ? Color.accentText : Color.text}
+            color={active ? Color.accentText : Color.text}
           />
-        </Glass>
+        </View>
+        <Text
+          style={[styles.caption, active && styles.activeCaption]}
+          numberOfLines={1}
+        >
+          {caption}
+        </Text>
       </Animated.View>
     </Pressable>
   );
@@ -123,6 +158,7 @@ export function ToolDock({
   labelsOn,
   fullView,
   canRepeat,
+  dev,
   onRecenter,
   onToggleLabels,
   onRepeat,
@@ -130,26 +166,27 @@ export function ToolDock({
 }: Props) {
   const dock = useRef<ComponentRef<typeof View>>(null);
   const window = useWindowDimensions();
-  const [helpAnchor, setHelpAnchor] = useState<{
+  const [popover, setPopover] = useState<{
+    kind: Popover;
     x: number;
     y: number;
     width: number;
   } | null>(null);
-  const helpWidth = Math.min(
-    HELP_WIDTH,
+  const popoverWidth = Math.min(
+    popover === null ? HELP_WIDTH : POPOVER_WIDTH[popover.kind],
     Math.max(0, window.width - Space.lg * 2),
   );
-  const dismissHelp = () => setHelpAnchor(null);
-  const measureHelp = () => {
+  const dismiss = () => setPopover(null);
+  const measure = (kind: Popover) => {
     dock.current?.measureInWindow((x, y, width) =>
-      setHelpAnchor({ x, y, width }),
+      setPopover({ kind, x, y, width }),
     );
   };
-  const toggleHelp = () => {
-    if (helpAnchor === null) {
-      measureHelp();
+  const toggle = (kind: Popover) => {
+    if (popover?.kind === kind) {
+      dismiss();
     } else {
-      dismissHelp();
+      measure(kind);
     }
   };
 
@@ -160,86 +197,100 @@ export function ToolDock({
       testID="stage-tool-dock"
       role="toolbar"
       onLayout={() => {
-        if (helpAnchor !== null) {
-          measureHelp();
+        if (popover !== null) {
+          measure(popover.kind);
         }
       }}
-      style={styles.dock}
     >
-      <Tool
-        icon={IconName.frame}
-        label={ToolCopy.recenter}
-        hint={ToolCopy.recenterHint}
-        onPress={onRecenter}
-      />
-      <Tool
-        icon={IconName.tag}
-        label={ToolCopy.labels}
-        hint={labelsOn ? ToolCopy.labelsOnHint : ToolCopy.labelsOffHint}
-        selected={labelsOn}
-        onPress={onToggleLabels}
-      />
-      <Tool
-        icon={IconName.repeat}
-        label={ToolCopy.repeat}
-        hint={ToolCopy.repeatHint}
-        disabled={!canRepeat}
-        onPress={onRepeat}
-      />
-      <Tool
-        icon={IconName.help}
-        label={ToolCopy.help}
-        hint={ToolCopy.helpHint}
-        expanded={helpAnchor !== null}
-        onPress={toggleHelp}
-      />
-      <Tool
-        icon={IconName.sidebar}
-        label={ToolCopy.fullView}
-        hint={fullView ? ToolCopy.fullViewOnHint : ToolCopy.fullViewOffHint}
-        selected={fullView}
-        onPress={onToggleFullView}
-      />
+      <Glass tone={GlassTone.strong} radius={Radius.card} style={styles.dock}>
+        <Tool
+          icon={IconName.frame}
+          label={ToolCopy.recenter}
+          caption={Caption.recenter}
+          hint={ToolCopy.recenterHint}
+          onPress={onRecenter}
+        />
+        <Tool
+          icon={IconName.tag}
+          label={ToolCopy.labels}
+          caption={Caption.labels}
+          hint={labelsOn ? ToolCopy.labelsOnHint : ToolCopy.labelsOffHint}
+          selected={labelsOn}
+          onPress={onToggleLabels}
+        />
+        <Tool
+          icon={IconName.repeat}
+          label={ToolCopy.repeat}
+          caption={Caption.repeat}
+          hint={ToolCopy.repeatHint}
+          disabled={!canRepeat}
+          onPress={onRepeat}
+        />
+        <Tool
+          icon={IconName.help}
+          label={ToolCopy.help}
+          caption={Caption.help}
+          hint={ToolCopy.helpHint}
+          expanded={popover?.kind === Popover.help}
+          onPress={() => toggle(Popover.help)}
+        />
+        <Tool
+          icon={IconName.code}
+          label={ToolCopy.dev}
+          caption={Caption.dev}
+          hint={ToolCopy.devHint}
+          expanded={popover?.kind === Popover.dev}
+          onPress={() => toggle(Popover.dev)}
+        />
+        <Tool
+          icon={IconName.sidebar}
+          label={ToolCopy.fullView}
+          caption={Caption.fullView}
+          hint={fullView ? ToolCopy.fullViewOnHint : ToolCopy.fullViewOffHint}
+          selected={fullView}
+          onPress={onToggleFullView}
+        />
+      </Glass>
       <Modal
-        visible={helpAnchor !== null}
+        visible={popover !== null}
         transparent
         statusBarTranslucent
         navigationBarTranslucent
         animationType="none"
-        onRequestClose={dismissHelp}
+        onRequestClose={dismiss}
         supportedOrientations={['portrait', 'landscape']}
       >
         <View
-          style={styles.helpLayer}
+          style={styles.layer}
           accessibilityViewIsModal
-          onAccessibilityEscape={dismissHelp}
+          onAccessibilityEscape={dismiss}
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={ToolCopy.dismissHelp}
-            accessibilityHint={ToolCopy.dismissHelpHint}
+            accessibilityLabel={DISMISS_LABEL[popover?.kind ?? Popover.help]}
+            accessibilityHint={ToolCopy.dismissHint}
             accessibilityState={{ disabled: false }}
-            onPress={dismissHelp}
+            onPress={dismiss}
             style={StyleSheet.absoluteFill}
           />
-          {helpAnchor !== null && (
+          {popover !== null && (
             <Animated.View
               entering={FADE_IN}
               exiting={FADE_OUT}
               style={[
                 styles.popover,
                 {
-                  width: helpWidth,
+                  width: popoverWidth,
                   left: Math.max(
                     Space.lg,
                     Math.min(
-                      helpAnchor.x + (helpAnchor.width - helpWidth) / 2,
-                      window.width - helpWidth - Space.lg,
+                      popover.x + (popover.width - popoverWidth) / 2,
+                      window.width - popoverWidth - Space.lg,
                     ),
                   ),
                   bottom: Math.max(
                     Space.lg,
-                    window.height - helpAnchor.y + Space.md,
+                    window.height - popover.y + Space.md,
                   ),
                 },
               ]}
@@ -247,13 +298,15 @@ export function ToolDock({
               <Glass
                 tone={GlassTone.strong}
                 radius={Radius.card}
-                style={styles.helpContent}
+                style={styles.popoverContent}
               >
-                {HELP_LINES.map(line => (
-                  <Text key={line} style={styles.helpLine}>
-                    {line}
-                  </Text>
-                ))}
+                {popover.kind === Popover.dev
+                  ? dev
+                  : HELP_LINES.map(line => (
+                      <Text key={line} style={styles.helpLine}>
+                        {line}
+                      </Text>
+                    ))}
               </Glass>
             </Animated.View>
           )}
@@ -264,11 +317,22 @@ export function ToolDock({
 }
 
 const styles = StyleSheet.create({
-  dock: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
-  touch: { width: TOOL_DIAMETER, height: TOOL_DIAMETER },
-  button: {
-    width: TOOL_DIAMETER,
-    height: TOOL_DIAMETER,
+  dock: {
+    flexDirection: 'row',
+    height: TOOLS_HEIGHT,
+    paddingHorizontal: Space.xs,
+  },
+  tool: { width: TOOL_WIDTH, height: TOOLS_HEIGHT },
+  toolBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Space.xxs,
+  },
+  icon: {
+    width: ICON_DIAMETER,
+    height: ICON_DIAMETER,
+    borderRadius: Radius.round,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -277,9 +341,11 @@ const styles = StyleSheet.create({
     borderWidth: ACTIVE_RING,
     borderColor: Color.accent,
   },
+  caption: { ...Type.caption, color: Color.secondaryText },
+  activeCaption: { color: Color.text },
   disabled: { opacity: DISABLED_OPACITY },
-  helpLayer: { flex: 1 },
+  layer: { flex: 1 },
   popover: { position: 'absolute' },
-  helpContent: { padding: Space.lg, gap: Space.sm },
+  popoverContent: { padding: Space.lg, gap: Space.sm },
   helpLine: { ...Type.callout, color: Color.text },
 });

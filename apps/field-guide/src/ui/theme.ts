@@ -105,6 +105,7 @@ export const Type = {
   calloutStrong: { fontFamily: Font.semiBold, fontSize: 15, lineHeight: 20 },
   footnote: { fontFamily: Font.regular, fontSize: 13, lineHeight: 18 },
   label: { fontFamily: Font.semiBold, fontSize: 13, lineHeight: 18 },
+  caption: { fontFamily: Font.regular, fontSize: 12, lineHeight: 16 },
   data: {
     fontFamily: Font.regular,
     fontSize: 13,

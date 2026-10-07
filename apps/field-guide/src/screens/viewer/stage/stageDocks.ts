@@ -5,7 +5,7 @@ import {
 } from '../assistant/AssistantDock';
 import type { Size } from '../../../features/viewport/projectedParts';
 import type { Clearance } from './cardPlacement';
-import { TOOL_DIAMETER } from './ToolDock';
+import { TOOLS_HEIGHT } from './ToolDock';
 
 // Narrower than this, the collapsed assistant's title crowds its mic button.
 const MIN_COLLAPSED_WIDTH = 240;
@@ -52,7 +52,7 @@ export function stageDocksFor(
     assistantWidth: besideWidth,
     assistantExpandedWidth,
     toolsRight,
-    toolsLift: (DOCK_COLLAPSED.height - TOOL_DIAMETER) / 2,
+    toolsLift: (DOCK_COLLAPSED.height - TOOLS_HEIGHT) / 2,
     toolsCovered:
       (stageWidth - toolsRight + toolsWidth) / 2 + Space.lg >
       stageWidth - Space.lg - assistantExpandedWidth,
@@ -80,7 +80,7 @@ export function cardClearanceFor(
 ): Clearance {
   const docked =
     bottomMargin +
-    Math.max(DOCK_COLLAPSED.height, docks.toolsLift + TOOL_DIAMETER) +
+    Math.max(DOCK_COLLAPSED.height, docks.toolsLift + TOOLS_HEIGHT) +
     Space.sm;
   const closed = { top, right: Space.lg, bottom: docked, left: Space.lg };
   if (openAssistantHeight === null) {
