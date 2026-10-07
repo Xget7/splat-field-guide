@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Dimensions, Keyboard, Modal, StyleSheet } from 'react-native';
+import { Dimensions, Keyboard, Modal, StyleSheet, Text } from 'react-native';
 import {
   useReducedMotion,
   withRepeat,
@@ -341,10 +341,7 @@ describe('viewer screen', () => {
     const phone = Dimensions.get('window');
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
-      await mount({
-        procedureId: 'check-brake-fluid',
-        mode: LearnMode.instructor,
-      });
+      await mount({ procedureId: TOUR_ID, mode: LearnMode.instructor });
       const question = 'check the coolant';
       await act(async () => debug().ask(question));
       const step = procedure('check-coolant').steps[0];
@@ -352,6 +349,9 @@ describe('viewer screen', () => {
       expect(
         [text('step-current-text'), text('step-current-detail')].join(' '),
       ).toBe(step.text);
+      expect(node('thread-entry-0').findByType(Text).props.children).toBe(
+        'Coolant reservoir',
+      );
       expect(text('instructor-question')).toBe(question);
       expect(has('instructor-reply')).toBe(false);
       expect(

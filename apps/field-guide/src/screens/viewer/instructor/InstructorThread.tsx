@@ -30,7 +30,7 @@ import {
   VoiceState,
   type InstructorVoice,
 } from '../../../features/instructor/voice/useInstructorVoice';
-import type { CardContent } from '../guideContent';
+import { CardKind, type CardContent } from '../guideContent';
 import {
   EntryKind,
   ExchangePhase,
@@ -54,11 +54,11 @@ const ThreadFade = {
   clear: 0,
 } as const;
 
+// Tour steps are parts, so they are named like the tour's step list names them.
 function entryLabel(card: CardContent): string {
-  if (card.selected || card.stepCount === 0) {
-    return card.title;
-  }
-  return stepLabel(card.stepNumber, card.stepCount);
+  return card.kind === CardKind.procedure
+    ? stepLabel(card.stepNumber, card.stepCount)
+    : card.title;
 }
 
 function entryKey(entry: ThreadEntry): string {
