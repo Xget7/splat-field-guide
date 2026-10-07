@@ -1,4 +1,4 @@
-import { stepKeyFor } from '../../features/instructor/agent/agentTools';
+import { stepKeyFor } from '../../features/instructor/voice/voiceSession';
 import type { Pack, ProcedureId } from '../../features/pack/pack';
 import {
   INITIAL_SESSION,
@@ -170,6 +170,20 @@ export function reduceViewer(
         case TurnEventType.partial:
           return { ...state, exchange: event.exchange };
         case TurnEventType.answer:
+          if (
+            event.exchange.interrupted &&
+            state.exchange?.id !== event.exchange.id
+          ) {
+            return {
+              ...state,
+              thread: state.thread.map(entry =>
+                entry.kind === EntryKind.exchange &&
+                entry.exchange.id === event.exchange.id
+                  ? { ...entry, exchange: event.exchange }
+                  : entry,
+              ),
+            };
+          }
           return event.answer.event === null
             ? { ...state, exchange: event.exchange }
             : apply(state, event.answer.event, pack, event.exchange);

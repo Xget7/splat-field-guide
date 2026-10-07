@@ -38,6 +38,7 @@ import type { CardContent } from '../guideContent';
 import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { InstructorThread } from './InstructorThread';
 import { ModeArea } from './ModeArea';
+import { AppEvent } from '../../../features/events/types';
 import { appEvents } from '../../../features/events/bus';
 import { isSwitching } from '../../../features/events/mode';
 import { toggleFor, useModeView } from './useModeView';
@@ -346,7 +347,7 @@ export function InstructorPanel({
                 variant={ButtonVariant.quiet}
                 accessibilityHint={modeToggle.hint}
                 onPress={() =>
-                  appEvents.emit('modeRequest', {
+                  appEvents.emit(AppEvent.modeRequest, {
                     type: modeToggle.requestType,
                   })
                 }

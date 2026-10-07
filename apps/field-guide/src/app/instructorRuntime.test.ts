@@ -1,6 +1,23 @@
+import { fakeAgentTransport } from '../testing/agentTransport';
+import {
+  AppEvent,
+  VoiceSource,
+  AgentState,
+  ConnectionFailure,
+} from '../features/events/types';
+import {
+  UtteranceKind,
+  utteranceId,
+} from '../features/instructor/voice/voiceSession';
+import {
+  SpeechVoice,
+  VOICE_LOCALE,
+} from '../features/instructor/voice/voiceCopy';
 import { speechInput, speechOutput } from 'react-native-on-device';
 import { createEventBus } from '../features/events/bus';
 import type { AppEvents } from '../features/events/types';
+import { foregroundAppState, voiceEvents } from '../testing/voiceSession';
+import { SwitchLabel } from '../features/instructor/mode/modeCopy';
 import { fixturePack } from '../testing/fixturePack';
 import { createInstructorRuntime } from './instructorRuntime';
 import type { NetworkPath } from 'react-native-on-device';
@@ -13,6 +30,7 @@ test('airplane mode prepares every offline piece and falls back to the script', 
   let path!: (value: NetworkPath) => void;
   const runtime = createInstructorRuntime({
     appEvents,
+    appState: foregroundAppState,
     proxyUrl: 'https://proxy.example',
     networkMonitor: () => ({
       start: callback => {
@@ -51,6 +69,7 @@ test('airplane mode prepares every offline piece and falls back to the script', 
   expect(appEvents.latest('switchStep')).toMatchObject({
     state: 'ready',
     piece: 'listening',
+    label: SwitchLabel.deviceListening,
   });
   runtime.stop();
 });
@@ -76,6 +95,7 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
   }));
   const runtime = createInstructorRuntime({
     appEvents,
+    appState: foregroundAppState,
     proxyUrl: 'https://proxy.example',
     networkMonitor: () => ({
       start: callback => {
@@ -112,7 +132,7 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
     voice: 'agent',
     answers: 'claude',
   });
-  const session = runtime.sessionFor(appEvents.latest('mode')!, pack);
+  const session = runtime.sessionFor(pack)!.session;
   const started = session.start(
     {
       pack,
@@ -120,19 +140,7 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
       history: [],
       thinking: false,
     },
-    {
-      listening: jest.fn(),
-      transcript: jest.fn(),
-      speaking: jest.fn(),
-      word: jest.fn(),
-      level: jest.fn(),
-      hint: jest.fn(),
-      question: jest.fn(),
-      cancelQuestion: jest.fn(),
-      turn: jest.fn(),
-      action: jest.fn(),
-      ended: jest.fn(),
-    },
+    voiceEvents(),
   );
   await jest.advanceTimersByTimeAsync(0);
   connect.mock.results[0].value.onopen?.();
@@ -158,6 +166,7 @@ test('quota keeps later conversations on device for the run and offline question
   );
   const runtime = createInstructorRuntime({
     appEvents,
+    appState: foregroundAppState,
     proxyUrl: 'https://proxy.example',
     networkMonitor: () => ({
       start: callback => {
@@ -181,8 +190,7 @@ test('quota keeps later conversations on device for the run and offline question
   };
   path(route);
   await jest.advanceTimersByTimeAsync(0);
-  const status = appEvents.latest('mode')!;
-  const session = runtime.sessionFor(status, pack);
+  const session = runtime.sessionFor(pack)!.session;
   await session.start(
     {
       pack,
@@ -190,19 +198,7 @@ test('quota keeps later conversations on device for the run and offline question
       history: [],
       thinking: false,
     },
-    {
-      listening: jest.fn(),
-      transcript: jest.fn(),
-      speaking: jest.fn(),
-      word: jest.fn(),
-      level: jest.fn(),
-      hint: jest.fn(),
-      question: jest.fn(),
-      cancelQuestion: jest.fn(),
-      turn: jest.fn(),
-      action: jest.fn(),
-      ended: jest.fn(),
-    },
+    voiceEvents(),
   );
   expect(appEvents.latest('mode')).toMatchObject({
     mode: 'online',
@@ -213,7 +209,7 @@ test('quota keeps later conversations on device for the run and offline question
     reason: 'quota',
   });
   session.stop();
-  expect(runtime.sessionFor(status, pack).kind).toBe('pipeline');
+  expect(runtime.sessionFor(pack)?.questions).toBeNull();
   path({ ...route, satisfied: false });
   await jest.advanceTimersByTimeAsync(600);
   await runtime.instructor.ask(
@@ -237,5 +233,131 @@ test('quota keeps later conversations on device for the run and offline question
       String(address).endsWith('/v1/voice/session'),
     ),
   ).toHaveLength(1);
+  runtime.stop();
+});
+
+test('backgrounding closes the conversation without reconnecting', async () => {
+  const appEvents = createEventBus<AppEvents>();
+  let background!: (state: import('react-native').AppStateStatus) => void;
+  const connect = jest.fn(() => ({
+    send: jest.fn(),
+    close: jest.fn(),
+    onopen: null as (() => void) | null,
+    onmessage: null,
+    onerror: null,
+    onclose: null,
+  }));
+  const fetchImpl = jest.fn(async () => ({
+    status: 200,
+    json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+  }));
+  const runtime = createInstructorRuntime({
+    appEvents,
+    proxyUrl: 'https://proxy.example',
+    connect,
+    fetch: fetchImpl as unknown as typeof fetch,
+    appState: {
+      currentState: 'active',
+      addEventListener: (_event, callback) => {
+        background = callback;
+        return { remove: jest.fn() };
+      },
+    },
+  });
+  runtime.start();
+  const pack = fixturePack();
+  const session = runtime.sessionFor(pack)!.session;
+  const started = session.start(
+    {
+      pack,
+      state: { procedureId: null, stepIndex: 0, selectedPart: null },
+      history: [],
+      thinking: false,
+    },
+    {
+      listening: jest.fn(),
+      transcript: jest.fn(),
+      speaking: jest.fn(),
+      word: jest.fn(),
+      level: jest.fn(),
+      hint: jest.fn(),
+      question: jest.fn(),
+      cancelQuestion: jest.fn(),
+      turn: jest.fn(),
+      action: jest.fn(),
+      ended: jest.fn(),
+    },
+  );
+  await jest.advanceTimersByTimeAsync(0);
+  connect.mock.results[0].value.onopen?.();
+  await started;
+  background('background');
+  expect(connect.mock.results[0].value.close).toHaveBeenCalled();
+  await jest.advanceTimersByTimeAsync(30000);
+  expect(connect).toHaveBeenCalledTimes(1);
+  runtime.stop();
+});
+
+test('active quota marks the agent unavailable and keeps this conversation and the next on device', async () => {
+  const appEvents = createEventBus<AppEvents>();
+  const transport = fakeAgentTransport();
+  const runtime = createInstructorRuntime({
+    appEvents,
+    appState: foregroundAppState,
+    proxyUrl: 'https://proxy.example',
+    connect: transport.connect,
+    fetch: jest.fn(async () => ({
+      status: 200,
+      json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+    })) as unknown as typeof fetch,
+  });
+  const pack = fixturePack();
+  const context = {
+    pack,
+    state: { procedureId: null, stepIndex: 0, selectedPart: null },
+    history: [],
+    thinking: false,
+  };
+  runtime.start();
+  const voice = runtime.sessionFor(pack)!;
+  const changed = voiceEvents();
+  const questions: string[] = [];
+  changed.question.mockImplementation(question => {
+    questions.push(question);
+    voice.session.say({
+      id: utteranceId(UtteranceKind.answer, question),
+      kind: UtteranceKind.answer,
+      reply: 'Check the battery terminals.',
+      caution: '',
+      stepKey: null,
+    });
+  });
+  const started = voice.session.start(context, changed);
+  await jest.advanceTimersByTimeAsync(0);
+  transport.current.onopen?.();
+  await started;
+  voice.questions!.ask('Why check the battery?');
+  transport.current.onclose?.({ code: 1000, reason: 'quota exceeded' });
+  await jest.advanceTimersByTimeAsync(0);
+  expect(appEvents.latest(AppEvent.agent)).toEqual({
+    state: AgentState.failed,
+    reason: ConnectionFailure.quota,
+  });
+  expect(appEvents.latest(AppEvent.mode)?.voice).toBe(VoiceSource.device);
+  expect(questions).toEqual(['Why check the battery?']);
+  expect(speechOutput().speak).toHaveBeenCalledWith(
+    'Check the battery terminals.',
+    VOICE_LOCALE,
+    expect.any(Function),
+    SpeechVoice.system,
+  );
+  expect(voice.questions).toBeNull();
+  expect(transport.open).toBe(0);
+  voice.session.stop();
+  const next = runtime.sessionFor(pack)!;
+  await next.session.start(context, voiceEvents());
+  expect(next.questions).toBeNull();
+  expect(transport.connections).toBe(1);
+  next.session.stop();
   runtime.stop();
 });

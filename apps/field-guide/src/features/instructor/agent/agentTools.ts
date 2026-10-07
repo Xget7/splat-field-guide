@@ -104,9 +104,6 @@ export function stateSentence(state: SessionState, pack: Pack): string {
   }
   return shown || AgentToolCopy.noProcedure;
 }
-export function stepKeyFor(state: SessionState): string {
-  return `${state.procedureId}:${state.stepIndex}:${state.selectedPart}`;
-}
 export function runAgentTool(
   name: string,
   parameters: unknown,

@@ -1,3 +1,6 @@
+import { speechInput } from 'react-native-on-device';
+import { voiceFailure } from './voiceFailure';
+import { SpeechPermission } from './voiceCopy';
 import type { Pack } from '../../pack/pack';
 import {
   AgentEnd,
@@ -9,7 +12,7 @@ import {
   historyUpdate,
   screenUpdate,
 } from '../agent/agentVariables';
-import { runAgentTool, stepKeyFor } from '../agent/agentTools';
+import { runAgentTool } from '../agent/agentTools';
 import { normalize } from '../router';
 import {
   ExchangePhase,
@@ -21,11 +24,12 @@ import { SpokenSection } from './speechPresentation';
 import {
   UtteranceKind,
   VoiceEnd,
-  VoiceSessionKind,
+  stepKeyFor,
   VoiceStartError,
   VoiceStartFailure,
   type VoiceContext,
   type VoiceSession,
+  type TypedQuestions,
   type VoiceSessionEvents,
 } from './voiceSession';
 
@@ -39,14 +43,17 @@ export type SessionAgentHandlers = Omit<
 export function createAgentVoiceSession({
   client: makeClient,
   pack,
+  input = speechInput,
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
-}): VoiceSession {
+  input?: typeof speechInput;
+}): VoiceSession & TypedQuestions {
   let context: VoiceContext;
   let events: VoiceSessionEvents;
   let client: AgentClient | null = null;
   let exchange: Exchange | null = null;
+  let previous: Exchange | null = null;
   let typed: string | null = null;
   let toolStepKey: string | null = null;
   let running = false;
@@ -54,6 +61,7 @@ export function createAgentVoiceSession({
   let muted = false;
   let saying = false;
   let generation = 0;
+  let stoppedQuestion: string | null = null;
   function answer(reply: string, interrupted = false) {
     if (!exchange) {
       return;
@@ -80,6 +88,7 @@ export function createAgentVoiceSession({
   }
   function begin(question: string) {
     finish();
+    previous = exchange;
     typed = null;
     exchange = {
       id: nextExchangeId(),
@@ -99,18 +108,35 @@ export function createAgentVoiceSession({
     events.level(0);
   }
   return {
-    kind: VoiceSessionKind.agent,
     async start(initial, changed) {
       context = initial;
       events = changed;
       running = true;
+      stoppedQuestion = null;
       started = false;
       exchange = null;
+      previous = null;
       typed = null;
       muted = false;
       toolStepKey = null;
       const id = ++generation;
       const current = () => running && generation === id;
+      try {
+        if ((await input().requestPermission()) !== SpeechPermission.granted) {
+          throw new VoiceStartError(VoiceStartFailure.permission);
+        }
+      } catch (error) {
+        if (!current()) {
+          return;
+        }
+        running = false;
+        throw error instanceof VoiceStartError
+          ? error
+          : new VoiceStartError(VoiceStartFailure.failed);
+      }
+      if (!current()) {
+        return;
+      }
       client = makeClient({
         userTranscript(text) {
           if (
@@ -139,7 +165,17 @@ export function createAgentVoiceSession({
         },
         correction(text) {
           if (current()) {
-            answer(text, true);
+            if (previous !== null) {
+              previous = { ...previous, reply: text, interrupted: true };
+              events.turn({
+                type: TurnEventType.answer,
+                exchange: previous,
+                answer: { reply: text, caution: '', part: null, event: null },
+              });
+              previous = null;
+            } else {
+              answer(text, true);
+            }
           }
         },
         interruption() {
@@ -180,6 +216,7 @@ export function createAgentVoiceSession({
             return;
           }
           const pending = finish();
+          stoppedQuestion = pending;
           running = false;
           quiet();
           events.listening(false);
@@ -206,14 +243,7 @@ export function createAgentVoiceSession({
         }
         running = false;
         client.stop();
-        const failure = error instanceof Error ? error.message : '';
-        throw new VoiceStartError(
-          failure === VoiceStartFailure.quota ||
-          failure === VoiceStartFailure.auth ||
-          failure === VoiceStartFailure.network
-            ? failure
-            : VoiceStartFailure.failed,
-        );
+        throw new VoiceStartError(voiceFailure(error));
       }
     },
     async say(utterance) {
@@ -266,14 +296,15 @@ export function createAgentVoiceSession({
     },
     stop() {
       if (!running) {
-        return;
+        return stoppedQuestion;
       }
-      finish();
+      stoppedQuestion = finish();
       running = false;
       generation++;
       client?.stop();
       quiet();
       events.listening(false);
+      return stoppedQuestion;
     },
   };
 }

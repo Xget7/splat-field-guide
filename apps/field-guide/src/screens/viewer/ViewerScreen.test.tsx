@@ -20,6 +20,13 @@ import {
   useTapGesture,
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
+import { createModelInstructor } from '../../features/instructor/models/modelInstructor';
+import { InstructorRuntimeContext } from '../../app/InstructorRuntimeContext';
+import {
+  fakeVoiceSession,
+  fakeVoiceRuntime,
+  foregroundAppState,
+} from '../../testing/voiceSession';
 import type { VoiceSessionEvents } from '../../features/instructor/voice/voiceSession';
 import {
   createInstructorRuntime,
@@ -162,7 +169,9 @@ describe('viewer screen', () => {
     await act(async () => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={entries}>
-          <ViewerScreen {...props} runtime={runtime} />
+          <InstructorRuntimeContext.Provider value={runtime}>
+            <ViewerScreen {...props} />
+          </InstructorRuntimeContext.Provider>
         </CatalogProvider>,
       );
     });
@@ -184,7 +193,10 @@ describe('viewer screen', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    runtime = createInstructorRuntime({ proxyUrl: null });
+    runtime = createInstructorRuntime({
+      proxyUrl: null,
+      appState: foregroundAppState,
+    });
     runtime.start();
     view.project.mockReset().mockReturnValue(0);
     jest.mocked(useReducedMotion).mockReturnValue(false);
@@ -208,28 +220,15 @@ describe('viewer screen', () => {
 
   test('typed questions use active voice, and tool navigation keeps its live exchange without interruption', async () => {
     let heard!: VoiceSessionEvents;
-    const instructor = {
-      prewarm: jest.fn(),
-      ask: jest.fn(),
-      cancel: jest.fn(),
-    };
-    const session = {
-      kind: 'agent' as const,
-      start: jest.fn(async (_context: unknown, events: VoiceSessionEvents) => {
-        heard = events;
-        events.listening(true);
-      }),
-      say: jest.fn(async () => {}),
-      ask: jest.fn(() => true),
-      update: jest.fn(),
-      interrupt: jest.fn(),
-      setMuted: jest.fn(),
-      stop: jest.fn(),
-    };
+    const instructor = createModelInstructor([]);
+    const fake = fakeVoiceSession();
+    const session = fake.session;
+
+    const lifecycle = fakeVoiceRuntime({ session, questions: fake.questions });
     runtime.stop();
     runtime = {
+      ...lifecycle.runtime,
       instructor,
-      sessionFor: () => session,
       setPack: jest.fn(),
       setInstructorOpen: jest.fn(),
       setIdle: jest.fn(),
@@ -241,9 +240,11 @@ describe('viewer screen', () => {
       voice: true,
       procedureId: 'check-coolant',
     });
+    heard = fake.events;
     await act(async () => debug().ask('Why check the coolant?'));
-    expect(session.ask).toHaveBeenCalledWith('Why check the coolant?');
-    expect(instructor.ask).not.toHaveBeenCalled();
+    expect(text('instructor-question')).toBe('Why check the coolant?');
+    expect(fake.asked).toEqual(['Why check the coolant?']);
+    expect(has('instructor-reply')).toBe(false);
     await act(async () => {
       heard.turn({
         type: 'begin',
@@ -257,20 +258,16 @@ describe('viewer screen', () => {
         },
       });
     });
-    session.interrupt.mockClear();
-    instructor.cancel.mockClear();
     await act(async () => heard.action({ type: SessionEventType.next }));
     expect(debug().getState().stepIndex).toBe(1);
     expect(text('instructor-question')).toBe('Next step');
-    expect(session.interrupt).not.toHaveBeenCalled();
-    expect(instructor.cancel).not.toHaveBeenCalled();
+    expect(fake.open).toBe(true);
     await press('instructor-voice-end');
     await act(async () => debug().ask('Explain the coolant'));
-    expect(instructor.ask).toHaveBeenCalledWith(
-      expect.objectContaining({ question: 'Explain the coolant' }),
-      expect.any(Function),
+    expect(text('instructor-reply')).toBe(
+      pack.parts.find(part => part.id === 'coolant-reservoir')!.summary,
     );
-    expect(session.ask).toHaveBeenCalledTimes(1);
+    expect(fake.asked).toEqual(['Why check the coolant?']);
   });
 
   test('opens the requested step with safe-area padding and derived props', async () => {

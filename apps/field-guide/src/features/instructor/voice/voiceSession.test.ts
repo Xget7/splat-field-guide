@@ -1,72 +1,71 @@
 import { speechInput } from 'react-native-on-device';
 import { fixturePack } from '../../../testing/fixturePack';
+import { voiceEvents } from '../../../testing/voiceSession';
 import { INITIAL_SESSION } from '../../guide/session';
 import { createPipelineVoiceSession } from './pipelineVoiceSession';
 import {
   createAgentVoiceSession,
   type SessionAgentHandlers,
 } from './agentVoiceSession';
-import type { VoiceSessionEvents } from './voiceSession';
+import { SpeechVoice } from './voiceCopy';
 
 const pack = fixturePack();
 const context = { pack, state: INITIAL_SESSION, history: [], thinking: false };
-const events = (): VoiceSessionEvents => ({
-  listening: jest.fn(),
-  transcript: jest.fn(),
-  speaking: jest.fn(),
-  word: jest.fn(),
-  level: jest.fn(),
-  hint: jest.fn(),
-  question: jest.fn(),
-  cancelQuestion: jest.fn(),
-  turn: jest.fn(),
-  action: jest.fn(),
-  ended: jest.fn(),
-});
+const adapters = [
+  {
+    name: 'pipeline',
+    create: () => ({
+      session: createPipelineVoiceSession({
+        voice: SpeechVoice.system,
+        hints: [],
+      }),
+      transcript: () => jest.mocked(speechInput().listen).mock.calls.at(-1)![3],
+      question: (events: ReturnType<typeof voiceEvents>) => events.question,
+    }),
+  },
+  {
+    name: 'agent',
+    create: () => {
+      let conversation!: SessionAgentHandlers;
+      return {
+        session: createAgentVoiceSession({
+          pack,
+          client: handlers => {
+            conversation = handlers;
+            return {
+              start: jest.fn(async () => {}),
+              sendText: jest.fn(),
+              sendContext: jest.fn(),
+              setMuted: jest.fn(),
+              interrupt: jest.fn(),
+              stop: jest.fn(),
+            };
+          },
+        }),
+        transcript: () => conversation.userTranscript,
+        question: (events: ReturnType<typeof voiceEvents>) => events.turn,
+      };
+    },
+  },
+];
 
-test.each(['pipeline', 'agent'])(
-  '%s can stop twice and restart without accepting an old conversation',
-  async kind => {
-    const conversations: SessionAgentHandlers[] = [];
-    const session =
-      kind === 'pipeline'
-        ? createPipelineVoiceSession({ voice: 'system', hints: [] })
-        : createAgentVoiceSession({
-            pack,
-            client: handlers => {
-              conversations.push(handlers);
-              return {
-                start: jest.fn(async () => {}),
-                sendText: jest.fn(),
-                sendContext: jest.fn(),
-                setMuted: jest.fn(),
-                interrupt: jest.fn(),
-                stop: jest.fn(),
-              };
-            },
-          });
-    const first = events();
-    await session.start(context, first);
-    const previous =
-      kind === 'pipeline'
-        ? jest.mocked(speechInput().listen).mock.calls.at(-1)![3]
-        : conversations[0].userTranscript;
-    session.stop();
-    session.stop();
-    const next = events();
-    await session.start(context, next);
+test.each(adapters)(
+  '$name can stop twice and restart without accepting an old conversation',
+  async ({ create }) => {
+    const adapter = create();
+    const first = voiceEvents();
+    await adapter.session.start(context, first);
+    const previous = adapter.transcript();
+    adapter.session.stop();
+    adapter.session.stop();
+    const next = voiceEvents();
+    await adapter.session.start(context, next);
     previous('Where is the battery?');
     expect(first.ended).not.toHaveBeenCalled();
     expect(next.question).not.toHaveBeenCalled();
     expect(next.turn).not.toHaveBeenCalled();
-    const heard =
-      kind === 'pipeline'
-        ? jest.mocked(speechInput().listen).mock.calls.at(-1)![3]
-        : conversations[1].userTranscript;
-    heard('Where is the battery?');
-    expect(
-      kind === 'pipeline' ? next.question : next.turn,
-    ).toHaveBeenCalledTimes(1);
-    session.stop();
+    adapter.transcript()('Where is the battery?');
+    expect(adapter.question(next)).toHaveBeenCalledWith(expect.anything());
+    adapter.session.stop();
   },
 );

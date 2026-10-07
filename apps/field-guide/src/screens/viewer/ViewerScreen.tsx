@@ -18,10 +18,8 @@ import {
   type SessionEvent,
   type SessionState,
 } from '../../features/guide/session';
-import {
-  instructorRuntime,
-  type InstructorRuntime,
-} from '../../app/instructorRuntime';
+import { useInstructorRuntime } from '../../app/InstructorRuntimeContext';
+import type { InstructorRuntime } from '../../app/instructorRuntime';
 import { LearnMode, Route, type ScreenProps } from '../../app/routes';
 import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
@@ -63,8 +61,8 @@ const SIDEBAR_WIDTH = 400;
 export function ViewerScreen({
   navigation,
   route,
-  runtime = instructorRuntime,
-}: ScreenProps<typeof Route.viewer> & { runtime?: InstructorRuntime }) {
+}: ScreenProps<typeof Route.viewer>) {
+  const runtime = useInstructorRuntime();
   const { guideId, procedureId, stepIndex, mode, voice } = route.params;
   const guide = findReadyGuide(useCatalog(), guideId);
   const exit = useCallback(() => navigation.goBack(), [navigation]);

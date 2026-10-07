@@ -47,3 +47,5 @@ export const ModeAnnouncement = {
 } as const;
 
 export const InterruptedLabel = 'Interrupted';
+
+export const NO_PROXY_REASON = 'no proxy configured';

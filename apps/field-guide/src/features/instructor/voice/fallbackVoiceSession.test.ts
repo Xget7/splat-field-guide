@@ -1,10 +1,16 @@
+import { speechInput, speechOutput } from 'react-native-on-device';
 import { fixturePack } from '../../../testing/fixturePack';
+import { fakeVoiceSession, voiceEvents } from '../../../testing/voiceSession';
 import { INITIAL_SESSION } from '../../guide/session';
 import { createFallbackVoiceSession } from './fallbackVoiceSession';
+import { createPipelineVoiceSession } from './pipelineVoiceSession';
+import { SpeechVoice, VOICE_LOCALE } from './voiceCopy';
 import {
+  UtteranceKind,
+  utteranceId,
+  VoiceEnd,
   VoiceStartError,
-  type VoiceSessionEvents,
-  type VoiceSession,
+  VoiceStartFailure,
 } from './voiceSession';
 const context = {
   pack: fixturePack(),
@@ -12,60 +18,46 @@ const context = {
   history: [],
   thinking: false,
 };
-const events = () => ({
-  listening: jest.fn(),
-  transcript: jest.fn(),
-  speaking: jest.fn(),
-  word: jest.fn(),
-  level: jest.fn(),
-  hint: jest.fn(),
-  question: jest.fn(),
-  cancelQuestion: jest.fn(),
-  turn: jest.fn(),
-  action: jest.fn(),
-  ended: jest.fn(),
-});
-const fake = (): VoiceSession => ({
-  kind: 'agent',
-  start: jest.fn(async () => {}),
-  say: jest.fn(async () => {}),
-  ask: jest.fn(() => true),
-  update: jest.fn(),
-  interrupt: jest.fn(),
-  setMuted: jest.fn(),
-  stop: jest.fn(),
-});
 
 test('quota marks the primary unavailable and keeps voice working on the fallback', async () => {
-  const primary = fake();
-  const fallback = fake();
-  jest.mocked(primary.start).mockRejectedValue(new VoiceStartError('quota'));
-  const failed = jest.fn();
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  jest
+    .mocked(primary.session.start)
+    .mockRejectedValue(new VoiceStartError(VoiceStartFailure.quota));
+  const failures: string[] = [];
   const session = createFallbackVoiceSession({
-    primary,
-    fallback,
-    onPrimaryFailure: failed,
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
+    onPrimaryFailure: failure => failures.push(failure),
     networkOffline: () => false,
   });
-  const changed = events();
+  const changed = voiceEvents();
   await session.start(context, changed);
-  expect(failed).toHaveBeenCalledWith('quota');
-  expect(fallback.start).toHaveBeenCalled();
-  session.ask('next');
-  expect(fallback.ask).toHaveBeenCalledWith('next');
+  await session.say({
+    id: utteranceId(UtteranceKind.step, 'first'),
+    kind: UtteranceKind.step,
+    reply: 'Check the battery.',
+    caution: '',
+    stepKey: null,
+  });
+  expect(failures).toEqual([VoiceStartFailure.quota]);
+  expect(fallback.spoken.map(utterance => utterance.reply)).toEqual([
+    'Check the battery.',
+  ]);
+  expect(session.questions).toBeNull();
+  session.stop();
 });
 
-test('reconnects once with current history, then re-asks on the fallback', async () => {
-  let heard!: VoiceSessionEvents;
-  const primary = fake();
-  const fallback = fake();
-  jest.mocked(primary.start).mockImplementation(async (_context, changed) => {
-    heard = changed;
-  });
-  const changed = events();
+test('reconnects with current history, then re-asks on the fallback', async () => {
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  const changed = voiceEvents();
   const session = createFallbackVoiceSession({
-    primary,
-    fallback,
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
     onPrimaryFailure: jest.fn(),
     networkOffline: () => false,
   });
@@ -75,52 +67,165 @@ test('reconnects once with current history, then re-asks on the fallback', async
     history: [{ question: 'What is it?', reply: 'The battery.' }],
   };
   session.update(updated);
-  heard.ended('network', 'Why?');
+  primary.events.ended(VoiceEnd.network, 'Why?');
   await Promise.resolve();
-  expect(primary.start).toHaveBeenLastCalledWith(updated, expect.any(Object));
-  expect(primary.ask).toHaveBeenCalledWith('Why?');
-  heard.ended('network', 'Why again?');
+  expect(primary.context.history).toEqual(updated.history);
+  expect(primary.asked).toEqual(['Why?']);
+  primary.events.ended(VoiceEnd.network, 'Why again?');
   await Promise.resolve();
-  expect(primary.start).toHaveBeenCalledTimes(2);
-  expect(changed.question).toHaveBeenCalledWith('Why again?');
-  expect(changed.ended).not.toHaveBeenCalled();
+  expect(primary.open).toBe(false);
+  expect(fallback.open).toBe(true);
+  expect(changed.question.mock.calls.flat()).toEqual(['Why again?']);
+  expect(changed.ended.mock.calls).toEqual([]);
+  session.stop();
 });
 
 test('a failed reconnect re-asks on device while a lost route is forwarded', async () => {
-  let heard!: VoiceSessionEvents;
-  const primary = fake();
-  const fallback = fake();
-  jest
-    .mocked(primary.start)
-    .mockImplementationOnce(async (_context, changed) => {
-      heard = changed;
-    })
-    .mockRejectedValue(new VoiceStartError('network'));
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  const changed = voiceEvents();
   let offline = false;
-  const changed = events();
   const session = createFallbackVoiceSession({
-    primary,
-    fallback,
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
     onPrimaryFailure: jest.fn(),
     networkOffline: () => offline,
   });
   await session.start(context, changed);
-  heard.ended('network', 'Why?');
+  const heard = primary.events;
+  jest
+    .mocked(primary.session.start)
+    .mockRejectedValue(new VoiceStartError(VoiceStartFailure.network));
+  heard.ended(VoiceEnd.network, 'Why?');
   await Promise.resolve();
   await Promise.resolve();
-  expect(changed.question).toHaveBeenCalledWith('Why?');
+  expect(changed.question.mock.calls.flat()).toEqual(['Why?']);
+  session.stop();
   offline = true;
-  const immediate = fake();
-  jest.mocked(immediate.start).mockImplementation(async (_context, event) => {
-    heard = event;
-  });
+  const immediate = fakeVoiceSession();
   const lost = createFallbackVoiceSession({
-    primary: immediate,
-    fallback,
+    primary: immediate.session,
+    primaryQuestions: immediate.questions,
+    fallback: fallback.session,
     onPrimaryFailure: jest.fn(),
     networkOffline: () => offline,
   });
   await lost.start(context, changed);
-  heard.ended('network', 'Still waiting');
-  expect(changed.ended).toHaveBeenCalledWith('network', 'Still waiting');
+  immediate.events.ended(VoiceEnd.network, 'Still waiting');
+  expect(changed.ended.mock.calls).toEqual([
+    [VoiceEnd.network, 'Still waiting'],
+  ]);
+  lost.stop();
+});
+
+test.each([VoiceEnd.quota, VoiceEnd.auth])(
+  'an active %s end answers its waiting question and the next turn on device',
+  async reason => {
+    const primary = fakeVoiceSession();
+    const failures: string[] = [];
+    const session = createFallbackVoiceSession({
+      primary: primary.session,
+      primaryQuestions: primary.questions,
+      fallback: createPipelineVoiceSession({
+        voice: SpeechVoice.system,
+        hints: [],
+      }),
+      onPrimaryFailure: failure => failures.push(failure),
+      networkOffline: () => false,
+    });
+    const changed = voiceEvents();
+    changed.question.mockImplementation(question => {
+      session.say({
+        id: utteranceId(UtteranceKind.answer, question),
+        kind: UtteranceKind.answer,
+        reply: `Answer to ${question}`,
+        caution: '',
+        stepKey: null,
+      });
+    });
+    await session.start(context, changed);
+    primary.events.ended(reason, 'Why check the battery?');
+    for (let tick = 0; tick < 8; tick++) {
+      await Promise.resolve();
+    }
+    expect(failures).toEqual([reason]);
+    expect(speechOutput().speak).toHaveBeenCalledWith(
+      'Answer to Why check the battery?',
+      VOICE_LOCALE,
+      expect.any(Function),
+      SpeechVoice.system,
+    );
+    const nextTranscript = jest
+      .mocked(speechInput().listen)
+      .mock.calls.at(-1)![3];
+    nextTranscript('Where is the battery?');
+    await Promise.resolve();
+    expect(changed.question.mock.calls.flat()).toEqual([
+      'Why check the battery?',
+      'Where is the battery?',
+    ]);
+    expect(speechOutput().speak).toHaveBeenCalledWith(
+      'Answer to Where is the battery?',
+      VOICE_LOCALE,
+      expect.any(Function),
+      SpeechVoice.system,
+    );
+    expect(primary.open).toBe(false);
+    expect(session.questions).toBeNull();
+    expect(changed.ended.mock.calls).toEqual([]);
+    session.stop();
+  },
+);
+
+test('a switch takes back the question while a socket failure is starting device voice', async () => {
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  let ready!: () => void;
+  jest.mocked(fallback.session.start).mockReturnValue(
+    new Promise(resolve => {
+      ready = resolve;
+    }),
+  );
+  const changed = voiceEvents();
+  const session = createFallbackVoiceSession({
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
+    onPrimaryFailure: jest.fn(),
+    networkOffline: () => false,
+  });
+  await session.start(context, changed);
+  const heard = primary.events;
+  jest
+    .mocked(primary.session.start)
+    .mockRejectedValue(new VoiceStartError(VoiceStartFailure.network));
+  heard.ended(VoiceEnd.network, 'Why check the battery?');
+  await Promise.resolve();
+  expect(session.stop()).toBe('Why check the battery?');
+  ready();
+  await Promise.resolve();
+  expect(changed.question.mock.calls).toEqual([]);
+});
+
+test('starting device fallback preserves an existing model question without asking it again', async () => {
+  const primary = fakeVoiceSession();
+  const fallback = fakeVoiceSession();
+  jest
+    .mocked(primary.session.start)
+    .mockRejectedValue(new VoiceStartError(VoiceStartFailure.network));
+  const changed = voiceEvents();
+  const session = createFallbackVoiceSession({
+    primary: primary.session,
+    primaryQuestions: primary.questions,
+    fallback: fallback.session,
+    onPrimaryFailure: jest.fn(),
+    networkOffline: () => false,
+  });
+  await session.start(
+    { ...context, pendingQuestion: 'Why check the battery?' },
+    changed,
+  );
+  expect(changed.question.mock.calls).toEqual([]);
+  expect(session.stop()).toBe('Why check the battery?');
 });

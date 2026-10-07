@@ -165,7 +165,7 @@ export function InstructorStatus({
     minimized &&
     mode.notice !== null &&
     voice.state === VoiceState.idle &&
-    (!live || !voice.muted);
+    !live;
   let status = step;
   if (live) {
     status = voiceStatus(voice);

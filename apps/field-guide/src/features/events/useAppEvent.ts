@@ -3,6 +3,7 @@ import { appEvents } from './bus';
 import { activeSwitchSteps, mergeSwitchStep } from './switchSteps';
 import { isSwitching } from './mode';
 import {
+  AppEvent,
   AgentState,
   AnswerSource,
   InstructorMode,
@@ -44,26 +45,26 @@ export function useAppEvent<K extends keyof AppEvents>(
   );
 }
 export function useNetwork() {
-  return useAppEvent('network', UNKNOWN_NETWORK);
+  return useAppEvent(AppEvent.network, UNKNOWN_NETWORK);
 }
 export function useInstructorMode() {
-  return useAppEvent('mode', STARTUP_MODE);
+  return useAppEvent(AppEvent.mode, STARTUP_MODE);
 }
 export function useModeSuggestion() {
-  return useAppEvent('modeSuggestion', null);
+  return useAppEvent(AppEvent.modeSuggestion, null);
 }
 export function useAgentStatus() {
-  return useAppEvent('agent', IDLE_AGENT);
+  return useAppEvent(AppEvent.agent, IDLE_AGENT);
 }
 
 let steps: readonly SwitchStep[] = [];
 let settledSwitchId: number | null = null;
-let previousMode = appEvents.latest('mode')?.mode ?? STARTUP_MODE.mode;
+let previousMode = appEvents.latest(AppEvent.mode)?.mode ?? STARTUP_MODE.mode;
 // Steps arrive before the switching card mounts, so retain them from module load.
-appEvents.on('switchStep', step => {
+appEvents.on(AppEvent.switchStep, step => {
   steps = mergeSwitchStep(steps, step);
 });
-appEvents.on('mode', status => {
+appEvents.on(AppEvent.mode, status => {
   if (isSwitching(previousMode) && !isSwitching(status.mode)) {
     settledSwitchId = steps[0]?.switchId ?? settledSwitchId;
   }
@@ -73,8 +74,8 @@ export function useSwitchSteps(): readonly SwitchStep[] {
   const snapshot = () => activeSwitchSteps(steps, settledSwitchId);
   return useSyncExternalStore(
     listener => {
-      const unsubscribeStep = appEvents.on('switchStep', listener);
-      const unsubscribeMode = appEvents.on('mode', listener);
+      const unsubscribeStep = appEvents.on(AppEvent.switchStep, listener);
+      const unsubscribeMode = appEvents.on(AppEvent.mode, listener);
       return () => {
         unsubscribeStep();
         unsubscribeMode();

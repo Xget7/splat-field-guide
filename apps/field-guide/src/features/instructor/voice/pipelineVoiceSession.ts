@@ -1,7 +1,7 @@
 import {
   speechInput,
   speechOutput,
-  type SpeechVoice,
+  type SpeechVoice as NativeSpeechVoice,
 } from 'react-native-on-device';
 import { isUserSpeech, userWordsIn } from './echo';
 import { isQuestion, isScripted } from '../instructor';
@@ -9,8 +9,8 @@ import { routeCommand, RouteKind } from '../router';
 import { hasSpokenWord, isUnfinished } from '../utterance';
 import { speechTextFor, SpokenSection } from './speechPresentation';
 import {
+  UtteranceKind,
   VoiceEnd,
-  VoiceSessionKind,
   VoiceStartError,
   VoiceStartFailure,
   type VoiceContext,
@@ -18,24 +18,20 @@ import {
   type VoiceSessionEvents,
 } from './voiceSession';
 
-export const VOICE_LOCALE = 'en-US';
-export const VoiceHint = {
-  permission: 'Microphone or speech access is denied. You can still type.',
-  unavailable:
-    'On-device speech recognition is unavailable. You can still type.',
-  failed: 'Voice could not start. Try again or type your question.',
-  output: 'Speech output is unavailable. You can read the reply here.',
-  lost: 'Voice stopped listening. Turn it on to try again.',
-} as const;
-const SpeechPermission = { granted: 'granted' } as const;
-const SpeechAvailability = { available: 'available' } as const;
+import {
+  VoiceHint,
+  SpeechPermission,
+  SpeechAvailability,
+  VOICE_LOCALE,
+} from './voiceCopy';
+export { VOICE_LOCALE } from './voiceCopy';
 const BARGE_IN_WORDS = 2;
 const UNFINISHED_HOLD_MS = 1500;
 const joined = (...parts: string[]) =>
   parts.filter(part => part !== '').join(' ');
 
 interface Options {
-  voice: SpeechVoice;
+  voice: NativeSpeechVoice;
   hints: string[];
   input?: typeof speechInput;
   output?: typeof speechOutput;
@@ -54,6 +50,7 @@ export function createPipelineVoiceSession({
   let lifecycle = 0;
   let conversation = 0;
   let saying = '';
+  let pending: string | null = null;
   let held = '';
   let holding: ReturnType<typeof setTimeout> | null = null;
   function stopHolding() {
@@ -92,6 +89,15 @@ export function createPipelineVoiceSession({
     events.listening(false);
     events.transcript('');
   }
+  function lose() {
+    if (!running) {
+      return;
+    }
+    running = false;
+    cancelInput();
+    interrupt();
+    events.ended(VoiceEnd.lost, pending);
+  }
   async function listen() {
     const id = ++conversation;
     const open = () => running && !muted && id === conversation;
@@ -99,10 +105,7 @@ export function createPipelineVoiceSession({
       if (!open()) {
         return;
       }
-      running = false;
-      cancelInput();
-      interrupt();
-      events.ended(VoiceEnd.lost, null);
+      lose();
     };
     const ask = (question: string) => {
       stopHolding();
@@ -112,6 +115,7 @@ export function createPipelineVoiceSession({
         isScripted(question, context.pack) ||
         isQuestion(question, context.pack)
       ) {
+        pending = question;
         events.question(question);
       }
     };
@@ -194,9 +198,9 @@ export function createPipelineVoiceSession({
     }
   }
   return {
-    kind: VoiceSessionKind.pipeline,
     async start(initial, changed) {
       context = initial;
+      pending = initial.pendingQuestion ?? null;
       events = changed;
       const id = ++lifecycle;
       running = true;
@@ -239,6 +243,9 @@ export function createPipelineVoiceSession({
       }
     },
     async say(utterance) {
+      if (utterance.kind === UtteranceKind.answer) {
+        pending = null;
+      }
       if (!running) {
         return;
       }
@@ -291,8 +298,12 @@ export function createPipelineVoiceSession({
         quiet();
       }
     },
-    ask: () => false,
     update(next) {
+      if (next.pendingQuestion !== undefined) {
+        pending = next.pendingQuestion;
+      } else if (context.thinking && !next.thinking) {
+        pending = null;
+      }
       context = next;
     },
     interrupt,
@@ -309,22 +320,20 @@ export function createPipelineVoiceSession({
       } else {
         listen().catch(() => {
           if (running) {
-            running = false;
-            cancelInput();
-            interrupt();
-            events.ended(VoiceEnd.lost, null);
+            lose();
           }
         });
       }
     },
     stop() {
       if (!running) {
-        return;
+        return pending;
       }
       running = false;
       lifecycle++;
       cancelInput();
       interrupt();
+      return pending;
     },
   };
 }

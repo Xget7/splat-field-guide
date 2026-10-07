@@ -1,15 +1,10 @@
+import { ConnectionFailure } from '../../events/types';
 import type { Pack } from '../../pack/pack';
 import type { SessionEvent, SessionState } from '../../guide/session';
 import type { PreviousExchange } from '../grounding';
 import type { TurnEvent } from '../turn';
 import type { SpokenSection, SpokenWord } from './speechPresentation';
 
-export const VoiceSessionKind = {
-  agent: 'agent',
-  pipeline: 'pipeline',
-} as const;
-export type VoiceSessionKind =
-  (typeof VoiceSessionKind)[keyof typeof VoiceSessionKind];
 export const UtteranceKind = {
   step: 'step',
   answer: 'answer',
@@ -29,14 +24,14 @@ export interface VoiceContext {
   readonly state: SessionState;
   readonly history: readonly PreviousExchange[];
   readonly thinking: boolean;
+  /** A model question that has not received any reply text yet. */
+  readonly pendingQuestion?: string | null;
 }
 export const VoiceStartFailure = {
   permission: 'permission',
   unavailable: 'unavailable',
   failed: 'failed',
-  quota: 'quota',
-  auth: 'auth',
-  network: 'network',
+  ...ConnectionFailure,
 } as const;
 export type VoiceStartFailure =
   (typeof VoiceStartFailure)[keyof typeof VoiceStartFailure];
@@ -48,9 +43,7 @@ export class VoiceStartError extends Error {
 export const VoiceEnd = {
   silence: 'silence',
   stopped: 'stopped',
-  network: 'network',
-  quota: 'quota',
-  auth: 'auth',
+  ...ConnectionFailure,
   audio: 'audio',
   lost: 'lost',
 } as const;
@@ -69,13 +62,41 @@ export interface VoiceSessionEvents {
   ended(reason: VoiceEnd, pending: string | null): void;
 }
 export interface VoiceSession {
-  readonly kind: VoiceSessionKind;
   start(context: VoiceContext, events: VoiceSessionEvents): Promise<void>;
   say(utterance: Utterance): Promise<void>;
-  ask(text: string): boolean;
   update(context: VoiceContext): void;
   interrupt(): void;
   setMuted(muted: boolean): void;
   /** Stops without calling ended. Safe twice. */
-  stop(): void;
+  stop(): string | null;
+}
+
+export interface TypedQuestions {
+  ask(text: string): boolean;
+}
+export interface VoiceConnection {
+  readonly session: VoiceSession;
+  readonly questions: TypedQuestions | null;
+}
+export function stepKeyFor(state: SessionState): string {
+  return `${state.procedureId}:${state.stepIndex}:${state.selectedPart}`;
+}
+const UtterancePrefix = {
+  step: 'step:',
+  answer: 'answer:',
+  notice: 'mode:',
+} as const;
+export function utteranceId(kind: UtteranceKind, key: string | number): string {
+  return UtterancePrefix[kind] + key;
+}
+export interface VoiceRuntimeState {
+  readonly revision: number;
+  readonly canStart: boolean;
+  readonly foreground: boolean;
+  readonly announcement: Utterance | null;
+}
+export interface VoiceRuntime {
+  voiceSnapshot(): VoiceRuntimeState;
+  subscribeVoice(listener: () => void): () => void;
+  sessionFor(pack: Pack): VoiceConnection | null;
 }

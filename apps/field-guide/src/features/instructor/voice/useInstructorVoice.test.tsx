@@ -1,155 +1,41 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { fixturePack } from '../../../testing/fixturePack';
+import {
+  fakeVoiceRuntime,
+  fakeVoiceSession,
+} from '../../../testing/voiceSession';
 import { INITIAL_SESSION } from '../../guide/session';
+import { ModeAnnouncement } from '../mode/modeCopy';
 import { useInstructorVoice, type InstructorVoice } from './useInstructorVoice';
-import type { VoiceSession, VoiceSessionEvents } from './voiceSession';
-import type { ModeStatus } from '../../events/types';
+import {
+  UtteranceKind,
+  utteranceId,
+  VoiceEnd,
+  VoiceStartError,
+  VoiceStartFailure,
+} from './voiceSession';
+import { VoiceHint } from './voiceCopy';
 const context = {
   pack: fixturePack(),
   state: INITIAL_SESSION,
   history: [],
   thinking: false,
 };
-const online: ModeStatus = {
-  mode: 'online',
-  cause: 'startup',
-  voice: 'agent',
-  answers: 'claude',
-  forced: false,
-};
 
-test.each([false, true])(
-  'a network switch announces before re-asking one question, from ended: %s',
-  async ended => {
-    let events!: VoiceSessionEvents;
-    const primary: VoiceSession = {
-      kind: 'agent',
-      start: jest.fn(async (_context, changed) => {
-        events = changed;
-      }),
-      say: jest.fn(async () => {}),
-      ask: () => true,
-      update: jest.fn(),
-      interrupt: jest.fn(),
-      setMuted: jest.fn(),
-      stop: jest.fn(),
-    };
-    let finishAnnouncement!: () => void;
-    const fallback = {
-      ...primary,
-      kind: 'pipeline' as const,
-      start: jest.fn(async () => {}),
-      say: jest.fn(
-        () =>
-          new Promise<void>(resolve => {
-            finishAnnouncement = resolve;
-          }),
-      ),
-      stop: jest.fn(),
-    };
-    const sessionFor = jest
-      .fn()
-      .mockReturnValueOnce(primary)
-      .mockReturnValue(fallback);
-    const onAsk = jest.fn();
-    let voice!: InstructorVoice;
-    function Harness({ mode }: { mode: ModeStatus }) {
-      voice = useInstructorVoice({
-        pack: context.pack,
-        context,
-        enabled: true,
-        utterance: null,
-        mode,
-        sessionFor,
-        onAsk,
-        onCancel: jest.fn(),
-        onTurn: jest.fn(),
-        onAction: jest.fn(),
-        onIdle: jest.fn(),
-        startInVoice: true,
-      });
-      return null;
-    }
-    let renderer!: Renderer.ReactTestRenderer;
-    await act(async () => {
-      renderer = Renderer.create(<Harness mode={online} />);
-    });
-    await act(async () => {
-      events.turn({
-        type: 'begin',
-        exchange: {
-          id: 42,
-          phase: 'pending',
-          question: 'Why check the battery?',
-          reply: '',
-          caution: '',
-          part: null,
-        },
-      });
-    });
-    if (ended) {
-      await act(async () => events.ended('network', 'Why check the battery?'));
-    }
-    await act(async () => {
-      renderer.update(
-        <Harness
-          mode={{ ...online, mode: 'switchingToOffline', cause: 'network' }}
-        />,
-      );
-    });
-    expect(primary.stop).toHaveBeenCalledTimes(1);
-    expect(voice.on).toBe(true);
-    await act(async () => {
-      renderer.update(
-        <Harness
-          mode={{
-            ...online,
-            mode: 'offline',
-            cause: 'network',
-            voice: 'device',
-            answers: 'script',
-          }}
-        />,
-      );
-    });
-    expect(fallback.say).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'notice',
-        reply: "Offline. Answers come from the guide's script.",
-      }),
-    );
-    expect(onAsk).not.toHaveBeenCalled();
-    await act(async () => finishAnnouncement());
-    expect(onAsk.mock.calls).toEqual([['Why check the battery?']]);
-    await act(async () => {
-      renderer.unmount();
-    });
-  },
-);
-
-test('closing the instructor resets mute so the next conversation opens its microphone', async () => {
-  const session: VoiceSession = {
-    kind: 'pipeline',
-    start: jest.fn(async () => {}),
-    say: jest.fn(async () => {}),
-    ask: () => false,
-    update: jest.fn(),
-    interrupt: jest.fn(),
-    setMuted: jest.fn(),
-    stop: jest.fn(),
-  };
-  const sessionFor = () => session;
+function harness(
+  runtime: ReturnType<typeof fakeVoiceRuntime>['runtime'],
+  onAsk = jest.fn(),
+) {
   let voice!: InstructorVoice;
-  function Harness({ enabled }: { enabled: boolean }) {
+  function Harness({ enabled = true }: { enabled?: boolean }) {
     voice = useInstructorVoice({
       pack: context.pack,
       context,
       enabled,
       utterance: null,
-      mode: online,
-      sessionFor,
-      onAsk: jest.fn(),
+      runtime,
+      onAsk,
       onCancel: jest.fn(),
       onTurn: jest.fn(),
       onAction: jest.fn(),
@@ -158,15 +44,143 @@ test('closing the instructor resets mute so the next conversation opens its micr
     });
     return null;
   }
+  return {
+    Harness,
+    get voice() {
+      return voice;
+    },
+  };
+}
+
+test.each([false, true])(
+  'a network switch announces before re-asking one question, from ended: %s',
+  async ended => {
+    const primary = fakeVoiceSession();
+    const fallback = fakeVoiceSession();
+    const lifecycle = fakeVoiceRuntime({
+      session: primary.session,
+      questions: primary.questions,
+    });
+    let finishAnnouncement!: () => void;
+    const originalSay = jest
+      .mocked(fallback.session.say)
+      .getMockImplementation()!;
+    jest.mocked(fallback.session.say).mockImplementation(utterance => {
+      originalSay(utterance);
+      return new Promise(resolve => {
+        finishAnnouncement = resolve;
+      });
+    });
+    const questions: string[] = [];
+    const h = harness(
+      lifecycle.runtime,
+      jest.fn(question => questions.push(question)),
+    );
+    let renderer!: Renderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = Renderer.create(<h.Harness />);
+    });
+    await act(async () => {
+      h.voice.ask('Why check the battery?');
+    });
+    if (ended) {
+      await act(async () =>
+        primary.events.ended(VoiceEnd.network, 'Why check the battery?'),
+      );
+    }
+    await act(async () => lifecycle.change({ canStart: false }));
+    expect(primary.open).toBe(false);
+    expect(h.voice.on).toBe(true);
+    await act(async () =>
+      lifecycle.change(
+        {
+          canStart: true,
+          announcement: {
+            id: utteranceId(UtteranceKind.notice, 1),
+            kind: UtteranceKind.notice,
+            reply: ModeAnnouncement.script,
+            caution: '',
+            stepKey: null,
+          },
+        },
+        { session: fallback.session, questions: null },
+      ),
+    );
+    expect(fallback.spoken.map(utterance => utterance.reply)).toEqual([
+      ModeAnnouncement.script,
+    ]);
+    expect(questions).toEqual([]);
+    await act(async () => finishAnnouncement());
+    expect(questions).toEqual(['Why check the battery?']);
+    await act(async () => renderer.unmount());
+  },
+);
+
+test('closing the instructor resets mute so the next conversation opens its microphone', async () => {
+  const fake = fakeVoiceSession();
+  const lifecycle = fakeVoiceRuntime({
+    session: fake.session,
+    questions: null,
+  });
+  const h = harness(lifecycle.runtime);
   let renderer!: Renderer.ReactTestRenderer;
   await act(async () => {
-    renderer = Renderer.create(<Harness enabled />);
+    renderer = Renderer.create(<h.Harness />);
   });
-  await act(async () => voice.toggleMuted());
-  await act(async () => renderer.update(<Harness enabled={false} />));
-  await act(async () => renderer.update(<Harness enabled />));
-  await act(async () => voice.toggle());
-  expect(voice.muted).toBe(false);
-  expect(session.setMuted).toHaveBeenLastCalledWith(false);
+  await act(async () => h.voice.toggleMuted());
+  expect(h.voice.open).toBe(false);
+  await act(async () => renderer.update(<h.Harness enabled={false} />));
+  await act(async () => renderer.update(<h.Harness />));
+  await act(async () => h.voice.toggle());
+  expect(h.voice.muted).toBe(false);
+  expect(h.voice.open).toBe(true);
+  await act(async () => renderer.unmount());
+});
+
+test('returning from the background leaves voice off until the user taps', async () => {
+  const fake = fakeVoiceSession();
+  const lifecycle = fakeVoiceRuntime({
+    session: fake.session,
+    questions: fake.questions,
+  });
+  const questions: string[] = [];
+  const h = harness(
+    lifecycle.runtime,
+    jest.fn(question => questions.push(question)),
+  );
+  let renderer!: Renderer.ReactTestRenderer;
+  await act(async () => {
+    renderer = Renderer.create(<h.Harness />);
+  });
+  await act(async () => {
+    h.voice.ask('Why check the battery?');
+    lifecycle.change({ foreground: false, canStart: false });
+  });
+  expect(h.voice.on).toBe(false);
+  expect(fake.open).toBe(false);
+  await act(async () => lifecycle.change({ foreground: true, canStart: true }));
+  expect(h.voice.on).toBe(false);
+  expect(fake.open).toBe(false);
+  await act(async () => h.voice.toggle());
+  expect(h.voice.open).toBe(true);
+  expect(questions).toEqual([]);
+  await act(async () => renderer.unmount());
+});
+
+test('microphone denial shows the permission hint with voice off', async () => {
+  const fake = fakeVoiceSession();
+  jest
+    .mocked(fake.session.start)
+    .mockRejectedValue(new VoiceStartError(VoiceStartFailure.permission));
+  const h = harness(
+    fakeVoiceRuntime({ session: fake.session, questions: null }).runtime,
+  );
+  let renderer!: Renderer.ReactTestRenderer;
+  await act(async () => {
+    renderer = Renderer.create(<h.Harness />);
+  });
+  expect(h.voice.hint).toBe(VoiceHint.permission);
+  expect(h.voice.on).toBe(false);
+  expect(h.voice.open).toBe(false);
   await act(async () => renderer.unmount());
 });

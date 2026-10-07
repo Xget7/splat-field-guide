@@ -174,3 +174,51 @@ it('agent navigation preserves the question still being answered', () => {
     key: 'check-coolant:1:null',
   });
 });
+
+it('corrects an interrupted thread reply while the next question stays pending', () => {
+  const first = {
+    id: 10,
+    question: 'Why?',
+    reply: 'First reply',
+    caution: '',
+    part: null,
+    phase: ExchangePhase.done,
+    interrupted: true,
+  };
+  const next = {
+    ...first,
+    id: 11,
+    question: 'What next?',
+    reply: '',
+    phase: ExchangePhase.pending,
+    interrupted: false,
+  };
+  const state = run(
+    initialViewerState('check-coolant', 0, pack),
+    {
+      type: ViewerActionType.turn,
+      event: { type: TurnEventType.begin, exchange: first },
+    },
+    {
+      type: ViewerActionType.turn,
+      event: { type: TurnEventType.begin, exchange: next },
+    },
+  );
+  const corrected = run(state, {
+    type: ViewerActionType.turn,
+    event: {
+      type: TurnEventType.answer,
+      exchange: { ...first, reply: 'Corrected reply' },
+      answer: {
+        reply: 'Corrected reply',
+        caution: '',
+        part: null,
+        event: null,
+      },
+    },
+  });
+  expect(corrected.exchange).toEqual(next);
+  expect(answeredExchanges(corrected)).toMatchObject([
+    { id: 10, reply: 'Corrected reply', interrupted: true },
+  ]);
+});

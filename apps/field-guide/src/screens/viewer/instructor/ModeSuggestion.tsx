@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { appEvents } from '../../../features/events/bus';
-import { ModeRequestType } from '../../../features/events/types';
+import { AppEvent, ModeRequestType } from '../../../features/events/types';
 import { SuggestionCopy } from '../../../features/instructor/mode/modeCopy';
 import { Button, ButtonVariant } from '../../../ui/Button';
 import { Color, Space, Type } from '../../../ui/theme';
@@ -16,7 +16,7 @@ export function ModeSuggestion() {
         <Button
           label={SuggestionCopy.accept}
           onPress={() =>
-            appEvents.emit('modeRequest', {
+            appEvents.emit(AppEvent.modeRequest, {
               type: ModeRequestType.acceptSuggestion,
             })
           }
@@ -25,7 +25,7 @@ export function ModeSuggestion() {
           label={SuggestionCopy.dismiss}
           variant={ButtonVariant.secondary}
           onPress={() =>
-            appEvents.emit('modeRequest', {
+            appEvents.emit(AppEvent.modeRequest, {
               type: ModeRequestType.dismissSuggestion,
             })
           }

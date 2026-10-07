@@ -1,3 +1,4 @@
+import { stepKeyFor } from '../voice/voiceSession';
 import { bundledPack } from '../../pack/bundledPack';
 import { INITIAL_SESSION, reduce, SessionEventType } from '../../guide/session';
 import {
@@ -5,7 +6,6 @@ import {
   agentToolSpecs,
   runAgentTool,
   stateSentence,
-  stepKeyFor,
 } from './agentTools';
 
 if (!bundledPack.ok) {

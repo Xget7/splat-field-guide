@@ -1,24 +1,27 @@
 import {
   VoiceEnd,
-  VoiceStartError,
-  VoiceStartFailure,
   type VoiceContext,
   type VoiceSession,
   type VoiceSessionEvents,
+  type VoiceStartFailure,
+  type TypedQuestions,
 } from './voiceSession';
+import { isConnectionFailure, voiceFailure } from './voiceFailure';
 
 interface Options {
   primary: VoiceSession;
+  primaryQuestions: TypedQuestions;
   fallback: VoiceSession;
   onPrimaryFailure(failure: VoiceStartFailure): void;
   networkOffline(): boolean;
 }
 export function createFallbackVoiceSession({
   primary,
+  primaryQuestions,
   fallback,
   onPrimaryFailure,
   networkOffline,
-}: Options): VoiceSession {
+}: Options): VoiceSession & { readonly questions: TypedQuestions | null } {
   let active = primary;
   let context: VoiceContext;
   let events: VoiceSessionEvents;
@@ -26,32 +29,45 @@ export function createFallbackVoiceSession({
   let generation = 0;
   let restarted = false;
   let muted = false;
-  function failure(error: unknown): VoiceStartFailure | null {
-    return error instanceof VoiceStartError &&
-      [
-        VoiceStartFailure.quota,
-        VoiceStartFailure.auth,
-        VoiceStartFailure.network,
-      ].some(value => value === error.failure)
-      ? error.failure
-      : null;
-  }
-  async function startFallback(id: number, pending: string | null) {
-    if (!running || id !== generation) {
+  let pending: string | null = null;
+  const current = (id: number) => running && generation === id;
+  async function startFallback(id: number, question: string | null) {
+    if (!current(id)) {
       return;
     }
     active = fallback;
-    await fallback.start(context, events);
-    if (!running || id !== generation) {
+    await fallback.start({ ...context, pendingQuestion: pending }, events);
+    if (!current(id)) {
       return;
     }
     fallback.setMuted(muted);
-    if (pending !== null) {
+    if (question !== null && pending !== null) {
       events.question(pending);
     }
   }
-  async function recover(reason: VoiceEnd, pending: string | null, id: number) {
-    if (!running || id !== generation) {
+  async function recoverOnDevice(id: number) {
+    try {
+      await startFallback(id, pending);
+    } catch {
+      if (current(id)) {
+        running = false;
+        events.ended(VoiceEnd.lost, pending);
+      }
+    }
+  }
+  async function recover(
+    reason: VoiceEnd,
+    question: string | null,
+    id: number,
+  ) {
+    if (!current(id)) {
+      return;
+    }
+    pending = question;
+    if (reason === VoiceEnd.quota || reason === VoiceEnd.auth) {
+      primary.stop();
+      onPrimaryFailure(reason);
+      await recoverOnDevice(id);
       return;
     }
     if (reason !== VoiceEnd.network || networkOffline()) {
@@ -64,40 +80,33 @@ export function createFallbackVoiceSession({
       restarted = true;
       try {
         await primary.start(context, primaryEvents(id));
-        if (running && id === generation) {
+        if (current(id)) {
           primary.setMuted(muted);
           if (pending !== null) {
-            primary.ask(pending);
+            primaryQuestions.ask(pending);
           }
         }
         return;
       } catch (error) {
-        if (!running || id !== generation) {
+        if (!current(id)) {
           return;
         }
-        onPrimaryFailure(failure(error) ?? VoiceStartFailure.failed);
+        onPrimaryFailure(voiceFailure(error));
       }
     }
-    try {
-      await startFallback(id, pending);
-    } catch {
-      if (running && id === generation) {
-        running = false;
-        events.ended(VoiceEnd.lost, pending);
-      }
-    }
+    await recoverOnDevice(id);
   }
   function primaryEvents(id: number): VoiceSessionEvents {
     return {
       ...events,
-      ended: (reason, pending) => {
-        recover(reason, pending, id);
+      ended: (reason, question) => {
+        recover(reason, question, id);
       },
     };
   }
   return {
-    get kind() {
-      return active.kind;
+    get questions() {
+      return running && active === primary ? primaryQuestions : null;
     },
     async start(initial, changed) {
       context = initial;
@@ -106,15 +115,16 @@ export function createFallbackVoiceSession({
       running = true;
       restarted = false;
       muted = false;
+      pending = initial.pendingQuestion ?? null;
       const id = ++generation;
       try {
         await primary.start(context, primaryEvents(id));
       } catch (error) {
-        if (!running || id !== generation) {
+        if (!current(id)) {
           return;
         }
-        const reason = failure(error);
-        if (reason === null) {
+        const reason = voiceFailure(error);
+        if (!isConnectionFailure(reason)) {
           throw error;
         }
         primary.stop();
@@ -123,9 +133,11 @@ export function createFallbackVoiceSession({
       }
     },
     say: utterance => active.say(utterance),
-    ask: text => running && active.ask(text),
     update(next) {
       context = next;
+      if (next.pendingQuestion !== undefined) {
+        pending = next.pendingQuestion;
+      }
       active.update(next);
     },
     interrupt() {
@@ -138,7 +150,8 @@ export function createFallbackVoiceSession({
     stop() {
       running = false;
       generation++;
-      active.stop();
+      pending = active.stop() ?? pending;
+      return pending;
     },
   };
 }

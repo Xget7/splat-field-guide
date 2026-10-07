@@ -6,14 +6,11 @@ import {
 } from '../../features/guide/session';
 import type { ReadyGuide } from '../../features/pack/catalog';
 import { sessionForExchange } from '../../features/instructor/turn';
-import {
-  instructorRuntime,
-  type InstructorRuntime,
-} from '../../app/instructorRuntime';
-import { useInstructorMode } from '../../features/events/useAppEvent';
-import { stepKeyFor } from '../../features/instructor/agent/agentTools';
+import type { InstructorRuntime } from '../../app/instructorRuntime';
+import { stepKeyFor } from '../../features/instructor/voice/voiceSession';
 import {
   UtteranceKind,
+  utteranceId,
   type VoiceContext,
 } from '../../features/instructor/voice/voiceSession';
 import {
@@ -39,7 +36,7 @@ interface Options {
   procedureId: ProcedureId;
   stepIndex: number;
   instructorOpen: boolean;
-  runtime?: InstructorRuntime;
+  runtime: InstructorRuntime;
   startInVoice?: boolean;
 }
 
@@ -49,16 +46,11 @@ export function useViewerSession({
   procedureId,
   stepIndex,
   instructorOpen,
-  runtime = instructorRuntime,
+  runtime,
   startInVoice,
 }: Options) {
   const { pack } = guide;
   const { instructor } = runtime;
-  const mode = useInstructorMode();
-  const sessionFor = useCallback(
-    (status: typeof mode) => runtime.sessionFor(status, pack),
-    [runtime, pack],
-  );
   const [state, act] = useReducer(
     (current: ViewerState, action: ViewerAction) =>
       reduceViewer(current, action, pack),
@@ -135,7 +127,7 @@ export function useViewerSession({
         ? {
             kind: UtteranceKind.answer,
             stepKey: null,
-            id: `answer:${exchange.id}`,
+            id: utteranceId(UtteranceKind.answer, exchange.id),
             reply: exchange.reply,
             caution: exchange.caution,
           }
@@ -147,7 +139,10 @@ export function useViewerSession({
     return {
       kind: UtteranceKind.step,
       stepKey: stepKeyFor(session),
-      id: `step:${session.procedureId}:${session.stepIndex}:${session.selectedPart}:${frameRequest}`,
+      id: utteranceId(
+        UtteranceKind.step,
+        `${stepKeyFor(session)}:${frameRequest}`,
+      ),
       reply: card.body,
       caution: card.caution,
     };
@@ -159,16 +154,17 @@ export function useViewerSession({
       state: state.session,
       history: answeredExchanges(state),
       thinking,
+      pendingQuestion:
+        exchange?.phase === ExchangePhase.pending ? exchange.question : null,
     }),
-    [pack, state, thinking],
+    [pack, state, thinking, exchange],
   );
   const voice = useInstructorVoice({
     pack,
     enabled: instructorOpen,
     utterance,
     context,
-    mode,
-    sessionFor,
+    runtime,
     onTurn: event => act({ type: ViewerActionType.turn, event }),
     onAction: event => act({ type: ViewerActionType.agent, event }),
     onIdle: idle => runtime.setIdle(idle),

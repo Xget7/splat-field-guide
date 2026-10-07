@@ -58,6 +58,7 @@ function Panel({
     level,
     stop: noop,
     interrupt: noop,
+    ask: () => false,
     ...overrides,
   };
   return (

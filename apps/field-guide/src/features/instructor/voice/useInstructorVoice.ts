@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   cancelAnimation,
   ReduceMotion,
@@ -7,20 +13,8 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import type { Pack } from '../../pack/pack';
-import {
-  AnswerSource,
-  InstructorMode,
-  ModeCause,
-  type ModeStatus,
-} from '../../events/types';
 import type { SessionEvent } from '../../guide/session';
-import {
-  ExchangePhase,
-  TurnEventType,
-  type Exchange,
-  type TurnEvent,
-} from '../turn';
-import { ModeAnnouncement } from '../mode/modeCopy';
+import { type TurnEvent } from '../turn';
 import { Motion } from '../../../ui/theme';
 import {
   normalizedLevel,
@@ -28,19 +22,19 @@ import {
   type SpokenSection,
   type SpokenWord,
 } from './speechPresentation';
-import { VoiceHint } from './pipelineVoiceSession';
+import { VoiceHint } from './voiceCopy';
 import {
-  UtteranceKind,
   VoiceEnd,
   VoiceStartError,
   VoiceStartFailure,
   type Utterance,
   type VoiceContext,
-  type VoiceSession,
+  type VoiceConnection,
+  type VoiceRuntime,
   type VoiceSessionEvents,
 } from './voiceSession';
 
-export { VoiceHint, VOICE_LOCALE } from './pipelineVoiceSession';
+export { VoiceHint, VOICE_LOCALE } from './voiceCopy';
 export type { Utterance } from './voiceSession';
 export const VoiceState = {
   idle: 'idle',
@@ -54,8 +48,7 @@ interface Options {
   enabled: boolean;
   utterance: Utterance | null;
   context: VoiceContext;
-  mode: ModeStatus;
-  sessionFor(status: ModeStatus): VoiceSession;
+  runtime: VoiceRuntime;
   onAsk(question: string): void;
   onCancel(): void;
   onTurn(event: TurnEvent): void;
@@ -68,10 +61,14 @@ export function useInstructorVoice(options: Options) {
     enabled,
     utterance,
     context,
-    mode,
-    sessionFor,
+    runtime,
     startInVoice = false,
   } = options;
+  const lifecycle = useSyncExternalStore(
+    runtime.subscribeVoice,
+    runtime.voiceSnapshot,
+    runtime.voiceSnapshot,
+  );
   const [on, setOn] = useState(startInVoice);
   const [muted, setMuted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -84,14 +81,13 @@ export function useInstructorVoice(options: Options) {
   const level = useSharedValue(0);
   const latest = useRef(options);
   latest.current = options;
-  const session = useRef<VoiceSession | null>(null);
+  const session = useRef<VoiceConnection | null>(null);
   const active = useRef(false);
   const spoken = useRef<string | null>(null);
-  const exchange = useRef<Exchange | null>(null);
   const pending = useRef<string | null>(null);
-  const switched = useRef(false);
-  const switchId = useRef(0);
   const speaking = useRef(false);
+  const enabledVoice = useRef(on);
+  enabledVoice.current = on;
   const muting = useRef(muted);
   muting.current = muted;
   const quiet = useCallback(() => {
@@ -104,7 +100,7 @@ export function useInstructorVoice(options: Options) {
     level.value = 0;
   }, [level]);
   const interrupt = useCallback(() => {
-    session.current?.interrupt();
+    session.current?.session.interrupt();
     setTranscript('');
     setWord(null);
     setSection(null);
@@ -114,35 +110,29 @@ export function useInstructorVoice(options: Options) {
     setHint('');
   }, [level]);
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !lifecycle.foreground) {
       setOn(false);
       setMuted(false);
     }
-  }, [enabled]);
-  const settled =
-    mode.mode === InstructorMode.online || mode.mode === InstructorMode.offline;
-  useEffect(() => {
-    if (!settled) {
-      switched.current = true;
-      switchId.current++;
-      if (
-        exchange.current &&
-        exchange.current.phase !== ExchangePhase.done &&
-        exchange.current.reply === ''
-      ) {
-        pending.current = exchange.current.question;
-      }
+    if (!lifecycle.foreground) {
+      pending.current = null;
     }
+  }, [enabled, lifecycle.foreground]);
+  useEffect(() => {
     setReady(false);
-    if (!enabled || !on || !settled) {
+    if (!enabled || !on || !lifecycle.canStart) {
       quiet();
       return;
     }
+    const connection = runtime.sessionFor(options.pack);
+    if (connection === null) {
+      return;
+    }
+    const voice = connection.session;
     let current = true;
     let ended = false;
     let acceptingTurns = true;
-    const voice = sessionFor(mode);
-    session.current = voice;
+    session.current = connection;
     const events: VoiceSessionEvents = {
       listening(value) {
         if (current) {
@@ -211,12 +201,6 @@ export function useInstructorVoice(options: Options) {
         if (!acceptingTurns) {
           return;
         }
-        // Stop can settle an interrupted reply during effect cleanup.
-        if (event.type === TurnEventType.cancel) {
-          exchange.current = null;
-        } else {
-          exchange.current = event.exchange;
-        }
         latest.current.onTurn(event);
       },
       action(event) {
@@ -248,32 +232,17 @@ export function useInstructorVoice(options: Options) {
         }
         active.current = true;
         voice.setMuted(muting.current);
-        if (
-          switched.current &&
-          mode.mode === InstructorMode.offline &&
-          mode.cause === ModeCause.network
-        ) {
-          const announcement =
-            mode.answers === AnswerSource.deviceModel
-              ? ModeAnnouncement.deviceModel
-              : ModeAnnouncement.script;
-          await voice.say({
-            kind: UtteranceKind.notice,
-            id: `mode:${switchId.current}`,
-            reply: announcement,
-            caution: '',
-            stepKey: null,
-          });
+        if (lifecycle.announcement !== null) {
+          await voice.say(lifecycle.announcement);
           if (!current) {
             return;
           }
-          const question = pending.current;
-          pending.current = null;
-          if (question !== null) {
-            latest.current.onAsk(question);
-          }
         }
-        switched.current = false;
+        const question = pending.current;
+        pending.current = null;
+        if (question !== null) {
+          latest.current.onAsk(question);
+        }
         if (current) {
           setReady(true);
         }
@@ -301,22 +270,31 @@ export function useInstructorVoice(options: Options) {
     return () => {
       current = false;
       active.current = false;
-      voice.stop();
+      const question = voice.stop();
+      if (
+        enabledVoice.current &&
+        latest.current.enabled &&
+        latest.current.runtime.voiceSnapshot().foreground
+      ) {
+        pending.current = question ?? pending.current;
+      } else {
+        pending.current = null;
+      }
       acceptingTurns = false;
-      if (session.current === voice) {
+      if (session.current === connection) {
         session.current = null;
       }
       quiet();
     };
     // Source changes during a fallback keep that conversation alive; the next start picks the new source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, on, mode.mode, attempt, sessionFor, quiet]);
+  }, [enabled, on, lifecycle.revision, attempt, runtime, options.pack, quiet]);
   useEffect(() => {
-    session.current?.update(context);
+    session.current?.session.update(context);
   }, [context]);
   useEffect(() => {
     if (
-      (!ready && switched.current) ||
+      (!ready && lifecycle.announcement !== null) ||
       session.current === null ||
       utterance === null ||
       spoken.current === utterance.id
@@ -324,10 +302,18 @@ export function useInstructorVoice(options: Options) {
       return;
     }
     spoken.current = utterance.id;
-    session.current?.say(utterance);
-  }, [ready, utterance, enabled, on, mode.mode, attempt]);
+    session.current?.session.say(utterance);
+  }, [
+    ready,
+    utterance,
+    enabled,
+    on,
+    lifecycle.revision,
+    lifecycle.announcement,
+    attempt,
+  ]);
   useEffect(() => {
-    session.current?.setMuted(muted);
+    session.current?.session.setMuted(muted);
   }, [muted]);
   const idle = section === null && !context.thinking && transcript === '';
   useEffect(() => {
@@ -350,7 +336,8 @@ export function useInstructorVoice(options: Options) {
     latest.current.onCancel();
   }, [interrupt]);
   const ask = useCallback(
-    (text: string) => active.current && (session.current?.ask(text) ?? false),
+    (text: string) =>
+      active.current && (session.current?.questions?.ask(text) ?? false),
     [],
   );
   const state =

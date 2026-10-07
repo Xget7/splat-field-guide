@@ -1,3 +1,7 @@
+import { speechInput } from 'react-native-on-device';
+import { voiceEvents as events } from '../../../testing/voiceSession';
+import { SpeechPermission } from './voiceCopy';
+import { VoiceStartFailure } from './voiceSession';
 import { fixturePack } from '../../../testing/fixturePack';
 import { INITIAL_SESSION } from '../../guide/session';
 import {
@@ -6,19 +10,6 @@ import {
 } from './agentVoiceSession';
 
 const pack = fixturePack();
-const events = () => ({
-  listening: jest.fn(),
-  transcript: jest.fn(),
-  speaking: jest.fn(),
-  word: jest.fn(),
-  level: jest.fn(),
-  hint: jest.fn(),
-  question: jest.fn(),
-  cancelQuestion: jest.fn(),
-  turn: jest.fn(),
-  action: jest.fn(),
-  ended: jest.fn(),
-});
 const client = () => ({
   start: jest.fn(async () => {}),
   sendText: jest.fn(),
@@ -150,5 +141,83 @@ test.each([
         : {}),
     });
     expect(changed.ended).toHaveBeenCalledWith('network', pending);
+  },
+);
+
+test('requests access before starting agent audio and rejects denied access without opening a client', async () => {
+  const input = speechInput();
+  const permissionRequests = jest.mocked(input.requestPermission).mock.calls
+    .length;
+  let grant!: (
+    permission: Awaited<ReturnType<typeof input.requestPermission>>,
+  ) => void;
+  jest.mocked(input.requestPermission).mockReturnValueOnce(
+    new Promise(resolve => {
+      grant = resolve;
+    }),
+  );
+  const transport = client();
+  const makeClient = jest.fn(() => transport);
+  const session = createAgentVoiceSession({ pack, client: makeClient });
+  const started = session.start(
+    { pack, state: INITIAL_SESSION, history: [], thinking: false },
+    events(),
+  );
+  expect(makeClient).not.toHaveBeenCalled();
+  grant(SpeechPermission.granted);
+  await started;
+  expect(transport.start).toHaveBeenCalled();
+  expect(
+    jest.mocked(input.requestPermission).mock.calls.length - permissionRequests,
+  ).toBe(1);
+  session.stop();
+  jest.mocked(input.requestPermission).mockResolvedValueOnce('denied');
+  makeClient.mockClear();
+  await expect(
+    session.start(
+      { pack, state: INITIAL_SESSION, history: [], thinking: false },
+      events(),
+    ),
+  ).rejects.toMatchObject({ failure: VoiceStartFailure.permission });
+  expect(makeClient).not.toHaveBeenCalled();
+});
+
+test.each([false, true])(
+  'a correction after the next transcript updates the old exchange, completed: %s',
+  async completed => {
+    let heard!: SessionAgentHandlers;
+    const changed = events();
+    const session = createAgentVoiceSession({
+      pack,
+      client: handlers => {
+        heard = handlers;
+        return client();
+      },
+    });
+    await session.start(
+      { pack, state: INITIAL_SESSION, history: [], thinking: false },
+      changed,
+    );
+    heard.userTranscript('What does the battery do?');
+    heard.responseText('It supplies the starter and');
+    if (completed) {
+      heard.response('It supplies the starter and lights.');
+    }
+    const first = changed.turn.mock.calls[0][0].exchange.id;
+    heard.userTranscript('How do I check it?');
+    const next = changed.turn.mock.calls.at(-1)![0].exchange.id;
+    heard.correction('It supplies the starter.');
+    expect(changed.turn.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'answer',
+      exchange: {
+        id: first,
+        reply: 'It supplies the starter.',
+        interrupted: true,
+      },
+    });
+    heard.response('Check the terminals.');
+    expect(changed.turn.mock.calls.at(-1)?.[0]).toMatchObject({
+      exchange: { id: next, reply: 'Check the terminals.' },
+    });
   },
 );

@@ -53,11 +53,13 @@ export const AnswerSource = {
 } as const;
 export type AnswerSource = (typeof AnswerSource)[keyof typeof AnswerSource];
 
-export interface ModeStatus {
-  readonly mode: InstructorMode;
-  readonly cause: ModeCause;
+export interface ModeSources {
   readonly voice: VoiceSource;
   readonly answers: AnswerSource;
+}
+export interface ModeStatus extends ModeSources {
+  readonly mode: InstructorMode;
+  readonly cause: ModeCause;
   /** The user turned offline on, so the app does not return online by itself. */
   readonly forced: boolean;
 }
@@ -99,10 +101,15 @@ export const AgentState = {
 } as const;
 export type AgentState = (typeof AgentState)[keyof typeof AgentState];
 
-export const AgentFailure = {
+export const ConnectionFailure = {
   quota: 'quota',
   auth: 'auth',
   network: 'network',
+} as const;
+export type ConnectionFailure =
+  (typeof ConnectionFailure)[keyof typeof ConnectionFailure];
+export const AgentFailure = {
+  ...ConnectionFailure,
   unknown: 'unknown',
 } as const;
 export type AgentFailure = (typeof AgentFailure)[keyof typeof AgentFailure];
@@ -131,3 +138,12 @@ export interface AppEvents {
   /** User intents from the UI; the mode controller listens. */
   modeRequest: ModeRequest;
 }
+
+export const AppEvent = {
+  network: 'network',
+  mode: 'mode',
+  switchStep: 'switchStep',
+  modeSuggestion: 'modeSuggestion',
+  agent: 'agent',
+  modeRequest: 'modeRequest',
+} as const;

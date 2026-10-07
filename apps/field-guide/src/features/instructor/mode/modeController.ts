@@ -7,6 +7,7 @@ import {
   VoiceSource,
   type ModeRequest,
   type ModeStatus,
+  type ModeSources,
   type ModeSuggestion,
   type NetworkStatus,
 } from '../../events/types';
@@ -35,7 +36,7 @@ export interface ModeController {
   agentAvailable(available: boolean): void;
   switched(
     mode: typeof InstructorMode.online | typeof InstructorMode.offline,
-    sources: { voice: VoiceSource; answers: AnswerSource },
+    sources: ModeSources,
   ): void;
 }
 export function createModeController(
