@@ -200,6 +200,6 @@ const VARIANT_STYLE = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Color.lineStrong,
   },
-  active: { backgroundColor: Color.accent },
+  active: { backgroundColor: Color.accentFill },
   primary: { backgroundColor: Color.action },
 });

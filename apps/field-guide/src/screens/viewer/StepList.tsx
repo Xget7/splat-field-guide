@@ -195,7 +195,10 @@ const styles = StyleSheet.create({
     backgroundColor: Color.completed,
     borderColor: Color.completed,
   },
-  badgeCurrent: { backgroundColor: Color.accent, borderColor: Color.accent },
+  badgeCurrent: {
+    backgroundColor: Color.accentFill,
+    borderColor: Color.accentFill,
+  },
   number: { ...Type.data, color: Color.faint },
   numberFilled: { color: Color.accentText },
   // Align the first line of wrapped text with the badge.

@@ -13,11 +13,14 @@ export const Color = {
   muted: '#8B939C',
   // 4.5:1 on black, so even the quietest readout passes AA.
   faint: '#767E88',
-  accent: '#0A6CFF',
-  accentPressed: '#0058D6',
+  // Text, icons and lines on dark surfaces.
+  accent: '#2BB8CC',
+  // Filled controls that carry white text.
+  accentFill: '#0F7C8A',
+  accentPressed: '#0B6874',
   accentText: '#FFFFFF',
-  accentWash: 'rgba(10, 108, 255, 0.16)',
-  completed: 'rgba(10, 108, 255, 0.6)',
+  accentWash: 'rgba(43, 184, 204, 0.16)',
+  completed: 'rgba(15, 124, 138, 0.75)',
   // Reserve the accent for selection by using a neutral primary action.
   action: '#F4F6F8',
   actionPressed: '#C3C9D0',
@@ -26,6 +29,14 @@ export const Color = {
   cautionWash: 'rgba(245, 183, 49, 0.10)',
   // Keep overlaid controls legible on bright captures.
   overlay: 'rgba(8, 9, 11, 0.78)',
+  // The viewer's side column: the rail, then the drawer beside it.
+  rail: '#0E1013',
+  drawer: '#16181C',
+  field: 'rgba(255, 255, 255, 0.06)',
+  // Tints over a native blur; the strong one carries reading text.
+  glass: 'rgba(20, 22, 26, 0.55)',
+  glassStrong: 'rgba(20, 22, 26, 0.78)',
+  glassLine: 'rgba(255, 255, 255, 0.14)',
 } as const;
 
 export const Space = {
@@ -38,7 +49,18 @@ export const Space = {
   xxl: 32,
 } as const;
 
-export const Radius = { sm: 2, md: 4, lg: 6, sheet: 12 } as const;
+export const Radius = {
+  sm: 2,
+  md: 4,
+  lg: 6,
+  field: 10,
+  control: 12,
+  sheet: 12,
+  card: 16,
+  round: 999,
+} as const;
+
+export const BLUR_AMOUNT = 24;
 
 export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;

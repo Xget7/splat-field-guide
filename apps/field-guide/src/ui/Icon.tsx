@@ -25,6 +25,12 @@ export const IconName = {
   explore: 'explore',
   frame: 'frame',
   flash: 'flash',
+  up: 'up',
+  grip: 'grip',
+  help: 'help',
+  tag: 'tag',
+  layers: 'layers',
+  sidebar: 'sidebar',
 } as const;
 export type IconName = (typeof IconName)[keyof typeof IconName];
 
@@ -91,6 +97,42 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
     <Path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" />
   ),
   flash: () => <Path d="M13.5 2.5L5 13h6l-.5 8.5L19 11h-6z" />,
+  up: () => <Path d="M6 15l6-6 6 6" />,
+  grip: color => (
+    <>
+      {[9, 15].map(x =>
+        [6, 12, 18].map(y => (
+          <Circle
+            key={`${x}-${y}`}
+            cx={x}
+            cy={y}
+            r={1.4}
+            fill={color}
+            stroke="none"
+          />
+        )),
+      )}
+    </>
+  ),
+  help: () => (
+    <>
+      <Circle cx={12} cy={12} r={9} />
+      <Path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.3-2.4 3.8M12 17h.01" />
+    </>
+  ),
+  tag: () => (
+    <>
+      <Path d="M3 12.5V4a1 1 0 0 1 1-1h8.5L21 11.5 12.5 20z" />
+      <Path d="M8 8h.01" />
+    </>
+  ),
+  layers: () => <Path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 16.5l9 5 9-5" />,
+  sidebar: () => (
+    <>
+      <Rect x={3} y={4} width={18} height={16} rx={2} />
+      <Path d="M9 4v16" />
+    </>
+  ),
   stop: color => (
     <Rect
       x={6}
