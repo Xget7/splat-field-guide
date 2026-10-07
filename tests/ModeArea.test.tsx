@@ -22,6 +22,10 @@ const ONLINE: ModeStatus = {
 };
 const SWITCH_ID_INCREMENT = 1;
 const INITIAL_SWITCH_ID = 0;
+const OFFLINE_MODEL =
+  'Answers come from the on-device model, which this device limits. Keep questions short. Goes online when the connection returns.';
+const OFFLINE_SCRIPT =
+  "Answers come from the guide's script. Goes online when the connection returns.";
 
 describe('instructor mode area', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -105,21 +109,20 @@ describe('instructor mode area', () => {
         mode: InstructorMode.offline,
         answers: AnswerSource.deviceModel,
       },
-      title: 'Offline',
-      detail:
-        'Answers come from the on-device model, which this device limits. Keep questions short. Goes online when the connection returns.',
+      title: null,
+      detail: OFFLINE_MODEL,
     },
     {
       status: { mode: InstructorMode.offline, answers: AnswerSource.script },
-      title: 'Offline',
-      detail:
-        "Answers come from the guide's script. Goes online when the connection returns.",
+      title: null,
+      detail: OFFLINE_SCRIPT,
     },
-  ])('shows $title with $detail', async ({ status, title, detail }) => {
+  ])('shows $detail', async ({ status, title, detail }) => {
     await mount();
     await mode(status);
-    expect(hasText(title)).toBe(true);
     expect(hasText(detail)).toBe(true);
+    // Offline, the header already names the mode.
+    expect(hasText(title ?? 'Offline')).toBe(title !== null);
   });
 
   test('weak signal takes priority over the online voice fallback notice', async () => {
@@ -155,7 +158,7 @@ describe('instructor mode area', () => {
       });
       expect(banners()).toHaveLength(1);
       expect(banners()[0]).toBe(banner);
-      expect(hasText('Offline')).toBe(true);
+      expect(hasText(OFFLINE_SCRIPT)).toBe(true);
       expect(hasText('Connection lost. Switching to offline.')).toBe(false);
     },
   );
@@ -183,7 +186,7 @@ describe('instructor mode area', () => {
     await suggest();
     await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
     expect(hasText('Weak signal')).toBe(false);
-    expect(hasText('Offline')).toBe(true);
+    expect(hasText(OFFLINE_SCRIPT)).toBe(true);
   });
 
   test('switch progress appears in emission order', async () => {
@@ -253,7 +256,7 @@ describe('instructor mode area', () => {
     });
     expect(hasText('Connection lost. Switching to offline.')).toBe(false);
     expect(hasText('Voice: Kokoro')).toBe(false);
-    expect(hasText('Offline')).toBe(true);
+    expect(hasText(OFFLINE_MODEL)).toBe(true);
   });
 
   test.each([

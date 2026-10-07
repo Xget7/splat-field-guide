@@ -30,7 +30,13 @@ export function ModeArea() {
     ? {
         contentKey: view.notice.detail,
         ruleColor: view.notice.ruleColor,
-        content: <ModeNotice notice={view.notice} />,
+        // The header already says Offline.
+        content: (
+          <ModeNotice
+            notice={view.notice}
+            titled={view.mode !== InstructorMode.offline}
+          />
+        ),
       }
     : null;
   if (banner === null) {

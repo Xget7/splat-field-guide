@@ -35,12 +35,12 @@ import { ModeArea } from '../instructor/ModeArea';
 import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
 import { useDockKeyboard } from './useDockKeyboard';
 import {
+  StatusLabel,
+  useAssistantStatus,
   useVoiceStatus,
   VoiceStatus,
-  VoiceStatusLabel,
-  VoiceTint,
-  VoiceWave,
-} from '../instructor/VoiceWave';
+} from '../instructor/AssistantStatus';
+import { VoiceTint, VoiceWave } from '../instructor/VoiceWave';
 
 export const DOCK_COLLAPSED = {
   width: 320,
@@ -74,7 +74,6 @@ const Copy = {
   stopHint: 'Interrupts the current reply and cancels the pending question',
   end: 'End voice',
   endHint: 'Goes back to reading and typing',
-  idle: 'Tap to talk',
 } as const;
 
 interface Props {
@@ -116,10 +115,7 @@ export function AssistantDock({
   const busy =
     voice.state === VoiceState.thinking || voice.state === VoiceState.speaking;
   const voiceStatus = useVoiceStatus(voice);
-  // Typed questions show Thinking too; idle, the mic in the composer speaks for itself.
-  const status =
-    voiceStatus ??
-    (voice.state === VoiceState.thinking ? VoiceStatus.thinking : null);
+  const status = useAssistantStatus(voice);
   const metering =
     voiceStatus === VoiceStatus.speaking ||
     voiceStatus === VoiceStatus.listening;
@@ -235,9 +231,7 @@ export function AssistantDock({
                   <Text accessibilityRole="header" style={styles.title}>
                     {Copy.title}
                   </Text>
-                  {status !== null && (
-                    <VoiceStatusLabel status={status} id="assistant-status" />
-                  )}
+                  <StatusLabel status={status} id="assistant-status" />
                 </View>
                 {busy && (
                   <Pressable
@@ -356,19 +350,13 @@ export function AssistantDock({
                 accessibilityLabel={Copy.title}
                 accessibilityHint={Copy.expandHint}
                 accessibilityState={{ expanded: false }}
-                accessibilityValue={{ text: status ?? Copy.idle }}
+                accessibilityValue={{ text: status }}
                 onPress={() => onExpandedChange(true)}
                 style={styles.expandButton}
               >
                 <Text style={styles.title}>{Copy.title}</Text>
                 <View style={styles.statusRow}>
-                  {status === null ? (
-                    <Text testID="assistant-status" style={styles.status}>
-                      {Copy.idle}
-                    </Text>
-                  ) : (
-                    <VoiceStatusLabel status={status} id="assistant-status" />
-                  )}
+                  <StatusLabel status={status} id="assistant-status" />
                   {metering && <LevelMeter level={voice.level} />}
                 </View>
               </Pressable>

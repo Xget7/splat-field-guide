@@ -236,6 +236,41 @@ describe('instructor panel modes', () => {
     },
   );
 
+  test.each([
+    { surface: 'panel', id: 'instructor-status' },
+    { surface: 'dock', id: 'assistant-status' },
+  ])(
+    'the open $surface says whether the assistant is connected',
+    async ({ surface, id }) => {
+      await act(() => {
+        renderer = ReactTestRenderer.create(
+          surface === 'dock' ? <Dock expanded /> : <Panel />,
+        );
+      });
+      const status = () => renderer.root.findByProps({ testID: id });
+      expect(status().props.children).toBe('Online');
+      await mode({
+        mode: InstructorMode.offline,
+        answers: AnswerSource.script,
+      });
+      expect(status().props.children).toBe('Offline');
+      expect(
+        renderer.root
+          .findAllByType(Text)
+          .filter(node => node.props.children === 'Offline'),
+      ).toHaveLength(1);
+      await mode({
+        mode: InstructorMode.switchingToOnline,
+        cause: ModeCause.recovered,
+      });
+      expect(status().props.children).toBe('Connecting');
+      expect(
+        renderer.root.findAllByProps({ testID: 'instructor-voice-loading' })
+          .length,
+      ).toBeGreaterThan(0);
+    },
+  );
+
   test('an idle minimized panel reads Offline', async () => {
     await mode({ mode: InstructorMode.offline, answers: AnswerSource.script });
     await mount({ mode: PanelMode.minimized });
@@ -490,7 +525,7 @@ describe('instructor panel modes', () => {
       expect(control('assistant-expand').props.accessibilityState).toEqual({
         expanded: false,
       });
-      expect(hasText('Tap to talk')).toBe(true);
+      expect(hasText('Online')).toBe(true);
       expect(control('assistant-send')).toBeUndefined();
       await act(() => control('assistant-expand').props.onPress());
       expect(onExpandedChange).toHaveBeenLastCalledWith(true);

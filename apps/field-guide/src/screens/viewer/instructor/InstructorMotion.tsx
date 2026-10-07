@@ -27,11 +27,11 @@ import { isSwitching } from '../../../features/events/mode';
 import { useModeView } from './useModeView';
 import {
   isLoading,
-  useVoiceStatus,
+  StatusLabel,
+  useAssistantStatus,
   VoiceStatus,
-  VoiceStatusLabel,
-  VoiceWave,
-} from './VoiceWave';
+} from './AssistantStatus';
+import { VoiceWave } from './VoiceWave';
 import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import {
@@ -121,7 +121,7 @@ export function ContentFade({
   );
 }
 
-function StatusLabel({
+function TextStatus({
   status,
   color,
   id,
@@ -179,43 +179,42 @@ export function InstructorStatus({
   minimized?: boolean;
 }) {
   const mode = useModeView();
-  const voiceStatus = useVoiceStatus(voice);
+  const status = useAssistantStatus(voice);
   const switching = minimized && isSwitching(mode.mode);
   const idleNotice =
     minimized &&
     mode.notice !== null &&
     voice.state === VoiceState.idle &&
     !live;
-  if (live && voiceStatus !== null && !switching) {
+  // Compact and idle, the bar names the step; open, the header says whether the assistant is connected.
+  if (switching || idleNotice || (minimized && !live)) {
     return (
       <View style={styles.status}>
-        <ContentFade contentKey={voiceStatus}>
-          <VoiceStatusLabel status={voiceStatus} id="instructor-status" />
-        </ContentFade>
-        {/* Open, the wave under the thread shows the level instead. */}
-        {minimized && !isLoading(voiceStatus) && (
-          <LevelMeter level={voice.level} />
-        )}
+        <TextStatus
+          id="instructor-status"
+          status={
+            switching || idleNotice
+              ? mode.minimizedStatusText
+              : status === VoiceStatus.thinking
+              ? status
+              : step
+          }
+          color={
+            idleNotice && mode.mode === InstructorMode.offline
+              ? Color.caution
+              : Color.faint
+          }
+        />
       </View>
     );
   }
-  const status =
-    switching || idleNotice
-      ? mode.minimizedStatusText
-      : voice.state === VoiceState.thinking
-      ? VoiceStatus.thinking
-      : step;
   return (
     <View style={styles.status}>
-      <StatusLabel
-        id="instructor-status"
-        status={status}
-        color={
-          idleNotice && mode.mode === InstructorMode.offline
-            ? Color.caution
-            : Color.faint
-        }
-      />
+      <ContentFade contentKey={status}>
+        <StatusLabel status={status} id="instructor-status" />
+      </ContentFade>
+      {/* Open, the wave under the thread shows the level instead. */}
+      {minimized && !isLoading(status) && <LevelMeter level={voice.level} />}
     </View>
   );
 }

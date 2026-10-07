@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,34 +11,10 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { VoiceSource } from '../../../features/events/types';
-import { useInstructorMode } from '../../../features/events/useAppEvent';
 import { normalizedLevel } from '../../../features/instructor/voice/speechPresentation';
-import {
-  VoiceState,
-  type InstructorVoice,
-} from '../../../features/instructor/voice/useInstructorVoice';
-import { Label } from '../../../ui/Label';
-import { Color, Motion, Space } from '../../../ui/theme';
-
-export const VoiceStatus = {
-  connecting: 'Connecting',
-  starting: 'Starting',
-  listening: 'Listening',
-  thinking: 'Thinking',
-  speaking: 'Speaking',
-  muted: 'Muted',
-} as const;
-export type VoiceStatus = (typeof VoiceStatus)[keyof typeof VoiceStatus];
-
-const STATUS_COLOR: Readonly<Record<VoiceStatus, string>> = {
-  [VoiceStatus.connecting]: Color.secondaryText,
-  [VoiceStatus.starting]: Color.secondaryText,
-  [VoiceStatus.listening]: Color.accent,
-  [VoiceStatus.thinking]: Color.secondaryText,
-  [VoiceStatus.speaking]: Color.text,
-  [VoiceStatus.muted]: Color.caution,
-};
+import type { InstructorVoice } from '../../../features/instructor/voice/useInstructorVoice';
+import { Color, Motion } from '../../../ui/theme';
+import { isLoading, STATUS_COLOR, type VoiceStatus } from './AssistantStatus';
 
 const Wave = {
   bars: 28,
@@ -66,65 +42,6 @@ const ENVELOPE = Array.from(
     Wave.edge +
     (1 - Wave.edge) * Math.sin((Math.PI * (index + HALF)) / Wave.bars),
 );
-
-export function voiceStatusFor(
-  voice: InstructorVoice,
-  source: VoiceSource,
-): VoiceStatus {
-  if (voice.state === VoiceState.speaking) {
-    return VoiceStatus.speaking;
-  }
-  if (voice.state === VoiceState.thinking) {
-    return VoiceStatus.thinking;
-  }
-  if (voice.muted) {
-    return VoiceStatus.muted;
-  }
-  if (voice.open) {
-    return VoiceStatus.listening;
-  }
-  return source === VoiceSource.agent
-    ? VoiceStatus.connecting
-    : VoiceStatus.starting;
-}
-
-/** What the voice is doing, or null while voice is off. */
-export function useVoiceStatus(voice: InstructorVoice): VoiceStatus | null {
-  const { voice: source } = useInstructorMode();
-  return voice.on ? voiceStatusFor(voice, source) : null;
-}
-
-export function isLoading(status: VoiceStatus | null): boolean {
-  return status === VoiceStatus.connecting || status === VoiceStatus.starting;
-}
-
-/** The status word, with a spinner while the voice connects. */
-export function VoiceStatusLabel({
-  status,
-  id,
-}: {
-  status: VoiceStatus;
-  id: string;
-}) {
-  return (
-    <View style={styles.status}>
-      <Label
-        testID={id}
-        accessibilityLiveRegion="polite"
-        color={STATUS_COLOR[status]}
-      >
-        {status}
-      </Label>
-      {isLoading(status) && (
-        <ActivityIndicator
-          testID="instructor-voice-loading"
-          size="small"
-          color={STATUS_COLOR[status]}
-        />
-      )}
-    </View>
-  );
-}
 
 function Bar({
   index,
@@ -248,7 +165,6 @@ export function VoiceTint({ listening }: { listening: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  status: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   wave: {
     flex: 1,
     alignSelf: 'stretch',

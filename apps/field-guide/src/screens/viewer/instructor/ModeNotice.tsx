@@ -2,10 +2,16 @@ import { StyleSheet, Text } from 'react-native';
 import { Color, Type } from '../../../ui/theme';
 import type { Notice } from './useModeView';
 
-export function ModeNotice({ notice }: { notice: Notice }) {
+export function ModeNotice({
+  notice,
+  titled = true,
+}: {
+  notice: Notice;
+  titled?: boolean;
+}) {
   return (
     <>
-      <Text style={styles.title}>{notice.title}</Text>
+      {titled && <Text style={styles.title}>{notice.title}</Text>}
       <Text style={styles.detail}>{notice.detail}</Text>
     </>
   );
