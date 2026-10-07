@@ -40,7 +40,8 @@ import {
   useVoiceStatus,
   VoiceStatus,
 } from '../instructor/AssistantStatus';
-import { VoiceTint, VoiceWave } from '../instructor/VoiceWave';
+import { VoiceTint } from '../instructor/VoiceTint';
+import { VoiceWave } from '../instructor/VoiceWave';
 
 export const DOCK_COLLAPSED = {
   width: 320,

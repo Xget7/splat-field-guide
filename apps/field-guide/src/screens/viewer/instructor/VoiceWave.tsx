@@ -7,13 +7,12 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { normalizedLevel } from '../../../features/instructor/voice/speechPresentation';
 import type { InstructorVoice } from '../../../features/instructor/voice/useInstructorVoice';
-import { Color, Motion } from '../../../ui/theme';
+import { Motion } from '../../../ui/theme';
 import { isLoading, STATUS_COLOR, type VoiceStatus } from './AssistantStatus';
 
 const Wave = {
@@ -29,9 +28,9 @@ const Wave = {
   step: 0.55,
   period: 1400,
 } as const;
-// While connecting, a bump of this width and height sweeps across the bars.
+// While connecting, a bump of this width and height sweeps across the bars,
+// starting and ending this margin past the edge bars.
 const Sweep = { width: 0.18, peak: 0.6, margin: 0.2 } as const;
-const Breath = { low: 0.04, high: 0.11, steady: 0.08, period: 2400 } as const;
 const FULL_TURN = 2 * Math.PI;
 const LOOP_FOREVER = -1;
 const HALF = 0.5;
@@ -126,44 +125,6 @@ export function VoiceWave({
   );
 }
 
-/** Tints the conversation blue and breathes while the instructor listens. */
-export function VoiceTint({ listening }: { listening: boolean }) {
-  const reducedMotion = useReducedMotion();
-  const opacity = useSharedValue(0);
-  useEffect(() => {
-    if (!listening) {
-      opacity.value = withTiming(0, { duration: Motion.base });
-    } else if (reducedMotion) {
-      opacity.value = Breath.steady;
-    } else {
-      const half = {
-        duration: Breath.period / 2,
-        easing: Easing.inOut(Easing.sin),
-      };
-      opacity.value = withSequence(
-        withTiming(Breath.low, { duration: Motion.base }),
-        withRepeat(
-          withSequence(
-            withTiming(Breath.high, half),
-            withTiming(Breath.low, half),
-          ),
-          LOOP_FOREVER,
-        ),
-      );
-    }
-    return () => cancelAnimation(opacity);
-  }, [listening, reducedMotion, opacity]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return (
-    <Animated.View
-      testID="instructor-voice-tint"
-      pointerEvents="none"
-      accessible={false}
-      style={[StyleSheet.absoluteFill, styles.tint, style]}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   wave: {
     flex: 1,
@@ -173,5 +134,4 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bar: { width: Wave.barWidth, borderRadius: Wave.barWidth / 2 },
-  tint: { backgroundColor: Color.accent },
 });

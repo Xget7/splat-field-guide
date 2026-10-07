@@ -121,20 +121,21 @@ export function ContentFade({
   );
 }
 
-function TextStatus({
-  status,
+/** A label that fades in each time its text changes. */
+function FadingLabel({
+  text,
   color,
   id,
 }: {
-  status: string | null;
+  text: string | null;
   color: string;
   id: string;
 }) {
   return (
-    <ContentFade contentKey={status}>
-      {status !== null ? (
+    <ContentFade contentKey={text}>
+      {text !== null ? (
         <Label testID={id} color={color}>
-          {status}
+          {text}
         </Label>
       ) : null}
     </ContentFade>
@@ -186,14 +187,15 @@ export function InstructorStatus({
     mode.notice !== null &&
     voice.state === VoiceState.idle &&
     !live;
+  const notice = switching || idleNotice;
   // Compact and idle, the bar names the step; open, the header says whether the assistant is connected.
-  if (switching || idleNotice || (minimized && !live)) {
+  if (notice || (minimized && !live)) {
     return (
       <View style={styles.status}>
-        <TextStatus
+        <FadingLabel
           id="instructor-status"
-          status={
-            switching || idleNotice
+          text={
+            notice
               ? mode.minimizedStatusText
               : status === VoiceStatus.thinking
               ? status

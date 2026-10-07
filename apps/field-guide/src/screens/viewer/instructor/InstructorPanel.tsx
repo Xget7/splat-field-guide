@@ -55,7 +55,7 @@ import {
   togglePanel,
 } from './panelMotion';
 import { useVoiceStatus, VoiceStatus } from './AssistantStatus';
-import { VoiceTint } from './VoiceWave';
+import { VoiceTint } from './VoiceTint';
 import {
   VoiceState,
   type InstructorVoice,
