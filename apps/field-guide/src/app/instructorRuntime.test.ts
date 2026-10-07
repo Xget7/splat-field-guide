@@ -239,14 +239,7 @@ test('quota keeps later conversations on device for the run and offline question
 test('backgrounding closes the conversation without reconnecting', async () => {
   const appEvents = createEventBus<AppEvents>();
   let background!: (state: import('react-native').AppStateStatus) => void;
-  const connect = jest.fn(() => ({
-    send: jest.fn(),
-    close: jest.fn(),
-    onopen: null as (() => void) | null,
-    onmessage: null,
-    onerror: null,
-    onclose: null,
-  }));
+  const transport = fakeAgentTransport();
   const fetchImpl = jest.fn(async () => ({
     status: 200,
     json: async () => ({ signedUrl: 'wss://agent.example/session' }),
@@ -254,7 +247,7 @@ test('backgrounding closes the conversation without reconnecting', async () => {
   const runtime = createInstructorRuntime({
     appEvents,
     proxyUrl: 'https://proxy.example',
-    connect,
+    connect: transport.connect,
     fetch: fetchImpl as unknown as typeof fetch,
     appState: {
       currentState: 'active',
@@ -267,6 +260,7 @@ test('backgrounding closes the conversation without reconnecting', async () => {
   runtime.start();
   const pack = fixturePack();
   const session = runtime.sessionFor(pack)!.session;
+  const changed = voiceEvents();
   const started = session.start(
     {
       pack,
@@ -274,27 +268,16 @@ test('backgrounding closes the conversation without reconnecting', async () => {
       history: [],
       thinking: false,
     },
-    {
-      listening: jest.fn(),
-      transcript: jest.fn(),
-      speaking: jest.fn(),
-      word: jest.fn(),
-      level: jest.fn(),
-      hint: jest.fn(),
-      question: jest.fn(),
-      cancelQuestion: jest.fn(),
-      turn: jest.fn(),
-      action: jest.fn(),
-      ended: jest.fn(),
-    },
+    changed,
   );
   await jest.advanceTimersByTimeAsync(0);
-  connect.mock.results[0].value.onopen?.();
+  transport.current.onopen?.();
   await started;
   background('background');
-  expect(connect.mock.results[0].value.close).toHaveBeenCalled();
+  expect(changed.listening.mock.calls.at(-1)).toEqual([false]);
+  expect(transport.open).toBe(0);
   await jest.advanceTimersByTimeAsync(30000);
-  expect(connect).toHaveBeenCalledTimes(1);
+  expect(transport.open).toBe(0);
   runtime.stop();
 });
 

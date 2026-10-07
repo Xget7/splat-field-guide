@@ -22,7 +22,7 @@ import {
   type SpokenSection,
   type SpokenWord,
 } from './speechPresentation';
-import { VoiceHint } from './voiceCopy';
+import { VoiceHint, VoiceStartHint } from './voiceCopy';
 import {
   VoiceEnd,
   VoiceStartError,
@@ -256,13 +256,11 @@ export function useInstructorVoice(options: Options) {
         quiet();
         setOn(false);
         setHint(
-          error instanceof VoiceStartError &&
-            error.failure === VoiceStartFailure.permission
-            ? VoiceHint.permission
-            : error instanceof VoiceStartError &&
-              error.failure === VoiceStartFailure.unavailable
-            ? VoiceHint.unavailable
-            : VoiceHint.failed,
+          VoiceStartHint[
+            error instanceof VoiceStartError
+              ? error.failure
+              : VoiceStartFailure.failed
+          ],
         );
       }
     };

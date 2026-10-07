@@ -1,4 +1,3 @@
-import { AppState, type AppStateStatus } from 'react-native';
 import {
   audioLink,
   networkMonitor,
@@ -41,20 +40,18 @@ import {
 } from '../features/instructor/models/modelInstructor';
 import type { InstructorModel } from '../features/instructor/models/InstructorModel';
 import { INSTRUCTOR_PROXY_URL } from '../features/instructor/proxy';
-import { createAgentVoiceSession } from '../features/instructor/voice/agentVoiceSession';
-import { createPipelineVoiceSession } from '../features/instructor/voice/pipelineVoiceSession';
-import { createFallbackVoiceSession } from '../features/instructor/voice/fallbackVoiceSession';
-import { recognitionHintsFor } from '../features/instructor/voice/recognitionHints';
 import {
   VoiceStartFailure,
-  type VoiceConnection,
   type VoiceRuntime,
   type VoiceRuntimeState,
-  type VoiceSession,
 } from '../features/instructor/voice/voiceSession';
-import { SpeechVoice } from '../features/instructor/voice/voiceCopy';
 import { voiceFailure } from '../features/instructor/voice/voiceFailure';
 import type { Pack } from '../features/pack/pack';
+import {
+  createInstructorForeground,
+  type AppStatePort,
+} from './instructorForeground';
+import { createInstructorSessions } from './instructorSessions';
 import { createAgentConnection } from './agentConnection';
 import {
   offlineAnnouncement,
@@ -62,14 +59,6 @@ import {
   switchTasks,
 } from './instructorSwitch';
 
-const AppActivity = { active: 'active', change: 'change' } as const;
-interface AppStatePort {
-  readonly currentState: string | null;
-  addEventListener(
-    event: typeof AppActivity.change,
-    listener: (state: AppStateStatus) => void,
-  ): { remove(): void };
-}
 interface RuntimeDependencies {
   proxyUrl?: string | null;
   appEvents?: EventBus<AppEvents>;
@@ -108,22 +97,13 @@ export function createInstructorRuntime(
   const input = deps.speechInput ?? speechInput;
   const output = deps.speechOutput ?? speechOutput;
   const paths = deps.networkMonitor ?? networkMonitor;
-  const activity: AppStatePort = deps.appState ?? {
-    currentState: AppState.currentState ?? null,
-    addEventListener: (event, listener) =>
-      AppState.addEventListener(event, state => {
-        if (state !== undefined) {
-          listener(state);
-        }
-      }),
-  };
+  const foreground = createInstructorForeground(deps.appState);
   const model = deps.onDeviceModel ?? onDeviceModel;
   const now = deps.now ?? Date.now;
   const schedule = deps.setTimeout ?? setTimeout;
   const cancel = deps.clearTimeout ?? clearTimeout;
   const connection = createAgentConnection({ url, fetchImpl: deps.fetch, now });
   const switchTimers = new Set<ReturnType<typeof setTimeout>>();
-  const sessions = new Set<VoiceSession>();
   const listeners = new Set<() => void>();
   const subscriptions: (() => void)[] = [];
   const pathQuality = createQualityEstimator();
@@ -131,28 +111,20 @@ export function createInstructorRuntime(
   let started = false;
   let disposed = false;
   let switchId = 0;
-  let foreground =
-    activity.currentState === null ||
-    activity.currentState === AppActivity.active;
   let idle = true;
   let instructorOpen = false;
   let snapshot: VoiceRuntimeState = {
     revision: 0,
-    canStart: foreground,
-    foreground,
+    canStart: foreground.isForeground(),
+    foreground: foreground.isForeground(),
     announcement: null,
   };
-  function stopSessions() {
-    for (const session of [...sessions]) {
-      session.stop();
-    }
-  }
   function publishVoice(status: ModeStatus, switched = false) {
-    const canStart = foreground && !isSwitching(status.mode);
+    const canStart = foreground.isForeground() && !isSwitching(status.mode);
     snapshot = {
       revision: snapshot.revision + 1,
       canStart,
-      foreground,
+      foreground: foreground.isForeground(),
       announcement:
         switched &&
         status.mode === InstructorMode.offline &&
@@ -187,7 +159,7 @@ export function createInstructorRuntime(
       pack,
       probe,
       prepareAgent: async () => {
-        if (!foreground || !connection.available()) {
+        if (!foreground.isForeground() || !connection.available()) {
           return false;
         }
         try {
@@ -249,7 +221,7 @@ export function createInstructorRuntime(
     const switched = isSwitching(previousMode);
     previousMode = status.mode;
     if (isSwitching(status.mode)) {
-      stopSessions();
+      sessions.stop();
       connection.clear();
     }
     publishVoice(status, switched);
@@ -289,43 +261,32 @@ export function createInstructorRuntime(
     onRoundTrip: trip => network.report(trip),
   });
   const instructor = createModelInstructor([cloud, model]);
-  function own(voice: VoiceConnection): VoiceConnection {
-    let stoppedQuestion: string | null = null;
-    const session: VoiceSession = {
-      async start(context, events) {
-        stoppedQuestion = null;
-        sessions.add(session);
-        try {
-          await voice.session.start(context, {
-            ...events,
-            ended: (reason, pending) => {
-              sessions.delete(session);
-              stoppedQuestion = pending;
-              events.ended(reason, pending);
-            },
-          });
-        } catch (error) {
-          sessions.delete(session);
-          throw error;
-        }
-      },
-      say: utterance => voice.session.say(utterance),
-      update: context => voice.session.update(context),
-      interrupt: () => voice.session.interrupt(),
-      setMuted: muted => voice.session.setMuted(muted),
-      stop() {
-        stoppedQuestion = voice.session.stop() ?? stoppedQuestion;
-        sessions.delete(session);
-        return stoppedQuestion;
-      },
-    };
-    return {
-      session,
-      get questions() {
-        return sessions.has(session) && foreground ? voice.questions : null;
-      },
-    };
-  }
+  const sessions = createInstructorSessions({
+    input,
+    output,
+    agentAvailable: connection.available,
+    foreground: foreground.isForeground,
+    onPrimaryFailure: primaryFailure,
+    networkOffline: () =>
+      bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
+    client: handlers =>
+      createAgentClient({
+        signedUrl: connection.signedUrl,
+        connect:
+          deps.connect ??
+          (address => new WebSocket(address) as unknown as SocketPort),
+        audio: (deps.audioLink ?? audioLink)(),
+        setTimeout: deps.setTimeout,
+        clearTimeout: deps.clearTimeout,
+        setInterval: deps.setInterval,
+        clearInterval: deps.clearInterval,
+        handlers: {
+          ...handlers,
+          status: value => bus.emit(AppEvent.agent, value),
+          roundTrip: ms => network.report({ ok: true, ms }),
+        },
+      }),
+  });
   return {
     instructor,
     voiceSnapshot: () => snapshot,
@@ -337,70 +298,18 @@ export function createInstructorRuntime(
       if (!snapshot.canStart || disposed) {
         return null;
       }
-      const status = controller.current();
-      const pipeline = (
-        voice: (typeof SpeechVoice)[keyof typeof SpeechVoice],
-      ): VoiceConnection => ({
-        session: createPipelineVoiceSession({
-          voice,
-          hints: recognitionHintsFor(guide),
-          input,
-          output,
-        }),
-        questions: null,
-      });
-      if (status.mode === InstructorMode.offline) {
-        return own(pipeline(SpeechVoice.kokoro));
-      }
-      if (status.voice === VoiceSource.device || !connection.available()) {
-        return own(pipeline(SpeechVoice.system));
-      }
-      const primary = createAgentVoiceSession({
-        pack: guide,
-        input,
-        client: handlers =>
-          createAgentClient({
-            signedUrl: connection.signedUrl,
-            connect:
-              deps.connect ??
-              (address => new WebSocket(address) as unknown as SocketPort),
-            audio: (deps.audioLink ?? audioLink)(),
-            setTimeout: deps.setTimeout,
-            clearTimeout: deps.clearTimeout,
-            setInterval: deps.setInterval,
-            clearInterval: deps.clearInterval,
-            handlers: {
-              ...handlers,
-              status: value => bus.emit(AppEvent.agent, value),
-              roundTrip: ms => network.report({ ok: true, ms }),
-            },
-          }),
-      });
-      const fallback = createFallbackVoiceSession({
-        primary,
-        primaryQuestions: primary,
-        fallback: pipeline(SpeechVoice.system).session,
-        onPrimaryFailure: primaryFailure,
-        networkOffline: () =>
-          bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
-      });
-      return own({
-        session: fallback,
-        get questions() {
-          return fallback.questions;
-        },
-      });
+      return sessions.sessionFor(controller.current(), guide);
     },
     setPack(value) {
       pack = value;
     },
     setInstructorOpen(open) {
       instructorOpen = open;
-      network.setActive(open && foreground);
+      network.setActive(open && foreground.isForeground());
     },
     setIdle(value) {
       idle = value;
-      controller.setIdle(value && foreground);
+      controller.setIdle(value && foreground.isForeground());
     },
     start() {
       if (started || disposed) {
@@ -411,28 +320,16 @@ export function createInstructorRuntime(
         bus.on(AppEvent.mode, modeChanged),
         bus.on(AppEvent.modeRequest, request => controller.request(request)),
       );
-      const subscription = activity.addEventListener(
-        AppActivity.change,
-        state => {
-          const active = state === AppActivity.active;
-          if (active === foreground) {
-            return;
-          }
-          foreground = active;
-          if (!foreground) {
-            stopSessions();
-            connection.clear();
-            instructor.cancel();
-            network.setActive(false);
-          }
-          if (foreground) {
-            network.setActive(instructorOpen);
-          }
-          controller.setIdle(idle && foreground);
-          publishVoice(controller.current());
-        },
-      );
-      subscriptions.push(() => subscription.remove());
+      foreground.start(active => {
+        if (!active) {
+          sessions.stop();
+          connection.clear();
+          instructor.cancel();
+        }
+        network.setActive(instructorOpen && active);
+        controller.setIdle(idle && active);
+        publishVoice(controller.current());
+      });
       controller.agentAvailable(connection.available());
       if (url === null) {
         controller.network({
@@ -459,9 +356,10 @@ export function createInstructorRuntime(
       }
       disposed = true;
       started = false;
-      stopSessions();
+      sessions.stop();
       switchId++;
       connection.clear();
+      foreground.stop();
       subscriptions.splice(0).forEach(unsubscribe => unsubscribe());
       switchTimers.forEach(cancel);
       switchTimers.clear();

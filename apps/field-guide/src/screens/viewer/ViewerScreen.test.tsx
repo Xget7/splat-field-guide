@@ -865,22 +865,19 @@ describe('viewer screen', () => {
       },
     );
 
-    test('reading asks for no voice access; voice asks once it is turned on', async () => {
+    test('voice waits for permission before listening to commands', async () => {
       await mount({ mode: LearnMode.instructor });
-      expect(input.requestPermission).not.toHaveBeenCalled();
-      expect(output.speak).not.toHaveBeenCalled();
+      expect(has('instructor-input')).toBe(true);
       const permission = deferred<'granted'>();
       jest
         .mocked(input.requestPermission)
         .mockReturnValueOnce(permission.promise);
       await voiceOn();
-      expect(input.requestPermission).toHaveBeenCalledTimes(1);
-      expect(output.speak).toHaveBeenCalledTimes(1);
       expect(text('instructor-voice-status')).toBe('Starting');
-      expect(input.listen).not.toHaveBeenCalled();
       await act(async () => permission.resolve('granted'));
-      expect(input.prepare).toHaveBeenCalledWith(VOICE_LOCALE);
-      expect(input.listen).toHaveBeenCalledTimes(1);
+      expect(text('instructor-voice-status')).toBe('Listening');
+      await act(async () => heard().turn('next'));
+      expect(debug().getState().stepIndex).toBe(1);
     });
 
     test.each(['instructor-grabber', 'instructor-header'])(

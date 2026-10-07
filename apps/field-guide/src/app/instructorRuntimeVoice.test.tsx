@@ -1,5 +1,6 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
+import type { AppStateStatus } from 'react-native';
 import type { NetworkPath } from 'react-native-on-device';
 import { createInstructorRuntime } from './instructorRuntime';
 import { fakeAgentTransport } from '../testing/agentTransport';
@@ -49,6 +50,70 @@ function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
     },
   };
 }
+
+test.each(['active', 'inactive'])(
+  'an initially %s conversation survives inactive, but background leaves voice off on return',
+  async initialState => {
+    jest.useFakeTimers();
+    const transport = fakeAgentTransport();
+    let changeState!: (state: AppStateStatus) => void;
+    const runtime = createInstructorRuntime({
+      appEvents: createEventBus<AppEvents>(),
+      appState: {
+        currentState: initialState,
+        addEventListener: (_event, listener) => {
+          changeState = listener;
+          return { remove: () => {} };
+        },
+      },
+      proxyUrl: 'https://proxy.example',
+      connect: transport.connect,
+      fetch: jest.fn(async () => ({
+        status: 200,
+        json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+      })) as unknown as typeof fetch,
+    });
+    runtime.start();
+    const h = harness(runtime);
+    let renderer!: Renderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = Renderer.create(<h.Harness />);
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+      transport.current?.onopen?.();
+    });
+    expect(h.voice.open).toBe(true);
+    const conversation = transport.current;
+    await act(async () => changeState('inactive'));
+    expect(h.voice.on).toBe(true);
+    expect(h.voice.open).toBe(true);
+    await act(async () => changeState('active'));
+    expect(h.voice.open).toBe(true);
+    expect(transport.current).toBe(conversation);
+    expect(transport.open).toBe(1);
+    await act(async () => changeState('background'));
+    expect(h.voice.on).toBe(false);
+    expect(h.voice.open).toBe(false);
+    expect(transport.open).toBe(0);
+    await act(async () => {
+      changeState('active');
+      await jest.advanceTimersByTimeAsync(30000);
+    });
+    expect(h.voice.on).toBe(false);
+    expect(h.voice.open).toBe(false);
+    expect(transport.open).toBe(0);
+    await act(async () => h.voice.toggle());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+      transport.current.onopen?.();
+    });
+    expect(h.voice.open).toBe(true);
+    await act(async () => renderer.unmount());
+    runtime.stop();
+    jest.useRealTimers();
+  },
+);
 
 test('a socket failure before the offline event carries the waiting question through device startup and the switch', async () => {
   jest.useFakeTimers();
