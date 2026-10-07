@@ -69,6 +69,9 @@ class PreparationTests(unittest.TestCase):
             shutil.copyfile(ROOT / 'pipeline/artifacts.py', repo / 'pipeline/artifacts.py')
             domain = repo / 'apps/field-guide/src/features/pack'
             domain.mkdir(parents=True)
+            app = repo / 'apps/field-guide'
+            example_config = app / 'instructor.config.example.json'
+            shutil.copyfile(ROOT / 'apps/field-guide/instructor.config.example.json', example_config)
             for name in ('pack.ts', 'parsePack.ts'):
                 shutil.copyfile(ROOT / 'apps/field-guide/src/features/pack' / name, domain / name)
             guide = domain.parent / 'guide'
@@ -122,14 +125,19 @@ class PreparationTests(unittest.TestCase):
             prepare = ['sh', str(repo / 'scripts/prepare.sh'), '--pack', str(archive)]
             result = subprocess.run(prepare, env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            config = app / 'instructor.config.json'
+            self.assertEqual(config.read_bytes(), example_config.read_bytes())
             self.assertEqual(trace.read_text().splitlines()[0:2], ['engine 0', 'kokoro'])
             for name in ('react-native-splat', 'react-native-on-device'):
                 self.assertIn(f'npm ci --prefix {repo / "packages" / name}', trace.read_text().splitlines())
             self.assertEqual(trace.read_text().splitlines()[-2:], ['bundle install', 'bundle exec pod install'])
+            existing_config = '{"proxyUrl": "https://instructor.example.test"}\n'
+            config.write_text(existing_config)
             cached = subprocess.run(['sh', str(repo / 'scripts/prepare.sh'), '--pack', str(repo / 'missing.tar.gz')],
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(cached.returncode, 0, cached.stderr)
             self.assertIn('already matches', cached.stdout)
+            self.assertEqual(config.read_text(), existing_config)
             (pack / 'high/labels.bin').write_bytes(b'damaged cache')
             bad = repo / 'bad.tar.gz'
             with tarfile.open(bad, 'w:gz') as bundle:
