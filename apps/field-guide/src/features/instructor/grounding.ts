@@ -46,8 +46,8 @@ export function rulesFor(
     'Be direct, precise and objective. Use declarative statements and imperative actions. No filler, hedging, emojis, exclamation marks or em dashes.',
     ...(format === ReplyFormat.structured
       ? [
-          `Answer in 1 to ${ReplyLength.usual} short sentences, read aloud to the crew. When a how or why needs more to be complete or safe, use up to ${ReplyLength.most}. Use one short paragraph unless the content is a list of steps, symptoms or checks.`,
-          `For a list, use one short sentence per line, at most ${ReplyLength.most} lines. Start each line with "- " for symptoms or checks, or "1. ", "2. ", "3. " for ordered actions. These markers indicate order only, never a specification.`,
+          `Answer in 1 to ${ReplyLength.usual} short sentences, read aloud to the crew. When a how or why needs more to be complete or safe, use up to ${ReplyLength.most} in all, counting each list line as one. Use one short paragraph unless the content is a list of steps, symptoms or checks.`,
+          `For a list, use one short sentence per line. Start each line with "- " for symptoms or checks, or "1. ", "2. ", "3. " for ordered actions. These markers indicate order only, never a specification.`,
           'Each item may start with one bold lead of at most three words, such as "**Check:**" or "**Why:**". Use a lead only when it clarifies the item. No other markdown, headings, tables or nested lists.',
         ]
       : [

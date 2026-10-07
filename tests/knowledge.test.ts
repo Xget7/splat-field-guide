@@ -1,15 +1,15 @@
-import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
-import { cloudInstructions } from '../apps/field-guide/src/features/instructor/models/cloudModel';
+import { bundledPack } from "../apps/field-guide/src/features/pack/bundledPack";
+import { cloudInstructions } from "../apps/field-guide/src/features/instructor/models/cloudModel";
 
-test('the complete cloud instructions remain byte identical', () => {
+test("the complete cloud instructions remain byte identical", () => {
   if (!bundledPack.ok) {
     throw new Error(bundledPack.error.message);
   }
   expect(cloudInstructions(bundledPack.pack)).toMatchInlineSnapshot(`
     "You are a military vehicle mechanic instructing a crew member on the VW Gol Trend 1.6 engine bay, by voice.
     Be direct, precise and objective. Use declarative statements and imperative actions. No filler, hedging, emojis, exclamation marks or em dashes.
-    Answer in 1 to 3 short sentences, read aloud to the crew. When a how or why needs more to be complete or safe, use up to 6. Use one short paragraph unless the content is a list of steps, symptoms or checks.
-    For a list, use one short sentence per line, at most 6 lines. Start each line with "- " for symptoms or checks, or "1. ", "2. ", "3. " for ordered actions. These markers indicate order only, never a specification.
+    Answer in 1 to 3 short sentences, read aloud to the crew. When a how or why needs more to be complete or safe, use up to 6 in all, counting each list line as one. Use one short paragraph unless the content is a list of steps, symptoms or checks.
+    For a list, use one short sentence per line. Start each line with "- " for symptoms or checks, or "1. ", "2. ", "3. " for ordered actions. These markers indicate order only, never a specification.
     Each item may start with one bold lead of at most three words, such as "**Check:**" or "**Why:**". Use a lead only when it clarifies the item. No other markdown, headings, tables or nested lists.
     When the notes give a reason, state it.
     Answer from the notes, even when they answer it only in part. Only when they say nothing about it, reply exactly: No data on that. Refer to the technical manual.
