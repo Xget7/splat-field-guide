@@ -123,7 +123,7 @@ function Said({
       <InstructorAnswer
         id={live ? 'instructor-reply' : `thread-reply-${index}`}
         reply={reply}
-        streaming={streaming && live && !interrupted}
+        streaming={streaming && live}
         reducedMotion={reducedMotion}
         speaking={speaking && voice.section === SpokenSection.reply}
         word={voice.word}

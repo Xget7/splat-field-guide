@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import {
   AnswerKind,
   parseAnswer,
+  type AnswerBlock,
 } from '../../../features/instructor/answerFormat';
 import type { WordRange } from '../../../features/instructor/voice/speechPresentation';
 import { InterruptedLabel } from '../../../features/instructor/mode/modeCopy';
@@ -65,6 +66,34 @@ export function InstructorAnswer({
       />
     );
   };
+  const blockFor = (block: AnswerBlock, index: number) => {
+    if (block.location >= revealed) {
+      return null;
+    }
+    if (block.kind === AnswerKind.paragraph) {
+      return <View key={index}>{textFor(index)}</View>;
+    }
+    return (
+      <View
+        key={index}
+        style={[styles.item, block.leadLength > 0 && styles.card]}
+      >
+        {block.kind === AnswerKind.step ? (
+          <Text
+            accessible={false}
+            style={[styles.number, !live && styles.earlier]}
+          >
+            {block.number}
+          </Text>
+        ) : (
+          <View accessible={false} style={styles.marker}>
+            <View style={styles.bullet} />
+          </View>
+        )}
+        <View style={styles.words}>{textFor(index)}</View>
+      </View>
+    );
+  };
   const interruptedText = interrupted && (
     <Text accessible={answer.blocks.length === 0} style={styles.interrupted}>
       {InterruptedLabel}
@@ -84,31 +113,7 @@ export function InstructorAnswer({
   return (
     <>
       <View testID={id} style={styles.answer}>
-        {answer.blocks.map((block, index) =>
-          block.location >= revealed ? null : block.kind ===
-            AnswerKind.paragraph ? (
-            <View key={index}>{textFor(index)}</View>
-          ) : (
-            <View
-              key={index}
-              style={[styles.item, block.leadLength > 0 && styles.card]}
-            >
-              {block.kind === AnswerKind.step ? (
-                <Text
-                  accessible={false}
-                  style={[styles.number, !live && styles.earlier]}
-                >
-                  {block.number}
-                </Text>
-              ) : (
-                <View accessible={false} style={styles.marker}>
-                  <View style={styles.bullet} />
-                </View>
-              )}
-              <View style={styles.words}>{textFor(index)}</View>
-            </View>
-          ),
-        )}
+        {answer.blocks.map(blockFor)}
       </View>
       {interruptedText}
     </>

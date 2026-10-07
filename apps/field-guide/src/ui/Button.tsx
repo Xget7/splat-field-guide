@@ -25,6 +25,12 @@ export const ButtonVariant = {
 } as const;
 export type ButtonVariant = (typeof ButtonVariant)[keyof typeof ButtonVariant];
 
+const BUTTON_INK = {
+  primary: Color.actionText,
+  secondary: Color.text,
+  quiet: Color.secondaryText,
+} as const satisfies Record<ButtonVariant, string>;
+
 interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
   label: string;
   variant?: ButtonVariant;
@@ -40,9 +46,8 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
-  const primary = variant === ButtonVariant.primary;
   const quiet = variant === ButtonVariant.quiet;
-  const ink = disabled ? Color.faint : primary ? Color.actionText : Color.text;
+  const ink = disabled ? Color.faint : BUTTON_INK[variant];
   return (
     <Pressable
       accessibilityRole="button"
@@ -88,6 +93,13 @@ export const IconButtonVariant = {
 export type IconButtonVariant =
   (typeof IconButtonVariant)[keyof typeof IconButtonVariant];
 
+const ICON_BUTTON_INK = {
+  overlay: Color.text,
+  raised: Color.text,
+  active: Color.accentText,
+  primary: Color.actionText,
+} as const satisfies Record<IconButtonVariant, string>;
+
 interface IconButtonProps extends Omit<PressableProps, 'style' | 'children'> {
   icon: IconName;
   accessibilityLabel: string;
@@ -104,13 +116,7 @@ export function IconButton({
   style,
   ...props
 }: IconButtonProps) {
-  const ink = disabled
-    ? Color.faint
-    : variant === IconButtonVariant.active
-    ? Color.accentText
-    : variant === IconButtonVariant.primary
-    ? Color.actionText
-    : Color.text;
+  const ink = disabled ? Color.faint : ICON_BUTTON_INK[variant];
   return (
     <Pressable
       accessibilityRole="button"
