@@ -14,9 +14,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { appEvents } from '../../../features/events/bus';
-import { isSwitching } from '../../../features/events/mode';
-import { AppEvent } from '../../../features/events/types';
 import {
   VoiceState,
   type InstructorVoice,
@@ -35,7 +32,6 @@ import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { LevelMeter, PANEL_LAYOUT } from '../instructor/InstructorMotion';
 import { InstructorThread } from '../instructor/InstructorThread';
 import { ModeArea } from '../instructor/ModeArea';
-import { toggleFor, useModeView } from '../instructor/useModeView';
 import { useDockKeyboard } from './useDockKeyboard';
 
 export const DOCK_COLLAPSED = { width: 320, height: 64 } as const;
@@ -109,8 +105,6 @@ export function AssistantDock({
   const [draft, setDraft] = useState('');
   const reducedMotion = useReducedMotion();
   const { anchor, overlap, measure } = useDockKeyboard(Space.md);
-  const mode = useModeView();
-  const modeToggle = toggleFor(mode);
   const availableHeight = maxHeight - overlap;
   const empty =
     exchange === null &&
@@ -306,58 +300,29 @@ export function AssistantDock({
                   </Text>
                 )}
               </View>
-              {availableHeight >= DockSize.footerThreshold &&
-              (voice.on || !isSwitching(mode.mode)) ? (
+              {availableHeight >= DockSize.footerThreshold && voice.on ? (
                 <View style={styles.footer}>
-                  {!isSwitching(mode.mode) && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={modeToggle.label}
-                      accessibilityHint={modeToggle.hint}
-                      accessibilityState={{ disabled: false }}
-                      onPress={() =>
-                        appEvents.emit(AppEvent.modeRequest, {
-                          type: modeToggle.requestType,
-                        })
-                      }
-                      hitSlop={FOOTER_SLOP}
-                      style={styles.footerButton}
-                    >
-                      {({ pressed }) => (
-                        <Text
-                          style={[
-                            styles.footerText,
-                            pressed && styles.pressedText,
-                          ]}
-                        >
-                          {modeToggle.label}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
-                  {voice.on && (
-                    <Pressable
-                      testID="assistant-end-voice"
-                      accessibilityRole="button"
-                      accessibilityLabel={Copy.end}
-                      accessibilityHint={Copy.endHint}
-                      accessibilityState={{ disabled: false }}
-                      onPress={voice.toggle}
-                      hitSlop={FOOTER_SLOP}
-                      style={styles.footerButton}
-                    >
-                      {({ pressed }) => (
-                        <Text
-                          style={[
-                            styles.footerText,
-                            pressed && styles.pressedText,
-                          ]}
-                        >
-                          {Copy.end}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
+                  <Pressable
+                    testID="assistant-end-voice"
+                    accessibilityRole="button"
+                    accessibilityLabel={Copy.end}
+                    accessibilityHint={Copy.endHint}
+                    accessibilityState={{ disabled: false }}
+                    onPress={voice.toggle}
+                    hitSlop={FOOTER_SLOP}
+                    style={styles.footerButton}
+                  >
+                    {({ pressed }) => (
+                      <Text
+                        style={[
+                          styles.footerText,
+                          pressed && styles.pressedText,
+                        ]}
+                      >
+                        {Copy.end}
+                      </Text>
+                    )}
+                  </Pressable>
                 </View>
               ) : null}
               <View style={styles.composer}>
@@ -494,8 +459,7 @@ const styles = StyleSheet.create({
   empty: { ...Type.callout, color: Color.secondaryText },
   // Text sits on the panel's 16 point line; the composer's field box sits half that in.
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingHorizontal: Space.lg,
     paddingTop: Space.sm,
   },
