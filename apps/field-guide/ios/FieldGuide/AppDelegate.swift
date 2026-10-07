@@ -42,8 +42,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
   // Matches the launch screen until React paints its first frame.
-  override func customize(_ rootView: RCTRootView) {
+  override func setRootView(_ rootView: UIView, toRootViewController rootViewController: UIViewController) {
     rootView.backgroundColor = .black
+    super.setRootView(rootView, toRootViewController: rootViewController)
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
