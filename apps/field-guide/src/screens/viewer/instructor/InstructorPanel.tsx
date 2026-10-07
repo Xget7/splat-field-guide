@@ -33,10 +33,7 @@ import type { CardContent } from '../guideContent';
 import { EntryKind, type Exchange, type ThreadEntry } from '../viewerState';
 import { InstructorThread } from './InstructorThread';
 import { ModeArea } from './ModeArea';
-import {
-  speechTextFor,
-  SpokenSection,
-} from '../../../features/instructor/voice/speechPresentation';
+import { speechTextFor } from '../../../features/instructor/voice/speechPresentation';
 import {
   Composer,
   ContentFade,
@@ -46,7 +43,7 @@ import {
   PANEL_LAYOUT,
   InstructorScan,
   InstructorStatus,
-  KaraokeText,
+  ReplyText,
   MuteButton,
   VoiceBar,
 } from './InstructorMotion';
@@ -198,9 +195,6 @@ export function InstructorPanel({
       }
     },
   });
-  const speakingReply =
-    voice.state === VoiceState.speaking &&
-    voice.section === SpokenSection.reply;
   const preview =
     voice.hint ||
     (listening
@@ -303,11 +297,9 @@ export function InstructorPanel({
               </View>
               <ContentFade contentKey={voice.hint || said?.id || null}>
                 {minimized && preview !== '' ? (
-                  <KaraokeText
+                  <ReplyText
                     id="instructor-preview"
                     text={preview}
-                    speaking={speakingReply && voice.hint === ''}
-                    word={voice.word}
                     style={Type.footnote}
                     numberOfLines={1}
                   />
@@ -347,7 +339,6 @@ export function InstructorPanel({
             thread={thread}
             exchange={exchange}
             transcript={transcript}
-            voice={voice}
             reducedMotion={reducedMotion}
           />
           <ContentFade contentKey={voice.hint || null}>

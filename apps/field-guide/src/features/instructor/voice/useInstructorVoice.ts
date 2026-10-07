@@ -20,7 +20,6 @@ import {
   normalizedLevel,
   wordLevelFor,
   type SpokenSection,
-  type SpokenWord,
 } from './speechPresentation';
 import { VoiceHint, VoiceStartHint } from './voiceCopy';
 import {
@@ -74,7 +73,6 @@ export function useInstructorVoice(options: Options) {
   const [open, setOpen] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [hint, setHint] = useState('');
-  const [word, setWord] = useState<SpokenWord | null>(null);
   const [section, setSection] = useState<SpokenSection | null>(null);
   const [ready, setReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -95,7 +93,6 @@ export function useInstructorVoice(options: Options) {
     speaking.current = false;
     setOpen(false);
     setTranscript('');
-    setWord(null);
     setSection(null);
     cancelAnimation(level);
     level.value = 0;
@@ -103,7 +100,6 @@ export function useInstructorVoice(options: Options) {
   const interrupt = useCallback(() => {
     session.current?.session.interrupt();
     setTranscript('');
-    setWord(null);
     setSection(null);
     speaking.current = false;
     cancelAnimation(level);
@@ -154,7 +150,6 @@ export function useInstructorVoice(options: Options) {
         speaking.current = value !== null;
         setSection(value);
         if (value === null) {
-          setWord(null);
           cancelAnimation(level);
           level.value = 0;
         }
@@ -163,7 +158,6 @@ export function useInstructorVoice(options: Options) {
         if (!current) {
           return;
         }
-        setWord(value);
         if (value) {
           level.value = withSequence(
             withTiming(wordLevelFor(value.length), {
@@ -362,7 +356,6 @@ export function useInstructorVoice(options: Options) {
     toggleMuted,
     transcript,
     hint,
-    word,
     section,
     level,
     stop,

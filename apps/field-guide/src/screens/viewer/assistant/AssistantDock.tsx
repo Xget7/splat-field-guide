@@ -294,7 +294,6 @@ export function AssistantDock({
                   transcript={
                     voice.state === VoiceState.listening ? voice.transcript : ''
                   }
-                  voice={voice}
                   reducedMotion={reducedMotion}
                   variant="assistant"
                 />

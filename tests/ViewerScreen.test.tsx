@@ -60,7 +60,7 @@ import {
   type FieldGuideDebug,
 } from '../apps/field-guide/src/screens/viewer/ViewerScreen';
 import { onDeviceInstructions } from '../apps/field-guide/src/features/instructor/models/onDeviceModel';
-import { Color, Motion } from '../apps/field-guide/src/ui/theme';
+import { Motion } from '../apps/field-guide/src/ui/theme';
 import { InstructorPanel } from '../apps/field-guide/src/screens/viewer/instructor/InstructorPanel';
 import {
   PanelMode,
@@ -1110,7 +1110,7 @@ describe('viewer screen', () => {
       expect(panel().props.voice.level.value).toBe(0);
     });
 
-    test('each spoken word colors the reply and kicks the meter envelope', async () => {
+    test('each spoken word kicks the meter envelope', async () => {
       const speech = deferred<void>();
       await mount({ mode: LearnMode.instructor });
       await voiceOn();
@@ -1120,16 +1120,6 @@ describe('viewer screen', () => {
       const reply = pack.parts.find(part => part.id === 'battery')!.summary;
       const location = reply.indexOf('battery');
       await act(async () => voiceEvents.emitWord(location, 'battery'.length));
-      expect(text('instructor-reply-current')).toBe('battery');
-      expect(node('instructor-reply-current').props.style.color).toBe(
-        Color.accent,
-      );
-      expect(node('instructor-reply-spoken').props.style.color).toBe(
-        Color.text,
-      );
-      expect(node('instructor-reply-remaining').props.style.color).toBe(
-        Color.muted,
-      );
       expect(withSequence).toHaveBeenCalled();
       expect(withTiming).toHaveBeenCalledWith(
         0.7,
@@ -1143,46 +1133,6 @@ describe('viewer screen', () => {
         speech.resolve();
       });
       expect(text('instructor-reply')).toBe(reply);
-      expect(has('instructor-reply-current')).toBe(false);
-      expect(panel().props.voice.word).toBeNull();
-      await act(async () => voiceEvents.emitWord(location, 'battery'.length));
-      expect(panel().props.voice.word).toBeNull();
-    });
-
-    test('caution karaoke follows its own word ranges and ignores late reply words', async () => {
-      const replyDone = deferred<void>();
-      const cautionDone = deferred<void>();
-      await mount({
-        mode: LearnMode.instructor,
-        procedureId: 'check-coolant',
-        stepIndex: 0,
-      });
-      await voiceOn();
-      jest.mocked(output.speak).mockClear();
-      jest
-        .mocked(output.speak)
-        .mockReturnValueOnce(replyDone.promise)
-        .mockReturnValueOnce(cautionDone.promise);
-      await ask('repeat');
-      const lateReplyWord = jest.mocked(output.speak).mock.calls[0][2];
-      await act(async () => voiceEvents.emitWord(0, 4));
-      expect(text('instructor-reply-current')).toBe('Park');
-      await act(async () => {
-        replyDone.resolve();
-      });
-      expect(has('instructor-reply-current')).toBe(false);
-      await act(async () => voiceEvents.emitWord(0, 3));
-      expect(text('instructor-caution-text-current')).toBe('Hot');
-      await act(async () => lateReplyWord(5, 2));
-      expect(text('instructor-caution-text-current')).toBe('Hot');
-      await press('instructor-stop');
-      expect(has('instructor-caution-text-current')).toBe(false);
-      expect(text('instructor-caution-text')).toBe(
-        procedure('check-coolant').steps[0].caution,
-      );
-      await act(async () => {
-        cautionDone.resolve();
-      });
     });
 
     test('reduced motion has no scaling, translation, layout movement or scan loop', async () => {
@@ -1503,7 +1453,7 @@ describe('viewer screen', () => {
       jest.useRealTimers();
     });
 
-    test('list answers render labelled cards and speak clean sentences with matching karaoke', async () => {
+    test('list answers render labelled cards and speak clean sentences', async () => {
       jest.mocked(model.availability).mockReturnValue('available');
       const reply =
         '- **Check:** Inspect the battery terminals.\n- **Why:** Keep sparks away.';
@@ -1528,11 +1478,6 @@ describe('viewer screen', () => {
         expect.any(Function),
         'kokoro',
       );
-      await act(async () =>
-        voiceEvents.emitWord(spoken.indexOf('sparks'), 'sparks'.length),
-      );
-      expect(text('instructor-reply-item-2-current')).toBe('sparks');
-      expect(has('instructor-reply-item-1-current')).toBe(false);
       await act(async () => speech.resolve());
     });
 

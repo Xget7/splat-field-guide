@@ -64,7 +64,6 @@ function useVoice(overrides?: Partial<InstructorVoice>): InstructorVoice {
     toggleMuted: noop,
     transcript: '',
     hint: '',
-    word: null,
     section: SpokenSection.reply,
     level,
     stop: noop,
@@ -563,7 +562,7 @@ describe('instructor panel modes', () => {
     },
   );
 
-  test('assistant bubbles omit repeated cards, steps and cautions while preserving spoken word offsets and question order', async () => {
+  test('assistant bubbles omit repeated cards, steps and cautions while preserving question order', async () => {
     const content = {
       ...CONTENT,
       title: 'Coolant tank',
@@ -598,11 +597,6 @@ describe('instructor panel modes', () => {
           voice={{
             on: true,
             state: VoiceState.speaking,
-            word: {
-              section: SpokenSection.reply,
-              location: content.body.length + 1,
-              length: 4,
-            },
           }}
         />,
       );
@@ -616,10 +610,6 @@ describe('instructor panel modes', () => {
         [question.question, reply.question, 'Look for a leak.'].includes(text),
       ),
     ).toEqual([question.question, reply.question, 'Look for a leak.']);
-    const currentWord = renderer.root
-      .findAllByType(Text)
-      .find(node => node.props.testID === 'instructor-reply-current');
-    expect(currentWord?.props.children).toEqual('Look');
     const bubbles = () =>
       renderer.root.findAll(
         node =>

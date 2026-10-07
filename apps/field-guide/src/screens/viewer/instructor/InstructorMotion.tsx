@@ -38,11 +38,8 @@ import {
   Type,
 } from '../../../ui/theme';
 import {
-  karaokeSpans,
   Meter,
   meterHeightsFor,
-  SpanKind,
-  type WordRange,
 } from '../../../features/instructor/voice/speechPresentation';
 import {
   VoiceState,
@@ -166,12 +163,6 @@ function StatusLabel({
     </ContentFade>
   );
 }
-
-const SPAN_COLOR: Readonly<Record<SpanKind, string>> = {
-  spoken: Color.text,
-  current: Color.accent,
-  remaining: Color.muted,
-};
 
 interface MeterProps {
   level: SharedValue<number>;
@@ -373,44 +364,23 @@ export function InstructorScan({
   );
 }
 
-interface KaraokeProps {
+interface ReplyTextProps {
   id: string;
   text: string;
-  word: WordRange | null;
-  speaking: boolean;
-  location?: number;
-  speechLength?: number;
   leadLength?: number;
   style?: TextStyle;
   numberOfLines?: number;
   accessibilityLabel?: string;
 }
 
-export function KaraokeText({
+export function ReplyText({
   id,
   text,
-  word,
-  speaking,
-  location = 0,
-  speechLength,
   leadLength = 0,
   style,
   numberOfLines,
   accessibilityLabel = text,
-}: KaraokeProps) {
-  const spans = karaokeSpans(text, word, speaking, location, speechLength);
-  const withLead = (words: string, start: number) => {
-    const end = Math.max(0, leadLength - start);
-    return end === 0 ? (
-      words
-    ) : (
-      <>
-        <Text style={styles.lead}>{words.slice(0, end)}</Text>
-        {words.slice(end)}
-      </>
-    );
-  };
-  let offset = 0;
+}: ReplyTextProps) {
   return (
     <Text
       testID={id}
@@ -419,21 +389,14 @@ export function KaraokeText({
       accessibilityLiveRegion="polite"
       style={[styles.reply, style]}
     >
-      {speaking
-        ? spans.map((span, index) => {
-            const start = offset;
-            offset += span.text.length;
-            return (
-              <Text
-                key={`${span.kind}-${index}`}
-                testID={`${id}-${span.kind}`}
-                style={{ color: SPAN_COLOR[span.kind] }}
-              >
-                {withLead(span.text, start)}
-              </Text>
-            );
-          })
-        : withLead(text, 0)}
+      {leadLength === 0 ? (
+        text
+      ) : (
+        <>
+          <Text style={styles.lead}>{text.slice(0, leadLength)}</Text>
+          {text.slice(leadLength)}
+        </>
+      )}
     </Text>
   );
 }

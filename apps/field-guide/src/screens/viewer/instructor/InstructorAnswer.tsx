@@ -5,11 +5,10 @@ import {
   parseAnswer,
   type AnswerBlock,
 } from '../../../features/instructor/answerFormat';
-import type { WordRange } from '../../../features/instructor/voice/speechPresentation';
 import { InterruptedLabel } from '../../../features/instructor/mode/modeCopy';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
 import { useAnswerReveal } from './useAnswerReveal';
-import { KaraokeText } from './InstructorMotion';
+import { ReplyText } from './InstructorMotion';
 import { assistantBlocks } from '../assistant/repeatedContent';
 
 const BULLET_SIZE = 4;
@@ -19,8 +18,6 @@ interface Props {
   reply: string;
   streaming: boolean;
   reducedMotion: boolean;
-  speaking: boolean;
-  word: WordRange | null;
   live: boolean;
   interrupted?: boolean;
   variant?: 'panel' | 'assistant';
@@ -33,8 +30,6 @@ export function InstructorAnswer({
   reply,
   streaming,
   reducedMotion,
-  speaking,
-  word,
   live,
   interrupted = false,
   variant = 'panel',
@@ -65,7 +60,7 @@ export function InstructorAnswer({
       label = `${text} ${InterruptedLabel}`;
     }
     return (
-      <KaraokeText
+      <ReplyText
         id={
           answer.blocks.length === 1 && block.kind === AnswerKind.paragraph
             ? id
@@ -73,10 +68,6 @@ export function InstructorAnswer({
         }
         text={text}
         accessibilityLabel={label}
-        speaking={speaking}
-        word={word}
-        location={block.location}
-        speechLength={answer.speech.length}
         leadLength={block.leadLength}
         style={style}
       />

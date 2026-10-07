@@ -1,90 +1,15 @@
 import {
-  karaokeSpans,
   Meter,
   meterHeightsFor,
   normalizedLevel,
-  SpanKind,
   speechTextFor,
   wordLevelFor,
 } from '../apps/field-guide/src/features/instructor/voice/speechPresentation';
 
-test('list items speak as sentences and karaoke ranges span their visible words', () => {
-  const reply = '1. **Check:** Read the label\n2. Keep sparks away.';
-  const speech = speechTextFor(reply);
-  expect(speech).toBe('Check: Read the label. Keep sparks away.');
-  const word = { location: speech.indexOf('sparks'), length: 'sparks'.length };
+test('list items speak as sentences without list markers', () => {
   expect(
-    karaokeSpans('Check: Read the label', word, true, 0, speech.length),
-  ).toEqual([{ text: 'Check: Read the label', kind: SpanKind.spoken }]);
-  expect(
-    karaokeSpans(
-      'Keep sparks away.',
-      word,
-      true,
-      speech.indexOf('Keep'),
-      speech.length,
-    ),
-  ).toEqual([
-    { text: 'Keep ', kind: SpanKind.spoken },
-    { text: 'sparks', kind: SpanKind.current },
-    { text: ' away.', kind: SpanKind.remaining },
-  ]);
-});
-
-describe('karaoke spans', () => {
-  test('idle and stopped speech show the entire text as spoken', () => {
-    expect(
-      karaokeSpans('Keep the cap closed.', { location: 9, length: 3 }, false),
-    ).toEqual([{ text: 'Keep the cap closed.', kind: SpanKind.spoken }]);
-  });
-
-  test('before the first word the text is remaining', () => {
-    expect(karaokeSpans('Keep the cap closed.', null, true)).toEqual([
-      { text: 'Keep the cap closed.', kind: SpanKind.remaining },
-    ]);
-  });
-
-  test('splits spoken, current and remaining text without losing whitespace', () => {
-    expect(
-      karaokeSpans('Keep the cap closed.', { location: 9, length: 3 }, true),
-    ).toEqual([
-      { text: 'Keep the ', kind: SpanKind.spoken },
-      { text: 'cap', kind: SpanKind.current },
-      { text: ' closed.', kind: SpanKind.remaining },
-    ]);
-  });
-
-  test('UTF-16 ranges preserve emoji and punctuation', () => {
-    const text = 'A 🔧 valve, cold.';
-    const spans = karaokeSpans(text, { location: 5, length: 5 }, true);
-    expect(spans).toEqual([
-      { text: 'A 🔧 ', kind: SpanKind.spoken },
-      { text: 'valve', kind: SpanKind.current },
-      { text: ', cold.', kind: SpanKind.remaining },
-    ]);
-    expect(spans.map(span => span.text).join('')).toBe(text);
-  });
-
-  test('clips an oversized last word and omits empty spans', () => {
-    expect(karaokeSpans('Engine', { location: 0, length: 99 }, true)).toEqual([
-      { text: 'Engine', kind: SpanKind.current },
-    ]);
-    expect(karaokeSpans('', { location: 0, length: 1 }, true)).toEqual([]);
-  });
-
-  test.each([
-    { location: -1, length: 2 },
-    { location: 20, length: 2 },
-    { location: 0, length: 0 },
-    { location: 0, length: -1 },
-    { location: 0.5, length: 2 },
-    { location: NaN, length: 2 },
-    { location: 0, length: Infinity },
-  ])('invalid ranges leave readable text: %o', word => {
-    expect(karaokeSpans('Engine', word, true)).toEqual([
-      { text: 'Engine', kind: SpanKind.remaining },
-    ]);
-  });
+    speechTextFor('1. **Check:** Read the label\n2. Keep sparks away.'),
+  ).toBe('Check: Read the label. Keep sparks away.');
 });
 
 describe('level meter', () => {

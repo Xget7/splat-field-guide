@@ -32,11 +32,6 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-import { SpokenSection } from '../../../features/instructor/voice/speechPresentation';
-import {
-  VoiceState,
-  type InstructorVoice,
-} from '../../../features/instructor/voice/useInstructorVoice';
 import {
   EntryKind,
   ExchangePhase,
@@ -45,7 +40,7 @@ import {
 } from '../viewerState';
 import { CautionNote } from './CautionNote';
 import { InstructorAnswer } from './InstructorAnswer';
-import { FADE_IN, KaraokeText } from './InstructorMotion';
+import { FADE_IN, ReplyText } from './InstructorMotion';
 import {
   assistantBlocks,
   isRepeatedText,
@@ -140,7 +135,6 @@ interface SaidProps {
   /** Read the live entry aloud and show it in full color. */
   live: boolean;
   index: number;
-  voice: InstructorVoice;
   streaming?: boolean;
   reducedMotion?: boolean;
   interrupted?: boolean;
@@ -153,14 +147,12 @@ function Said({
   caution,
   live,
   index,
-  voice,
   streaming = false,
   reducedMotion = true,
   interrupted = false,
   variant = 'panel',
   shownText,
 }: SaidProps) {
-  const speaking = live && voice.state === VoiceState.speaking;
   const answer =
     reply === '' && !interrupted ? null : (
       <InstructorAnswer
@@ -168,8 +160,6 @@ function Said({
         reply={reply}
         streaming={streaming && live}
         reducedMotion={reducedMotion}
-        speaking={speaking && voice.section === SpokenSection.reply}
-        word={voice.word}
         live={live}
         interrupted={interrupted}
         variant={variant}
@@ -185,11 +175,9 @@ function Said({
         ) &&
         (live ? (
           <CautionNote text={caution}>
-            <KaraokeText
+            <ReplyText
               id="instructor-caution-text"
               text={caution}
-              speaking={speaking && voice.section === SpokenSection.caution}
-              word={voice.word}
               style={Type.footnote}
             />
           </CautionNote>
@@ -204,7 +192,6 @@ interface ReplyProps {
   exchange: Exchange;
   live: boolean;
   index: number;
-  voice: InstructorVoice;
   reducedMotion: boolean;
   variant?: 'panel' | 'assistant';
   shownText?: readonly string[];
@@ -214,7 +201,6 @@ function Reply({
   exchange,
   live,
   index,
-  voice,
   reducedMotion,
   variant,
   shownText,
@@ -230,7 +216,6 @@ function Reply({
       caution={exchange.caution}
       live={live}
       index={index}
-      voice={voice}
       streaming={exchange.phase === ExchangePhase.streaming}
       reducedMotion={reducedMotion}
       interrupted={exchange.interrupted}
@@ -244,7 +229,6 @@ function AssistantEntry({
   exchange,
   index,
   live,
-  voice,
   reducedMotion,
   shownText = [],
 }: ReplyProps) {
@@ -280,7 +264,6 @@ function AssistantEntry({
               exchange={exchange}
               live={live}
               index={index}
-              voice={voice}
               reducedMotion={reducedMotion}
               variant="assistant"
               shownText={shownText}
@@ -295,7 +278,6 @@ interface Props {
   thread: readonly ThreadEntry[];
   exchange: Exchange | null;
   transcript: string;
-  voice: InstructorVoice;
   reducedMotion: boolean;
   variant?: 'panel' | 'assistant';
   /** Text the drawer and part card already show, which assistant bubbles leave out. */
@@ -306,7 +288,6 @@ export function InstructorThread({
   thread,
   exchange,
   transcript,
-  voice,
   reducedMotion,
   variant = 'panel',
   alreadyShown = [],
@@ -413,7 +394,6 @@ export function InstructorThread({
               exchange={entry.exchange}
               live={index === live}
               index={index}
-              voice={voice}
               reducedMotion={reducedMotion}
               shownText={shownText}
             />
@@ -438,7 +418,6 @@ export function InstructorThread({
                     caution={entry.card.caution}
                     live={index === live}
                     index={index}
-                    voice={voice}
                   />
                 </>
               ) : (
@@ -460,7 +439,6 @@ export function InstructorThread({
                     exchange={entry.exchange}
                     live={index === live}
                     index={index}
-                    voice={voice}
                     reducedMotion={reducedMotion}
                   />
                 </>
