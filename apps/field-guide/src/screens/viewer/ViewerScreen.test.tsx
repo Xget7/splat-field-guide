@@ -1120,6 +1120,7 @@ describe('viewer screen', () => {
         summary,
         VOICE_LOCALE,
         expect.any(Function),
+        'kokoro',
       );
       const stops = jest.mocked(output.stop).mock.calls.length;
       await act(async () => partial(summary.split(' ').slice(0, 3).join(' ')));
@@ -1318,7 +1319,7 @@ describe('viewer screen', () => {
       expect(text('instructor-reply')).toBe(reply);
       expect(has('instructor-caution-text')).toBe(false);
       expect(jest.mocked(output.speak).mock.calls).toEqual([
-        [reply, VOICE_LOCALE, expect.any(Function)],
+        [reply, VOICE_LOCALE, expect.any(Function), 'kokoro'],
       ]);
     });
 
@@ -1360,6 +1361,7 @@ describe('viewer screen', () => {
         longer,
         VOICE_LOCALE,
         expect.any(Function),
+        'kokoro',
       );
       jest.useRealTimers();
     });
@@ -1387,6 +1389,7 @@ describe('viewer screen', () => {
         spoken,
         VOICE_LOCALE,
         expect.any(Function),
+        'kokoro',
       );
       await act(async () =>
         voiceEvents.emitWord(spoken.indexOf('sparks'), 'sparks'.length),
@@ -1558,8 +1561,8 @@ describe('viewer screen', () => {
       await ask('repeat');
       const first = procedure('check-coolant').steps[0];
       expect(jest.mocked(output.speak).mock.calls).toEqual([
-        [first.text, VOICE_LOCALE, expect.any(Function)],
-        [first.caution, VOICE_LOCALE, expect.any(Function)],
+        [first.text, VOICE_LOCALE, expect.any(Function), 'kokoro'],
+        [first.caution, VOICE_LOCALE, expect.any(Function), 'kokoro'],
       ]);
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);

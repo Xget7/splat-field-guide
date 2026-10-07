@@ -257,6 +257,7 @@ export function useInstructorVoice({
           reply,
           VOICE_LOCALE,
           onWord(SpokenSection.reply),
+          'kokoro',
         );
         if (id !== generation.current) {
           return;
@@ -269,6 +270,7 @@ export function useInstructorVoice({
             utterance.caution,
             VOICE_LOCALE,
             onWord(SpokenSection.caution),
+            'kokoro',
           );
         }
       } catch {

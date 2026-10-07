@@ -97,10 +97,23 @@ jest.mock('react-native-on-device', () => {
     cancel: jest.fn(),
   };
   const output = {
-    speak: jest.fn(async (_text, _locale, _onWord) => {}),
+    prepare: jest.fn(async voice => voice),
+    speak: jest.fn(async (_text, _locale, _onWord, _voice) => {}),
     stop: jest.fn(),
   };
+  const link = {
+    start: jest.fn(
+      async (_inputRate, _outputRate, _onInput, _onLevel, _onStopped) => {},
+    ),
+    play: jest.fn(),
+    clear: jest.fn(),
+    playedMs: jest.fn(() => 0),
+    stop: jest.fn(),
+  };
+  const monitor = { start: jest.fn(), stop: jest.fn() };
   return {
+    audioLink: jest.fn(() => link),
+    networkMonitor: jest.fn(() => monitor),
     languageModel: jest.fn(() => model),
     speechInput: jest.fn(() => input),
     speechOutput: jest.fn(() => output),

@@ -1,11 +1,11 @@
 # react-native-on-device
 
-Lazy Nitro modules provide speech input/output on iOS and Android, with Apple Foundation Models on iOS.
+Lazy Nitro modules provide speech input/output, raw conversation audio and network path monitoring on iOS and Android, with Apple Foundation Models on iOS.
 [App setup](../../apps/field-guide/README.md#device-preparation) covers system assets; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has installation, checks and codegen commands.
 
 ## Interfaces
 
-Importing the package creates no native object; `speechInput()`, `speechOutput()` and `languageModel()` instantiate on first use.
+Importing the package creates no native object; `speechInput()`, `speechOutput()`, `languageModel()`, `audioLink()` and `networkMonitor()` instantiate on first use.
 
 | Interface | Contract |
 | --- | --- |
@@ -14,6 +14,10 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 | iOS turn boundary | 0.7 seconds of acoustic quiet, then 0.15 seconds of settlement bounded by 1.5 seconds; continuous speech bounded to 20 seconds |
 | Input cancellation | Discard the current turn, reject stale callbacks and allow restart; concurrent listening/missing permission rejects |
 | [SpeechOutput](src/SpeechOutput.nitro.ts) | `speak` replaces output and resolves on completion/stop; `stop` cancels synthesis, playback and callbacks |
+| Output voice | `speak` takes `kokoro` or `system` after `onWord`; awaited `prepare(voice)` returns the voice actually ready, with system fallback when Kokoro cannot run |
+| [AudioLink](src/AudioLink.nitro.ts) | Microphone and queued playback with echo cancellation; base64 little-endian PCM16 mono, 100 ms input chunks, levels and one stop callback on audio loss |
+| Link playback | `clear` discards queued/playing audio and resets `playedMs`; `stop` releases the microphone for speech input |
+| [NetworkMonitor](src/NetworkMonitor.nitro.ts) | One replaceable listener, current route then changes; satisfaction, transport, cost, constraint, bandwidth and signal where known |
 | Output callbacks | Original UTF-16 ranges from Kokoro estimates or platform speech timing |
 | [LanguageModel](src/LanguageModel.nitro.ts) | Availability, prewarm, streaming/final respond and cancel; equipment evidence/policy belongs to the app instructor |
 
@@ -24,12 +28,17 @@ Importing the package creates no native object; `speechInput()`, `speechOutput()
 Recognition-service results settle turns, and listening restarts after each completed turn while preserving the shared callback and cancellation contract.
 Microphone permission is required, and a service's offline request does not guarantee offline availability.
 [Speech output](android/src/main/java/com/margelo/nitro/ondevice/HybridSpeechOutput.kt) uses `android.speech.tts.TextToSpeech` with an installed voice that requires no network, bounded text chunks and UTF-16 range callbacks.
+`prepare` waits for the TTS engine and returns `system` for either requested voice.
+[Raw audio](android/src/main/java/com/margelo/nitro/ondevice/HybridAudioLink.kt) uses voice-communication AudioRecord/AudioTrack with available echo/noise effects and ends on audio focus loss.
+[Network paths](android/src/main/java/com/margelo/nitro/ondevice/HybridNetworkMonitor.kt) require a validated internet route and report bandwidth and signal when available.
 System TTS timing and echo depend on the installed engine and require physical acceptance.
 Android generation reports unavailable, so the instructor follows the [ordered fallback](../../docs/adr/0006-commands-and-ordered-instructor-fallback.md) through Claude and scripted guidance.
 
 ## iOS resources and audio
 
 SpeechTranscriber/DictationTranscriber provide input with contextual hints.
+[Raw audio](ios/HybridAudioLink.swift) shares the voice-processed graph and converts between negotiated PCM rates and the 24 kHz playback format.
+[Network paths](ios/HybridNetworkMonitor.swift) use NWPathMonitor; bandwidth and signal are always unknown (-1).
 Kokoro, its resource/frontend bundle and Apple generation are iOS-only.
 
 [ADR 0008](../../docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md) records the output choice; the [frontend README](ios/KokoroFrontend/README.md) records source adaptations.
