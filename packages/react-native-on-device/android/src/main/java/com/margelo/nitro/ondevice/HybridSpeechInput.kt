@@ -121,6 +121,10 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
         promise.reject(IllegalStateException(INPUT_NOT_READY))
         return@post
       }
+      if (!OnDeviceAudioOwnership.acquire(this)) {
+        promise.reject(IllegalStateException(INPUT_NOT_READY))
+        return@post
+      }
       val token = ++generation
       var level = 0.0
       var lastLevel = 0L
@@ -136,6 +140,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
         fun stopped(reason: String) {
           if (!current()) return
           listening = false
+          OnDeviceAudioOwnership.release(this@HybridSpeechInput)
           recognizer = null
           speech.destroy()
           onVoice(false)
@@ -193,6 +198,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
         promise.resolve(Unit)
       } catch (error: Exception) {
         listening = false
+        OnDeviceAudioOwnership.release(this)
         recognizer?.destroy()
         recognizer = null
         promise.reject(error)
@@ -205,6 +211,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
     main.post {
       generation++
       listening = false
+      OnDeviceAudioOwnership.release(this)
       recognizer?.cancel()
       recognizer?.destroy()
       recognizer = null

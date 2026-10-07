@@ -14,12 +14,57 @@ class HybridSpeechOutput : HybridSpeechOutputSpec() {
   private var tts: TextToSpeech? = null
   private var initialized: Boolean? = null
   private var pending: (() -> Unit)? = null
+  private val preparing = mutableListOf<Promise<SpeechVoice>>()
   private var completion: Promise<Unit>? = null
   private var onWord: ((Double, Double) -> Unit)? = null
   private var generation = 0
   private var finalId = ""
 
-  override fun speak(text: String, locale: String, onWord: (Double, Double) -> Unit): Promise<Unit> {
+  override fun prepare(voice: SpeechVoice): Promise<SpeechVoice> {
+    val promise = Promise<SpeechVoice>()
+    main.post {
+      when (initialized) {
+        true -> promise.resolve(SpeechVoice.SYSTEM)
+        false -> promise.reject(IllegalStateException(OUTPUT_UNAVAILABLE))
+        null -> { preparing.add(promise); initialize() }
+      }
+    }
+    return promise
+  }
+
+  private fun initialize() {
+    if (tts != null) return
+    try {
+      tts = TextToSpeech(requireNotNull(NitroModules.applicationContext)) { status ->
+        main.post {
+          initialized = status == TextToSpeech.SUCCESS
+          tts?.setOnUtteranceProgressListener(listener)
+          settlePreparation()
+          val action = pending
+          pending = null
+          action?.invoke()
+        }
+      }
+    } catch (_: Exception) {
+      initialized = false
+      settlePreparation()
+      val action = pending
+      pending = null
+      action?.invoke()
+    }
+  }
+
+  private fun settlePreparation() {
+    val waiters = preparing.toList()
+    preparing.clear()
+    waiters.forEach {
+      if (initialized == true) it.resolve(SpeechVoice.SYSTEM)
+      else it.reject(IllegalStateException(OUTPUT_UNAVAILABLE))
+    }
+  }
+
+  override fun speak(text: String, locale: String, onWord: (Double, Double) -> Unit,
+    voice: SpeechVoice): Promise<Unit> {
     val promise = Promise<Unit>()
     main.post {
       stopOnMain()
@@ -60,16 +105,7 @@ class HybridSpeechOutput : HybridSpeechOutputSpec() {
           }
         }
       }
-      if (tts == null) {
-        pending = start
-        tts = TextToSpeech(requireNotNull(NitroModules.applicationContext)) { status ->
-          main.post {
-            initialized = status == TextToSpeech.SUCCESS
-            tts?.setOnUtteranceProgressListener(listener)
-            val action = pending; pending = null; action?.invoke()
-          }
-        }
-      } else if (initialized == null) pending = start
+      if (initialized == null) { pending = start; initialize() }
       else start()
     }
     return promise
@@ -108,7 +144,14 @@ class HybridSpeechOutput : HybridSpeechOutputSpec() {
   }
   override fun stop() { main.post { stopOnMain() } }
   override fun dispose() {
-    main.post { stopOnMain(); tts?.shutdown(); tts = null }
+    main.post {
+      stopOnMain()
+      tts?.shutdown()
+      tts = null
+      initialized = false
+      preparing.forEach { it.reject(IllegalStateException(OUTPUT_UNAVAILABLE)) }
+      preparing.clear()
+    }
     super.dispose()
   }
 
