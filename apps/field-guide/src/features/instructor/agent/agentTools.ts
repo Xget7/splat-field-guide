@@ -1,3 +1,4 @@
+import { AgentToolCopy } from './agentCopy';
 import { findPart, findProcedure, type Pack } from '../../pack/pack';
 import {
   currentProcedure,
@@ -42,15 +43,6 @@ const Description = {
   [AgentTool.endProcedure]:
     'Call when the user asks to end the open procedure.',
 } as const;
-const ToolError = {
-  unknown: 'That tool is unknown.',
-  part: 'That part is not in this guide.',
-  procedure: 'That procedure is not in this guide.',
-  step: 'That step number is outside the open procedure.',
-  closed: 'Open a procedure before changing its step.',
-  parameters: 'Tool parameters must be an object.',
-} as const;
-const NO_PROCEDURE = 'No guided check is open.';
 const FIRST_STEP_NUMBER = 1;
 export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
   return Object.values(AgentTool).map(name => {
@@ -96,18 +88,21 @@ export function stateSentence(state: SessionState, pack: Pack): string {
     state.selectedPart === null
       ? undefined
       : findPart(pack, state.selectedPart);
-  const shown = part ? `Showing the ${part.name}.` : '';
+  const shown = part ? AgentToolCopy.shownPart(part.name) : '';
   if (procedure && step) {
     return [
-      `Step ${state.stepIndex + FIRST_STEP_NUMBER} of ${
-        procedure.steps.length
-      } in ${procedure.title}: ${step.text}`,
+      AgentToolCopy.shownStep(
+        state.stepIndex + FIRST_STEP_NUMBER,
+        procedure.steps.length,
+        procedure.title,
+        step.text,
+      ),
       shown,
     ]
       .filter(Boolean)
       .join(' ');
   }
-  return shown || NO_PROCEDURE;
+  return shown || AgentToolCopy.noProcedure;
 }
 export function stepKeyFor(state: SessionState): string {
   return `${state.procedureId}:${state.stepIndex}:${state.selectedPart}`;
@@ -120,20 +115,20 @@ export function runAgentTool(
 ): ToolOutcome {
   const fail = (result: string): ToolOutcome => ({ ok: false, result });
   if (!Object.values(AgentTool).includes(name as AgentTool)) {
-    return fail(ToolError.unknown);
+    return fail(AgentToolCopy.unknown);
   }
   if (
     parameters === null ||
     typeof parameters !== 'object' ||
     Array.isArray(parameters)
   ) {
-    return fail(ToolError.parameters);
+    return fail(AgentToolCopy.parameters);
   }
   const values = parameters as Record<string, unknown>;
   let event: SessionEvent;
   if (name === AgentTool.showPart) {
     if (typeof values.part_id !== 'string' || !findPart(pack, values.part_id)) {
-      return fail(ToolError.part);
+      return fail(AgentToolCopy.part);
     }
     event = { type: SessionEventType.select, partId: values.part_id };
   } else if (name === AgentTool.startProcedure) {
@@ -141,7 +136,7 @@ export function runAgentTool(
       typeof values.procedure_id !== 'string' ||
       !findProcedure(pack, values.procedure_id)
     ) {
-      return fail(ToolError.procedure);
+      return fail(AgentToolCopy.procedure);
     }
     event = { type: SessionEventType.start, procedureId: values.procedure_id };
   } else if (name === AgentTool.endProcedure) {
@@ -149,7 +144,7 @@ export function runAgentTool(
   } else {
     const procedure = currentProcedure(state, pack);
     if (!procedure) {
-      return fail(ToolError.closed);
+      return fail(AgentToolCopy.closed);
     }
     if (name === AgentTool.goToStep) {
       const number = values.step_number;
@@ -159,7 +154,7 @@ export function runAgentTool(
         number < FIRST_STEP_NUMBER ||
         number > procedure.steps.length
       ) {
-        return fail(ToolError.step);
+        return fail(AgentToolCopy.step);
       }
       event = {
         type: SessionEventType.goTo,

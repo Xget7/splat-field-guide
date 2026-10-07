@@ -6,6 +6,9 @@ import {
 } from '../../guide/session';
 import type { PreviousExchange } from '../grounding';
 import { stateSentence } from './agentTools';
+import { AgentContextCopy, AgentOpening } from './agentCopy';
+
+export { AgentOpening } from './agentCopy';
 
 export interface AgentVariables {
   readonly procedure: string;
@@ -13,7 +16,6 @@ export interface AgentVariables {
   readonly selected_part: string;
   readonly opening: string;
 }
-export const AgentOpening = { resumed: 'Back online.' } as const;
 const NONE = 'none';
 const HISTORY_EXCHANGES = 4;
 const FIRST_STEP_NUMBER = 1;
@@ -35,21 +37,22 @@ export function agentVariables(
     opening: resumed
       ? AgentOpening.resumed
       : procedure && step
-      ? `${procedure.title}. Step ${state.stepIndex + FIRST_STEP_NUMBER}: ${
-          step.text
-        }`
-      : `What would you like to check on the ${pack.title}?`,
+      ? AgentOpening.step(
+          procedure.title,
+          state.stepIndex + FIRST_STEP_NUMBER,
+          step.text,
+        )
+      : AgentOpening.exploration(pack.title),
   };
 }
 export function screenUpdate(state: SessionState, pack: Pack): string {
-  return `The screen now shows: ${stateSentence(state, pack)}`;
+  return AgentContextCopy.screen(stateSentence(state, pack));
 }
 export function historyUpdate(history: readonly PreviousExchange[]): string {
   return history
     .slice(-HISTORY_EXCHANGES)
-    .map(
-      exchange =>
-        `Earlier question: ${exchange.question}\nEarlier answer: ${exchange.reply}`,
+    .map(exchange =>
+      AgentContextCopy.exchange(exchange.question, exchange.reply),
     )
     .join('\n');
 }
