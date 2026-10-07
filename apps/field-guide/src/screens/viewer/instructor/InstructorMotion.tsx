@@ -161,9 +161,9 @@ export function InstructorStatus({
   const reducedMotion = useReducedMotion();
   const thinking = voice.state === VoiceState.thinking;
   const switching = minimized && isSwitching(mode.mode);
-  const offline =
+  const idleNotice =
     minimized &&
-    mode.mode === InstructorMode.offline &&
+    mode.notice !== null &&
     voice.state === VoiceState.idle &&
     (!live || !voice.muted);
   let status = step;
@@ -172,7 +172,7 @@ export function InstructorStatus({
   } else if (thinking) {
     status = STATUS.thinking;
   }
-  if (switching || offline) {
+  if (switching || idleNotice) {
     status = mode.minimizedStatusText;
   }
   return (
@@ -185,7 +185,11 @@ export function InstructorStatus({
       {status !== null && (
         <Label
           testID="instructor-status"
-          color={offline ? Color.caution : statusColor(status)}
+          color={
+            idleNotice && mode.mode === InstructorMode.offline
+              ? Color.caution
+              : statusColor(status)
+          }
         >
           {status}
         </Label>

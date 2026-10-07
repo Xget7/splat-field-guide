@@ -206,6 +206,12 @@ describe('instructor panel modes', () => {
     expect(hasText('Offline')).toBe(true);
   });
 
+  test('an idle minimized panel reads the online voice fallback title', async () => {
+    await mode({ voice: VoiceSource.device });
+    await mount({ mode: PanelMode.minimized });
+    expect(hasText('Online voice unavailable')).toBe(true);
+  });
+
   test.each([
     { state: VoiceState.speaking, label: 'Speaking' },
     { state: VoiceState.thinking, label: 'Thinking' },
@@ -258,6 +264,19 @@ describe('instructor panel modes', () => {
       expect.arrayContaining(['Check the cap.', 'Turn it slowly. Interrupted']),
     );
     expect(hasText('Interrupted')).toBe(true);
+  });
+
+  test('an interrupted numbered reply keeps an unfinished next marker out of the readout', async () => {
+    jest.mocked(useReducedMotion).mockReturnValue(true);
+    await mount({
+      exchange: {
+        ...INTERRUPTED_EXCHANGE,
+        reply: '1. Check the cap.\n2',
+        phase: ExchangePhase.streaming,
+      },
+    });
+    expect(readout(renderer.toJSON())).toContain('Check the cap. Interrupted');
+    expect(hasText('2')).toBe(false);
   });
 
   test('an earlier interrupted exchange keeps its visible label', async () => {

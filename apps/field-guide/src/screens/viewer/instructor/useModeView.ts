@@ -80,12 +80,6 @@ const SWITCH_TITLES: Readonly<
     recovered: SwitchTitle.toOnline,
   },
 };
-const MINIMIZED_STATUS = {
-  online: null,
-  offline: ModeNoticeCopy.offlineTitle,
-  switchingToOffline: null,
-  switchingToOnline: null,
-} as const satisfies Readonly<Record<InstructorMode, string | null>>;
 
 const GO_OFFLINE = {
   label: ModeToggleCopy.goOffline,
@@ -111,6 +105,6 @@ export function useModeView() {
     forced: status.forced,
     notice,
     switchTitle,
-    minimizedStatusText: switchTitle ?? MINIMIZED_STATUS[status.mode],
+    minimizedStatusText: switchTitle ?? notice?.title ?? null,
   };
 }
