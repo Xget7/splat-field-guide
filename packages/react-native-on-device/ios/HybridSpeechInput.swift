@@ -42,6 +42,9 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
     DispatchQueue.main.async { [self] in
       do {
         try self.ensurePermission()
+        guard !OnDeviceAudioGraph.shared.listening else {
+          throw OnDeviceError(message: Self.alreadyListening)
+        }
         try self.conversation.listen(locale: locale, hints: hints, onPartial: onPartial,
           onTurn: onTurn, onLevel: onLevel, onVoice: onVoice, onStopped: onStopped)
         promise.resolve()
@@ -56,6 +59,8 @@ final class HybridSpeechInput: HybridSpeechInputSpec {
   func cancel() throws {
     DispatchQueue.main.async { self.conversation.cancel() }
   }
+
+  private static let alreadyListening = "Speech input or audio link is already listening"
 
   private func ensurePermission() throws {
     guard SFSpeechRecognizer.authorizationStatus() == .authorized,

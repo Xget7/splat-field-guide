@@ -74,12 +74,14 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     // Warm the model off main to avoid blocking the UI on first use.
     worker.async {
       let start = ProcessInfo.processInfo.systemUptime
-      let result = Result { try KokoroEngine() }
+      let result = Result { () throws -> KokoroEngine in
+        let engine = try KokoroEngine()
+        _ = try engine.synthesize(Self.warmupText, cancellation: KokoroCancellation())
+        return engine
+      }
       self.model = result
       switch result {
-      case .success(let engine):
-        do { _ = try engine.synthesize("Ready.", cancellation: KokoroCancellation()) }
-        catch { OnDeviceLog.speechOutput("Kokoro warmup failed: \(error.localizedDescription)") }
+      case .success:
         OnDeviceLog.speechMeasurement(String(format: "model_warm_ms=%.1f",
           (ProcessInfo.processInfo.systemUptime - start) * 1000))
       case .failure(let error):
@@ -93,7 +95,22 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
 #endif
   }
 
-  func speak(text: String, locale: String, onWord: @escaping (Double, Double) -> Void) throws -> Promise<Void> {
+  private static let warmupText = "Ready."
+
+  func prepare(voice: SpeechVoice) throws -> Promise<SpeechVoice> {
+    let promise = Promise<SpeechVoice>()
+    if voice == .system { promise.resolve(withResult: .system) }
+    else {
+      worker.async {
+        if case .success? = self.model { promise.resolve(withResult: .kokoro) }
+        else { promise.resolve(withResult: .system) }
+      }
+    }
+    return promise
+  }
+
+  func speak(text: String, locale: String, onWord: @escaping (Double, Double) -> Void,
+    voice: SpeechVoice) throws -> Promise<Void> {
     let promise = Promise<Void>()
     DispatchQueue.main.async {
       self.stopCurrent()
@@ -103,7 +120,9 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
       }
       let utterance = Utterance(text: text, locale: locale, promise: promise, onWord: onWord)
       self.active = utterance
-      if locale.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").first != "en" {
+      if voice == .system {
+        self.fallback(utterance, at: 0)
+      } else if locale.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").first != "en" {
         OnDeviceLog.speechOutput("Kokoro English voice does not support \(locale); using Apple speech")
         self.fallback(utterance, at: 0)
       } else {
@@ -286,7 +305,7 @@ final class HybridSpeechOutput: HybridSpeechOutputSpec {
     }
     OnDeviceLog.speechMeasurement("benchmark_sample=\(index + 1) text=\(samples[index])")
     do {
-      try speak(text: samples[index], locale: "en-US", onWord: { _, _ in })
+      try speak(text: samples[index], locale: "en-US", onWord: { _, _ in }, voice: .kokoro)
         .then { [weak self] in self?.runBenchmark(index + 1) }
         .catch { OnDeviceLog.speechOutput("Benchmark failed: \($0.localizedDescription)") }
     } catch { OnDeviceLog.speechOutput("Benchmark failed: \(error.localizedDescription)") }

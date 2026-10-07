@@ -78,7 +78,7 @@ struct ConversationProbe {
       let output = HybridSpeechOutput()
       let promise = try output.speak(text: "Check coolant", locale: "en-US", onWord: { _, _ in
         preconditionFailure("No audio has played")
-      })
+      }, voice: .kokoro)
       let deadline = Date().addingTimeInterval(5)
       while KokoroEngine.synthesizing.wait(timeout: .now()) != .success {
         precondition(Date() < deadline, "Output did not begin synthesis")
