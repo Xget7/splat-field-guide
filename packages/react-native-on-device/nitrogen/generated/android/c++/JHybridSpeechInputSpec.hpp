@@ -50,7 +50,7 @@ namespace margelo::nitro::ondevice {
 
   public:
     // Properties
-
+    
 
   public:
     // Methods

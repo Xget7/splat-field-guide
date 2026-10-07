@@ -8,7 +8,9 @@
 #include "ReactNativeOnDevice-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
+#include "HybridAudioLinkSpecSwift.hpp"
 #include "HybridLanguageModelSpecSwift.hpp"
+#include "HybridNetworkMonitorSpecSwift.hpp"
 #include "HybridSpeechInputSpecSwift.hpp"
 #include "HybridSpeechOutputSpecSwift.hpp"
 #include "ReactNativeOnDevice-Swift-Cxx-Umbrella.hpp"
@@ -16,11 +18,11 @@
 
 namespace margelo::nitro::ondevice::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* result */)>
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeOnDevice::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& result) mutable -> void {
-      swiftClosure.call(result);
+  // pragma MARK: std::function<void()>
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
+      swiftClosure.call();
     };
   }
   
@@ -30,6 +32,38 @@ namespace margelo::nitro::ondevice::bridge::swift {
     return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
       swiftClosure.call(error);
     };
+  }
+  
+  // pragma MARK: std::function<void(const std::string& /* chunk */)>
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& chunk) mutable -> void {
+      swiftClosure.call(chunk);
+    };
+  }
+  
+  // pragma MARK: std::function<void(double /* level */)>
+  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_double::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](double level) mutable -> void {
+      swiftClosure.call(level);
+    };
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridAudioLinkSpec>
+  std::shared_ptr<HybridAudioLinkSpec> create_std__shared_ptr_HybridAudioLinkSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeOnDevice::HybridAudioLinkSpec_cxx swiftPart = ReactNativeOnDevice::HybridAudioLinkSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::ondevice::HybridAudioLinkSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridAudioLinkSpec_(std__shared_ptr_HybridAudioLinkSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::ondevice::HybridAudioLinkSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::ondevice::HybridAudioLinkSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridAudioLinkSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeOnDevice::HybridAudioLinkSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
   }
   
   // pragma MARK: std::shared_ptr<HybridLanguageModelSpec>
@@ -48,6 +82,30 @@ namespace margelo::nitro::ondevice::bridge::swift {
     return swiftPart.toUnsafe();
   }
   
+  // pragma MARK: std::function<void(const NetworkPath& /* path */)>
+  Func_void_NetworkPath create_Func_void_NetworkPath(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_NetworkPath::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const NetworkPath& path) mutable -> void {
+      swiftClosure.call(path);
+    };
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridNetworkMonitorSpec>
+  std::shared_ptr<HybridNetworkMonitorSpec> create_std__shared_ptr_HybridNetworkMonitorSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeOnDevice::HybridNetworkMonitorSpec_cxx swiftPart = ReactNativeOnDevice::HybridNetworkMonitorSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::ondevice::HybridNetworkMonitorSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridNetworkMonitorSpec_(std__shared_ptr_HybridNetworkMonitorSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::ondevice::HybridNetworkMonitorSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::ondevice::HybridNetworkMonitorSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridNetworkMonitorSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeOnDevice::HybridNetworkMonitorSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
   // pragma MARK: std::function<void(SpeechPermission /* result */)>
   Func_void_SpeechPermission create_Func_void_SpeechPermission(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeOnDevice::Func_void_SpeechPermission::fromUnsafe(swiftClosureWrapper);
@@ -61,22 +119,6 @@ namespace margelo::nitro::ondevice::bridge::swift {
     auto swiftClosure = ReactNativeOnDevice::Func_void_SpeechInputAvailability::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](SpeechInputAvailability result) mutable -> void {
       swiftClosure.call(static_cast<int>(result));
-    };
-  }
-  
-  // pragma MARK: std::function<void()>
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeOnDevice::Func_void::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
-      swiftClosure.call();
-    };
-  }
-  
-  // pragma MARK: std::function<void(double /* level */)>
-  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeOnDevice::Func_void_double::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](double level) mutable -> void {
-      swiftClosure.call(level);
     };
   }
   
@@ -109,6 +151,14 @@ namespace margelo::nitro::ondevice::bridge::swift {
     auto swiftClosure = ReactNativeOnDevice::Func_void_double_double::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](double location, double length) mutable -> void {
       swiftClosure.call(location, length);
+    };
+  }
+  
+  // pragma MARK: std::function<void(SpeechVoice /* result */)>
+  Func_void_SpeechVoice create_Func_void_SpeechVoice(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_SpeechVoice::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](SpeechVoice result) mutable -> void {
+      swiftClosure.call(static_cast<int>(result));
     };
   }
   

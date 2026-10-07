@@ -27,26 +27,26 @@ import com.margelo.nitro.core.HybridObject
 )
 abstract class HybridSpeechInputSpec: HybridObject() {
   // Properties
-
+  
 
   // Methods
   @DoNotStrip
   @Keep
   abstract fun requestPermission(): Promise<SpeechPermission>
-
+  
   @DoNotStrip
   @Keep
   abstract fun prepare(locale: String): Promise<SpeechInputAvailability>
-
+  
   abstract fun listen(locale: String, hints: Array<String>, onPartial: (transcript: String) -> Unit, onTurn: (transcript: String) -> Unit, onLevel: (level: Double) -> Unit, onVoice: (speaking: Boolean) -> Unit, onStopped: (reason: String) -> Unit): Promise<Unit>
-
+  
   @DoNotStrip
   @Keep
   private fun listen_cxx(locale: String, hints: Array<String>, onPartial: Func_void_std__string, onTurn: Func_void_std__string, onLevel: Func_void_double, onVoice: Func_void_bool, onStopped: Func_void_std__string): Promise<Unit> {
     val __result = listen(locale, hints, onPartial, onTurn, onLevel, onVoice, onStopped)
     return __result
   }
-
+  
   @DoNotStrip
   @Keep
   abstract fun cancel(): Unit

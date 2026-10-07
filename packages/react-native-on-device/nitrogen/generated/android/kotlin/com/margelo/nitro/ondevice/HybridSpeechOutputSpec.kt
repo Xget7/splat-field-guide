@@ -27,18 +27,22 @@ import com.margelo.nitro.core.HybridObject
 )
 abstract class HybridSpeechOutputSpec: HybridObject() {
   // Properties
-
+  
 
   // Methods
-  abstract fun speak(text: String, locale: String, onWord: (location: Double, length: Double) -> Unit): Promise<Unit>
-
+  abstract fun speak(text: String, locale: String, onWord: (location: Double, length: Double) -> Unit, voice: SpeechVoice): Promise<Unit>
+  
   @DoNotStrip
   @Keep
-  private fun speak_cxx(text: String, locale: String, onWord: Func_void_double_double): Promise<Unit> {
-    val __result = speak(text, locale, onWord)
+  private fun speak_cxx(text: String, locale: String, onWord: Func_void_double_double, voice: SpeechVoice): Promise<Unit> {
+    val __result = speak(text, locale, onWord, voice)
     return __result
   }
-
+  
+  @DoNotStrip
+  @Keep
+  abstract fun prepare(voice: SpeechVoice): Promise<SpeechVoice>
+  
   @DoNotStrip
   @Keep
   abstract fun stop(): Unit

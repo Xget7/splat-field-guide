@@ -1,5 +1,8 @@
 import type { HybridObject } from 'react-native-nitro-modules';
 
+/** Kokoro falls back to the system voice on iOS; Android always uses the system voice. */
+export type SpeechVoice = 'kokoro' | 'system';
+
 /** Uses bundled English Kokoro on iOS with system fallback, and an installed offline voice on Android. */
 export interface SpeechOutput
   extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
@@ -12,7 +15,10 @@ export interface SpeechOutput
     text: string,
     locale: string,
     onWord: (location: number, length: number) => void,
+    voice: SpeechVoice,
   ): Promise<void>;
+  /** Loads voice and resolves with the voice that will actually speak. */
+  prepare(voice: SpeechVoice): Promise<SpeechVoice>;
   /** Stops speaking at once. Safe to call when silent. */
   stop(): void;
 }

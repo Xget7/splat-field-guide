@@ -13,7 +13,8 @@ public protocol HybridSpeechOutputSpec_protocol: HybridObject {
   
 
   // Methods
-  func speak(text: String, locale: String, onWord: @escaping (_ location: Double, _ length: Double) -> Void) throws -> Promise<Void>
+  func speak(text: String, locale: String, onWord: @escaping (_ location: Double, _ length: Double) -> Void, voice: SpeechVoice) throws -> Promise<Void>
+  func prepare(voice: SpeechVoice) throws -> Promise<SpeechVoice>
   func stop() throws -> Void
 }
 

@@ -47,4 +47,28 @@ public final class ReactNativeOnDeviceAutolinking {
   public static func isLanguageModelRecyclable() -> Bool {
     return HybridLanguageModel.self is any RecyclableView.Type
   }
+  
+  public static func createNetworkMonitor() -> bridge.std__shared_ptr_HybridNetworkMonitorSpec_ {
+    let hybridObject = HybridNetworkMonitor()
+    return { () -> bridge.std__shared_ptr_HybridNetworkMonitorSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isNetworkMonitorRecyclable() -> Bool {
+    return HybridNetworkMonitor.self is any RecyclableView.Type
+  }
+  
+  public static func createAudioLink() -> bridge.std__shared_ptr_HybridAudioLinkSpec_ {
+    let hybridObject = HybridAudioLink()
+    return { () -> bridge.std__shared_ptr_HybridAudioLinkSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isAudioLinkRecyclable() -> Bool {
+    return HybridAudioLink.self is any RecyclableView.Type
+  }
 }

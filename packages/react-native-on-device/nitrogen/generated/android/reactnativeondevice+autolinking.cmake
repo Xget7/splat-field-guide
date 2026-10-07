@@ -33,11 +33,15 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/reactnativeondeviceOnLoad.cpp
   # Shared Nitrogen C++ sources
+  ../nitrogen/generated/shared/c++/HybridAudioLinkSpec.cpp
   ../nitrogen/generated/shared/c++/HybridLanguageModelSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridNetworkMonitorSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSpeechInputSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSpeechOutputSpec.cpp
   # Android-specific Nitrogen C++ sources
+  ../nitrogen/generated/android/c++/JHybridAudioLinkSpec.cpp
   ../nitrogen/generated/android/c++/JHybridLanguageModelSpec.cpp
+  ../nitrogen/generated/android/c++/JHybridNetworkMonitorSpec.cpp
   ../nitrogen/generated/android/c++/JHybridSpeechInputSpec.cpp
   ../nitrogen/generated/android/c++/JHybridSpeechOutputSpec.cpp
 )

@@ -49,7 +49,7 @@ namespace margelo::nitro::ondevice {
   }
 
   // Properties
-
+  
 
   // Methods
   LanguageModelAvailability JHybridLanguageModelSpec::availability() {

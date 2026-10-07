@@ -7,11 +7,14 @@
 
 #include "JHybridSpeechOutputSpec.hpp"
 
-
+// Forward declaration of `SpeechVoice` to properly resolve imports.
+namespace margelo::nitro::ondevice { enum class SpeechVoice; }
 
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/JPromise.hpp>
 #include <NitroModules/JUnit.hpp>
+#include "SpeechVoice.hpp"
+#include "JSpeechVoice.hpp"
 #include <string>
 #include <functional>
 #include "JFunc_void_double_double.hpp"
@@ -47,16 +50,32 @@ namespace margelo::nitro::ondevice {
   }
 
   // Properties
-
+  
 
   // Methods
-  std::shared_ptr<Promise<void>> JHybridSpeechOutputSpec::speak(const std::string& text, const std::string& locale, const std::function<void(double /* location */, double /* length */)>& onWord) {
-    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* text */, jni::alias_ref<jni::JString> /* locale */, jni::alias_ref<JFunc_void_double_double::javaobject> /* onWord */)>("speak_cxx");
-    auto __result = method(_javaPart, jni::make_jstring(text), jni::make_jstring(locale), JFunc_void_double_double_cxx::fromCpp(onWord));
+  std::shared_ptr<Promise<void>> JHybridSpeechOutputSpec::speak(const std::string& text, const std::string& locale, const std::function<void(double /* location */, double /* length */)>& onWord, SpeechVoice voice) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* text */, jni::alias_ref<jni::JString> /* locale */, jni::alias_ref<JFunc_void_double_double::javaobject> /* onWord */, jni::alias_ref<JSpeechVoice> /* voice */)>("speak_cxx");
+    auto __result = method(_javaPart, jni::make_jstring(text), jni::make_jstring(locale), JFunc_void_double_double_cxx::fromCpp(onWord), JSpeechVoice::fromCpp(voice));
     return [&]() {
       auto __promise = Promise<void>::create();
       __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {
         __promise->resolve();
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
+  std::shared_ptr<Promise<SpeechVoice>> JHybridSpeechOutputSpec::prepare(SpeechVoice voice) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<JSpeechVoice> /* voice */)>("prepare");
+    auto __result = method(_javaPart, JSpeechVoice::fromCpp(voice));
+    return [&]() {
+      auto __promise = Promise<SpeechVoice>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
+        auto __result = jni::static_ref_cast<JSpeechVoice>(__boxedResult);
+        __promise->resolve(__result->toCpp());
       });
       __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
         jni::JniException __jniError(__throwable);

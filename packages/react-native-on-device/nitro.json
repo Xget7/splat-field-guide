@@ -42,6 +42,26 @@
         "language": "kotlin",
         "implementationClassName": "HybridLanguageModel"
       }
+    },
+    "NetworkMonitor": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNetworkMonitor"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNetworkMonitor"
+      }
+    },
+    "AudioLink": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridAudioLink"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridAudioLink"
+      }
     }
   },
   "ignorePaths": [

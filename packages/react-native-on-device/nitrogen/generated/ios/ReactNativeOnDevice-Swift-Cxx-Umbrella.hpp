@@ -8,26 +8,41 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `HybridAudioLinkSpec` to properly resolve imports.
+namespace margelo::nitro::ondevice { class HybridAudioLinkSpec; }
 // Forward declaration of `HybridLanguageModelSpec` to properly resolve imports.
 namespace margelo::nitro::ondevice { class HybridLanguageModelSpec; }
+// Forward declaration of `HybridNetworkMonitorSpec` to properly resolve imports.
+namespace margelo::nitro::ondevice { class HybridNetworkMonitorSpec; }
 // Forward declaration of `HybridSpeechInputSpec` to properly resolve imports.
 namespace margelo::nitro::ondevice { class HybridSpeechInputSpec; }
 // Forward declaration of `HybridSpeechOutputSpec` to properly resolve imports.
 namespace margelo::nitro::ondevice { class HybridSpeechOutputSpec; }
 // Forward declaration of `LanguageModelAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class LanguageModelAvailability; }
+// Forward declaration of `NetworkPath` to properly resolve imports.
+namespace margelo::nitro::ondevice { struct NetworkPath; }
+// Forward declaration of `NetworkTransport` to properly resolve imports.
+namespace margelo::nitro::ondevice { enum class NetworkTransport; }
 // Forward declaration of `SpeechInputAvailability` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class SpeechInputAvailability; }
 // Forward declaration of `SpeechPermission` to properly resolve imports.
 namespace margelo::nitro::ondevice { enum class SpeechPermission; }
+// Forward declaration of `SpeechVoice` to properly resolve imports.
+namespace margelo::nitro::ondevice { enum class SpeechVoice; }
 
 // Include C++ defined types
+#include "HybridAudioLinkSpec.hpp"
 #include "HybridLanguageModelSpec.hpp"
+#include "HybridNetworkMonitorSpec.hpp"
 #include "HybridSpeechInputSpec.hpp"
 #include "HybridSpeechOutputSpec.hpp"
 #include "LanguageModelAvailability.hpp"
+#include "NetworkPath.hpp"
+#include "NetworkTransport.hpp"
 #include "SpeechInputAvailability.hpp"
 #include "SpeechPermission.hpp"
+#include "SpeechVoice.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
@@ -46,8 +61,12 @@ namespace margelo::nitro::ondevice { enum class SpeechPermission; }
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
+// Forward declaration of `HybridAudioLinkSpec_cxx` to properly resolve imports.
+namespace ReactNativeOnDevice { class HybridAudioLinkSpec_cxx; }
 // Forward declaration of `HybridLanguageModelSpec_cxx` to properly resolve imports.
 namespace ReactNativeOnDevice { class HybridLanguageModelSpec_cxx; }
+// Forward declaration of `HybridNetworkMonitorSpec_cxx` to properly resolve imports.
+namespace ReactNativeOnDevice { class HybridNetworkMonitorSpec_cxx; }
 // Forward declaration of `HybridSpeechInputSpec_cxx` to properly resolve imports.
 namespace ReactNativeOnDevice { class HybridSpeechInputSpec_cxx; }
 // Forward declaration of `HybridSpeechOutputSpec_cxx` to properly resolve imports.

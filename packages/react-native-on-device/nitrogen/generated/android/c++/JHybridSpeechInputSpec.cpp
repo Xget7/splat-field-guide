@@ -57,7 +57,7 @@ namespace margelo::nitro::ondevice {
   }
 
   // Properties
-
+  
 
   // Methods
   std::shared_ptr<Promise<SpeechPermission>> JHybridSpeechInputSpec::requestPermission() {

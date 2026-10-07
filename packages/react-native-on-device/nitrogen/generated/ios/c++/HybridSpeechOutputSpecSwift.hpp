@@ -12,11 +12,13 @@
 // Forward declaration of `HybridSpeechOutputSpec_cxx` to properly resolve imports.
 namespace ReactNativeOnDevice { class HybridSpeechOutputSpec_cxx; }
 
-
+// Forward declaration of `SpeechVoice` to properly resolve imports.
+namespace margelo::nitro::ondevice { enum class SpeechVoice; }
 
 #include <NitroModules/Promise.hpp>
 #include <string>
 #include <functional>
+#include "SpeechVoice.hpp"
 
 #include "ReactNativeOnDevice-Swift-Cxx-Umbrella.hpp"
 
@@ -68,8 +70,16 @@ namespace margelo::nitro::ondevice {
 
   public:
     // Methods
-    inline std::shared_ptr<Promise<void>> speak(const std::string& text, const std::string& locale, const std::function<void(double /* location */, double /* length */)>& onWord) override {
-      auto __result = _swiftPart.speak(text, locale, onWord);
+    inline std::shared_ptr<Promise<void>> speak(const std::string& text, const std::string& locale, const std::function<void(double /* location */, double /* length */)>& onWord, SpeechVoice voice) override {
+      auto __result = _swiftPart.speak(text, locale, onWord, static_cast<int>(voice));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<SpeechVoice>> prepare(SpeechVoice voice) override {
+      auto __result = _swiftPart.prepare(static_cast<int>(voice));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
