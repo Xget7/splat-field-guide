@@ -2,9 +2,23 @@ import Foundation
 
 @main
 struct AudioLinkPCMProbe {
+  private static let inputSampleRate = 16_000
+  private static let firstInputSamples = 4000
+  private static let totalInputSamples = 4800
+  private static let playbackChunkFrames: Int64 = 2400
+  private static let playbackHalfChunk: Int64 = 1200
+  private static let playbackPartialFrames: Int64 = 3600
+  private static let playbackGapFrame: Int64 = 12_000
+  private static let playbackResumedFrame: Int64 = 13_200
   static func main() throws {
     let result: [String: Any]
     switch CommandLine.arguments.last {
+    case "literal":
+      let sample = try AudioLinkPCM.floats(from: Data([0x02, 0x01])).first!
+      result = ["decoded": Int((sample * AudioLinkPCM.scale).rounded()),
+        "encoded": Array(AudioLinkPCM.bytes(from: [Float(0x0102) / AudioLinkPCM.scale]))]
+    case "clipping":
+      result = ["bytes": Array(AudioLinkPCM.bytes(from: [1.5, -1.5]))]
     case "roundTrip":
       let original: [Int16] = [.min, -20_000, -1, 0, 1, 20_000, .max]
       let bytes = Data(original.flatMap { sample -> [UInt8] in
@@ -16,19 +30,19 @@ struct AudioLinkPCMProbe {
       result = ["original": original.map(Int.init), "restored": restored]
     case "playback":
       var playback = AudioLinkPCM.Playback()
-      playback.queue(frames: 2400, at: 0)
-      playback.queue(frames: 2400, at: 1200)
-      let partial = playback.played(at: 3600)
-      let finished = playback.played(at: 12_000)
-      playback.queue(frames: 2400, at: 12_000)
-      let resumed = playback.played(at: 13_200)
+      playback.queue(frames: playbackChunkFrames, at: 0)
+      playback.queue(frames: playbackChunkFrames, at: playbackHalfChunk)
+      let partial = playback.advance(to: playbackPartialFrames)
+      let finished = playback.advance(to: playbackGapFrame)
+      playback.queue(frames: playbackChunkFrames, at: playbackGapFrame)
+      let resumed = playback.advance(to: playbackResumedFrame)
       playback = AudioLinkPCM.Playback()
       result = ["partial": partial, "finished": finished, "resumed": resumed,
-        "cleared": playback.played(at: 0)]
+        "cleared": playback.advance(to: 0)]
     case "chunks":
-      var chunks = AudioLinkPCM.Chunks(sampleRate: 16_000)
-      let first = try chunks.append(AudioLinkPCM.bytes(from: (0..<4000).map { Float($0) / AudioLinkPCM.scale }))
-      let second = try chunks.append(AudioLinkPCM.bytes(from: (4000..<4800).map { Float($0) / AudioLinkPCM.scale }))
+      var chunks = AudioLinkPCM.Chunks(sampleRate: inputSampleRate)
+      let first = try chunks.append(AudioLinkPCM.bytes(from: (0..<firstInputSamples).map { Float($0) / AudioLinkPCM.scale }))
+      let second = try chunks.append(AudioLinkPCM.bytes(from: (firstInputSamples..<totalInputSamples).map { Float($0) / AudioLinkPCM.scale }))
       let samples = try (first + second).flatMap { try AudioLinkPCM.floats(from: $0) }
         .map { Int(($0 * AudioLinkPCM.scale).rounded()) }
       result = ["first": first.map(\.count), "second": second.map(\.count),

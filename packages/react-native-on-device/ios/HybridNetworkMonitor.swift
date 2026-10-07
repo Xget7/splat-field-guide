@@ -2,8 +2,9 @@ import Network
 import NitroModules
 
 final class HybridNetworkMonitor: HybridNetworkMonitorSpec {
-  private let queue = DispatchQueue(label: "dev.splatfieldguide.network")
+  private let queue = DispatchQueue(label: HybridNetworkMonitor.queueLabel)
   private var monitor: NWPathMonitor?
+  private static let queueLabel = "dev.splatfieldguide.network"
   private static let unknown = -1.0
 
   func start(onChange: @escaping (NetworkPath) -> Void) throws {

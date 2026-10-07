@@ -17,7 +17,6 @@ final class OnDeviceConversation {
   typealias Transcribe = (String, [String], @escaping (String) -> Void,
     @escaping (Error?) -> Void) throws -> any ConversationTranscription
   static let recognitionEnded = "Speech recognition ended"
-  static let alreadyListening = "Speech recognition is already listening"
 
   private final class Listening {
     let levels = OnDeviceAudioLevel()
@@ -49,7 +48,7 @@ final class OnDeviceConversation {
   func listen(locale: String, hints: [String], onPartial: @escaping (String) -> Void,
     onTurn: @escaping (String) -> Void, onLevel: @escaping (Double) -> Void,
     onVoice: @escaping (Bool) -> Void, onStopped: @escaping (String) -> Void) throws {
-    guard listening == nil else { throw OnDeviceError(message: Self.alreadyListening) }
+    guard listening == nil else { throw OnDeviceError(message: OnDeviceError.alreadyListening) }
     let current = Listening(onPartial: onPartial, onTurn: onTurn, onVoice: onVoice,
       onStopped: onStopped)
     listening = current

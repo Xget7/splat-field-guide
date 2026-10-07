@@ -12,6 +12,7 @@ enum OnDeviceAudioSession {
 }
 
 struct OnDeviceError: LocalizedError {
+  static let alreadyListening = "Speech input or audio link is already listening"
   let message: String
   var errorDescription: String? { message }
 }

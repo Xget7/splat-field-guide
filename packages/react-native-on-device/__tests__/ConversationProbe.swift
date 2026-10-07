@@ -1,7 +1,10 @@
 import AVFoundation
 import NitroModules
 
-struct OnDeviceError: Error { let message: String }
+struct OnDeviceError: Error {
+  static let alreadyListening = "Speech input or audio link is already listening"
+  let message: String
+}
 
 // Substitute the iOS-only session notifications while retaining the real, unstarted AVAudioEngine.
 enum OnDeviceAudioSession { static func activate() throws {} }
@@ -128,6 +131,13 @@ struct ConversationProbe {
         onStopped: { events.append("stopped:\($0)") })
     }
     try listen()
+    if CommandLine.arguments.last == "duplicate" {
+      do { try listen() }
+      catch let error as OnDeviceError { events.append(error.message) }
+      conversation.cancel()
+      print(String(decoding: try JSONSerialization.data(withJSONObject: events), as: UTF8.self))
+      return
+    }
     models[0].onChange("Check coolant")
     for current in 0..<200 {
       tick = current

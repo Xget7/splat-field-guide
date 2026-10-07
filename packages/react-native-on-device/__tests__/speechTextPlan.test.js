@@ -127,6 +127,12 @@ nativeSuite('native conversation', () => {
       execFileSync(conversationOutput, [scenario], { encoding: 'utf8' }),
     );
 
+  test('rejects a second listener with the shared microphone ownership message', () => {
+    expect(conversation('duplicate')).toEqual([
+      'Speech input or audio link is already listening',
+    ]);
+  });
+
   test('keeps steady speech in one turn until the speaker pauses', () => {
     const events = conversation('sustained');
     expect(events[0]).toBe('partial:Check coolant');

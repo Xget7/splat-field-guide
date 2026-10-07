@@ -39,7 +39,7 @@ enum AudioLinkPCM {
       segments.append(start..<end)
     }
 
-    mutating func played(at rendered: Int64) -> Int64 {
+    mutating func advance(to rendered: Int64) -> Int64 {
       var finished = 0
       var result = completed
       for segment in segments {
