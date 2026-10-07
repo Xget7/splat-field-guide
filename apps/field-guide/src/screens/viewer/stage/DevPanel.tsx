@@ -13,6 +13,7 @@ import {
   Transport,
   VoiceSource,
 } from '../../../features/events/types';
+import { ConnectionWord } from '../../../features/instructor/mode/modeCopy';
 import type { Pack } from '../../../features/pack/pack';
 import { Color, Space, Type } from '../../../ui/theme';
 
@@ -22,7 +23,7 @@ const DevCopy = {
   title: 'Dev',
   assistant: 'Assistant',
   network: 'Network',
-  scene: 'Scene',
+  cloud: 'Cloud',
   mode: 'Mode',
   voice: 'Voice',
   answers: 'Answers',
@@ -36,9 +37,9 @@ const DevCopy = {
   loading: 'Loading',
 } as const;
 const ModeText: Record<InstructorMode, string> = {
-  [InstructorMode.online]: 'Online',
+  [InstructorMode.online]: ConnectionWord.online,
   [InstructorMode.switchingToOffline]: 'Switching to offline',
-  [InstructorMode.offline]: 'Offline',
+  [InstructorMode.offline]: ConnectionWord.offline,
   [InstructorMode.switchingToOnline]: 'Switching to online',
 };
 const VoiceText: Record<VoiceSource, string> = {
@@ -52,7 +53,7 @@ const AnswerText: Record<AnswerSource, string> = {
 };
 const AgentText: Record<AgentState, string> = {
   [AgentState.idle]: 'Idle',
-  [AgentState.connecting]: 'Connecting',
+  [AgentState.connecting]: ConnectionWord.connecting,
   [AgentState.connected]: 'Connected',
   [AgentState.ended]: 'Ended',
   [AgentState.failed]: 'Failed',
@@ -66,7 +67,7 @@ const FailureText: Record<AgentFailure, string> = {
 const QualityText: Record<NetworkQuality, string> = {
   [NetworkQuality.good]: 'Good',
   [NetworkQuality.weak]: 'Weak',
-  [NetworkQuality.offline]: 'Offline',
+  [NetworkQuality.offline]: ConnectionWord.offline,
 };
 const TransportText: Record<Transport, string> = {
   [Transport.wifi]: 'Wi-Fi',
@@ -113,7 +114,7 @@ export function DevPanel({ pack, loadedMs }: Props) {
       ],
     },
     {
-      title: DevCopy.scene,
+      title: DevCopy.cloud,
       rows: [
         [
           DevCopy.splats,

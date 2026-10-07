@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { InstructorMode, VoiceSource } from '../../../features/events/types';
 import { useInstructorMode } from '../../../features/events/useAppEvent';
+import { ConnectionWord } from '../../../features/instructor/mode/modeCopy';
 import {
   VoiceState,
   type InstructorVoice,
@@ -9,7 +10,8 @@ import { Label } from '../../../ui/Label';
 import { Color, Space } from '../../../ui/theme';
 
 export const VoiceStatus = {
-  connecting: 'Connecting',
+  // The agent connecting and the instructor going back online read the same.
+  connecting: ConnectionWord.connecting,
   starting: 'Starting',
   listening: 'Listening',
   thinking: 'Thinking',
@@ -18,13 +20,7 @@ export const VoiceStatus = {
 } as const;
 export type VoiceStatus = (typeof VoiceStatus)[keyof typeof VoiceStatus];
 
-export const ConnectionStatus = {
-  online: 'Online',
-  offline: 'Offline',
-  connecting: VoiceStatus.connecting,
-} as const;
-export type ConnectionStatus =
-  (typeof ConnectionStatus)[keyof typeof ConnectionStatus];
+type ConnectionStatus = (typeof ConnectionWord)[keyof typeof ConnectionWord];
 
 /** What the assistant is doing, or whether it is connected while idle. */
 export type AssistantStatus = VoiceStatus | ConnectionStatus;
@@ -36,15 +32,15 @@ export const STATUS_COLOR: Readonly<Record<AssistantStatus, string>> = {
   [VoiceStatus.thinking]: Color.secondaryText,
   [VoiceStatus.speaking]: Color.text,
   [VoiceStatus.muted]: Color.caution,
-  [ConnectionStatus.online]: Color.accent,
-  [ConnectionStatus.offline]: Color.caution,
+  [ConnectionWord.online]: Color.accent,
+  [ConnectionWord.offline]: Color.caution,
 };
 
 const CONNECTION: Readonly<Record<InstructorMode, ConnectionStatus>> = {
-  [InstructorMode.online]: ConnectionStatus.online,
-  [InstructorMode.switchingToOnline]: ConnectionStatus.connecting,
-  [InstructorMode.switchingToOffline]: ConnectionStatus.offline,
-  [InstructorMode.offline]: ConnectionStatus.offline,
+  [InstructorMode.online]: ConnectionWord.online,
+  [InstructorMode.switchingToOnline]: ConnectionWord.connecting,
+  [InstructorMode.switchingToOffline]: ConnectionWord.offline,
+  [InstructorMode.offline]: ConnectionWord.offline,
 };
 
 export function voiceStatusFor(
@@ -76,13 +72,13 @@ export function useVoiceStatus(voice: InstructorVoice): VoiceStatus | null {
 
 /** Voice first, then a typed question in progress, then the connection. */
 export function useAssistantStatus(voice: InstructorVoice): AssistantStatus {
-  const { mode } = useInstructorMode();
-  return (
-    useVoiceStatus(voice) ??
-    (voice.state === VoiceState.thinking
-      ? VoiceStatus.thinking
-      : CONNECTION[mode])
-  );
+  const { mode, voice: source } = useInstructorMode();
+  if (voice.on) {
+    return voiceStatusFor(voice, source);
+  }
+  return voice.state === VoiceState.thinking
+    ? VoiceStatus.thinking
+    : CONNECTION[mode];
 }
 
 export function isLoading(status: AssistantStatus | null): boolean {

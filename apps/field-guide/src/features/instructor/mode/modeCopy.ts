@@ -17,8 +17,15 @@ export const SwitchLabel = {
   claude: 'Answers: Claude',
 } as const;
 
+/** One word per connection state, shared by the instructor header and the Dev panel. */
+export const ConnectionWord = {
+  online: 'Online',
+  offline: 'Offline',
+  connecting: 'Connecting',
+} as const;
+
 export const ModeNoticeCopy = {
-  offlineTitle: 'Offline',
+  offlineTitle: ConnectionWord.offline,
   offlineModel:
     'Answers come from the on-device model, which this device limits. Keep questions short.',
   offlineScript: "Answers come from the guide's script.",
