@@ -35,7 +35,12 @@ import { Icon, IconName } from '../../ui/Icon';
 import { Label } from '../../ui/Label';
 import { Color, HAIRLINE, Motion, Radius, Space, Type } from '../../ui/theme';
 import { cameraLimitsInRadians } from './camera';
-import { PartMarkers, type Size } from './PartMarkers';
+import { PartMarkers } from './PartMarkers';
+import {
+  ProjectedPartsContext,
+  useProjectedParts,
+  type Size,
+} from './projectedParts';
 import { useGuideFraming } from './useGuideFraming';
 
 const RADIANS_PER_POINT = 0.01;
@@ -55,6 +60,8 @@ interface Props {
   resizeTransition?: LinearTransition;
   /** Off hides the part labels drawn over the cloud. */
   markers?: boolean;
+  /** A part a child card labels in place of its tag, through `useProjection`. */
+  carded?: PartId | null;
   onSelect: (partId: PartId | null) => void;
   children?: ReactNode;
 }
@@ -77,6 +84,7 @@ function Viewport({
   accessibilityLabel,
   resizeTransition,
   markers = true,
+  carded = null,
   onSelect,
   children,
 }: Props) {
@@ -157,6 +165,11 @@ function Viewport({
     setError(failure.message);
   }, []);
   const activeView = ready ? view : null;
+  const { boxes, viewport } = useProjectedParts(activeView, parts, size);
+  const projection = useMemo(
+    () => ({ ids: parts.map(part => part.id), boxes, viewport }),
+    [parts, boxes, viewport],
+  );
   useGuideFraming(
     activeView,
     session,
@@ -282,9 +295,9 @@ function Viewport({
       )}
       {ready && markers && (
         <PartMarkers
-          view={activeView}
           parts={parts}
-          size={size}
+          projection={projection}
+          carded={carded}
           enterAfter={reducedMotion ? 0 : Motion.reveal}
         />
       )}
@@ -302,7 +315,9 @@ function Viewport({
           </Text>
         </View>
       )}
-      {children}
+      <ProjectedPartsContext.Provider value={projection}>
+        {children}
+      </ProjectedPartsContext.Provider>
     </Animated.View>
   );
 }

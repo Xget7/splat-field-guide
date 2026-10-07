@@ -40,9 +40,10 @@ import { useDockKeyboard } from './useDockKeyboard';
 
 export const DOCK_COLLAPSED = { width: 320, height: 64 } as const;
 export const DOCK_EXPANDED_WIDTH = 380;
+export const DOCK_EXPANDED_HEIGHT = 640;
 const DockSize = {
   collapsedHeight: DOCK_COLLAPSED.height,
-  maxExpandedHeight: 440,
+  expandedHeight: DOCK_EXPANDED_HEIGHT,
   minimumExpandedHeight: 144,
   footerThreshold: 240,
   footerButtonHeight: 32,
@@ -129,12 +130,12 @@ export function AssistantDock({
       : voice.open || voice.state === VoiceState.listening
       ? Copy.listening
       : Copy.idle;
-  // The dock grows with its conversation up to this height, so an empty one stays small.
-  const expandedMaxHeight = Math.min(
+  // Open, the dock keeps one tall height, so the conversation has room before it scrolls.
+  const expandedHeight = Math.min(
     maxHeight,
     Math.max(
       DockSize.minimumExpandedHeight,
-      Math.min(DockSize.maxExpandedHeight, availableHeight),
+      Math.min(DockSize.expandedHeight, availableHeight),
     ),
   );
   const lift = useSharedValue(0);
@@ -222,7 +223,7 @@ export function AssistantDock({
         layout={reducedMotion ? undefined : PANEL_LAYOUT}
         style={[
           expanded
-            ? { width: expandedWidth, maxHeight: expandedMaxHeight }
+            ? { width: expandedWidth, height: expandedHeight }
             : { width: collapsedWidth },
           position,
         ]}
@@ -429,7 +430,7 @@ export function AssistantDock({
 
 const styles = StyleSheet.create({
   anchor: { alignSelf: 'flex-end' },
-  panel: { flexShrink: 1, minHeight: 0 },
+  panel: { flex: 1 },
   collapsed: {
     height: DockSize.collapsedHeight,
     flexDirection: 'row',
@@ -466,9 +467,11 @@ const styles = StyleSheet.create({
   openMic: { backgroundColor: Color.accentFill },
   pressed: { backgroundColor: Color.field },
   openMicPressed: { backgroundColor: Color.accentPressed },
+  // Like a chat, the conversation sits on the composer and grows upward.
   conversation: {
-    flexShrink: 1,
+    flex: 1,
     minHeight: 0,
+    justifyContent: 'flex-end',
     paddingHorizontal: Space.lg,
     gap: Space.sm,
   },

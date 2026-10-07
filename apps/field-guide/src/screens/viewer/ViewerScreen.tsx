@@ -25,7 +25,7 @@ import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
 import { Color, Space, Type } from '../../ui/theme';
 import { cardPartFor, partTrailFor, stepRowsFor } from './guideContent';
-import { AssistantDock } from './assistant/AssistantDock';
+import { AssistantDock, DOCK_EXPANDED_HEIGHT } from './assistant/AssistantDock';
 import { ExploreDrawer } from './shell/ExploreDrawer';
 import { GuideDrawer } from './shell/GuideDrawer';
 import { Capability, DRAWER_IN, DRAWER_OUT } from './shell/layout';
@@ -33,8 +33,8 @@ import { ViewerRail } from './shell/ViewerRail';
 import { Breadcrumb } from './stage/Breadcrumb';
 import { PartCard } from './stage/PartCard';
 import { ToolDock } from './stage/ToolDock';
-import { stageDocksFor } from './stage/stageDocks';
-import type { Size } from '../../features/viewport/PartMarkers';
+import { cardClearanceFor, stageDocksFor } from './stage/stageDocks';
+import type { Size } from '../../features/viewport/projectedParts';
 import { InstructorPanel } from './instructor/InstructorPanel';
 import { ProcedureSheet } from './ProcedureSheet';
 import { SplatViewport } from '../../features/viewport/SplatViewport';
@@ -251,6 +251,23 @@ function Viewer({
     [dispatch],
   );
 
+  const assistantMaxHeight = Math.max(
+    0,
+    stage.height -
+      insets.top -
+      insets.bottom -
+      BREADCRUMB_HEIGHT -
+      Space.xxl * 2,
+  );
+  const cardClearance = cardClearanceFor(
+    stage,
+    docks,
+    insets.top + Space.sm + BREADCRUMB_HEIGHT + Space.sm,
+    insets.bottom + Space.lg,
+    assistantExpanded
+      ? Math.min(DOCK_EXPANDED_HEIGHT, assistantMaxHeight)
+      : null,
+  );
   const stageOverlays = wide && (
     <>
       <View
@@ -264,12 +281,9 @@ function Viewer({
           onPart={onSelectPart}
         />
       </View>
-      <PartCard
-        part={cardPart}
-        stage={stage}
-        insetTop={insets.top + Space.sm + BREADCRUMB_HEIGHT + Space.lg}
-        insetRight={Space.lg}
-      />
+      {labelsOn && (
+        <PartCard part={cardPart} stage={stage} clear={cardClearance} />
+      )}
       {!(assistantExpanded && docks.toolsCovered) && (
         <Animated.View
           entering={FADE_IN}
@@ -313,14 +327,7 @@ function Viewer({
           collapsedWidth={docks.assistantWidth}
           expandedWidth={docks.assistantExpandedWidth}
           bottomInset={0}
-          maxHeight={Math.max(
-            0,
-            stage.height -
-              insets.top -
-              insets.bottom -
-              BREADCRUMB_HEIGHT -
-              Space.xxl * 2,
-          )}
+          maxHeight={assistantMaxHeight}
         />
       </View>
     </>
@@ -334,6 +341,7 @@ function Viewer({
       accessibilityLabel={`${guide.title}, ${guide.area}`}
       resizeTransition={animatedResize ? viewportTransition : undefined}
       markers={labelsOn}
+      carded={wide ? cardPart?.id ?? null : null}
       onSelect={onSelectPart}
     >
       {!wide && (

@@ -787,11 +787,11 @@ describe('instructor panel modes', () => {
             .find(node => node.props.testID === 'assistant-dock')!.props.style,
         );
       expect(dockStyle().transform).toEqual([{ translateY: -262 }]);
-      expect(dockStyle().maxHeight).toBeLessThanOrEqual(440 - 262);
+      expect(dockStyle().height).toBeLessThanOrEqual(440 - 262);
       anchorBottom = 1020;
       await act(() => update?.(event));
       await act(() => renderer.update(<Dock expanded />));
-      expect(dockStyle().maxHeight).toBe(144);
+      expect(dockStyle().height).toBe(144);
       expect(
         renderer.root.findByProps({ testID: 'assistant-input' }),
       ).toBeDefined();

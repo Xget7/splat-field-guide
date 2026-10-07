@@ -14,6 +14,7 @@ jest.mock('react-native-gesture-handler', () => ({
 const AREA = 'Engine bay';
 const PARTS = fixturePack().parts;
 const STAGE = { width: 900, height: 700 };
+const CLEAR = { top: 100, right: 24, bottom: 100, left: 24 };
 
 describe('stage overlays', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -69,7 +70,7 @@ describe('stage overlays', () => {
 
   test('folding hides the summary and remains folded when the selected part changes', async () => {
     const card = (part: (typeof PARTS)[number] | null) => (
-      <PartCard part={part} stage={STAGE} insetTop={100} insetRight={24} />
+      <PartCard part={part} stage={STAGE} clear={CLEAR} />
     );
     await act(() => {
       renderer = ReactTestRenderer.create(card(PARTS[0]));

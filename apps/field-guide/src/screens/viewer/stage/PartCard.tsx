@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
-import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
   ReduceMotion,
+  useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { Part } from '../../../features/pack/pack';
+import {
+  boxAt,
+  useProjection,
+  type ScreenBox,
+  type Size,
+} from '../../../features/viewport/projectedParts';
 import { Glass, GlassTone } from '../../../ui/Glass';
 import { Icon, IconName } from '../../../ui/Icon';
 import {
@@ -29,22 +29,18 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
+import { placeOn, sideFor, type Clearance, type Side } from './cardPlacement';
 
-const CARD_WIDTH = 360;
-const HEADER_HEIGHT = MIN_TOUCH + Space.sm * 2;
+const CARD_WIDTH = 320;
+const GAP = Space.sm;
 const ICON_SIZE = 20;
 const ENTER_SCALE = 0.98;
-const PAN_DISTANCE = 4;
-const DEFAULT_POSITION_ACTION = 'moveToDefaultPosition';
 const CardCopy = {
   fold: 'Fold part card',
   unfold: 'Expand part card',
   foldHint: 'Hide the part summary',
   unfoldHint: 'Show the part summary',
-  moveHint: 'Drag to move the card',
-  reset: 'Move to default position',
 } as const;
-const ACTIONS = [{ name: DEFAULT_POSITION_ACTION, label: CardCopy.reset }];
 const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 
@@ -72,182 +68,194 @@ function exit() {
   };
 }
 
-function clamp(value: number, maximum: number) {
-  'worklet';
-  return Math.max(0, Math.min(value, Math.max(0, maximum)));
-}
-
 interface Props {
   part: Part | null;
-  stage: { width: number; height: number };
-  insetTop: number;
-  insetRight: number;
+  stage: Size;
+  clear: Clearance;
 }
 
-export function PartCard({ part, stage, insetTop, insetRight }: Props) {
+/** The part in focus, named and summarised beside it on the model. */
+export function PartCard({ part, stage, clear }: Props) {
   const [folded, setFolded] = useState(false);
-  const reducedMotion = useReducedMotion();
-  const width = Math.min(CARD_WIDTH, Math.max(0, stage.width));
-  const height = useSharedValue(HEADER_HEIGHT);
-  const position = useSharedValue({
-    x: clamp(stage.width - width - insetRight, stage.width - width),
-    y: clamp(insetTop, stage.height - HEADER_HEIGHT),
-  });
-  const origin = useSharedValue({ x: 0, y: 0 });
-  const moved = useSharedValue(false);
-  const bounds = useSharedValue(stage);
-
-  useEffect(() => {
-    bounds.value = { width: stage.width, height: stage.height };
-    position.value = moved.value
-      ? {
-          x: clamp(position.value.x, stage.width - width),
-          y: clamp(position.value.y, stage.height - height.value),
-        }
-      : {
-          x: clamp(stage.width - width - insetRight, stage.width - width),
-          y: clamp(insetTop, stage.height - height.value),
-        };
-  }, [
-    bounds,
-    height,
-    insetRight,
-    insetTop,
-    moved,
-    position,
-    stage.height,
-    stage.width,
-    width,
-  ]);
-
-  const resetPosition = useCallback(() => {
-    moved.value = false;
-    position.value = {
-      x: clamp(stage.width - width - insetRight, stage.width - width),
-      y: clamp(insetTop, stage.height - height.value),
-    };
-  }, [
-    height,
-    insetRight,
-    insetTop,
-    moved,
-    position,
-    stage.height,
-    stage.width,
-    width,
-  ]);
-  const onLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      height.value = event.nativeEvent.layout.height;
-      position.value = {
-        x: clamp(position.value.x, bounds.value.width - width),
-        y: clamp(position.value.y, bounds.value.height - height.value),
-      };
-    },
-    [bounds, height, position, width],
-  );
-  const pan = usePanGesture({
-    minDistance: PAN_DISTANCE,
-    maxPointers: 1,
-    onActivate: () => {
-      'worklet';
-      origin.value = position.value;
-      moved.value = true;
-    },
-    onUpdate: event => {
-      'worklet';
-      position.value = {
-        x: clamp(
-          origin.value.x + event.translationX,
-          bounds.value.width - width,
-        ),
-        y: clamp(
-          origin.value.y + event.translationY,
-          bounds.value.height - height.value,
-        ),
-      };
-    },
-  });
-  const placement = useAnimatedStyle(() => ({
-    left: position.value.x,
-    top: position.value.y,
-  }));
-  const moveToDefault = (event: { nativeEvent: { actionName: string } }) => {
-    if (event.nativeEvent.actionName === DEFAULT_POSITION_ACTION) {
-      resetPosition();
-    }
-  };
-
-  // Placing the card needs the stage's size, and a move made while it enters is lost.
   if (part === null || stage.width === 0) {
     return null;
   }
+  return (
+    <PlacedCard
+      key={part.id}
+      part={part}
+      stage={stage}
+      clear={clear}
+      folded={folded}
+      onFold={() => setFolded(value => !value)}
+    />
+  );
+}
+
+interface PlacedProps extends Props {
+  part: Part;
+  folded: boolean;
+  onFold: () => void;
+}
+
+function PlacedCard({ part, stage, clear, folded, onFold }: PlacedProps) {
+  const reducedMotion = useReducedMotion();
+  const projection = useProjection();
+  const index = projection?.ids.indexOf(part.id) ?? -1;
+  const width = Math.max(
+    0,
+    Math.min(CARD_WIDTH, stage.width - clear.left - clear.right),
+  );
+  const maxHeight = Math.max(0, stage.height - clear.top - clear.bottom);
+  const [shown, setShown] = useState(false);
+  const clearance = useSharedValue<Clearance>(clear);
+  const card = useSharedValue<Size>({ width, height: 0 });
+  const anchor = useSharedValue<{ box: ScreenBox; area: ScreenBox } | null>(
+    null,
+  );
+  const side = useSharedValue<Side | null>(null);
+  const from = useSharedValue<Side | null>(null);
+  const blend = useSharedValue(1);
+  const visibility = useSharedValue(0);
+  const { top, right, bottom, left } = clear;
+
+  useEffect(() => {
+    clearance.value = { top, right, bottom, left };
+  }, [clearance, top, right, bottom, left]);
+  useEffect(() => {
+    card.value = { width, height: card.value.height };
+  }, [card, width]);
+
+  useAnimatedReaction(
+    () => {
+      const box =
+        projection === null ? null : boxAt(projection.boxes.value, index);
+      return box === null || projection === null || card.value.height === 0
+        ? null
+        : { box, area: areaWithin(projection.viewport.value, clearance.value) };
+    },
+    placed => {
+      if (placed === null) {
+        if (visibility.value > 0) {
+          visibility.value = withTiming(0, { duration: Motion.base });
+          scheduleOnRN(setShown, false);
+        }
+        return;
+      }
+      const next = sideFor(
+        placed.box,
+        card.value,
+        placed.area,
+        GAP,
+        side.value,
+      );
+      anchor.value = placed;
+      if (side.value === null) {
+        side.value = next;
+        from.value = next;
+      } else if (next !== side.value) {
+        from.value = side.value;
+        side.value = next;
+        blend.value = 0;
+        blend.value = reducedMotion
+          ? 1
+          : withTiming(1, { duration: Motion.base });
+      }
+      if (visibility.value === 0) {
+        visibility.value = withTiming(1, { duration: Motion.base });
+        scheduleOnRN(setShown, true);
+      }
+    },
+    [projection, index, reducedMotion],
+  );
+
+  const placement = useAnimatedStyle(() => {
+    const placed = anchor.value;
+    if (placed === null || side.value === null || from.value === null) {
+      return {};
+    }
+    const { box, area } = placed;
+    const target = placeOn(side.value, box, card.value, area, GAP);
+    const start = placeOn(from.value, box, card.value, area, GAP);
+    return {
+      left: start.x + (target.x - start.x) * blend.value,
+      top: start.y + (target.y - start.y) * blend.value,
+    };
+  });
+  const fade = useAnimatedStyle(() => ({ opacity: visibility.value }));
 
   return (
     <Animated.View
       testID="stage-part-card"
       entering={reducedMotion ? FADE_IN : enter}
       exiting={reducedMotion ? FADE_OUT : exit}
-      onLayout={onLayout}
-      style={[styles.position, { width, maxHeight: stage.height }, placement]}
+      pointerEvents={shown ? 'box-none' : 'none'}
+      accessibilityElementsHidden={!shown}
+      importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
+      onLayout={event => {
+        card.value = { width, height: event.nativeEvent.layout.height };
+      }}
+      style={[styles.position, { width, maxHeight }, placement]}
     >
-      <Glass
-        tone={GlassTone.strong}
-        radius={Radius.card}
-        role="group"
-        accessible={false}
-        accessibilityLabel={part.name}
-        accessibilityActions={ACTIONS}
-        onAccessibilityAction={moveToDefault}
-        style={{ maxHeight: stage.height }}
-      >
-        <View style={[styles.header, !folded && styles.headerOpen]}>
-          <GestureDetector gesture={pan}>
-            <View
-              collapsable={false}
-              accessible
+      <Animated.View style={fade}>
+        <Glass
+          tone={GlassTone.strong}
+          radius={Radius.card}
+          role="group"
+          accessible={false}
+          accessibilityLabel={part.name}
+          style={{ maxHeight }}
+        >
+          <View style={[styles.header, !folded && styles.headerOpen]}>
+            <Text
               accessibilityRole="header"
-              accessibilityLabel={part.name}
-              accessibilityHint={CardCopy.moveHint}
-              accessibilityActions={ACTIONS}
-              onAccessibilityAction={moveToDefault}
-              style={styles.handle}
+              numberOfLines={2}
+              style={styles.title}
             >
-              <Icon name={IconName.grip} size={ICON_SIZE} color={Color.muted} />
-              <Text accessible={false} numberOfLines={2} style={styles.title}>
-                {part.name}
-              </Text>
-            </View>
-          </GestureDetector>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={folded ? CardCopy.unfold : CardCopy.fold}
-            accessibilityHint={folded ? CardCopy.unfoldHint : CardCopy.foldHint}
-            accessibilityState={{ expanded: !folded }}
-            onPress={() => setFolded(value => !value)}
-            style={({ pressed }) => [styles.fold, pressed && styles.pressed]}
-          >
-            <Icon
-              name={folded ? IconName.down : IconName.up}
-              size={ICON_SIZE}
-            />
-          </Pressable>
-        </View>
-        {!folded && (
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-          >
-            <Text style={styles.summary}>{part.summary}</Text>
-          </ScrollView>
-        )}
-      </Glass>
+              {part.name}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={folded ? CardCopy.unfold : CardCopy.fold}
+              accessibilityHint={
+                folded ? CardCopy.unfoldHint : CardCopy.foldHint
+              }
+              accessibilityState={{ expanded: !folded }}
+              onPress={onFold}
+              style={({ pressed }) => [styles.fold, pressed && styles.pressed]}
+            >
+              <Icon
+                name={folded ? IconName.down : IconName.up}
+                size={ICON_SIZE}
+              />
+            </Pressable>
+          </View>
+          {!folded && (
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+            >
+              <Text style={styles.summary}>{part.summary}</Text>
+            </ScrollView>
+          )}
+        </Glass>
+      </Animated.View>
     </Animated.View>
   );
 }
 
+function areaWithin(viewport: Size, clear: Clearance): ScreenBox {
+  'worklet';
+  return {
+    left: clear.left,
+    top: clear.top,
+    right: viewport.width - clear.right,
+    bottom: viewport.height - clear.bottom,
+  };
+}
+
 const styles = StyleSheet.create({
-  position: { position: 'absolute' },
+  position: { position: 'absolute', left: 0, top: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -259,13 +267,6 @@ const styles = StyleSheet.create({
   },
   // The summary sits close under the name; the touch target supplies the space.
   headerOpen: { paddingBottom: 0 },
-  handle: {
-    flex: 1,
-    minHeight: MIN_TOUCH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.sm,
-  },
   title: {
     ...Type.headline,
     fontFamily: Font.bold,

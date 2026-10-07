@@ -1,0 +1,163 @@
+import { createContext, useCallback, useContext, useEffect } from 'react';
+import {
+  useFrameCallback,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
+import type { SplatViewSpec } from 'react-native-splat';
+import type { Bounds, PartId } from '../pack/pack';
+import { Space } from '../../ui/theme';
+
+export interface MarkedPart {
+  readonly id: PartId;
+  readonly name: string;
+  readonly bounds: Bounds;
+}
+
+export interface Size {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** A part's place on screen, in points from the viewport's top left. */
+export interface ScreenBox {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+const CORNERS_PER_BOX = 8;
+const FLOATS_PER_POINT = 3;
+const FLOATS_PER_SCREEN_POINT = 2;
+// Per box in `boxes`: left, top, right, bottom in points, then 1 when it shows.
+const FLOATS_PER_BOX = 5;
+const BOX_PADDING = Space.sm;
+// A box at least this big, so a tiny part's label sits clear of it.
+const MIN_BOX = 32;
+// Moves below half a point are invisible; skipping them keeps a still camera free.
+const SETTLE_POINTS = 0.5;
+
+/** The eight corners of each box, as float32 x, y, z triples. */
+function cornersOf(parts: readonly MarkedPart[]): number[] {
+  return parts.flatMap(({ bounds: { min, max } }) =>
+    [min[0], max[0]].flatMap(x =>
+      [min[1], max[1]].flatMap(y => [min[2], max[2]].flatMap(z => [x, y, z])),
+    ),
+  );
+}
+
+/** The `index`th part's box in `boxes`, or null while it is off screen. */
+export function boxAt(boxes: number[], index: number): ScreenBox | null {
+  'worklet';
+  const at = index * FLOATS_PER_BOX;
+  if (index < 0 || boxes.length <= at || boxes[at + 4] === 0) {
+    return null;
+  }
+  return {
+    left: boxes[at],
+    top: boxes[at + 1],
+    right: boxes[at + 2],
+    bottom: boxes[at + 3],
+  };
+}
+
+export interface ProjectedParts {
+  readonly ids: readonly PartId[];
+  /** Read with `boxAt`, in the order of `ids`. */
+  readonly boxes: SharedValue<number[]>;
+  readonly viewport: SharedValue<Size>;
+}
+
+/** Project on the UI thread from the renderer's last frame to track orbiting without React renders. */
+export function useProjectedParts(
+  view: SplatViewSpec | null,
+  parts: readonly MarkedPart[],
+  size: Size,
+): Pick<ProjectedParts, 'boxes' | 'viewport'> {
+  const corners = useSharedValue<number[]>([]);
+  const viewport = useSharedValue<Size>(size);
+  const boxes = useSharedValue<number[]>([]);
+
+  useEffect(() => {
+    corners.value = cornersOf(parts);
+  }, [corners, parts]);
+  useEffect(() => {
+    viewport.value = size;
+  }, [viewport, size]);
+
+  const track = useCallback(() => {
+    'worklet';
+    const points = corners.value;
+    const pointCount = points.length / FLOATS_PER_POINT;
+    const { width, height } = viewport.value;
+    if (view === null || pointCount === 0 || width === 0 || height === 0) {
+      if (boxes.value.length > 0) {
+        boxes.value = [];
+      }
+      return;
+    }
+    const projected = new Float32Array(pointCount * FLOATS_PER_SCREEN_POINT);
+    view.project(new Float32Array(points).buffer, projected.buffer);
+    const next: number[] = [];
+    for (let box = 0; box < pointCount / CORNERS_PER_BOX; box++) {
+      let left = Infinity;
+      let top = Infinity;
+      let right = -Infinity;
+      let bottom = -Infinity;
+      let inFront = true;
+      for (let corner = 0; corner < CORNERS_PER_BOX; corner++) {
+        const at = (box * CORNERS_PER_BOX + corner) * FLOATS_PER_SCREEN_POINT;
+        const x = projected[at] * width;
+        const y = projected[at + 1] * height;
+        // A corner behind the camera has no place on screen, so neither has the box.
+        if (Number.isNaN(x) || Number.isNaN(y)) {
+          inFront = false;
+          break;
+        }
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x);
+        bottom = Math.max(bottom, y);
+      }
+      const centreX = (left + right) / 2;
+      const centreY = (top + bottom) / 2;
+      const halfWidth = Math.max(MIN_BOX, right - left + 2 * BOX_PADDING) / 2;
+      const halfHeight = Math.max(MIN_BOX, bottom - top + 2 * BOX_PADDING) / 2;
+      const shown =
+        inFront &&
+        centreX + halfWidth > 0 &&
+        centreX - halfWidth < width &&
+        centreY + halfHeight > 0 &&
+        centreY - halfHeight < height;
+      if (shown) {
+        next.push(
+          Math.max(0, centreX - halfWidth),
+          Math.max(0, centreY - halfHeight),
+          Math.min(width, centreX + halfWidth),
+          Math.min(height, centreY + halfHeight),
+          1,
+        );
+      } else {
+        next.push(0, 0, 0, 0, 0);
+      }
+    }
+    const previous = boxes.value;
+    const moved =
+      previous.length !== next.length ||
+      next.some((value, i) => Math.abs(value - previous[i]) >= SETTLE_POINTS);
+    if (moved) {
+      boxes.value = next;
+    }
+  }, [view, corners, viewport, boxes]);
+  useFrameCallback(track);
+
+  return { boxes, viewport };
+}
+
+export const ProjectedPartsContext = createContext<ProjectedParts | null>(null);
+
+/** The marked parts' screen boxes, for overlays drawn inside the viewport. */
+export function useProjection(): ProjectedParts | null {
+  return useContext(ProjectedPartsContext);
+}
