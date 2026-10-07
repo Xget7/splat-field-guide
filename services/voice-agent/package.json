@@ -8,10 +8,11 @@
   "scripts": {
     "test": "tsx --test test/*.test.ts",
     "sync": "tsx --env-file=.env src/sync.ts",
-    "plan": "tsx src/sync.ts --dry-run",
+    "plan": "tsx --env-file-if-exists=.env src/sync.ts --dry-run",
     "typecheck": "tsc --noEmit -p ."
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
