@@ -19,6 +19,8 @@ export const MODEL_ID = 'field-guide';
 export const LLM_BASE_PATH = '/v1';
 export const CHAT_COMPLETIONS_API_TYPE = 'chat_completions';
 export const TTS_MODEL_ID = 'eleven_flash_v2';
+// The voice normalizes numbers after Claude answers, so the transcript on screen keeps 5W-40.
+export const TEXT_NORMALISATION_TYPE = 'elevenlabs';
 export const INPUT_AUDIO_FORMAT = 'pcm_16000';
 export const OUTPUT_AUDIO_FORMAT = 'pcm_24000';
 export const SILENCE_END_CALL_SECONDS = 20;
@@ -33,8 +35,8 @@ export const CLIENT_EVENTS = [
 
 const VoiceStyle = [
   'Speak in short, plain sentences, at most three per answer.',
-  'Never use lists, markdown, symbols or emoji.',
-  'Say numbers and units in words, for example four point five liters or twenty newton meters.',
+  'Never use lists, markdown or emoji.',
+  'Write numbers, grades and units as the notes write them, for example 5W-40.',
 ] as const;
 const ToolInstructions = [
   'When the user asks to see or find a part, call show_part.',
@@ -93,6 +95,7 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
         model_id: TTS_MODEL_ID,
         voice_id: ids.voiceId,
         agent_output_audio_format: OUTPUT_AUDIO_FORMAT,
+        text_normalisation_type: TEXT_NORMALISATION_TYPE,
         pronunciation_dictionary_locators: [{
           pronunciation_dictionary_id: ids.dictionary.id,
           version_id: ids.dictionary.versionId,

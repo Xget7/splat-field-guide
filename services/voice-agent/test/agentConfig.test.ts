@@ -4,7 +4,7 @@ import { agentVariables } from '../../../apps/field-guide/src/features/instructo
 import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/session.ts';
 import {
   buildAgentConfig, LLM_BASE_PATH, LLM, MODEL_ID, CHAT_COMPLETIONS_API_TYPE,
-  TTS_MODEL_ID, INPUT_AUDIO_FORMAT, OUTPUT_AUDIO_FORMAT,
+  TTS_MODEL_ID, TEXT_NORMALISATION_TYPE, INPUT_AUDIO_FORMAT, OUTPUT_AUDIO_FORMAT,
 } from '../src/agentConfig.ts';
 import { pack } from './pack.ts';
 
@@ -24,6 +24,7 @@ test('the agent carries the pack, screen variables and owner voice through a sec
   assert.equal(agent.prompt.custom_llm.api_type, CHAT_COMPLETIONS_API_TYPE);
   assert.equal(config.conversation_config.tts.voice_id, 'owner-voice');
   assert.equal(config.conversation_config.tts.model_id, TTS_MODEL_ID);
+  assert.equal(config.conversation_config.tts.text_normalisation_type, TEXT_NORMALISATION_TYPE);
   assert.equal(config.conversation_config.asr.user_input_audio_format, INPUT_AUDIO_FORMAT);
   assert.equal(config.conversation_config.tts.agent_output_audio_format, OUTPUT_AUDIO_FORMAT);
   assert.equal(config.platform_settings.auth.enable_auth, true);
