@@ -43,6 +43,11 @@ const Description = {
   [AgentTool.endProcedure]:
     'Call when the user asks to end the open procedure.',
 } as const;
+const ParameterDescription = {
+  partId: 'The id of the part to show.',
+  procedureId: 'The id of the procedure to begin.',
+  stepNumber: 'The step number, counting from 1.',
+} as const;
 const FIRST_STEP_NUMBER = 1;
 export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
   return Object.values(AgentTool).map(name => {
@@ -50,17 +55,23 @@ export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
     if (name === AgentTool.showPart) {
       properties.part_id = {
         type: 'string',
+        description: ParameterDescription.partId,
         enum: pack.parts.map(part => part.id),
       };
     }
     if (name === AgentTool.startProcedure) {
       properties.procedure_id = {
         type: 'string',
+        description: ParameterDescription.procedureId,
         enum: pack.procedures.map(procedure => procedure.id),
       };
     }
     if (name === AgentTool.goToStep) {
-      properties.step_number = { type: 'integer', minimum: FIRST_STEP_NUMBER };
+      properties.step_number = {
+        type: 'integer',
+        description: ParameterDescription.stepNumber,
+        minimum: FIRST_STEP_NUMBER,
+      };
     }
     return {
       name,
