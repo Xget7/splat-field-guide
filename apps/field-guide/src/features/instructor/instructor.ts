@@ -26,6 +26,8 @@ export interface InstructorAnswer {
   readonly part: PartId | null;
   /** Applied to the session; null leaves it as it is. */
   readonly event: SessionEvent | null;
+  /** The reply reads out the step the event moves to. */
+  readonly readsStep?: boolean;
 }
 
 // Exclude "how" because quantity questions such as "how many liters" do not request procedures.
@@ -193,6 +195,7 @@ function stepAnswer(
     caution: step.caution,
     part: step.parts[0] ?? null,
     event,
+    readsStep: true,
   };
 }
 

@@ -160,13 +160,39 @@ function Said({
   );
 }
 
+interface ReplyProps {
+  exchange: Exchange;
+  live: boolean;
+  index: number;
+  voice: InstructorVoice;
+  reducedMotion: boolean;
+}
+
+function Reply({ exchange, live, index, voice, reducedMotion }: ReplyProps) {
+  if (exchange.reply === '' && live && !exchange.interrupted) {
+    return <Thinking still={reducedMotion} />;
+  }
+  return (
+    <Said
+      reply={exchange.reply}
+      caution={exchange.caution}
+      live={live}
+      index={index}
+      voice={voice}
+      streaming={exchange.phase === ExchangePhase.streaming}
+      reducedMotion={reducedMotion}
+      interrupted={exchange.interrupted}
+    />
+  );
+}
+
 interface Props {
   thread: readonly ThreadEntry[];
   exchange: Exchange | null;
   transcript: string;
   voice: InstructorVoice;
   reducedMotion: boolean;
-  /** In compact mode, the step list shows the full step, so thread steps only mark questions. */
+  /** In compact mode, the step list shows the full step: thread steps only mark questions, and replies that read a step stay hidden. */
   compact?: boolean;
 }
 
@@ -289,22 +315,13 @@ export function InstructorThread({
                   >
                     {entry.exchange.question}
                   </Text>
-                  {entry.exchange.reply === '' &&
-                  index === live &&
-                  !entry.exchange.interrupted ? (
-                    <Thinking still={reducedMotion} />
-                  ) : (
-                    <Said
-                      reply={entry.exchange.reply}
-                      caution={entry.exchange.caution}
+                  {!(compact && entry.exchange.readsStep) && (
+                    <Reply
+                      exchange={entry.exchange}
                       live={index === live}
                       index={index}
                       voice={voice}
-                      streaming={
-                        entry.exchange.phase === ExchangePhase.streaming
-                      }
                       reducedMotion={reducedMotion}
-                      interrupted={entry.exchange.interrupted}
                     />
                   )}
                 </>

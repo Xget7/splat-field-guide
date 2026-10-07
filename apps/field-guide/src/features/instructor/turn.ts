@@ -18,6 +18,8 @@ export interface Exchange {
   readonly part: PartId | null;
   /** The reply was cut off when the user spoke or the connection dropped. */
   readonly interrupted?: boolean;
+  /** The reply reads out the step on screen. */
+  readonly readsStep?: boolean;
 }
 
 export const TurnEventType = {

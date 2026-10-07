@@ -337,6 +337,31 @@ describe('viewer screen', () => {
     }
   });
 
+  test('on an iPad, an answer that moves the guide leaves the step to the list', async () => {
+    const phone = Dimensions.get('window');
+    Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
+    try {
+      await mount({
+        procedureId: 'check-brake-fluid',
+        mode: LearnMode.instructor,
+      });
+      const question = 'check the coolant';
+      await act(async () => debug().ask(question));
+      const step = procedure('check-coolant').steps[0];
+      expect(debug().getState().procedureId).toBe('check-coolant');
+      expect(
+        [text('step-current-text'), text('step-current-detail')].join(' '),
+      ).toBe(step.text);
+      expect(text('instructor-question')).toBe(question);
+      expect(has('instructor-reply')).toBe(false);
+      expect(
+        node('instructor-thread').findAllByProps({ testID: 'caution' }),
+      ).toEqual([]);
+    } finally {
+      await act(async () => Dimensions.set({ window: phone, screen: phone }));
+    }
+  });
+
   test('on an iPad, Explore lists the parts to pick, and Guide resumes the step', async () => {
     const phone = Dimensions.get('window');
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });

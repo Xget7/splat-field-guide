@@ -70,6 +70,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
           caution: answer.caution,
           part: answer.part,
           phase: ExchangePhase.done,
+          readsStep: answer.readsStep,
         },
       });
     };

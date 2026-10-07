@@ -205,6 +205,7 @@ describe('answerFor', () => {
       caution: first?.caution,
       part: first?.parts[0] ?? null,
       event: start(id),
+      readsStep: true,
     });
   });
 
@@ -225,6 +226,7 @@ describe('answerFor', () => {
       caution: step?.caution,
       part: step?.parts[0] ?? null,
       event: { type: SessionEventType.repeat },
+      readsStep: true,
     });
   });
 
@@ -236,6 +238,7 @@ describe('answerFor', () => {
       caution: step?.caution,
       part: step?.parts[0] ?? null,
       event: { type: SessionEventType.next },
+      readsStep: true,
     });
     expect(answer.caution).not.toBe('');
   });
