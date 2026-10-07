@@ -25,6 +25,13 @@ import { IconButton, IconButtonVariant } from '../../../ui/Button';
 import { InstructorMode } from '../../../features/events/types';
 import { isSwitching } from '../../../features/events/mode';
 import { useModeView } from './useModeView';
+import {
+  isLoading,
+  useVoiceStatus,
+  VoiceStatus,
+  VoiceStatusLabel,
+  VoiceWave,
+} from './VoiceWave';
 import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import {
@@ -72,37 +79,7 @@ export const Composer = {
   inset: (BUTTON_HEIGHT - 36) / 2,
 } as const;
 
-const STATUS: Readonly<Record<VoiceState, string>> = {
-  idle: '',
-  listening: 'Listening',
-  thinking: 'Thinking',
-  speaking: 'Speaking',
-};
-const MicStatus = {
-  open: 'Listening',
-  muted: 'Muted',
-  starting: 'Starting',
-} as const;
 const FadeOpacity = { hidden: 0, visible: 1 } as const;
-function statusColor(status: string | null) {
-  if (status === MicStatus.muted) {
-    return Color.caution;
-  }
-  if (status === STATUS.speaking) {
-    return Color.text;
-  }
-  return status === MicStatus.open ? Color.accent : Color.faint;
-}
-
-function voiceStatus(voice: InstructorVoice): string {
-  if (STATUS[voice.state] !== '') {
-    return STATUS[voice.state];
-  }
-  if (voice.muted) {
-    return MicStatus.muted;
-  }
-  return voice.open ? MicStatus.open : MicStatus.starting;
-}
 
 export function ContentFade({
   contentKey,
@@ -202,22 +179,32 @@ export function InstructorStatus({
   minimized?: boolean;
 }) {
   const mode = useModeView();
-  const thinking = voice.state === VoiceState.thinking;
+  const voiceStatus = useVoiceStatus(voice);
   const switching = minimized && isSwitching(mode.mode);
   const idleNotice =
     minimized &&
     mode.notice !== null &&
     voice.state === VoiceState.idle &&
     !live;
-  let status = step;
-  if (live) {
-    status = voiceStatus(voice);
-  } else if (thinking) {
-    status = STATUS.thinking;
+  if (live && voiceStatus !== null && !switching) {
+    return (
+      <View style={styles.status}>
+        <ContentFade contentKey={voiceStatus}>
+          <VoiceStatusLabel status={voiceStatus} id="instructor-status" />
+        </ContentFade>
+        {/* Open, the wave under the thread shows the level instead. */}
+        {minimized && !isLoading(voiceStatus) && (
+          <LevelMeter level={voice.level} />
+        )}
+      </View>
+    );
   }
-  if (switching || idleNotice) {
-    status = mode.minimizedStatusText;
-  }
+  const status =
+    switching || idleNotice
+      ? mode.minimizedStatusText
+      : voice.state === VoiceState.thinking
+      ? VoiceStatus.thinking
+      : step;
   return (
     <View style={styles.status}>
       <StatusLabel
@@ -226,25 +213,22 @@ export function InstructorStatus({
         color={
           idleNotice && mode.mode === InstructorMode.offline
             ? Color.caution
-            : statusColor(status)
+            : Color.faint
         }
       />
-      {live && <LevelMeter level={voice.level} />}
     </View>
   );
 }
 
-export function VoiceBar({ voice }: { voice: InstructorVoice }) {
-  const status = voiceStatus(voice);
+export function VoiceBar({
+  voice,
+  status,
+}: {
+  voice: InstructorVoice;
+  status: VoiceStatus;
+}) {
   return (
-    <View
-      style={[
-        composerStyles.frame,
-        composerStyles.voiceFrame,
-        voice.open && composerStyles.open,
-        voice.muted && composerStyles.mutedFrame,
-      ]}
-    >
+    <View style={styles.voiceRow}>
       <IconButton
         testID="instructor-voice-end"
         icon={IconName.close}
@@ -254,19 +238,7 @@ export function VoiceBar({ voice }: { voice: InstructorVoice }) {
         style={composerStyles.quietButton}
         onPress={voice.toggle}
       />
-      <View
-        testID="instructor-voice-bar"
-        accessibilityLabel={`Voice: ${status}`}
-        accessibilityLiveRegion="polite"
-        style={styles.voiceReadout}
-      >
-        <StatusLabel
-          id="instructor-voice-status"
-          status={status}
-          color={statusColor(status)}
-        />
-        <LevelMeter level={voice.level} />
-      </View>
+      <VoiceWave voice={voice} status={status} />
       <MuteButton voice={voice} inset />
     </View>
   );
@@ -428,13 +400,11 @@ const styles = StyleSheet.create({
     backgroundColor: Color.accent,
   },
   staticScan: { height: SCAN_HEIGHT, backgroundColor: Color.accent },
-  voiceReadout: {
-    flex: 1,
-    alignSelf: 'stretch',
+  voiceRow: {
+    height: Composer.height,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Space.sm,
+    gap: Space.md,
   },
   muted: { borderWidth: HAIRLINE, borderColor: Color.caution },
   reply: { ...Type.body, color: Color.text },
@@ -454,10 +424,8 @@ export const composerStyles = StyleSheet.create({
     borderColor: Color.lineStrong,
     backgroundColor: Color.raised,
   },
-  voiceFrame: { paddingLeft: Composer.inset },
   // Distinguish an open microphone from an editable text field.
   open: { borderColor: Color.accent },
-  mutedFrame: { borderColor: Color.caution },
   insetButton: { borderRadius: Radius.sm },
   quietButton: {
     borderRadius: Radius.sm,

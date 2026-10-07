@@ -135,7 +135,7 @@ Preparation downloads the pack release with `gh` and verifies it, builds or reus
 | Testing | iOS on a physical iPhone and the iPad simulator, shipped through TestFlight; Android on the API 36 tablet emulator only |
 | Checks | Tests for the app, both native packages, the C interface, Metal drawing, the pipeline and the proxy, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
 | Offline | Viewer, procedures, commands and scripted answers work in airplane mode |
-| Online voice | Mode switching and the device fallback are checked on the iPad simulator and Android emulator; a live agent conversation waits on the Worker deploy and agent sync |
+| Online voice | A live agent conversation runs on the iPad simulator, from connecting to spoken questions that Claude answers; mode switching and the device fallback are checked there and on the Android emulator |
 | Secrets | The Claude and ElevenLabs keys live only in the Worker, behind a per-IP rate limit; upstream spend limits are set in each provider's console |
 | Open before a store release | Physical Android testing, crash reporting, caller attestation on the Worker, a Play listing, a privacy policy, and the AR check on the real engine, which is hidden behind `AR_CHECK_ENABLED` ([TASKS.md](TASKS.md)) |
 

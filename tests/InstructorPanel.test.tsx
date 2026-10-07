@@ -199,33 +199,25 @@ describe('instructor panel modes', () => {
   });
 
   test.each([
-    {
-      mode: PanelMode.expanded,
-      id: 'instructor-voice-status',
-      reducedMotion: false,
-    },
-    {
-      mode: PanelMode.minimized,
-      id: 'instructor-status',
-      reducedMotion: false,
-    },
-    {
-      mode: PanelMode.expanded,
-      id: 'instructor-voice-status',
-      reducedMotion: true,
-    },
-    { mode: PanelMode.minimized, id: 'instructor-status', reducedMotion: true },
+    { mode: PanelMode.expanded, reducedMotion: false },
+    { mode: PanelMode.minimized, reducedMotion: false },
+    { mode: PanelMode.expanded, reducedMotion: true },
+    { mode: PanelMode.minimized, reducedMotion: true },
   ])(
-    '$mode keeps one persistent status label when listening starts (Reduce Motion: $reducedMotion)',
-    async ({ mode: panelMode, id, reducedMotion }) => {
+    '$mode keeps one persistent status label from Connecting to Listening (Reduce Motion: $reducedMotion)',
+    async ({ mode: panelMode, reducedMotion }) => {
       jest.mocked(useReducedMotion).mockReturnValue(reducedMotion);
       await mount({ mode: panelMode, voice: { on: true } });
       const labels = () =>
         renderer.root
           .findAllByType(Text)
-          .filter(node => node.props.testID === id);
+          .filter(node => node.props.testID === 'instructor-status');
+      const loading = () =>
+        renderer.root.findAllByProps({ testID: 'instructor-voice-loading' })
+          .length > 0;
       const label = labels()[0];
-      expect(label.props.children).toBe('Starting');
+      expect(label.props.children).toBe('Connecting');
+      expect(loading()).toBe(true);
       await act(() =>
         renderer.update(
           <Panel
@@ -237,8 +229,9 @@ describe('instructor panel modes', () => {
       expect(labels()).toHaveLength(1);
       expect(labels()[0].props.children).toBe('Listening');
       expect(labels()[0]).toBe(label);
+      expect(loading()).toBe(false);
       await act(() => renderer.update(<Panel mode={panelMode} />));
-      expect(hasText('Starting')).toBe(false);
+      expect(hasText('Connecting')).toBe(false);
       expect(hasText('Listening')).toBe(false);
     },
   );
@@ -309,7 +302,10 @@ describe('instructor panel modes', () => {
         mode: InstructorMode.offline,
         answers: AnswerSource.script,
       });
-      await mount({ mode: PanelMode.minimized, voice: { on: true, state } });
+      await mount({
+        mode: PanelMode.minimized,
+        voice: { on: true, open: true, state },
+      });
       expect(hasText(label)).toBe(true);
     },
   );
@@ -508,16 +504,18 @@ describe('instructor panel modes', () => {
       expect(control('assistant-minimize').props.accessibilityState).toEqual({
         expanded: true,
       });
-      expect(control('assistant-send').props.accessibilityState.disabled).toBe(
-        true,
-      );
+      // Like a chat app, Send replaces the mic only while there is text.
+      expect(control('assistant-send')).toBeUndefined();
       const input = renderer.root.findByProps({ testID: 'assistant-input' });
       await act(() => input.props.onChangeText('  What should I check?  '));
+      expect(control('assistant-mic')).toBeUndefined();
       await act(() => control('assistant-send').props.onPress());
       expect(onAsk).toHaveBeenCalledWith('What should I check?');
       expect(
         renderer.root.findByProps({ testID: 'assistant-input' }).props.value,
       ).toBe('');
+      expect(control('assistant-send')).toBeUndefined();
+      expect(control('assistant-mic')).toBeDefined();
       onExpandedChange.mockClear();
       await act(() =>
         renderer.update(
@@ -548,9 +546,13 @@ describe('instructor panel modes', () => {
         ),
       );
       expect(hasText('Speaking')).toBe(true);
+      // Voice replaces the text field with the sound wave.
       expect(
-        renderer.root.findAllByProps({ testID: 'instructor-meter' }).length,
+        renderer.root.findAllByProps({ testID: 'instructor-voice-bar' }).length,
       ).toBeGreaterThan(0);
+      expect(
+        renderer.root.findAllByProps({ testID: 'assistant-input' }),
+      ).toHaveLength(0);
       await act(() => control('assistant-mic').props.onPress());
       expect(toggleMuted).toHaveBeenCalledTimes(1);
       await act(() => control('assistant-stop').props.onPress());

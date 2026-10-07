@@ -809,9 +809,12 @@ describe('viewer screen', () => {
       await voiceOn();
       const tour = procedure('tour');
       expect(said()).toEqual([tour.steps[0].text]);
-      await press('instructor-next');
+      // In voice the phone hides Next and Back; the reader says them instead.
+      expect(has('instructor-next')).toBe(false);
+      expect(has('instructor-back')).toBe(false);
+      await act(async () => heard().turn('next'));
       expect(said()).toEqual([tour.steps[0].text, tour.steps[1].text]);
-      await press('instructor-back');
+      await act(async () => heard().turn('back'));
       expect(said()).toEqual([
         tour.steps[0].text,
         tour.steps[1].text,
@@ -895,8 +898,10 @@ describe('viewer screen', () => {
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await ask('repeat');
-      expect(text('instructor-voice-status')).toBe('Speaking');
+      expect(text('instructor-status')).toBe('Speaking');
       const stopped = jest.mocked(output.stop).mock.calls.length;
+      // The compact bar keeps Finish while voice is on.
+      await press('instructor-header');
       await press('instructor-next');
       expect(jest.mocked(output.stop).mock.calls.length).toBeGreaterThan(
         stopped,
@@ -939,9 +944,9 @@ describe('viewer screen', () => {
         .mocked(input.requestPermission)
         .mockReturnValueOnce(permission.promise);
       await voiceOn();
-      expect(text('instructor-voice-status')).toBe('Starting');
+      expect(text('instructor-status')).toBe('Starting');
       await act(async () => permission.resolve('granted'));
-      expect(text('instructor-voice-status')).toBe('Listening');
+      expect(text('instructor-status')).toBe('Listening');
       await act(async () => heard().turn('next'));
       expect(debug().getState().stepIndex).toBe(1);
     });
@@ -1087,15 +1092,13 @@ describe('viewer screen', () => {
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
     });
 
-    test('microphone levels update the shared meter without a React render and ignore late levels', async () => {
+    test('microphone levels update the shared wave without a React render and ignore late levels', async () => {
       await mount({ mode: LearnMode.instructor });
       jest.mocked(output.speak).mockReturnValueOnce(new Promise(() => {}));
       await voiceOn();
       const voice = panel().props.voice;
-      expect(has('instructor-meter-bar-4')).toBe(true);
-      expect(
-        StyleSheet.flatten(node('instructor-meter-bar-0').props.style),
-      ).toMatchObject({ width: 2, height: 4, borderRadius: 0 });
+      expect(has('instructor-voice-bar')).toBe(true);
+      expect(has('instructor-input')).toBe(false);
       await act(async () => voiceEvents.emitLevel(0.8));
       expect(voice.level.value).toBe(0);
       await press('instructor-stop');
@@ -1169,7 +1172,7 @@ describe('viewer screen', () => {
       await attach();
       await ask('next');
       await act(async () => voiceEvents.emitWord(0, 3));
-      expect(has('instructor-meter')).toBe(true);
+      expect(has('instructor-voice-bar')).toBe(true);
       expect(withSequence).toHaveBeenCalled();
       await press('instructor-header');
       const calls = view.frame.mock.calls.length;
@@ -1192,7 +1195,7 @@ describe('viewer screen', () => {
         expect.any(Function),
         expect.any(Function),
       );
-      expect(text('instructor-voice-status')).toBe('Listening');
+      expect(text('instructor-status')).toBe('Listening');
       expect(has('instructor-input')).toBe(false);
       const cue = () => node('instructor-cue').props.accessibilityLabel;
       expect(cue()).toMatch(/"next"/);
@@ -1216,7 +1219,7 @@ describe('viewer screen', () => {
       expect(text('instructor-transcript')).toBe('Stop');
       await press('instructor-mute');
       expect(input.cancel).toHaveBeenCalled();
-      expect(text('instructor-voice-status')).toBe('Muted');
+      expect(text('instructor-status')).toBe('Muted');
       expect(cue()).toBe('Muted. Tap the mic to listen again.');
       await act(async () => speech.resolve());
     });
@@ -1649,7 +1652,7 @@ describe('viewer screen', () => {
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await ask('repeat');
-      expect(text('instructor-voice-status')).toBe('Speaking');
+      expect(text('instructor-status')).toBe('Speaking');
       await press('instructor-stop');
       expect(text('instructor-reply')).toBe(first.text);
       const calls = jest.mocked(output.speak).mock.calls.length;
@@ -1669,13 +1672,14 @@ describe('viewer screen', () => {
         jest.mocked(output.speak).mockClear();
         jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
         await ask('next');
-        expect(text('instructor-voice-status')).toBe('Speaking');
+        expect(text('instructor-status')).toBe('Speaking');
         const stopped = jest.mocked(output.stop).mock.calls.length;
         if (change === 'end voice') {
           await press('instructor-voice-end');
         } else if (change === 'close') {
           await press('instructor-toggle');
         } else if (change === 'step') {
+          await press('instructor-header');
           await press('instructor-next');
         } else {
           await act(async () => renderer.unmount());

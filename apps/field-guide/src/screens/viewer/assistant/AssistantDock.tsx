@@ -34,6 +34,13 @@ import { InstructorThread } from '../instructor/InstructorThread';
 import { ModeArea } from '../instructor/ModeArea';
 import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
 import { useDockKeyboard } from './useDockKeyboard';
+import {
+  useVoiceStatus,
+  VoiceStatus,
+  VoiceStatusLabel,
+  VoiceTint,
+  VoiceWave,
+} from '../instructor/VoiceWave';
 
 export const DOCK_COLLAPSED = {
   width: 320,
@@ -45,11 +52,7 @@ const DockSize = {
   collapsedHeight: DOCK_COLLAPSED.height,
   expandedHeight: DOCK_EXPANDED_HEIGHT,
   minimumExpandedHeight: 144,
-  footerThreshold: 240,
-  footerButtonHeight: 32,
 } as const;
-// Footer links stay slim, so the slop brings their touch area to MIN_TOUCH.
-const FOOTER_SLOP = (MIN_TOUCH - DockSize.footerButtonHeight) / 2;
 const Copy = {
   title: 'AI Assistant',
   empty: "Ask about any part or step, and I'll point to it on the model.",
@@ -72,10 +75,6 @@ const Copy = {
   end: 'End voice',
   endHint: 'Goes back to reading and typing',
   idle: 'Tap to talk',
-  listening: 'Listening',
-  thinking: 'Thinking',
-  speaking: 'Speaking',
-  muted: 'Muted',
 } as const;
 
 interface Props {
@@ -116,18 +115,14 @@ export function AssistantDock({
     voice.transcript === '';
   const busy =
     voice.state === VoiceState.thinking || voice.state === VoiceState.speaking;
-  const metering =
-    voice.state === VoiceState.speaking || (voice.open && !voice.muted);
+  const voiceStatus = useVoiceStatus(voice);
+  // Typed questions show Thinking too; idle, the mic in the composer speaks for itself.
   const status =
-    voice.state === VoiceState.speaking
-      ? Copy.speaking
-      : voice.state === VoiceState.thinking
-      ? Copy.thinking
-      : voice.muted
-      ? Copy.muted
-      : voice.open || voice.state === VoiceState.listening
-      ? Copy.listening
-      : Copy.idle;
+    voiceStatus ??
+    (voice.state === VoiceState.thinking ? VoiceStatus.thinking : null);
+  const metering =
+    voiceStatus === VoiceStatus.speaking ||
+    voiceStatus === VoiceStatus.listening;
   // Open, the dock keeps one tall height, so the conversation has room before it scrolls.
   const expandedHeight = Math.min(
     maxHeight,
@@ -196,9 +191,9 @@ export function AssistantDock({
       onPress={mic}
       style={({ pressed }) => [
         styles.roundButton,
-        voice.open && !voice.muted && styles.openMic,
+        voice.open && !voice.muted && styles.filled,
         pressed && styles.pressed,
-        pressed && voice.open && !voice.muted && styles.openMicPressed,
+        pressed && voice.open && !voice.muted && styles.filledPressed,
       ]}
     >
       <Icon
@@ -234,23 +229,14 @@ export function AssistantDock({
         >
           {expanded ? (
             <>
+              <VoiceTint listening={voiceStatus === VoiceStatus.listening} />
               <View style={styles.header}>
                 <View style={styles.heading}>
                   <Text accessibilityRole="header" style={styles.title}>
                     {Copy.title}
                   </Text>
-                  {/* Idle, the mic in the composer speaks for itself. */}
-                  {status !== Copy.idle && (
-                    <View style={styles.statusRow}>
-                      <Text
-                        testID="assistant-status"
-                        accessibilityLiveRegion="polite"
-                        style={styles.status}
-                      >
-                        {status}
-                      </Text>
-                      {metering && <LevelMeter level={voice.level} />}
-                    </View>
+                  {status !== null && (
+                    <VoiceStatusLabel status={status} id="assistant-status" />
                   )}
                 </View>
                 {busy && (
@@ -303,69 +289,64 @@ export function AssistantDock({
                   </Text>
                 )}
               </View>
-              {availableHeight >= DockSize.footerThreshold && voice.on ? (
-                <View style={styles.footer}>
+              {voiceStatus !== null ? (
+                <View style={styles.composer}>
                   <Pressable
                     testID="assistant-end-voice"
                     accessibilityRole="button"
                     accessibilityLabel={Copy.end}
                     accessibilityHint={Copy.endHint}
-                    accessibilityState={{ disabled: false }}
                     onPress={voice.toggle}
-                    hitSlop={FOOTER_SLOP}
-                    style={styles.footerButton}
+                    style={({ pressed }) => [
+                      styles.roundButton,
+                      pressed && styles.pressed,
+                    ]}
                   >
-                    {({ pressed }) => (
-                      <Text
-                        style={[
-                          styles.footerText,
-                          pressed && styles.pressedText,
-                        ]}
-                      >
-                        {Copy.end}
-                      </Text>
-                    )}
+                    <Icon name={IconName.close} />
                   </Pressable>
+                  <VoiceWave voice={voice} status={voiceStatus} />
+                  {micControl}
                 </View>
-              ) : null}
-              <View style={styles.composer}>
-                <TextInput
-                  testID="assistant-input"
-                  value={draft}
-                  onChangeText={setDraft}
-                  onSubmitEditing={send}
-                  placeholder={Copy.placeholder}
-                  placeholderTextColor={Color.muted}
-                  accessibilityLabel={Copy.input}
-                  accessibilityHint={Copy.inputHint}
-                  accessibilityState={{ disabled: false }}
-                  returnKeyType="send"
-                  enablesReturnKeyAutomatically
-                  autoCorrect={false}
-                  keyboardAppearance="dark"
-                  selectionColor={Color.accent}
-                  style={styles.input}
-                />
-                {micControl}
-                <Pressable
-                  testID="assistant-send"
-                  accessibilityRole="button"
-                  accessibilityLabel={Copy.send}
-                  accessibilityHint={Copy.sendHint}
-                  accessibilityState={{ disabled: draft.trim() === '' }}
-                  disabled={draft.trim() === ''}
-                  onPress={send}
-                  style={({ pressed }) => [
-                    styles.roundButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Icon
-                    name={IconName.send}
-                    color={draft.trim() === '' ? Color.muted : Color.accent}
+              ) : (
+                <View style={styles.composer}>
+                  <TextInput
+                    testID="assistant-input"
+                    value={draft}
+                    onChangeText={setDraft}
+                    onSubmitEditing={send}
+                    placeholder={Copy.placeholder}
+                    placeholderTextColor={Color.muted}
+                    accessibilityLabel={Copy.input}
+                    accessibilityHint={Copy.inputHint}
+                    accessibilityState={{ disabled: false }}
+                    returnKeyType="send"
+                    enablesReturnKeyAutomatically
+                    autoCorrect={false}
+                    keyboardAppearance="dark"
+                    selectionColor={Color.accent}
+                    style={styles.input}
                   />
-                </Pressable>
-              </View>
+                  {/* Like a chat app, the mic gives way to Send once there is text. */}
+                  {draft.trim() === '' ? (
+                    micControl
+                  ) : (
+                    <Pressable
+                      testID="assistant-send"
+                      accessibilityRole="button"
+                      accessibilityLabel={Copy.send}
+                      accessibilityHint={Copy.sendHint}
+                      onPress={send}
+                      style={({ pressed }) => [
+                        styles.roundButton,
+                        styles.filled,
+                        pressed && styles.filledPressed,
+                      ]}
+                    >
+                      <Icon name={IconName.send} color={Color.accentText} />
+                    </Pressable>
+                  )}
+                </View>
+              )}
             </>
           ) : (
             <>
@@ -375,15 +356,19 @@ export function AssistantDock({
                 accessibilityLabel={Copy.title}
                 accessibilityHint={Copy.expandHint}
                 accessibilityState={{ expanded: false }}
-                accessibilityValue={{ text: status }}
+                accessibilityValue={{ text: status ?? Copy.idle }}
                 onPress={() => onExpandedChange(true)}
                 style={styles.expandButton}
               >
                 <Text style={styles.title}>{Copy.title}</Text>
                 <View style={styles.statusRow}>
-                  <Text testID="assistant-status" style={styles.status}>
-                    {status}
-                  </Text>
+                  {status === null ? (
+                    <Text testID="assistant-status" style={styles.status}>
+                      {Copy.idle}
+                    </Text>
+                  ) : (
+                    <VoiceStatusLabel status={status} id="assistant-status" />
+                  )}
                   {metering && <LevelMeter level={voice.level} />}
                 </View>
               </Pressable>
@@ -432,9 +417,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  openMic: { backgroundColor: Color.accentFill },
+  filled: { backgroundColor: Color.accentFill },
   pressed: { backgroundColor: Color.field },
-  openMicPressed: { backgroundColor: Color.accentPressed },
+  filledPressed: { backgroundColor: Color.accentPressed },
   // Like a chat, the conversation sits on the composer and grows upward.
   conversation: {
     flex: 1,
@@ -460,16 +445,4 @@ const styles = StyleSheet.create({
     backgroundColor: Color.field,
   },
   empty: { ...Type.callout, color: Color.secondaryText },
-  // Text sits on the panel's 16 point line; the composer's field box sits half that in.
-  footer: {
-    alignItems: 'flex-start',
-    paddingHorizontal: Space.lg,
-    paddingTop: Space.sm,
-  },
-  footerButton: {
-    height: DockSize.footerButtonHeight,
-    justifyContent: 'center',
-  },
-  footerText: { ...Type.label, color: Color.secondaryText },
-  pressedText: { color: Color.muted },
 });

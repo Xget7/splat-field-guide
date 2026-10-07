@@ -54,6 +54,7 @@ import {
   panelOffset,
   togglePanel,
 } from './panelMotion';
+import { useVoiceStatus, VoiceStatus, VoiceTint } from './VoiceWave';
 import {
   VoiceState,
   type InstructorVoice,
@@ -138,6 +139,7 @@ export function InstructorPanel({
       ? last.exchange
       : { id: null, reply: last.card.body });
   const reducedMotion = useReducedMotion();
+  const voiceStatus = useVoiceStatus(voice);
   const minimized = mode === PanelMode.minimized;
   const hasStep = content.stepCount > 0;
   const step = hasStep
@@ -253,6 +255,7 @@ export function InstructorPanel({
         panelStyle,
       ]}
     >
+      <VoiceTint listening={voiceStatus === VoiceStatus.listening} />
       <InstructorScan
         // Avoid repeating the thinking indication already shown by the thread.
         active={minimized && voice.state === VoiceState.thinking}
@@ -291,7 +294,7 @@ export function InstructorPanel({
                   voice={voice}
                   // Avoid repeating the step name already shown in the open thread.
                   step={minimized ? step : null}
-                  live={voice.on && minimized}
+                  live={voice.on}
                   minimized={minimized}
                 />
               </View>
@@ -372,8 +375,8 @@ export function InstructorPanel({
               </Text>
             ) : null}
           </ContentFade>
-          {voice.on ? (
-            <VoiceBar voice={voice} />
+          {voiceStatus !== null ? (
+            <VoiceBar voice={voice} status={voiceStatus} />
           ) : (
             <View style={[composerStyles.frame, typing && composerStyles.open]}>
               <TextInput
@@ -430,7 +433,7 @@ export function InstructorPanel({
               )}
             </View>
           )}
-          {hasStep && (
+          {hasStep && !voice.on && (
             <View style={styles.talkRow}>
               {previous}
               {next}
