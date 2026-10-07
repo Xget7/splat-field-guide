@@ -1,6 +1,13 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Dimensions, Keyboard, Modal, StyleSheet, Text } from 'react-native';
+import {
+  Dimensions,
+  Keyboard,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+} from 'react-native';
 import {
   useReducedMotion,
   withRepeat,
@@ -640,6 +647,30 @@ describe('viewer screen', () => {
     expect(debug().getState().selectedPart).toBe('battery');
     await tap(0);
     expect(debug().getState().selectedPart).toBeNull();
+  });
+
+  test('while typing, a tap on the model puts the keyboard away instead of picking', async () => {
+    await mount();
+    await attach();
+    const focused = jest
+      .spyOn(TextInput.State, 'currentlyFocusedInput')
+      .mockReturnValue(
+        {} as ReturnType<typeof TextInput.State.currentlyFocusedInput>,
+      );
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    try {
+      await act(async () =>
+        emit(jest.mocked(useTapGesture).mock.calls.at(-1)![0]!.onActivate, {
+          x: 150,
+          y: 100,
+        }),
+      );
+      expect(dismiss).toHaveBeenCalledTimes(1);
+      expect(view.pick).not.toHaveBeenCalled();
+    } finally {
+      focused.mockRestore();
+      dismiss.mockRestore();
+    }
   });
 
   test('a pending pick cannot override a newer step', async () => {

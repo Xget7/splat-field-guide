@@ -6,7 +6,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import {
+  Keyboard,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import {
   GestureDetector,
   useExclusiveGestures,
@@ -227,9 +234,27 @@ function Viewport({
     [activeView, size, pack, onSelect],
   );
 
+  // While someone types, a tap on the model only puts the keyboard away;
+  // dragging or pinching puts it away and still moves the camera.
+  const tapped = useCallback(
+    (x: number, y: number) => {
+      if (TextInput.State.currentlyFocusedInput() !== null) {
+        Keyboard.dismiss();
+        return;
+      }
+      pick(x, y);
+    },
+    [pick],
+  );
+  const dismissKeyboard = useCallback(() => Keyboard.dismiss(), []);
+
   const pan = usePanGesture({
     minDistance: PAN_ACTIVATION_POINTS,
     maxPointers: 1,
+    onActivate: () => {
+      'worklet';
+      scheduleOnRN(dismissKeyboard);
+    },
     onUpdate: event => {
       'worklet';
       if (event.numberOfPointers === 1) {
@@ -241,6 +266,10 @@ function Viewport({
     },
   });
   const pinch = usePinchGesture({
+    onActivate: () => {
+      'worklet';
+      scheduleOnRN(dismissKeyboard);
+    },
     onUpdate: event => {
       'worklet';
       activeView?.dolly(event.scaleChange);
@@ -250,7 +279,7 @@ function Viewport({
     maxDistance: TAP_MAX_DISTANCE_POINTS,
     onActivate: event => {
       'worklet';
-      scheduleOnRN(pick, event.x, event.y);
+      scheduleOnRN(tapped, event.x, event.y);
     },
   });
   const movement = useSimultaneousGestures(pan, pinch);
