@@ -30,6 +30,10 @@ abstract class HybridAudioLinkSpec: HybridObject() {
   
 
   // Methods
+  @DoNotStrip
+  @Keep
+  abstract fun requestPermission(): Promise<Boolean>
+  
   abstract fun start(inputRate: Double, outputRate: Double, onInput: (chunk: String) -> Unit, onLevel: (level: Double) -> Unit, onStopped: (reason: String) -> Unit): Promise<Unit>
   
   @DoNotStrip

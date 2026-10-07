@@ -14,6 +14,7 @@ namespace margelo::nitro::ondevice {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
+      prototype.registerHybridMethod("requestPermission", &HybridAudioLinkSpec::requestPermission);
       prototype.registerHybridMethod("start", &HybridAudioLinkSpec::start);
       prototype.registerHybridMethod("play", &HybridAudioLinkSpec::play);
       prototype.registerHybridMethod("clear", &HybridAudioLinkSpec::clear);

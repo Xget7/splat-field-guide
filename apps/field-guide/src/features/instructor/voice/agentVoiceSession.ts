@@ -1,6 +1,5 @@
-import { speechInput } from 'react-native-on-device';
+import { audioLink, type AudioLinkSpec } from 'react-native-on-device';
 import { voiceFailure } from './voiceFailure';
-import { SpeechPermission } from './voiceCopy';
 import type { Pack } from '../../pack/pack';
 import {
   AgentEnd,
@@ -43,11 +42,11 @@ export type SessionAgentHandlers = Omit<
 export function createAgentVoiceSession({
   client: makeClient,
   pack,
-  input = speechInput,
+  audio = audioLink,
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
-  input?: typeof speechInput;
+  audio?: () => Pick<AudioLinkSpec, 'requestPermission'>;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;
   let events: VoiceSessionEvents;
@@ -122,7 +121,7 @@ export function createAgentVoiceSession({
       const id = ++generation;
       const current = () => running && generation === id;
       try {
-        if ((await input().requestPermission()) !== SpeechPermission.granted) {
+        if (!(await audio().requestPermission())) {
           throw new VoiceStartError(VoiceStartFailure.permission);
         }
       } catch (error) {

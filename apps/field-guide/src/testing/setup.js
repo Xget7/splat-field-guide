@@ -102,6 +102,7 @@ jest.mock('react-native-on-device', () => {
     stop: jest.fn(),
   };
   const link = {
+    requestPermission: jest.fn(async () => true),
     start: jest.fn(
       async (_inputRate, _outputRate, _onInput, _onLevel, _onStopped) => {},
     ),

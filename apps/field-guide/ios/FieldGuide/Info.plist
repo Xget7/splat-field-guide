@@ -36,7 +36,7 @@
 		<true/>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Ask the instructor by voice, recognized on your device.</string>
+	<string>Talk to the instructor. Online, your voice goes to ElevenLabs; offline, it stays on this device.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Find the engine bay and place reference points over its parts.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

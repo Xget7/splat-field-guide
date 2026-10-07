@@ -3,6 +3,7 @@ import {
   networkMonitor,
   speechInput,
   speechOutput,
+  type AudioLinkSpec,
   type NetworkPath,
 } from 'react-native-on-device';
 import { appEvents, type EventBus } from '../features/events/bus';
@@ -69,7 +70,7 @@ interface RuntimeDependencies {
   };
   speechInput?: typeof speechInput;
   speechOutput?: typeof speechOutput;
-  audioLink?: () => AudioPort;
+  audioLink?: () => AudioPort & Pick<AudioLinkSpec, 'requestPermission'>;
   onDeviceModel?: InstructorModel;
   fetch?: typeof fetch;
   Request?: typeof XMLHttpRequest;
@@ -96,6 +97,7 @@ export function createInstructorRuntime(
     deps.proxyUrl === undefined ? INSTRUCTOR_PROXY_URL : deps.proxyUrl;
   const input = deps.speechInput ?? speechInput;
   const output = deps.speechOutput ?? speechOutput;
+  const audio = deps.audioLink ?? audioLink;
   const paths = deps.networkMonitor ?? networkMonitor;
   const foreground = createInstructorForeground(deps.appState);
   const model = deps.onDeviceModel ?? onDeviceModel;
@@ -264,6 +266,7 @@ export function createInstructorRuntime(
   const sessions = createInstructorSessions({
     input,
     output,
+    audio,
     agentAvailable: connection.available,
     foreground: foreground.isForeground,
     onPrimaryFailure: primaryFailure,
@@ -275,7 +278,7 @@ export function createInstructorRuntime(
         connect:
           deps.connect ??
           (address => new WebSocket(address) as unknown as SocketPort),
-        audio: (deps.audioLink ?? audioLink)(),
+        audio: audio(),
         setTimeout: deps.setTimeout,
         clearTimeout: deps.clearTimeout,
         setInterval: deps.setInterval,

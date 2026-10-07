@@ -54,6 +54,7 @@ namespace margelo::nitro::ondevice {
 
   public:
     // Methods
+    std::shared_ptr<Promise<bool>> requestPermission() override;
     std::shared_ptr<Promise<void>> start(double inputRate, double outputRate, const std::function<void(const std::string& /* chunk */)>& onInput, const std::function<void(double /* level */)>& onLevel, const std::function<void(const std::string& /* reason */)>& onStopped) override;
     void play(const std::string& chunk) override;
     void clear() override;

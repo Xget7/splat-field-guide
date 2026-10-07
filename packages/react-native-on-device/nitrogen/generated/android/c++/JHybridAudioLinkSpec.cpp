@@ -51,6 +51,22 @@ namespace margelo::nitro::ondevice {
   
 
   // Methods
+  std::shared_ptr<Promise<bool>> JHybridAudioLinkSpec::requestPermission() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>()>("requestPermission");
+    auto __result = method(_javaPart);
+    return [&]() {
+      auto __promise = Promise<bool>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
+        auto __result = jni::static_ref_cast<jni::JBoolean>(__boxedResult);
+        __promise->resolve(static_cast<bool>(__result->value()));
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
   std::shared_ptr<Promise<void>> JHybridAudioLinkSpec::start(double inputRate, double outputRate, const std::function<void(const std::string& /* chunk */)>& onInput, const std::function<void(double /* level */)>& onLevel, const std::function<void(const std::string& /* reason */)>& onStopped) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(double /* inputRate */, double /* outputRate */, jni::alias_ref<JFunc_void_std__string::javaobject> /* onInput */, jni::alias_ref<JFunc_void_double::javaobject> /* onLevel */, jni::alias_ref<JFunc_void_std__string::javaobject> /* onStopped */)>("start_cxx");
     auto __result = method(_javaPart, inputRate, outputRate, JFunc_void_std__string_cxx::fromCpp(onInput), JFunc_void_double_cxx::fromCpp(onLevel), JFunc_void_std__string_cxx::fromCpp(onStopped));

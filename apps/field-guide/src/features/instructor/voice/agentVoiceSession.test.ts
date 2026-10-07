@@ -1,4 +1,4 @@
-import { speechInput } from 'react-native-on-device';
+import { audioLink, speechInput } from 'react-native-on-device';
 import { voiceEvents as events } from '../../../testing/voiceSession';
 import { SpeechPermission } from './voiceCopy';
 import { VoiceStartFailure } from './voiceSession';
@@ -144,14 +144,11 @@ test.each([
   },
 );
 
-test('requests access before starting agent audio and rejects denied access without opening a client', async () => {
-  const input = speechInput();
-  const permissionRequests = jest.mocked(input.requestPermission).mock.calls
-    .length;
-  let grant!: (
-    permission: Awaited<ReturnType<typeof input.requestPermission>>,
-  ) => void;
-  jest.mocked(input.requestPermission).mockReturnValueOnce(
+test('requests only microphone access before starting agent audio and rejects denied access without opening a client', async () => {
+  const audio = audioLink();
+  jest.mocked(speechInput().requestPermission).mockResolvedValueOnce('denied');
+  let grant!: (permission: boolean) => void;
+  jest.mocked(audio.requestPermission).mockReturnValueOnce(
     new Promise(resolve => {
       grant = resolve;
     }),
@@ -164,14 +161,16 @@ test('requests access before starting agent audio and rejects denied access with
     events(),
   );
   expect(makeClient).not.toHaveBeenCalled();
-  grant(SpeechPermission.granted);
+  grant(true);
   await started;
   expect(transport.start).toHaveBeenCalled();
-  expect(
-    jest.mocked(input.requestPermission).mock.calls.length - permissionRequests,
-  ).toBe(1);
+  expect(speechInput().requestPermission).not.toHaveBeenCalled();
   session.stop();
-  jest.mocked(input.requestPermission).mockResolvedValueOnce('denied');
+  jest
+    .mocked(speechInput().requestPermission)
+    .mockReset()
+    .mockResolvedValue(SpeechPermission.granted);
+  jest.mocked(audio.requestPermission).mockResolvedValueOnce(false);
   makeClient.mockClear();
   await expect(
     session.start(

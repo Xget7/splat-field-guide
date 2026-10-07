@@ -18,11 +18,11 @@
 
 namespace margelo::nitro::ondevice::bridge::swift {
 
-  // pragma MARK: std::function<void()>
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeOnDevice::Func_void::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
-      swiftClosure.call();
+  // pragma MARK: std::function<void(bool /* result */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool result) mutable -> void {
+      swiftClosure.call(result);
     };
   }
   
@@ -31,6 +31,14 @@ namespace margelo::nitro::ondevice::bridge::swift {
     auto swiftClosure = ReactNativeOnDevice::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
       swiftClosure.call(error);
+    };
+  }
+  
+  // pragma MARK: std::function<void()>
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = ReactNativeOnDevice::Func_void::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
+      swiftClosure.call();
     };
   }
   
@@ -119,14 +127,6 @@ namespace margelo::nitro::ondevice::bridge::swift {
     auto swiftClosure = ReactNativeOnDevice::Func_void_SpeechInputAvailability::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](SpeechInputAvailability result) mutable -> void {
       swiftClosure.call(static_cast<int>(result));
-    };
-  }
-  
-  // pragma MARK: std::function<void(bool /* speaking */)>
-  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeOnDevice::Func_void_bool::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](bool speaking) mutable -> void {
-      swiftClosure.call(speaking);
     };
   }
   

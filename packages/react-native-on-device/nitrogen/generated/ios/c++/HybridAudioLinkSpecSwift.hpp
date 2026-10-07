@@ -68,6 +68,14 @@ namespace margelo::nitro::ondevice {
 
   public:
     // Methods
+    inline std::shared_ptr<Promise<bool>> requestPermission() override {
+      auto __result = _swiftPart.requestPermission();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
     inline std::shared_ptr<Promise<void>> start(double inputRate, double outputRate, const std::function<void(const std::string& /* chunk */)>& onInput, const std::function<void(double /* level */)>& onLevel, const std::function<void(const std::string& /* reason */)>& onStopped) override {
       auto __result = _swiftPart.start(std::forward<decltype(inputRate)>(inputRate), std::forward<decltype(outputRate)>(outputRate), onInput, onLevel, onStopped);
       if (__result.hasError()) [[unlikely]] {

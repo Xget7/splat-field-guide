@@ -13,8 +13,6 @@ import android.speech.RecognitionSupportCallback
 import android.speech.ModelDownloadListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import com.facebook.react.modules.core.PermissionAwareActivity
-import com.facebook.react.modules.core.PermissionListener
 import com.margelo.nitro.NitroModules
 import com.margelo.nitro.core.Promise
 
@@ -30,27 +28,7 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
   private var preparing: Promise<SpeechInputAvailability>? = null
   private var preparationGeneration = 0
 
-  override fun requestPermission(): Promise<SpeechPermission> {
-    val promise = Promise<SpeechPermission>()
-    main.post {
-      if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-        promise.resolve(SpeechPermission.GRANTED)
-      } else {
-        val activity = context.currentActivity as? PermissionAwareActivity
-        if (activity == null) promise.resolve(SpeechPermission.RESTRICTED)
-        else activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST,
-          PermissionListener { code, _, results ->
-            if (code != PERMISSION_REQUEST) false
-            else {
-              promise.resolve(if (results.firstOrNull() == PackageManager.PERMISSION_GRANTED)
-                SpeechPermission.GRANTED else SpeechPermission.DENIED)
-              true
-            }
-          })
-      }
-    }
-    return promise
-  }
+  override fun requestPermission(): Promise<SpeechPermission> = MicrophonePermission.request()
 
   override fun prepare(locale: String): Promise<SpeechInputAvailability> {
     val promise = Promise<SpeechInputAvailability>()
@@ -238,7 +216,6 @@ class HybridSpeechInput : HybridSpeechInputSpec() {
     super.dispose()
   }
   companion object {
-    private const val PERMISSION_REQUEST = 8711
     private const val RESTART_MS = 150L
     private const val RECOGNITION_FLOOR_DB = -2.0
     private const val RECOGNITION_CEILING_DB = 10.0

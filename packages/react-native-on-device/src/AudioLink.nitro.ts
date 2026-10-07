@@ -6,6 +6,7 @@ import type { HybridObject } from 'react-native-nitro-modules';
  */
 export interface AudioLink
   extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
+  requestPermission(): Promise<boolean>;
   /**
    * Opens the microphone and player; onInput receives 100 ms chunks at inputRate.
    * onLevel receives smoothed levels from 0 to 1 at most 30 times a second.

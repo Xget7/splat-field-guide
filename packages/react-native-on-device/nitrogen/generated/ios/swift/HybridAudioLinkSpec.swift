@@ -13,6 +13,7 @@ public protocol HybridAudioLinkSpec_protocol: HybridObject {
   
 
   // Methods
+  func requestPermission() throws -> Promise<Bool>
   func start(inputRate: Double, outputRate: Double, onInput: @escaping (_ chunk: String) -> Void, onLevel: @escaping (_ level: Double) -> Void, onStopped: @escaping (_ reason: String) -> Void) throws -> Promise<Void>
   func play(chunk: String) throws -> Void
   func clear() throws -> Void

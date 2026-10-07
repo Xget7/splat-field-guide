@@ -50,6 +50,7 @@ namespace margelo::nitro::ondevice {
 
     public:
       // Methods
+      virtual std::shared_ptr<Promise<bool>> requestPermission() = 0;
       virtual std::shared_ptr<Promise<void>> start(double inputRate, double outputRate, const std::function<void(const std::string& /* chunk */)>& onInput, const std::function<void(double /* level */)>& onLevel, const std::function<void(const std::string& /* reason */)>& onStopped) = 0;
       virtual void play(const std::string& chunk) = 0;
       virtual void clear() = 0;

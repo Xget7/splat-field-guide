@@ -28,6 +28,14 @@ class HybridAudioLink : HybridAudioLinkSpec() {
   private var startGeneration = 0
   private var disposed = false
 
+  override fun requestPermission(): Promise<Boolean> {
+    val promise = Promise<Boolean>()
+    MicrophonePermission.request().then { permission ->
+      promise.resolve(permission == SpeechPermission.GRANTED)
+    }.catch { error -> promise.reject(error) }
+    return promise
+  }
+
   private data class Packet(val bytes: ByteArray, val generation: Long)
   private class Session(val inputRate: Int, val outputRate: Int, val onInput: (String) -> Unit,
     val onLevel: (Double) -> Unit, val onStopped: (String) -> Unit, val manager: AudioManager) {

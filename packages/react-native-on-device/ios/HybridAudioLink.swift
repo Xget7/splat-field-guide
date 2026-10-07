@@ -58,6 +58,14 @@ final class HybridAudioLink: HybridAudioLinkSpec {
   private static let invalidChunk = "Audio link requires base64 little-endian PCM16"
   private static let interrupted = "Audio session interrupted"
 
+  func requestPermission() throws -> Promise<Bool> {
+    let promise = Promise<Bool>()
+    AVAudioApplication.requestRecordPermission { granted in
+      promise.resolve(withResult: granted)
+    }
+    return promise
+  }
+
   func start(inputRate: Double, outputRate: Double, onInput: @escaping (String) -> Void,
     onLevel: @escaping (Double) -> Void, onStopped: @escaping (String) -> Void) throws -> Promise<Void> {
     let promise = Promise<Void>()

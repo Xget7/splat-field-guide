@@ -1,4 +1,8 @@
-import type { speechInput, speechOutput } from 'react-native-on-device';
+import type {
+  AudioLinkSpec,
+  speechInput,
+  speechOutput,
+} from 'react-native-on-device';
 import {
   InstructorMode,
   VoiceSource,
@@ -23,6 +27,7 @@ import type { Pack } from '../features/pack/pack';
 interface SessionDependencies {
   input: typeof speechInput;
   output: typeof speechOutput;
+  audio: () => Pick<AudioLinkSpec, 'requestPermission'>;
   client(handlers: SessionAgentHandlers): AgentClient;
   agentAvailable(): boolean;
   foreground(): boolean;
@@ -91,7 +96,7 @@ export function createInstructorSessions(deps: SessionDependencies) {
       }
       const primary = createAgentVoiceSession({
         pack: guide,
-        input: deps.input,
+        audio: deps.audio,
         client: deps.client,
       });
       const fallback = createFallbackVoiceSession({
