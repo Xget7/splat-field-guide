@@ -4,27 +4,28 @@ import { packKnowledge } from '../../../apps/field-guide/src/features/instructor
 import { agentVariables } from '../../../apps/field-guide/src/features/instructor/agent/agentVariables.ts';
 import { recognitionHintsFor } from '../../../apps/field-guide/src/features/instructor/voice/recognitionHints.ts';
 import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/session.ts';
+import type { AgentState } from './state.ts';
 
-export interface AgentConfigIds {
+export type AgentConfigIds = Required<Pick<AgentState, 'secretId' | 'dictionary'>> & {
   readonly workerUrl: string;
   readonly voiceId: string;
-  readonly secretId: string;
   readonly toolIds: readonly string[];
-  readonly dictionary: { readonly id: string; readonly versionId: string };
-}
-const AGENT_NAME_PREFIX = 'Field Guide: ';
-const FIRST_MESSAGE = '{{opening}}';
-const LANGUAGE = 'en';
-const LLM = 'custom-llm';
-const MODEL_ID = 'field-guide';
-const CHAT_COMPLETIONS_PATH = '/v1/chat/completions';
-const CHAT_COMPLETIONS_API_TYPE = 'chat_completions';
-const TTS_MODEL_ID = 'eleven_flash_v2';
-const INPUT_AUDIO_FORMAT = 'pcm_16000';
-const OUTPUT_AUDIO_FORMAT = 'pcm_24000';
-const SILENCE_END_CALL_SECONDS = 20;
-const MAX_DURATION_SECONDS = 300;
-const CLIENT_EVENTS = [
+};
+export const AGENT_NAME_PREFIX = 'Field Guide: ';
+export const FIRST_MESSAGE = '{{opening}}';
+export const LANGUAGE = 'en';
+export const LLM = 'custom-llm';
+export const MODEL_ID = 'field-guide';
+export const LLM_BASE_PATH = '/v1';
+export const CHAT_COMPLETIONS_API_TYPE = 'chat_completions';
+export const TTS_MODEL_ID = 'eleven_flash_v2';
+export const INPUT_AUDIO_FORMAT = 'pcm_16000';
+export const OUTPUT_AUDIO_FORMAT = 'pcm_24000';
+export const SILENCE_END_CALL_SECONDS = 20;
+export const MAX_DURATION_SECONDS = 300;
+export const ASR_QUALITY = 'high';
+export const TURN_EAGERNESS = 'normal';
+export const CLIENT_EVENTS = [
   'audio', 'interruption', 'user_transcript', 'agent_response',
   'agent_response_correction', 'agent_chat_response_part', 'agent_response_complete',
   'client_tool_call', 'ping', 'vad_score', 'conversation_initiation_metadata', 'client_error',
@@ -75,7 +76,7 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
           prompt: buildPrompt(pack),
           llm: LLM,
           custom_llm: {
-            url: ids.workerUrl.replace(/\/+$/, '') + CHAT_COMPLETIONS_PATH,
+            url: ids.workerUrl.replace(/\/+$/, '') + LLM_BASE_PATH,
             model_id: MODEL_ID,
             api_key: { secret_id: ids.secretId },
             api_type: CHAT_COMPLETIONS_API_TYPE,
@@ -84,7 +85,7 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
         },
       },
       asr: {
-        quality: 'high',
+        quality: ASR_QUALITY,
         user_input_audio_format: INPUT_AUDIO_FORMAT,
         keywords: recognitionHintsFor(pack),
       },
@@ -97,7 +98,7 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
           version_id: ids.dictionary.versionId,
         }],
       },
-      turn: { turn_eagerness: 'normal', silence_end_call_timeout: SILENCE_END_CALL_SECONDS },
+      turn: { turn_eagerness: TURN_EAGERNESS, silence_end_call_timeout: SILENCE_END_CALL_SECONDS },
       conversation: { max_duration_seconds: MAX_DURATION_SECONDS, client_events: [...CLIENT_EVENTS] },
     },
     platform_settings: { auth: { enable_auth: true } },

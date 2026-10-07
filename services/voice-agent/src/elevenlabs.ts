@@ -1,28 +1,25 @@
 import type { ClientToolConfig } from './tools.ts';
 import type { PronunciationRule } from './pronunciation.ts';
 import type { buildAgentConfig } from './agentConfig.ts';
+import type { DictionaryRef } from './state.ts';
 
-const API_URL = 'https://api.elevenlabs.io/v1';
-const API_KEY_HEADER = 'xi-api-key';
-const CONTENT_TYPE_HEADER = 'content-type';
-const JSON_CONTENT_TYPE = 'application/json';
-const SECRET_PATH = '/convai/secrets';
-const TOOL_PATH = '/convai/tools';
-const DICTIONARY_PATH = '/pronunciation-dictionaries';
-const CREATE_AGENT_PATH = '/convai/agents/create';
-const AGENT_PATH = '/convai/agents';
-const SECRET_NAME = 'field-guide-agent-llm';
-const Method = { get: 'GET', create: 'POST', update: 'PATCH' } as const;
+export const API_URL = 'https://api.elevenlabs.io/v1';
+export const API_KEY_HEADER = 'xi-api-key';
+export const CONTENT_TYPE_HEADER = 'content-type';
+export const JSON_CONTENT_TYPE = 'application/json';
+export const SECRET_PATH = '/convai/secrets';
+export const TOOL_PATH = '/convai/tools';
+export const DICTIONARY_PATH = '/pronunciation-dictionaries';
+export const CREATE_AGENT_PATH = '/convai/agents/create';
+export const AGENT_PATH = '/convai/agents';
+export const SECRET_NAME = 'field-guide-agent-llm';
+export const Method = { get: 'GET', create: 'POST', update: 'PATCH' } as const;
+export const SecretType = { create: 'new', update: 'update' } as const;
+export const CREATE_DICTIONARY_PATH = DICTIONARY_PATH + '/add-from-rules';
+export const SET_RULES_PATH = '/set-rules';
 const INVALID_JSON = 'Invalid JSON response';
 
 interface DictionaryResponse { id: string; version_id: string }
-export interface DictionaryRule {
-  readonly type: string;
-  readonly string_to_replace: string;
-  readonly alias?: string;
-  readonly case_sensitive?: boolean;
-  readonly word_boundaries?: boolean;
-}
 
 export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
   async function request<T>(path: string, method: string, body?: unknown): Promise<T> {
@@ -41,28 +38,41 @@ export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
     if (value === null) throw new Error(`ElevenLabs ${response.status}: ${INVALID_JSON}`);
     return value as T;
   }
+  function createOrUpdate<T>(path: string, body: unknown, id?: string, createPath = path): Promise<T> {
+    return request<T>(
+      id ? `${path}/${encodeURIComponent(id)}` : createPath,
+      id ? Method.update : Method.create,
+      body,
+    );
+  }
+
+  function dictionaryRef(response: DictionaryResponse): DictionaryRef {
+    return { id: response.id, versionId: response.version_id };
+  }
+
   return {
-    secret: (value: string, id?: string) => request<{ secret_id: string }>(
-      id ? `${SECRET_PATH}/${encodeURIComponent(id)}` : SECRET_PATH,
-      id ? Method.update : Method.create,
-      { type: id ? 'update' : 'new', name: SECRET_NAME, value },
+    secret: (value: string, id?: string) => createOrUpdate<{ secret_id: string }>(
+      SECRET_PATH, { type: id ? SecretType.update : SecretType.create, name: SECRET_NAME, value }, id,
     ),
-    tool: (config: ClientToolConfig, id?: string) => request<{ id: string }>(
-      id ? `${TOOL_PATH}/${encodeURIComponent(id)}` : TOOL_PATH,
-      id ? Method.update : Method.create,
-      { tool_config: config },
+    tool: (config: ClientToolConfig, id?: string) => createOrUpdate<{ id: string }>(
+      TOOL_PATH, { tool_config: config }, id,
     ),
-    dictionary: (name: string, rules: readonly PronunciationRule[]) =>
-      request<DictionaryResponse>(DICTIONARY_PATH + '/add-from-rules', Method.create, { name, rules }),
-    dictionaryRules: (id: string) => request<{ latest_version_id: string; rules: readonly DictionaryRule[] }>(
-      `${DICTIONARY_PATH}/${encodeURIComponent(id)}`, Method.get,
+    createDictionaryRef: async (name: string, rules: readonly PronunciationRule[]) => dictionaryRef(
+      await request<DictionaryResponse>(CREATE_DICTIONARY_PATH, Method.create, { name, rules }),
     ),
-    setDictionaryRules: (id: string, rules: readonly PronunciationRule[]) => request<DictionaryResponse>(
-      `${DICTIONARY_PATH}/${encodeURIComponent(id)}/set-rules`, Method.create, { rules },
+    getDictionaryVersion: async (id: string): Promise<DictionaryRef & { rules: readonly PronunciationRule[] }> => {
+      const response = await request<{ latest_version_id: string; rules: readonly PronunciationRule[] }>(
+        `${DICTIONARY_PATH}/${encodeURIComponent(id)}`, Method.get,
+      );
+      return { id, versionId: response.latest_version_id, rules: response.rules };
+    },
+    updateDictionaryRef: async (id: string, rules: readonly PronunciationRule[]) => dictionaryRef(
+      await request<DictionaryResponse>(
+        `${DICTIONARY_PATH}/${encodeURIComponent(id)}${SET_RULES_PATH}`, Method.create, { rules },
+      ),
     ),
-    agent: (config: ReturnType<typeof buildAgentConfig>, id?: string) => request<{ agent_id: string }>(
-      id ? `${AGENT_PATH}/${encodeURIComponent(id)}` : CREATE_AGENT_PATH,
-      id ? Method.update : Method.create, config,
+    agent: (config: ReturnType<typeof buildAgentConfig>, id?: string) => createOrUpdate<{ agent_id: string }>(
+      AGENT_PATH, config, id, CREATE_AGENT_PATH,
     ),
   };
 }
