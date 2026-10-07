@@ -1,3 +1,5 @@
+import { createSseReader, type SseMessage } from "./sse.ts";
+
 const SseEvent = {
   messageStop: "message_stop",
   messageDelta: "message_delta",
@@ -7,8 +9,6 @@ const SseEvent = {
 } as const;
 const TEXT_DELTA = "text_delta";
 const COMPLETE_STOP_REASONS = new Set(["end_turn", "stop_sequence"]);
-
-const SseField = { event: "event", data: "data" } as const;
 
 export const StreamError = {
   upstream: "upstream error",
@@ -26,18 +26,13 @@ type OutputLine =
 export function sseToNdjson(
   source: ReadableStream<Uint8Array>,
 ): ReadableStream<Uint8Array> {
-  const reader = source.getReader();
-  const decoder = new TextDecoder();
+  const reader = createSseReader(source);
   const encoder = new TextEncoder();
-  let buffer = "";
-  let eventName = "";
-  let data: string[] = [];
   // Retain diagnostics to distinguish empty answers from refusals or exhausted thinking budgets.
   let stopReason: string | undefined;
   const blocks = new Set<string>();
   const events = new Set<string>();
   let wroteText = false;
-  let ended = false;
   let finished = false;
 
   function doneLine(): OutputLine {
@@ -79,36 +74,21 @@ export function sseToNdjson(
     }
   }
 
-  function parseLine(line: string): OutputLine | undefined {
-    if (line === "") {
-      const name = eventName;
-      const payload = data.join("\n");
-      const hasData = data.length > 0;
-      eventName = "";
-      data = [];
-      if (!hasData) return;
-      events.add(name);
-      switch (name) {
-        case SseEvent.messageStop:
-          return doneLine();
-        case SseEvent.error:
-          return { error: StreamError.upstream };
-        case SseEvent.messageDelta:
-        case SseEvent.blockStart:
-          return readDiagnostics(payload);
-        case SseEvent.blockDelta:
-          return readDelta(payload);
-        default:
-          return;
-      }
+  function parseEvent({ name, data }: SseMessage): OutputLine | undefined {
+    events.add(name);
+    switch (name) {
+      case SseEvent.messageStop:
+        return doneLine();
+      case SseEvent.error:
+        return { error: StreamError.upstream };
+      case SseEvent.messageDelta:
+      case SseEvent.blockStart:
+        return readDiagnostics(data);
+      case SseEvent.blockDelta:
+        return readDelta(data);
+      default:
+        return;
     }
-
-    const colon = line.indexOf(":");
-    const field = colon < 0 ? line : line.slice(0, colon);
-    let value = colon < 0 ? "" : line.slice(colon + 1);
-    if (value.startsWith(" ")) value = value.slice(1);
-    if (field === SseField.event) eventName = value;
-    if (field === SseField.data) data.push(value);
   }
 
   function emit(
@@ -128,31 +108,17 @@ export function sseToNdjson(
     async pull(controller) {
       try {
         while (!finished) {
-          const boundary = buffer.search(/[\r\n]/);
-          // A trailing CR may be the first half of a CRLF split across chunks.
-          if (
-            boundary >= 0 &&
-            !(buffer[boundary] === "\r" && boundary === buffer.length - 1 && !ended)
-          ) {
-            const line = buffer.slice(0, boundary);
-            const width = buffer[boundary] === "\r" && buffer[boundary + 1] === "\n" ? 2 : 1;
-            buffer = buffer.slice(boundary + width);
-            const output = parseLine(line);
-            if (output) {
-              emit(controller, output);
-              return;
-            }
-            continue;
-          }
-          if (ended) {
+          const event = await reader.next();
+          if (finished) return;
+          if (!event) {
             emit(controller, { error: StreamError.noStop });
             return;
           }
-
-          const chunk = await reader.read();
-          if (finished) return;
-          ended = chunk.done;
-          buffer += ended ? decoder.decode() : decoder.decode(chunk.value, { stream: true });
+          const output = parseEvent(event);
+          if (output) {
+            emit(controller, output);
+            return;
+          }
         }
       } catch {
         if (!finished) emit(controller, { error: StreamError.readFailed });

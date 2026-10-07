@@ -1,41 +1,32 @@
+import { handleVoiceSession } from "./voice.ts";
+import { handleChatCompletion } from "./chat.ts";
+import {
+  ANTHROPIC_URL, ANTHROPIC_VERSION, ContentType, Header, NO_STORE,
+  RequestError, errorResponse, limitRequest,
+} from "./http.ts";
 import { sseToNdjson } from "./stream.ts";
 
+export { RequestError } from "./http.ts";
+
 const ANSWER_PATH = "/v1/answer";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
+const PING_PATH = "/v1/ping";
+const VOICE_PATH = "/v1/voice/session";
+const CHAT_PATH = "/v1/chat/completions";
 const MAX_SYSTEM_CHARS = 60000;
 const MAX_PROMPT_CHARS = 6000;
 // Thinking and the answer share this ceiling; exhausting it fails the stream so the app can fall back.
 const MAX_OUTPUT_TOKENS = 1500;
-// Requests without Cloudflare's IP header share a bucket instead of bypassing it.
-const UNKNOWN_CLIENT = "unknown";
-
-const ContentType = {
-  json: "application/json",
-  ndjson: "application/x-ndjson; charset=utf-8",
-} as const;
-const NO_STORE = "no-store";
-
-export const RequestError = {
-  notFound: "not found",
-  method: "method not allowed",
-  rateLimited: "rate limit exceeded",
-  limiterDown: "rate limiter unavailable",
-  invalidJson: "invalid JSON",
-  notObject: "expected JSON object",
-  fields: "system and prompt must be non-empty strings",
-  systemTooLong: "system too long",
-  promptTooLong: "prompt too long",
-  missingKey: "missing API key",
-  upstreamDown: "upstream unavailable",
-  noUpstreamStream: "missing upstream stream",
-} as const;
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
   MODEL: string;
   /** How hard the model reasons before answering: low, medium or high. */
   EFFORT: string;
+  ELEVENLABS_API_KEY: string;
+  AGENT_ID: string;
+  AGENT_LLM_SECRET: string;
+  /** Agent turns omit extended thinking so speech starts quickly. */
+  VOICE_MODEL: string;
   LIMITER: RateLimit;
 }
 
@@ -80,28 +71,9 @@ export function buildUpstreamBody(input: AnswerInput, env: Env) {
   };
 }
 
-function errorResponse(status: number, error: string, headers = {}) {
-  return Response.json(
-    { error },
-    { status, headers: { "cache-control": NO_STORE, ...headers } },
-  );
-}
-
-export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  if (new URL(request.url).pathname !== ANSWER_PATH) {
-    return errorResponse(404, RequestError.notFound);
-  }
-  if (request.method !== "POST") {
-    return errorResponse(405, RequestError.method, { allow: "POST" });
-  }
-
-  try {
-    const key = request.headers.get("CF-Connecting-IP") || UNKNOWN_CLIENT;
-    const { success } = await env.LIMITER.limit({ key });
-    if (!success) return errorResponse(429, RequestError.rateLimited);
-  } catch {
-    return errorResponse(503, RequestError.limiterDown);
-  }
+async function handleAnswer(request: Request, env: Env): Promise<Response> {
+  const limited = await limitRequest(request, env);
+  if (limited) return limited;
 
   let value: unknown;
   try {
@@ -118,9 +90,9 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     upstream = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {
-        "x-api-key": env.ANTHROPIC_API_KEY,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": ContentType.json,
+        [Header.anthropicKey]: env.ANTHROPIC_API_KEY,
+        [Header.anthropicVersion]: ANTHROPIC_VERSION,
+        [Header.contentType]: ContentType.json,
       },
       body: JSON.stringify(buildUpstreamBody(input, env)),
       signal: request.signal,
@@ -137,10 +109,33 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return new Response(sseToNdjson(upstream.body), {
     status: 200,
     headers: {
-      "content-type": ContentType.ndjson,
-      "cache-control": NO_STORE,
+      [Header.contentType]: ContentType.ndjson,
+      [Header.cacheControl]: NO_STORE,
     },
   });
+}
+
+const routes: Record<string, {
+  method: string;
+  handler: (request: Request, env: Env) => Response | Promise<Response>;
+}> = {
+  [VOICE_PATH]: { method: "POST", handler: handleVoiceSession },
+  [CHAT_PATH]: { method: "POST", handler: handleChatCompletion },
+  [ANSWER_PATH]: { method: "POST", handler: handleAnswer },
+  [PING_PATH]: {
+    method: "GET",
+    handler: () => new Response(null, { status: 204, headers: { [Header.cacheControl]: NO_STORE } }),
+  },
+};
+
+export async function handleRequest(request: Request, env: Env): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  const route = Object.hasOwn(routes, path) ? routes[path] : undefined;
+  if (!route) return errorResponse(404, RequestError.notFound);
+  if (request.method !== route.method) {
+    return errorResponse(405, RequestError.method, { allow: route.method });
+  }
+  return route.handler(request, env);
 }
 
 export default { fetch: handleRequest } satisfies ExportedHandler<Env>;

@@ -5,6 +5,7 @@ compatibility_date = "2026-09-01"
 [vars]
 MODEL = "claude-sonnet-5-5"
 EFFORT = "low"
+VOICE_MODEL = "claude-haiku-4-5-20251001"
 
 [[ratelimits]]
 name = "LIMITER"
