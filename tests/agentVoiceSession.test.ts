@@ -19,6 +19,53 @@ const client = () => ({
   stop: jest.fn(),
 });
 
+test.each([false, true])(
+  'listening waits for permission and connection, with startup mute: %s',
+  async muted => {
+    let grant!: (allowed: boolean) => void;
+    let connect!: () => void;
+    let connecting!: () => void;
+    const connectionStarted = new Promise<void>(resolve => {
+      connecting = resolve;
+    });
+    const transport = client();
+    transport.start.mockImplementationOnce(async () => {
+      connecting();
+      await new Promise<void>(resolve => {
+        connect = resolve;
+      });
+    });
+    const changed = events();
+    const session = createAgentVoiceSession({
+      pack,
+      client: () => transport,
+      audio: () => ({
+        requestPermission: () =>
+          new Promise<boolean>(resolve => {
+            grant = resolve;
+          }),
+      }),
+    });
+    const starting = session.start(
+      { pack, state: INITIAL_SESSION, history: [], thinking: false },
+      changed,
+    );
+    session.setMuted(false);
+    expect(changed.listening).not.toHaveBeenCalled();
+    grant(true);
+    await connectionStarted;
+    session.setMuted(muted);
+    expect(changed.listening).not.toHaveBeenCalled();
+    connect();
+    await starting;
+    expect(changed.listening.mock.calls).toEqual([[!muted]]);
+    expect(transport.setMuted).toHaveBeenLastCalledWith(muted);
+    session.setMuted(!muted);
+    expect(changed.listening).toHaveBeenLastCalledWith(muted);
+    session.stop();
+  },
+);
+
 test('streams an exchange and retains a corrected interrupted answer', async () => {
   let heard!: SessionAgentHandlers;
   const transport = client();

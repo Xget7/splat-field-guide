@@ -237,7 +237,8 @@ export function createAgentVoiceSession({
         );
         if (current()) {
           started = true;
-          events.listening(true);
+          client.setMuted(muted);
+          events.listening(!muted);
         }
       } catch (error) {
         if (!current()) {
@@ -290,8 +291,8 @@ export function createAgentVoiceSession({
     },
     setMuted(value) {
       muted = value;
-      client?.setMuted(value);
-      if (running) {
+      if (running && started) {
+        client?.setMuted(value);
         events.listening(!value);
         events.level(0);
       }
