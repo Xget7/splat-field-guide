@@ -143,4 +143,4 @@ Preparation downloads the pack release with `gh` and verifies it, builds or reus
 
 - [Design and ownership](docs/specs/field-guide-design.md), [vocabulary](CONTEXT.md) and [targets](REQUIREMENTS.md).
 - [Provenance](docs/PROVENANCE.md), [third-party notices](THIRD_PARTY_NOTICES.md) and [MIT license](LICENSE).
-- [Agent instructions](AGENTS.md) for commands and contribution rules.
+- [Agent instructions](CLAUDE.md) for commands and contribution rules.
