@@ -22,7 +22,7 @@ tests/                                   GPU tests that run on a Mac
 tools/splat_snapshot.mm                  draws a pack through the engine into a PNG, on a Mac
 ```
 
-Build/test commands are in [AGENTS.md](../../../../AGENTS.md#prepare-and-verify); the macOS Metal build also tests the shared core and C interface.
+Build/test commands are in [agent checks](../../../../docs/agents/checks.md); the macOS Metal build also tests the shared core and C interface.
 Set `SPLAT_SPZ_PATH` to an SPZ to enable `MetalRasterTest.ARealWorldFillsTheView`.
 `splat_snapshot` uses the app's renderer to draw a labelled cloud from a pose, with selected parts highlighted.
 From the repository root after the Metal build:

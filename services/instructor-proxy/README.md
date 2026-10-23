@@ -1,7 +1,7 @@
 # Instructor proxy
 
 The Cloudflare Worker holds the Anthropic and ElevenLabs keys, serves network probes and signed agent URLs, and translates Claude streams for typed answers and the agent's custom LLM.
-Instructor policy is in [ADR 0006](../../docs/adr/0006-commands-and-ordered-instructor-fallback.md); fake-backed checks are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).
+Instructor policy is in [ADR 0006](../../docs/adr/0006-commands-and-ordered-instructor-fallback.md); fake-backed checks are in [agent checks](../../docs/agents/checks.md).
 
 | Route | Behaviour |
 | --- | --- |

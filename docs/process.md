@@ -2,7 +2,7 @@
 
 Read this before rerunning capture preparation or asserting capture, viewer, speech or AR acceptance.
 Paths under `data/` and `tools/` are ignored author artifacts; missing inputs or receipts block the corresponding verification.
-Use [AGENTS.md](../AGENTS.md#prepare-and-verify) for commands, [pipeline/README.md](../pipeline/README.md) for stage contracts and [TASKS.md](../TASKS.md) for open physical acceptance.
+Use [agent checks](agents/checks.md) for commands, [pipeline/README.md](../pipeline/README.md) for stage contracts and [TASKS.md](../TASKS.md) for open physical acceptance.
 
 ## Capture
 

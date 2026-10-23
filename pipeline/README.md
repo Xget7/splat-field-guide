@@ -1,7 +1,7 @@
 # Pack pipeline
 
 The pipeline prepares the guide's runtime pack.
-The [consumer design](../docs/specs/field-guide-design.md#pack-contract) defines the pack contract; [AGENTS.md](../AGENTS.md#capture-and-pack-operations) contains execution commands.
+The [consumer design](../docs/specs/field-guide-design.md#pack-contract) defines the pack contract; [pack operations](../docs/agents/pack-operations.md) contain execution commands.
 Demo builds consume an archive through the [root quickstart](../README.md#quickstart); capture stages require the author's photos and annotations.
 
 ## Pack stages

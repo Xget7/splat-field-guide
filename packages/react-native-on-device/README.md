@@ -1,7 +1,7 @@
 # react-native-on-device
 
 Lazy Nitro modules provide speech input/output, raw conversation audio and network path monitoring on iOS and Android, with Apple Foundation Models on iOS.
-[App setup](../../apps/field-guide/README.md#device-preparation) covers system assets; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has installation, checks and codegen commands.
+[App setup](../../apps/field-guide/README.md#device-preparation) covers system assets; [agent checks](../../docs/agents/checks.md) has installation, checks and codegen commands.
 
 ## Interfaces
 

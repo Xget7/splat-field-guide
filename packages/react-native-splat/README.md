@@ -1,7 +1,7 @@
 # react-native-splat
 
 Typed Nitro views wrap the shared C++ viewer with Metal on iOS and Vulkan on Android, plus iOS RealityKit placement/assembly and an AR alignment check.
-[ADR 0003](../../docs/adr/0003-shared-core-owns-viewer-behaviour.md) records ownership; [AGENTS.md](../../AGENTS.md#prepare-and-verify) has build, test and codegen commands.
+[ADR 0003](../../docs/adr/0003-shared-core-owns-viewer-behaviour.md) records ownership; [agent checks](../../docs/agents/checks.md) has build, test and codegen commands.
 
 ## How it draws
 

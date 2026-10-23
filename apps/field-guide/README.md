@@ -44,7 +44,7 @@ Engine/resource changes require preparation; the engine builder and reuse rules 
 
 Install JDK 17, Android SDK platform/build-tools 37 and NDK 27.1.12297006, and set `ANDROID_HOME` to the SDK directory.
 The app supports Android 10+ with Vulkan; the checked build targets API 36 and arm64-v8a.
-Prepare the shared pack through the root quickstart, then use the [Android build commands](../../AGENTS.md#android) to build and install.
+Prepare the shared pack through the root quickstart, then use the [Android build commands](../../docs/agents/android.md) to build and install.
 The [viewer package](../../packages/react-native-splat/README.md#android-adapter) describes pack installation and rendering; Gradle bundles runtime files, Geist fonts and [licenses](../../THIRD_PARTY_NOTICES.md#android-inventory).
 
 For emulator review, use an API 36 arm64 tablet image with 6 GB RAM and the host GPU (`-gpu host`).
@@ -68,7 +68,7 @@ Missing transcription/model assets affect offline input and generation; [speech 
 `instructor.config.json` sets `proxyUrl`, the Worker base URL that [proxy.ts](src/features/instructor/proxy.ts) reads; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
 The example's `null` runs offline only; deploy your own Worker with the [service README](../../services/instructor-proxy/README.md) and the agent with the [voice agent README](../../services/voice-agent/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
-App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [AGENTS.md](../../AGENTS.md#prepare-and-verify).
+App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [the agent checks](../../docs/agents/checks.md).
 [Open acceptance](../../TASKS.md) includes physical performance, voice and AR checks.
 
 ## Spatial assembly
@@ -79,4 +79,4 @@ Next during forward assembly finishes the current step immediately and starts th
 The crankshaft starts installed, and the engine starts 50 centimetres above the detected surface; the menu adjusts height from zero to two metres in 25-centimetre increments.
 Compact native glass controls sit above the bottom safe area; matching native playback completion advances the sequence automatically.
 The supplied model is credited to little.bucket under CC BY-NC 4.0; its sequence is a visual tour, not reviewed mechanical instructions.
-Prepare the local USDZ with [the resource command](../../AGENTS.md#spatial-assembly-resources); missing resources show an unavailable state.
+Prepare the local USDZ with [the resource command](../../docs/agents/ar-assembly.md); missing resources show an unavailable state.

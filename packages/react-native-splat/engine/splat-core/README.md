@@ -12,5 +12,5 @@ No graphics, no platform APIs, no React Native.
 | Sorting | Morton reorder at load, for GPU cache locality | `splat/sorting/` |
 | Math | Column-major matrices and vectors shared with the renderer | `splat/math/` |
 
-Build/test commands are in [AGENTS.md](../../../../AGENTS.md#prepare-and-verify).
+Build/test commands are in [agent checks](../../../../docs/agents/checks.md).
 Set `SPLAT_FIXTURES_DIR` to a directory containing `kitchen_500k.spz` for the optional World Labs integration test.
