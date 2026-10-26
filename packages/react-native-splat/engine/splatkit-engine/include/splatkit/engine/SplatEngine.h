@@ -181,6 +181,10 @@ class SplatEngine {
   // Ready requires both a draw of the new world and GPU completion.
   enum class Showing { nothing, awaitingDraw, awaitingGpu };
   Showing showing_ = Showing::nothing;
+  // The serial of the first frame that drew the new world; it is ready once the GPU completed it.
+  uint64_t worldFrame_ = 0;
+  // The range a frame draws, kept here so the frame's pointer outlives the draw call.
+  SplatRenderer::Range worldRange_;
   bool gpuFailureReported_ = false;
 
   int shDegree_ = kMaxShDegree;

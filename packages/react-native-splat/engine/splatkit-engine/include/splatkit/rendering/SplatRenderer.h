@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -9,6 +10,7 @@
 #include "splat/lod/LodTree.h"
 #include "splat/math/Mat4.h"
 #include "splat/math/Vec3.h"
+#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/RenderPolicy.h"
 
 namespace splatkit {
@@ -119,6 +121,12 @@ class SplatRenderer {
     splat::Mat4 view = splat::Mat4::identity();
     splat::Mat4 proj = splat::Mat4::identity();
     splat::Vec3 cameraPosition;
+    // Field Guide: null styles draw every part as captured.
+    const LabelStyles* labelStyles = nullptr;
+    // Field Guide: the reveal clips above revealLevel and glows within revealBand below it; the
+    // defaults show the whole world.
+    float revealLevel = std::numeric_limits<float>::infinity();
+    float revealBand = 0;
   };
   // Records and presents one frame. Returns false when nothing was presented, e.g. the
   // surface was rebuilt instead; the caller keeps the order for the next frame.
@@ -127,6 +135,9 @@ class SplatRenderer {
   // serial up to which every frame finished there. Zero completed after a GPU failure.
   virtual uint64_t submittedFrames() const = 0;
   virtual uint64_t completedFrames() = 0;
+  // Field Guide: true once the GPU reported an error; the renderer draws nothing more. A zero
+  // completedFrames() cannot tell this apart from a GPU that has not finished a frame yet.
+  virtual bool failed() const = 0;
 
   // GPU time of the most recently completed frame, from timestamps at both ends of it.
   // Zero until the first frame completes or if unsupported.

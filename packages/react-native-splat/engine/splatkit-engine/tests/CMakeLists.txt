@@ -6,6 +6,7 @@ add_executable(splatkit_engine_tests
   reveal/RevealTest.cpp
   pick/PickIndexTest.cpp
   rendering/GpuLayoutTest.cpp
+  rendering/GuideLayoutTest.cpp
   sfg/SfgTest.cpp
 )
 # spz already reaches the link line through the static splat_core; only its headers are added

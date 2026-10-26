@@ -22,6 +22,7 @@ add_library(splatkit_engine STATIC
   src/camera/OrbitCamera.cpp
   src/diagnostics/StatsPublisher.cpp
   src/engine/SplatEngine.cpp
+  src/guide/GuideLayout.cpp
   src/highlight/Highlight.cpp
   src/reveal/Reveal.cpp
   src/pick/PickIndex.cpp

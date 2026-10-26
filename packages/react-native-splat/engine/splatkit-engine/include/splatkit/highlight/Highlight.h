@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "splatkit/rendering/GpuLayout.h"
+#include "splatkit/guide/GuideLayout.h"
 
 namespace splatkit {
 

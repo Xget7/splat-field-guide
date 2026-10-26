@@ -193,7 +193,7 @@ void SplatEngine::reportShown() {
     showing_ = Showing::nothing;
     return;
   }
-  if (showing_ != Showing::awaitingGpu || !renderer_->hasCompletedWorldFrame()) return;
+  if (showing_ != Showing::awaitingGpu || renderer_->completedFrames() < worldFrame_) return;
   showing_ = Showing::nothing;
   LOGI("cloud ready: %u splats", sourceCount_);
   emit(Event::worldReady, {}, sourceCount_);
@@ -400,6 +400,13 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   }
 
   SplatRenderer::Frame frame;
+  // Field Guide's renderers cull and sort on the GPU, and a single file world is one range.
+  frame.orderSource = SplatRenderer::OrderSource::gpu;
+  if (const auto world = renderer_->world()) {
+    worldRange_ = {0, world->count};
+    frame.ranges = &worldRange_;
+    frame.rangeCount = 1;
+  }
   frame.shDegree = shDegree_;
   frame.view = camera_.viewMatrix();
   frame.proj = projection(extent);
@@ -413,7 +420,10 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   }
   redrawNeeded_ = false;
   lastDrawnGeneration_ = generation;
-  if (showing_ == Showing::awaitingDraw) showing_ = Showing::awaitingGpu;
+  if (showing_ == Showing::awaitingDraw) {
+    showing_ = Showing::awaitingGpu;
+    worldFrame_ = renderer_->submittedFrames();
+  }
   publishView(frame);
   stats_.onFrame(frameTimeNanos, true, sampler);
   reportShown();

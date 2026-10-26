@@ -27,6 +27,7 @@ constexpr std::size_t kBoxCornerCount = 8;
 constexpr splat::CoordinateFrame kFrame = splat::CoordinateFrame::rub;
 constexpr Extent kLandscape{2000, 1000};
 constexpr Extent kPortrait{1000, 2000};
+constexpr uint32_t kPairSplats = 2;
 
 std::array<float, kBoxCornerCount * 3> cornerPoints(const splat::Bounds& bounds) {
   std::array<float, kBoxCornerCount * 3> points;
@@ -131,6 +132,32 @@ TEST_F(SplatEngineTest, ReportsAWorldReadyOnceItIsOnScreen) {
   EXPECT_FALSE(engine->needsFrame());
 }
 
+TEST_F(SplatEngineTest, AReplacementIsReadyOnlyOnceItsOwnFrameCompleted) {
+  Events events;
+  engine->setEventSink(events.sink());
+  load(pairBytes());
+  tick();
+  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady});
+  renderer->gpuFinished = false;
+  load(solidPairBytes());
+  EXPECT_TRUE(tick());
+  EXPECT_FALSE(tick());
+  EXPECT_EQ(events.kinds.size(), 1u);  // only frames of the previous world completed
+  renderer->gpuFinished = true;
+  EXPECT_FALSE(tick());
+  ASSERT_EQ(events.kinds.size(), 2u);
+  EXPECT_EQ(events.kinds[1], SplatEngine::Event::worldReady);
+}
+
+TEST_F(SplatEngineTest, DrawsTheWholeWorldAsOneRangeTheGpuSorts) {
+  load(pairBytes());
+  ASSERT_TRUE(tick());
+  EXPECT_EQ(renderer->last.orderSource, SplatRenderer::OrderSource::gpu);
+  ASSERT_EQ(renderer->last.rangeCount, 1u);
+  EXPECT_EQ(renderer->last.ranges[0].offset, 0u);
+  EXPECT_EQ(renderer->last.ranges[0].count, kPairSplats);
+}
+
 TEST_F(SplatEngineTest, NeedsFramesOnlyWhileThereIsSomethingToDo) {
   EXPECT_TRUE(engine->needsFrame());  // the first frame clears the view
   tick();
@@ -203,6 +230,19 @@ TEST_F(SplatEngineTest, ReportsAFailedUpload) {
   tick();
   ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldFailed});
   EXPECT_EQ(renderer->world(), std::nullopt);
+}
+
+TEST_F(SplatEngineTest, ReportsALoadTooLargeForMemoryAsAFailedLoad) {
+  const SplatEngine::FileLoader outOfMemory =
+      [](const std::string&, const std::string&, splat::CoordinateFrame, int,
+         const splat::SourceIdentity*) -> splat::Result<SplatEngine::LoadedWorld> {
+    return splat::Error{splat::ErrorCode::insufficientMemory, "too large"};
+  };
+  SplatEngine limited(std::make_unique<FakeRenderer>(), outOfMemory);
+  Events events;
+  limited.setEventSink(events.sink());
+  EXPECT_FALSE(limited.loadWorldFile("world.spz", "", kFrame));
+  EXPECT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldFailed});
 }
 
 TEST_F(SplatEngineTest, FramesAWorldWholeFromTheCurrentDirection) {
