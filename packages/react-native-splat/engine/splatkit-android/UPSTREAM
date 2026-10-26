@@ -1,8 +1,9 @@
-SplatKit Vulkan source: 56524cfbcc4aac81f71405ad8c19d4f90420ab3d
-Origin: https://github.com/Xget7/splatkit
+SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+Origin: https://github.com/Xget7/splatkit, packages/splatkit-android
 License: MIT, ../LICENSE
-Imported surface, buffers, visibility, radix sort and rasterization.
-Adapted to the Field Guide sfg interface, labels, highlight and reveal.
-Removed LOD, streaming, render policy and CPU sorting.
+Imported folders: src/main/cpp/rendering/vulkan as rendering/vulkan, with cull, device, frame, layout, presentation, raster, selection, sort and world.
+Left out: raster/splat.vert, the CPU-order path, src/main/cpp engine, jni and cmake, Kotlin, resources, docs, tests and Gradle.
+Field Guide keeps its own sfg_vulkan, cmake and CMake.
 Dependencies: vk-bootstrap v1.4.307, VulkanMemoryAllocator v3.2.1.
 Dependency notices: licenses/, also bundled in the Android APK.
+Field Guide patches:

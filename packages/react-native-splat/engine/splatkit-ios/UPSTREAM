@@ -1,0 +1,7 @@
+SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+Origin: https://github.com/Xget7/splatkit, packages/splatkit-ios
+License: MIT, ../LICENSE
+Imported folders: Sources/SplatKitCore/rendering/metal with cull, device, diagnostics, frame, layout, presentation, raster, selection, sort and world, and cmake.
+Left out: Sources/SplatKit Swift views, Sources/SplatKitCore engine, diagnostics and include, distribution, tests and CMake.
+Field Guide keeps its own sfg_metal, rendering/shaders/SplatBackdrop.metal and tools/splat_snapshot.mm.
+Field Guide patches:

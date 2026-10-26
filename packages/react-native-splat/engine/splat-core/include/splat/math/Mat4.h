@@ -7,8 +7,9 @@
 
 namespace splat {
 
-// Column-major matrices use m[col * 4 + row], right-handed coordinates, camera -Z, +Y up and clip
-// depth [0, 1].
+// 4x4 float matrix, column major like GLSL, Metal and simd: m[col * 4 + row].
+// Conventions shared by every renderer: right handed, camera looks down -Z, +Y up,
+// clip depth in [0, 1] (Vulkan and Metal).
 struct Mat4 {
   std::array<float, 16> m{};
 
@@ -47,6 +48,25 @@ struct Mat4 {
     r.at(2, 0) = t * x * z - s * y;
     r.at(2, 1) = t * y * z + s * x;
     r.at(2, 2) = t * z * z + c;
+    return r;
+  }
+
+  // Rotation of a unit quaternion (x, y, z, w).
+  static Mat4 rotation(const std::array<float, 4>& quaternion) {
+    const float x = quaternion[0];
+    const float y = quaternion[1];
+    const float z = quaternion[2];
+    const float w = quaternion[3];
+    Mat4 r = identity();
+    r.at(0, 0) = 1 - 2 * (y * y + z * z);
+    r.at(0, 1) = 2 * (x * y - w * z);
+    r.at(0, 2) = 2 * (x * z + w * y);
+    r.at(1, 0) = 2 * (x * y + w * z);
+    r.at(1, 1) = 1 - 2 * (x * x + z * z);
+    r.at(1, 2) = 2 * (y * z - w * x);
+    r.at(2, 0) = 2 * (x * z - w * y);
+    r.at(2, 1) = 2 * (y * z + w * x);
+    r.at(2, 2) = 1 - 2 * (x * x + y * y);
     return r;
   }
 
@@ -96,6 +116,7 @@ struct Mat4 {
             at(2, 0) * p.x + at(2, 1) * p.y + at(2, 2) * p.z + at(2, 3)};
   }
 
+  // Transforms a direction (w = 0).
   Vec3 transformDirection(Vec3 d) const {
     return {at(0, 0) * d.x + at(0, 1) * d.y + at(0, 2) * d.z,
             at(1, 0) * d.x + at(1, 1) * d.y + at(1, 2) * d.z,
@@ -111,4 +132,4 @@ struct Mat4 {
   }
 };
 
-}
+}  // namespace splat

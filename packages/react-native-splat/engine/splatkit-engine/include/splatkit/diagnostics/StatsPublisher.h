@@ -7,11 +7,14 @@
 #include <functional>
 #include <vector>
 
+#include "splat/math/Vec3.h"
+
 namespace splatkit {
 
-// Snapshots are readable from any thread and refreshed at 2 Hz.
+// What a HUD shows. Readable from any thread, refreshed twice a second by the render loop.
 struct Stats {
-  // FPS uses the last half-second of display times when available, otherwise submitted frames.
+  // Frames per second over the last half second. With presentTiming, frames the display
+  // showed; without, frames the renderer submitted, which can exceed what reached the screen.
   float fps = 0;
   float frameMillis = 0;  // 1000 / fps
   // The fields below are zero unless the renderer reports when frames reached the display.
@@ -22,30 +25,56 @@ struct Stats {
   float gpuMillis = 0;         // GPU time of the last frame, from timestamp queries
   float sortMillis = 0;        // last completed sort
   uint32_t splatCount = 0;
-  uint32_t drawnSplatCount = 0;  // last completed visibility result, not source count
+  uint32_t loadedShDegree = 0;  // harmonics the loaded world holds on the GPU; zero without a world
+  bool walking = false;
+  bool motion = false;
+  uint32_t drawnSplatCount = 0;  // last completed visibility/order result, not source count
 };
 
-// The render thread publishes snapshots for any thread to read and logs every two seconds, once
-// while idle.
+// Position in the world's frame (meters) and yaw and pitch in radians, yaw about the up
+// axis, pitch clamped to 85 degrees.
+struct CameraPose {
+  float x = 0;
+  float y = 0;
+  float z = 0;
+  float yaw = 0;
+  float pitch = 0;
+};
+
+// The numbers the render loop publishes for other threads: the frame rate over a half
+// second window, what the engine reports when the window closes, and the camera pose
+// every frame. A line goes to the log every two seconds, once only while idle.
+// Written by the render thread, read by any.
 class StatsPublisher {
  public:
+  // What the engine reports when a window closes.
   struct Sample {
     double gpuMillis = 0;
     double sortMillis = 0;
-    uint32_t drawn = 0;         // splats the last completed frame drew
+    double cullMillis = 0;
+    double selectMillis = 0;
+    uint32_t drawn = 0;         // entries of the order buffer drawn
+    std::size_t selected = 0;   // nodes the level of detail selection chose
     uint32_t sourceSplats = 0;  // splats in the file, what hosts count
+    uint32_t gpuSplats = 0;     // records on the GPU, more than the file with a tree
+    uint32_t shDegree = 0;      // harmonics the world holds on the GPU
+    bool walking = false;
+    bool motion = false;
   };
 
-  // Before onFrame, supply display timestamps in nanoseconds on one clock, oldest first, and the
-  // unseen submission count; even empty input enables presented FPS.
+  // Display times, in nanoseconds on any one clock, of frames the display showed since the
+  // last call, oldest first, and how many submitted frames it never showed. Calling it, even
+  // empty, switches the frame rate to presented frames. Render thread, before `onFrame`.
   void onPresented(const std::vector<int64_t>& times, uint32_t dropped);
   // Once per vsync, drawn or not. `sample` is called when the window closes.
   void onFrame(int64_t frameTimeNanos, bool rendered, const std::function<Sample()>& sample);
-  // Publish completed-frame stats without closing the FPS window so host events expose matching
-  // counters.
+  // Publishes everything but the frame rate now, leaving the window open: stats read after
+  // a host event then describe the frame that raised it.
   void publish(const Sample& sample);
+  void publishPose(splat::Vec3 position, float yaw, float pitch);
 
   Stats stats() const;
+  CameraPose pose() const;
 
  private:
   int64_t windowStart_ = 0;
@@ -71,7 +100,11 @@ class StatsPublisher {
   std::atomic<float> gpuMillis_{0};
   std::atomic<float> sortMillis_{0};
   std::atomic<uint32_t> splats_{0};
+  std::atomic<uint32_t> loadedShDegree_{0};
   std::atomic<uint32_t> drawnSplats_{0};
+  std::atomic<bool> walking_{false};
+  std::atomic<bool> motion_{false};
+  std::atomic<float> pose_[5]{};
 };
 
-}
+}  // namespace splatkit

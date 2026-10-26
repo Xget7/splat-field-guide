@@ -1,0 +1,8 @@
+SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+Origin: https://github.com/Xget7/splatkit, packages/splat-core
+License: MIT, ../LICENSE
+Imported folders: core, math and io, headers and sources.
+Imported files: formats/SplatCloud.h, formats/SpzDecoder, loading/LoadCost.h, lod/LodTree, lod/LodFile and src/lod/LodSelection.cpp.
+Left out: diagnostics, tiles, navigation, sorting, loading/LoadCost.cpp and SplatWorldLoader, the GLB and generic decoders, tools, tests and CMake.
+Field Guide keeps its own filtering, formats/PartLabels, sorting/SpatialOrder, loading/SplatWorldLoader with Sha256, and vendor/picosha2.
+Field Guide patches:

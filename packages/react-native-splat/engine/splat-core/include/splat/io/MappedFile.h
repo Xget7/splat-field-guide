@@ -8,10 +8,12 @@
 
 namespace splat {
 
-// Read-only mapping avoids a heap copy and releases pages with the object's lifetime.
+// A whole file mapped read only, the way a decoder wants its input: no copy through the
+// host's heap, and the pages leave with the object. Movable, not copyable.
 class MappedFile {
  public:
-  // Unopenable, empty or unmappable files return unreadable with their path.
+  // Fails as `unreadable` for a file that cannot be opened, is empty, or cannot be
+  // mapped; the message names the path.
   static Result<MappedFile> open(const std::string& path);
 
   MappedFile(MappedFile&& other) noexcept;
@@ -32,4 +34,4 @@ class MappedFile {
   std::size_t size_ = 0;
 };
 
-}
+}  // namespace splat

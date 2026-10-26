@@ -1,0 +1,38 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
+#include "splat/core/Result.h"
+#include "splat/lod/LodTree.h"
+
+namespace splat {
+
+// Little-endian IEEE float32, internal RUB coordinates, lossless attributes.
+// 64-byte header, followed by fixed records: LodNode, covariance[6], RGB[3], alpha,
+// then higher-order RGB SH coefficients. No platform/GPU record layout on disk.
+// Version 1 ends there. Version 2, written when the tree has selection data, appends the
+// LodCluster records and then the leaf references. The decoder reads both.
+bool isLodSplat(const uint8_t* data, size_t size);
+
+// What a LODSPLAT header declares, checked against the file's length.
+struct LodSplatHeader {
+  uint32_t version = 0;
+  size_t nodeCount = 0;
+  size_t leafCount = 0;
+  int shDegree = 0;
+  uint32_t depth = 0;
+  size_t clusterCount = 0;  // selection data, version 2 only
+  size_t leafRefCount = 0;
+};
+Result<LodSplatHeader> readLodSplatHeader(const uint8_t* data, size_t size);
+
+Result<LodTree> decodeLodSplat(const uint8_t* data, size_t size, int maxShDegree = 3);
+// Refuses to overwrite an existing file. Validates the tree before opening the output.
+Result<Ok> writeLodSplat(const LodTree& tree, const std::string& path);
+// Checks topology, attribute dimensions, finite values and covariance; returns depth
+// (number of refinement rounds). Children are contiguous, BFS ordered, reachable once.
+Result<uint32_t> validateLodTree(const LodTree& tree);
+
+}  // namespace splat

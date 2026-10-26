@@ -1,0 +1,40 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+layout(local_size_x=128) in;
+layout(set=0,binding=0,std430) readonly buffer KeysIn { uint keysIn[]; };
+layout(set=0,binding=1,std430) readonly buffer ValuesIn { uint valuesIn[]; };
+layout(set=0,binding=2,std430) writeonly buffer KeysOut { uint keysOut[]; };
+layout(set=0,binding=3,std430) writeonly buffer ValuesOut { uint valuesOut[]; };
+layout(set=0,binding=4,std430) readonly buffer CountIn { uint countIn; };
+layout(set=0,binding=5,std430) buffer Histogram { uint histogram[]; };
+layout(set=0,binding=6,std430) buffer Totals { uint totals[]; };
+layout(set=0,binding=7,std430) buffer State { uint groupsX, groupsY, groupsZ, blocks; };
+layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
+layout(set=0,binding=9,std430) buffer Status { uint status; };
+layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
+
+uint element(uint block, uint row) {
+  return block*2048u + row*128u + gl_LocalInvocationIndex;
+}
+
+shared uint bins[256];
+void main() {
+  uint block = gl_WorkGroupID.y*groupsX + gl_WorkGroupID.x;
+  if (block >= blocks) return;
+  uint t = gl_LocalInvocationIndex;
+  bins[t] = 0; bins[t+128] = 0;
+  barrier();
+  for (uint row=0; row<16; ++row) {
+    uint e=element(block,row);
+    bool valid=e<countOut;
+    uint digit=valid ? (keysIn[e] >> pc.shift)&255u : 0u;
+    // Workgroup-local atomics only; global bins have one writer per block.
+    // Ballot digit grouping loses duplicate keys on the Adreno 640 / 1.1.128 driver.
+    if(valid) atomicAdd(bins[digit],1u);
+  }
+  barrier();
+  histogram[t*blocks+block]=bins[t];
+  histogram[(t+128)*blocks+block]=bins[t+128];
+}

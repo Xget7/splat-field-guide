@@ -1,0 +1,7 @@
+SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+Origin: https://github.com/Xget7/splatkit, packages/splatkit-engine
+License: MIT, ../LICENSE
+Imported files: Log, rendering/GpuLayout, rendering/RenderPolicy, rendering/LodThreshold.h, rendering/SplatRenderer.h, diagnostics/StatsPublisher and camera/Lens.
+Left out: engine/SplatEngine, camera/WalkCamera and CameraRequest, diagnostics/Benchmark, loading/LoadReportLog, tests and CMake.
+Field Guide keeps its own engine/SplatEngine, camera/OrbitCamera, highlight, reveal, pick and the sfg C interface.
+Field Guide patches:

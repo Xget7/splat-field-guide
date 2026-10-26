@@ -3,93 +3,121 @@
 #include <algorithm>
 #include <limits>
 
-#include <vulkan/vulkan_android.h>
-
-#include "rendering/vulkan/RadixSort.h"
+#include "engine/TraceSection.h"
+#include "rendering/vulkan/layout/VulkanShaderTypes.h"
+#include "splatkit/rendering/LodThreshold.h"
 
 #include "splatkit/Log.h"
 
 namespace splatkit {
 namespace {
 
+// The residency range reported to the adapters.
+constexpr uint32_t kMinResidencyCapacity = 100'000;
+constexpr uint32_t kMaxResidencyCapacity = 8'000'000;
+
 bool isSrgb(VkFormat format) {
   return format == VK_FORMAT_R8G8B8A8_SRGB || format == VK_FORMAT_B8G8R8A8_SRGB;
 }
 
-}
+}  // namespace
 
-std::unique_ptr<VulkanSplatRenderer> VulkanSplatRenderer::create() {
-  auto context = VulkanContext::create();
-  if (!context) { LOGE("%s", context.error().message.c_str()); return nullptr; }
-  auto loop = std::make_unique<FrameLoop>(*context.value());
-  if (!loop->valid()) return nullptr;
-  return std::unique_ptr<VulkanSplatRenderer>(new VulkanSplatRenderer(
-      std::move(context.value()), std::move(loop)));
-}
-
-VulkanSplatRenderer::VulkanSplatRenderer(std::unique_ptr<VulkanContext> context,
-                                       std::unique_ptr<FrameLoop> loop)
-    : context_(std::move(context)), loop_(std::move(loop)), ctx_(*context_), frameLoop_(*loop_) {}
+VulkanSplatRenderer::VulkanSplatRenderer(VulkanContext& ctx, VulkanFrameLoop& frameLoop)
+    : ctx_(ctx), frameLoop_(frameLoop), surface_(ctx, frameLoop, [this] { splats_.reset(); }) {}
 
 VulkanSplatRenderer::~VulkanSplatRenderer() {
-  setWindow(nullptr);
+  surface_.attach(nullptr);
   ctx_.waitIdle();
   world_.reset();
 }
 
 void VulkanSplatRenderer::setWindow(ANativeWindow* window) {
-  if (window == window_) return;
-  destroySurface();
-  if (window_ != nullptr) {
-    ANativeWindow_release(window_);
-    window_ = nullptr;
-  }
-  if (window == nullptr) return;
-
-  ANativeWindow_acquire(window);
-  window_ = window;
-  if (!createSurface() || !recreateSwapchain()) {
-    LOGE("could not attach to the surface");
-    failed_ = true;
-    destroySurface();
-  }
+  if (surface_.attach(window)) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::onSurfaceResized(uint32_t width, uint32_t height) {
-  if (!swapchain_ || width == 0 || height == 0) return;
-  const VkExtent2D current = swapchain_->extent();
-  if (current.width == width && current.height == height) return;
-  LOGI("surface resized to %ux%u, swapchain was %ux%u", width, height, current.width,
-       current.height);
-  // Set producer buffer size before querying swapchain capabilities so projection follows
-  // TextureView resizing.
-  if (ANativeWindow_setBuffersGeometry(window_, width, height, 0) != 0) {
-    keepSurfaceIf(false);
-    return;
-  }
-  keepSurfaceIf(recreateSwapchain());
+  if (surface_.resize(width, height)) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::setRenderScale(float scale) {
-  scale = std::clamp(scale, 0.1f, 2.0f);
-  if (scale == renderScale_) return;
-  renderScale_ = scale;
-  if (!swapchain_) return;
-  ctx_.waitIdle();
-  if (!createRenderTarget()) {
-    keepSurfaceIf(false);
-    return;
+  if (surface_.setRenderScale(scale)) rebuildPipelinesIfNeeded();
+}
+
+void VulkanSplatRenderer::setLinearBlending(bool linear) {
+  if (surface_.setLinearBlending(linear)) rebuildPipelinesIfNeeded();
+}
+
+void VulkanSplatRenderer::setVsync(bool vsync) {
+  if (surface_.setVsync(vsync)) rebuildPipelinesIfNeeded();
+}
+
+DeviceCapabilities VulkanSplatRenderer::deviceCapabilities() const {
+  DeviceCapabilities caps;
+  // GPU LOD clamps a hierarchy at 4M selected nodes; the Android adapter caps residency at 8M.
+  caps.limits.maxLodCapacitySplats = VulkanLodSelection::kMaxBudget;
+  caps.limits.minResidencyCapacitySplats = kMinResidencyCapacity;
+  caps.limits.maxResidencyCapacitySplats = kMaxResidencyCapacity;
+  // Conservative occlusion is unimplemented.
+  caps.supportsHiZOcclusion = false;
+  const bool gpu = selectsLodOnGpu();
+  caps.supportsSubgroups = gpu;
+  VkPhysicalDeviceProperties properties{};
+  vkGetPhysicalDeviceProperties(ctx_.physicalDevice(), &properties);
+  caps.maxTextureDimension = properties.limits.maxImageDimension2D;
+  RenderPolicySupport& policy = caps.policy;
+  policy.fallback.lodErrorPixels = VulkanLodSelection::Quality{}.pixelLimit;
+  policy.fallback.alphaThreshold = kQuadMinAlpha;
+  policy.fallback.subpixelThreshold = RenderPolicy{}.subpixelThreshold;
+  policy.fallback.sortDepth = SortKeyBits::full32;
+  policy.fallback.enableFrustumCulling = true;
+  // Both paths draw back to front, so nothing stops at a saturated pixel. Front to back
+  // needs a half-float accumulation, whose blending cost Adreno 640 more than the early
+  // termination saved.
+  policy.fallback.enableEarlyTermination = false;
+  // Both paths apply the sub-pixel cutoff from the next frame. The GPU visibility/sort path
+  // applies the key width and, on a hierarchy world, the LOD error threshold and splat limit
+  // live; the CPU path has none of them, and the rest is not implemented.
+  policy.sortDepth = gpu;
+  policy.subpixelThreshold = true;
+  policy.lodErrorPixels = gpu;
+  policy.minLodErrorPixels = LodThreshold::kMinPolicyPixels;
+  policy.maxLodErrorPixels = LodThreshold::kMaxPolicyPixels;
+  policy.lodSplatLimit = gpu;
+  return caps;
+}
+
+bool VulkanSplatRenderer::applyRenderPolicy(const RenderPolicy& policy, std::string* reason) {
+  if (policy.sortDepth == policy_.sortDepth && policy.lodErrorPixels == policy_.lodErrorPixels &&
+      policy.lodSplatLimit == policy_.lodSplatLimit) {
+    // The cutoff rides in the camera each frame writes after its slot's fence.
+    policy_.subpixelThreshold = policy.subpixelThreshold;
+    return true;
   }
-  if (pipelineFormat_ != activeFormat()) keepSurfaceIf(createPipelines());
+  const RenderPolicy previous = policy_;
+  policy_ = policy;
+  if (compute_ != nullptr) {
+    ctx_.waitIdle();
+    if (!compute_->applyRenderPolicy(policy_, reason)) {
+      policy_ = previous;
+      std::string ignored;
+      compute_->applyRenderPolicy(previous, &ignored);
+      return false;
+    }
+  }
+  return true;
+}
+
+// Applies the stored policy to a freshly created frame compute, before any frame uses it.
+void VulkanSplatRenderer::applyPolicyToCompute() {
+  if (compute_ == nullptr) return;
+  std::string reason;
+  if (!compute_->applyRenderPolicy(policy_, &reason)) {
+    LOGW("Vulkan policy on the new compute pass failed: %s", reason.c_str());
+  }
 }
 
 Extent VulkanSplatRenderer::drawExtent() const {
-  VkExtent2D extent{0, 0};
-  if (target_) {
-    extent = target_->extent();
-  } else if (swapchain_) {
-    extent = swapchain_->extent();
-  }
+  const VkExtent2D extent = surface_.viewExtent();
   return {extent.width, extent.height};
 }
 
@@ -98,58 +126,138 @@ std::optional<GpuWorldInfo> VulkanSplatRenderer::world() const {
   return GpuWorldInfo{world_->count, world_->shDegree};
 }
 
-bool VulkanSplatRenderer::uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) {
-  if (!splats_ || cloud.count() > std::numeric_limits<uint32_t>::max()) return false;
-  ctx_.waitIdle();
-  auto compute = VulkanFrameCompute::create(ctx_, static_cast<uint32_t>(cloud.count()));
-  if (!compute) {
-    LOGE("world requires GPU visibility/sort: %s",
-         compute.error().message.c_str());
-    return false;
-  }
-  auto world = splats_->uploadWorld(cloud, maxShDegree);
-  if (!world) return false;
-  ctx_.waitIdle();  // the previous world may still be in flight
+// Relies on the single waitIdle each caller makes on entry: uploads run on the render thread
+// between draws, and the copies they make are fenced, so nothing is in flight on the world
+// replaced here.
+void VulkanSplatRenderer::adoptWorld(std::unique_ptr<VulkanWorld> world,
+                                     std::unique_ptr<VulkanFrameCompute> compute) {
   world_ = std::move(world);
-  compute_ = compute ? std::move(compute.value()) : nullptr;
+  compute_ = std::move(compute);
+  applyPolicyToCompute();
   splats_->bindWorld(*world_);
   worldFrameCompletion_.reset();
+  // The surface and compute pipelines exist by now; with nothing newly compiled, saving only
+  // compares the cache size.
+  const TraceSection section(trace::kSavePipelineCache);
+  ctx_.savePipelineCache();
+}
+
+const VulkanFrameCompute::Pipelines* VulkanSplatRenderer::computePipelines() {
+  if (!computePipelines_) computePipelines_ = VulkanFrameCompute::Pipelines::compile(ctx_);
+  return computePipelines_ ? &*computePipelines_ : nullptr;
+}
+
+splat::Result<std::unique_ptr<VulkanFrameCompute>> VulkanSplatRenderer::createCompute(
+    uint32_t sourceCount, const splat::LodTree* tree, uint32_t budget) {
+  const auto* pipelines = computePipelines();
+  if (pipelines == nullptr)
+    return splat::Error{splat::ErrorCode::gpuUnavailable, "GPU frame pipelines unavailable"};
+  return VulkanFrameCompute::create(ctx_, *pipelines, sourceCount, tree, budget);
+}
+
+bool VulkanSplatRenderer::uploadWorld(const splat::SplatCloud& cloud, int maxShDegree) {
+  const TraceSection section(trace::kUploadWorld);
+  if (!splats_ || cloud.count() > std::numeric_limits<uint32_t>::max()) return false;
+  ctx_.waitIdle();
+  auto compute = createCompute(static_cast<uint32_t>(cloud.count()));
+  // sortsOnGpu() promised GPU order, so a world without its compute passes would never draw.
+  if (!compute) {
+    LOGE("GPU upload rejected: %s", compute.error().message.c_str());
+    return false;
+  }
+  auto world = VulkanWorld::upload(ctx_, cloud, maxShDegree, false);
+  if (!world) return false;
+  adoptWorld(std::move(world), std::move(compute.value()));
   return true;
+}
+
+bool VulkanSplatRenderer::sortsOnGpu() const {
+  return VulkanFrameCompute::supported(ctx_);
+}
+
+bool VulkanSplatRenderer::selectsLodOnGpu() const {
+  return sortsOnGpu();
+}
+
+bool VulkanSplatRenderer::uploadLodWorld(const splat::LodTree& tree, int maxShDegree,
+                                         uint32_t budget) {
+  const TraceSection section(trace::kUploadWorld);
+  if (!splats_ || tree.nodeCount() > std::numeric_limits<uint32_t>::max()) return false;
+  ctx_.waitIdle();
+  auto compute = createCompute(static_cast<uint32_t>(tree.nodeCount()), &tree, budget);
+  if (!compute) {
+    LOGE("GPU LOD upload rejected: %s", compute.error().message.c_str());
+    return false;
+  }
+  auto world = VulkanWorld::upload(ctx_, tree.nodes, maxShDegree, false);
+  if (!world) return false;
+  adoptWorld(std::move(world), std::move(compute.value()));
+  return true;
+}
+
+bool VulkanSplatRenderer::createSlab(uint32_t capacity, int shDegree) {
+  const TraceSection section(trace::kUploadWorld);
+  if (!splats_) return false;
+  ctx_.waitIdle();
+  auto compute = createCompute(capacity);
+  if (!compute) {
+    LOGE("GPU slab rejected: %s", compute.error().message.c_str());
+    return false;
+  }
+  auto world = VulkanWorld::createSlab(ctx_, capacity, shDegree, false);
+  if (!world) return false;
+  adoptWorld(std::move(world), std::move(compute.value()));
+  return true;
+}
+
+bool VulkanSplatRenderer::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) {
+  const TraceSection section(trace::kUploadTile);
+  if (!splats_ || !world_) return false;
+  return world_->uploadTile(offset, cloud);
 }
 
 bool VulkanSplatRenderer::draw(const Frame& frame) {
   if (!ready()) return false;
   uint32_t imageIndex = 0;
   VkCommandBuffer cmd = VK_NULL_HANDLE;
-  FrameLoop::Status status = frameLoop_.beginFrame(*swapchain_, imageIndex, cmd);
-  if (status == FrameLoop::Status::swapchainOutOfDate) {
-    keepSurfaceIf(recreateSwapchain());
+  VulkanFrameLoop::Status status = [&] {
+    const TraceSection section(trace::kWaitForFrameSlot);
+    return frameLoop_.beginFrame(surface_.swapchain(), imageIndex, cmd);
+  }();
+  if (status == VulkanFrameLoop::Status::swapchainOutOfDate) {
+    rebuildSurface(status);
     return false;
   }
-  if (status != FrameLoop::Status::ok) { failed_ = true; return false; }
+  if (status != VulkanFrameLoop::Status::ok) return false;
 
-  const Extent size = drawExtent();
-  const VkExtent2D extent{size.width, size.height};
+  const VkExtent2D extent = surface_.drawExtent();
+  const VkExtent2D view = surface_.viewExtent();
+  const uint32_t turns = surface_.quarterTurns();
   const uint32_t slot = frameLoop_.currentSlot();
+  const bool outputLinear = isSrgb(pipelineFormat_);
   // Outside the render pass: transfers are not allowed inside one.
   std::optional<VulkanFrameCompute::Draw> gpuDraw;
-  if (world_ && compute_) {
-    const VkBuffer camera =
-        splats_->updateCamera(slot, frame, extent);
-    gpuDraw = compute_->encode(cmd, slot, camera, *world_->splats, frame);
-    if (gpuDraw)
-      splats_->bindOrder(slot, gpuDraw->order, gpuDraw->capacity);
-    else {
-      failed_ = true;
-      LOGE("GPU frame encode failed; submitting clear frame to preserve fence lifecycle");
+  if (world_ && compute_ && frame.orderSource == OrderSource::gpu) {
+    const VkBuffer camera = camera_->update(slot, frame.view, frame.proj, frame.cameraPosition,
+                                            view, outputLinear, turns, policy_.subpixelThreshold);
+    {
+      const TraceSection section(trace::kEncodeCompute);
+      gpuDraw = compute_->encode(cmd, slot, camera, *world_->splats, *world_->sh,
+                                 std::clamp(frame.shDegree, 0, world_->shDegree), frame);
     }
+    if (gpuDraw)
+      splats_->bindProjected(slot, gpuDraw->projected, gpuDraw->order, gpuDraw->capacity);
+    else
+      LOGE("GPU frame encode failed; submitting clear frame to preserve fence lifecycle");
+  } else if (world_ && !compute_ && frame.order != nullptr) {
+    world_->recordOrderUpload(cmd, slot, frame.order, frame.orderCount);
   }
 
   VkClearValue clear{};
-  clear.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+  clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
   VkRenderPassBeginInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  pass.renderPass = activeRenderPass();
-  pass.framebuffer = target_ ? target_->framebuffer() : swapchain_->framebuffer(imageIndex);
+  pass.renderPass = surface_.activeRenderPass();
+  pass.framebuffer = surface_.framebuffer(imageIndex);
   pass.renderArea.extent = extent;
   pass.clearValueCount = 1;
   pass.pClearValues = &clear;
@@ -167,94 +275,57 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   vkCmdSetScissor(cmd, 0, 1, &scissor);
 
   if (world_ && gpuDraw) {
-    splats_->drawIndirect(cmd, slot, *world_, frame.shDegree, gpuDraw->arguments);
-
+    splats_->drawProjected(cmd, slot, gpuDraw->arguments);
+  } else if (world_ && !compute_ && frame.orderSource == OrderSource::cpu) {
+    const uint32_t count = std::min(frame.drawCount, world_->count);
+    if (count > 0) {
+      camera_->update(slot, frame.view, frame.proj, frame.cameraPosition, view, outputLinear, turns,
+                      policy_.subpixelThreshold);
+    }
+    splats_->draw(cmd, slot, *world_, count, std::min(frame.shDegree, world_->shDegree));
   }
 
   vkCmdEndRenderPass(cmd);
-  if (target_) target_->blitTo(cmd, swapchain_->image(imageIndex), swapchain_->extent());
+  surface_.blitIfScaled(cmd, imageIndex);
 
   const uint64_t submittedBefore = frameLoop_.lastSubmission();
-  status = frameLoop_.endFrame(*swapchain_, imageIndex);
-  if (status == FrameLoop::Status::error) failed_ = true;
+  {
+    const TraceSection section(trace::kSubmitPresent);
+    status = frameLoop_.endFrame(surface_.swapchain(), imageIndex);
+  }
   if (gpuDraw && frameLoop_.lastSubmission() != submittedBefore)
     compute_->submitted(slot, frameLoop_.lastSubmission());
-  const bool drewWorld = world_ && gpuDraw.has_value();
-  if (drewWorld &&
-      (status == FrameLoop::Status::ok || status == FrameLoop::Status::swapchainSuboptimal)) {
+  const bool drewWorld =
+      world_ && (gpuDraw || (!compute_ && frame.orderSource == OrderSource::cpu &&
+                             std::min(frame.drawCount, world_->count) > 0));
+  if (drewWorld && (status == VulkanFrameLoop::Status::ok ||
+                    status == VulkanFrameLoop::Status::swapchainSuboptimal)) {
     worldFrameCompletion_.submitted(frameLoop_.lastSubmission());
   }
-  if (status == FrameLoop::Status::swapchainOutOfDate ||
-      (status == FrameLoop::Status::swapchainSuboptimal && surfaceExtentChanged())) {
-    keepSurfaceIf(recreateSwapchain());
-  }
+  rebuildSurface(status);
   return true;
 }
 
-void VulkanSplatRenderer::collectCompletedFrames() const {
+void VulkanSplatRenderer::collectCompletedFrames() {
   const uint64_t completed = frameLoop_.completedSubmission();
   if (compute_) compute_->collectCompleted(completed);
 }
 
-bool VulkanSplatRenderer::createSurface() {
-  VkAndroidSurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR};
-  info.window = window_;
-  if (vkCreateAndroidSurfaceKHR(ctx_.instance(), &info, nullptr, &surface_) != VK_SUCCESS) {
-    LOGE("vkCreateAndroidSurfaceKHR failed");
-    return false;
-  }
-  if (!ctx_.supportsPresent(surface_)) {
-    LOGE("graphics queue cannot present to this surface");
-    return false;
-  }
-  return true;
-}
-
-bool VulkanSplatRenderer::recreateSwapchain() {
-  ++generation_;
-  ctx_.waitIdle();
-  const VkSwapchainKHR previous = swapchain_ ? swapchain_->release() : VK_NULL_HANDLE;
-  swapchain_.reset();
-
-  auto swapchain = Swapchain::create(ctx_, surface_, previous, vsync_, linearBlending_);
-  if (previous != VK_NULL_HANDLE) vkDestroySwapchainKHR(ctx_.device(), previous, nullptr);
-  if (!swapchain) {
-    LOGE("%s", swapchain.error().message.c_str());
-    return false;
-  }
-  swapchain_ = std::move(swapchain.value());
-  if (!frameLoop_.onSwapchainCreated(*swapchain_)) return false;
-  if (!createRenderTarget()) return false;
-
-  // Dynamic viewport/scissor and render-pass compatibility preserve pipelines across resize;
-  // attachment format changes require a rebuild.
-  if (splats_ && pipelineFormat_ == activeFormat()) return true;
-  return createPipelines();
-}
-
-bool VulkanSplatRenderer::createRenderTarget() {
-  ++generation_;
-  target_.reset();
-  if (renderScale_ == 1.0f) return true;
-  const VkExtent2D full = swapchain_->extent();
-  const VkExtent2D scaled{std::max(1u, static_cast<uint32_t>(full.width * renderScale_)),
-                          std::max(1u, static_cast<uint32_t>(full.height * renderScale_))};
-  auto target = RenderTarget::create(ctx_, swapchain_->format(), scaled);
-  if (!target) {
-    LOGE("%s", target.error().message.c_str());
-    return false;
-  }
-  target_ = std::move(target.value());
-  return true;
-}
-
 bool VulkanSplatRenderer::createPipelines() {
   splats_.reset();
-  pipelineFormat_ = activeFormat();
-  const VkRenderPass pass = activeRenderPass();
-  LOGI("pipelines for format %d, offscreen %d", static_cast<int>(pipelineFormat_), target_ ? 1 : 0);
+  pipelineFormat_ = surface_.activeFormat();
+  const VkRenderPass pass = surface_.activeRenderPass();
+  LOGI("pipelines for format %d", static_cast<int>(pipelineFormat_));
 
-  auto splats = SplatPipeline::create(ctx_, pass, isSrgb(pipelineFormat_));
+  if (!camera_) {
+    auto camera = VulkanCameraUniforms::create(ctx_);
+    if (!camera) {
+      LOGE("%s", camera.error().message.c_str());
+      return false;
+    }
+    camera_ = std::move(camera.value());
+  }
+  auto splats = VulkanSplatPipeline::create(ctx_, pass, *camera_);
   if (!splats) {
     LOGE("%s", splats.error().message.c_str());
     return false;
@@ -264,48 +335,19 @@ bool VulkanSplatRenderer::createPipelines() {
   return true;
 }
 
-void VulkanSplatRenderer::keepSurfaceIf(bool rebuilt) {
-  if (rebuilt) return;
-  failed_ = true;
-  LOGE("surface rebuild failed");
-  destroySurface();
+// After a surface call that left a swapchain up: only a changed format, or a surface that
+// just came back (teardown cleared `splats_`), needs new pipelines. A failed build leaves
+// no pipeline to draw with, so the surface is dropped and the view stays blank until the
+// host attaches a surface again; the failure is logged.
+void VulkanSplatRenderer::rebuildPipelinesIfNeeded() {
+  if (!surface_.ready()) return;
+  if (splats_ && pipelineFormat_ == surface_.activeFormat()) return;
+  if (!createPipelines()) surface_.drop();
 }
 
-// Only changed extents justify rebuilding for SUBOPTIMAL; identity pre-transform can report it
-// permanently at the same size.
-bool VulkanSplatRenderer::surfaceExtentChanged() const {
-  VkSurfaceCapabilitiesKHR caps{};
-  if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx_.physicalDevice(), surface_, &caps) !=
-      VK_SUCCESS) {
-    return false;
-  }
-  const VkExtent2D current = swapchain_->extent();
-  const bool changed =
-      caps.currentExtent.width != current.width || caps.currentExtent.height != current.height;
-  if (changed) {
-    LOGI("surface is now %ux%u, swapchain was %ux%u", caps.currentExtent.width,
-         caps.currentExtent.height, current.width, current.height);
-  }
-  return changed;
+// Runs every frame; a few comparisons when nothing was rebuilt.
+void VulkanSplatRenderer::rebuildSurface(VulkanFrameLoop::Status status) {
+  if (surface_.rebuildIfChanged(status)) rebuildPipelinesIfNeeded();
 }
 
-VkFormat VulkanSplatRenderer::activeFormat() const {
-  return target_ ? target_->format() : swapchain_->format();
-}
-
-VkRenderPass VulkanSplatRenderer::activeRenderPass() const {
-  return target_ ? target_->renderPass() : swapchain_->renderPass();
-}
-
-void VulkanSplatRenderer::destroySurface() {
-  ctx_.waitIdle();
-  splats_.reset();
-  target_.reset();
-  swapchain_.reset();
-  if (surface_ != VK_NULL_HANDLE) {
-    vkDestroySurfaceKHR(ctx_.instance(), surface_, nullptr);
-    surface_ = VK_NULL_HANDLE;
-  }
-}
-
-}
+}  // namespace splatkit

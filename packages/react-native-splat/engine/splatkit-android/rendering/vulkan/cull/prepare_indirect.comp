@@ -1,0 +1,16 @@
+#version 450
+
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) buffer Count { uint count; } survivors;
+layout(set = 0, binding = 1, std430) writeonly buffer Indirect { uint command[4]; } draw;
+layout(set = 0, binding = 2, std430) readonly buffer Status { uint status; } failure;
+
+void main() {
+  // The Vulkan topology is a four-vertex triangle-strip quad, instanced once per
+  // compacted survivor.  Overflow is explicit and never turns into a truncated draw.
+  if (failure.status != 0u) survivors.count = 0u;
+  draw.command[0] = 4u;
+  draw.command[1] = failure.status == 0u ? survivors.count : 0u;
+  draw.command[2] = 0u;
+  draw.command[3] = 0u;
+}

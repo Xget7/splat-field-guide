@@ -1,0 +1,97 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+layout(local_size_x=128) in;
+// The sorted keys are never read after the sort; the last pass writes only the values.
+layout(constant_id=0) const bool LAST_PASS=false;
+layout(set=0,binding=0,std430) readonly buffer KeysIn { uint keysIn[]; };
+layout(set=0,binding=1,std430) readonly buffer ValuesIn { uint valuesIn[]; };
+layout(set=0,binding=2,std430) writeonly buffer KeysOut { uint keysOut[]; };
+layout(set=0,binding=3,std430) writeonly buffer ValuesOut { uint valuesOut[]; };
+layout(set=0,binding=4,std430) readonly buffer CountIn { uint countIn; };
+layout(set=0,binding=5,std430) buffer Histogram { uint histogram[]; };
+layout(set=0,binding=6,std430) buffer Totals { uint totals[]; };
+layout(set=0,binding=7,std430) buffer State { uint groupsX, groupsY, groupsZ, blocks; };
+layout(set=0,binding=8,std430) buffer CountOut { uint countOut; };
+layout(set=0,binding=9,std430) buffer Status { uint status; };
+layout(push_constant) uniform Push { uint capacity, shift, maxGroupsX; } pc;
+
+// Four uint words describe logical local indices, NOT hardware subgroup lanes.
+// This remains stable even when Vulkan launches partially populated subgroups.
+// Shared memory is kept small on purpose: on Adreno 640 a second mask buffer, which saves one
+// barrier per row, cost more in occupancy than the barrier.
+shared uint masks[256*4];
+// Destination of each digit's first key in this block: the digit's global start plus the
+// block's offset within it.
+shared uint digitBase[256];
+// Keys of each digit in the rows already ranked.
+shared uint prior[256];
+shared uint chunkTotals[16];
+void main() {
+  uint block=gl_WorkGroupID.y*groupsX+gl_WorkGroupID.x;
+  if(block>=blocks) return;
+  uint t=gl_LocalInvocationIndex;
+  uint n=countOut;
+  // Loaded up front so no row waits on global memory between its barriers.
+  uint keys[16], values[16];
+  for(uint row=0;row<16;++row) {
+    uint e=block*2048u+row*128u+t;
+    keys[row]=e<n ? keysIn[e] : 0u;
+    values[row]=e<n ? valuesIn[e] : 0u;
+  }
+  for(uint i=t;i<1024;i+=128) masks[i]=0;
+  for(uint d=t;d<256;d+=128) {
+    digitBase[d]=totals[d];
+    prior[d]=0;
+  }
+  barrier();
+  // Exclusive scan of the totals: 16 serial chunks of 16 digits, then the chunk prefix.
+  if(t<16) {
+    uint run=0;
+    for(uint i=0;i<16;++i) {
+      uint v=digitBase[t*16+i];
+      digitBase[t*16+i]=run;
+      run+=v;
+    }
+    chunkTotals[t]=run;
+  }
+  barrier();
+  for(uint d=t;d<256;d+=128) {
+    uint chunkBase=0;
+    for(uint c=0;c<d/16;++c) chunkBase+=chunkTotals[c];
+    digitBase[d]+=chunkBase+histogram[d*blocks+block];
+  }
+  uint word=t/32, bit=1u<<(t%32), below=bit-1u;
+  for(uint row=0;row<16;++row) {
+    bool valid=block*2048u+row*128u+t<n;
+    uint d=(keys[row]>>pc.shift)&255u;
+    uint first=d*4u;
+    // One shared atomic per key, at most 32 contenders per word for all-equal input.
+    // No global atomics; masks encode deterministic input order regardless of scheduling.
+    if(valid) atomicOr(masks[first+word],bit);
+    barrier();
+    bool last=false, lowest=false;
+    uint rank=0;
+    if(valid) {
+      uvec4 m=uvec4(masks[first],masks[first+1],masks[first+2],masks[first+3]);
+      uint own=m[word];
+      rank=prior[d]+uint(bitCount(own&below));
+      uint later=own&~(bit|below);
+      for(uint w=0;w<4;++w) {
+        if(w<word) rank+=uint(bitCount(m[w]));
+        else if(w>word) later|=m[w];
+      }
+      last=later==0;
+      lowest=findLSB(own)==int(t%32);
+      uint dst=digitBase[d]+rank;
+      if(!LAST_PASS) keysOut[dst]=keys[row];
+      valuesOut[dst]=values[row];
+    }
+    barrier();
+    // The digit's last key in the row carries its count on; each set word's lowest bit clears it.
+    if(last) prior[d]=rank+1;
+    if(lowest) masks[first+word]=0;
+    barrier();
+  }
+}
