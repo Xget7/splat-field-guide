@@ -249,6 +249,19 @@ TEST_F(SfgTest, ReportsAGpuFailure) {
   EXPECT_EQ(events[0].kind, SFG_EVENT_GPU_FAILED);
 }
 
+// A platform renderer borrows objects such as its GPU device from the handle, which must keep
+// them until the renderer is gone.
+TEST(SfgPlatformTest, ReleasesThePlatformObjectsAfterTheRenderer) {
+  std::vector<std::string> destroyed;
+  auto renderer = std::make_unique<FakeRenderer>();
+  renderer->onDestroyed = [&] { destroyed.push_back("renderer"); };
+  std::shared_ptr<void> device(nullptr, [&](void*) { destroyed.push_back("device"); });
+  sfg_engine* engine = makeSfgEngine(std::move(renderer), {}, std::move(device));
+  EXPECT_TRUE(destroyed.empty());
+  sfg_destroy(engine);
+  EXPECT_EQ(destroyed, (std::vector<std::string>{"renderer", "device"}));
+}
+
 TEST_F(SfgTest, PicksAndProjectsTheLastFrame) {
   const std::string spz = writeFile("solid.spz", solidPairBytes());
   const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));

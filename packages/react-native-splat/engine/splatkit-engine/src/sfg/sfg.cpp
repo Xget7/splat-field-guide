@@ -10,6 +10,8 @@
 #include "splatkit/sfg_platform.h"
 
 struct sfg_engine {
+  // Declared first, so it outlives the engine and the renderer the engine owns.
+  std::shared_ptr<void> platform;
   std::unique_ptr<splatkit::SplatEngine> engine;
 };
 
@@ -47,8 +49,10 @@ sfg_vec3 toC(splat::Vec3 v) {
 
 }
 
-sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile) {
-  return new sfg_engine{std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
+sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile,
+                          std::shared_ptr<void> platform) {
+  return new sfg_engine{std::move(platform),
+                        std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
 }
 
 SplatEngine& engineOf(sfg_engine* engine) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -10,6 +11,9 @@ namespace splatkit::test {
 
 class FakeRenderer final : public SplatRenderer {
  public:
+  ~FakeRenderer() override {
+    if (onDestroyed) onDestroyed();
+  }
   void setRenderScale(float scale) override { scale_ = scale; }
   float renderScale() const override { return scale_; }
   void setLinearBlending(bool linear) override { linear_ = linear; }
@@ -54,6 +58,7 @@ class FakeRenderer final : public SplatRenderer {
   uint32_t surfaceGeneration = 0;
   Frame last;
   uint32_t frames = 0;
+  std::function<void()> onDestroyed;
 
  private:
   float scale_ = 1;
