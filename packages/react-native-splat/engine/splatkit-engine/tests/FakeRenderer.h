@@ -28,7 +28,7 @@ class FakeRenderer final : public SplatRenderer {
   bool createSlab(uint32_t, int) override { return false; }
   bool uploadTile(uint32_t, const splat::SplatCloud&) override { return false; }
   std::optional<GpuWorldInfo> world() const override { return world_; }
-  bool sortsOnGpu() const override { return true; }
+  bool sortsOnGpu() const override { return gpuSort; }
   bool draw(const Frame& frame) override {
     last = frame;
     ++frames;
@@ -47,6 +47,7 @@ class FakeRenderer final : public SplatRenderer {
 
   bool isReady = true;
   bool failUploads = false;
+  bool gpuSort = true;
   bool gpuFinished = true;
   bool gpuFailed = false;
   Extent extent{1000, 1000};

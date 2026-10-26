@@ -232,6 +232,18 @@ TEST_F(SplatEngineTest, ReportsAFailedUpload) {
   EXPECT_EQ(renderer->world(), std::nullopt);
 }
 
+// Field Guide has no CPU order, so a device that cannot sort on the GPU would show nothing.
+TEST_F(SplatEngineTest, RefusesAWorldItCannotSortAndNeverCallsItReady) {
+  Events events;
+  engine->setEventSink(events.sink());
+  renderer->gpuSort = false;
+  load(pairBytes());
+  tick();
+  tick();
+  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldFailed});
+  EXPECT_EQ(renderer->world(), std::nullopt);
+}
+
 TEST_F(SplatEngineTest, ReportsALoadTooLargeForMemoryAsAFailedLoad) {
   const SplatEngine::FileLoader outOfMemory =
       [](const std::string&, const std::string&, splat::CoordinateFrame, int,

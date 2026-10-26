@@ -17,6 +17,8 @@ constexpr float kMaxFrameSeconds = 0.1f;
 constexpr float kFramingMargin = 1.05f;
 // An aspect below this is treated as this, so a zero-width view still frames.
 constexpr float kMinFramingAspect = 1e-3f;
+// Field Guide draws only from a GPU order, so a renderer without GPU sorting cannot show a world.
+constexpr char kNoGpuSortMessage[] = "renderer lacks GPU sort support";
 
 using Clock = std::chrono::steady_clock;
 
@@ -167,6 +169,12 @@ bool SplatEngine::applyPendingWorld() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
   auto cloud = std::move(pendingWorld_);
   if (!cloud) return false;
+  // An upload would succeed and draw empty frames, which would then report the world ready.
+  if (!renderer_->sortsOnGpu()) {
+    LOGE("world load failed: %s", kNoGpuSortMessage);
+    emit(Event::worldFailed, kNoGpuSortMessage);
+    return false;
+  }
   const auto start = Clock::now();
   if (!renderer_->uploadWorld(*cloud, kMaxShDegree)) {
     LOGE("world upload failed");
