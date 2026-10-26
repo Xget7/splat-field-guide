@@ -8,6 +8,7 @@
 
 #include "rendering/vulkan/device/VulkanBarriers.h"
 #include "splatkit/Log.h"
+#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
@@ -110,7 +111,9 @@ bool VulkanFrameCompute::initialize(uint32_t sourceCount, const splat::LodTree* 
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     readback_[slot] =
         VulkanBuffer::hostVisible(ctx_, kReadbackBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-    if (!ranges_[slot] || !readback_[slot]) return false;
+    guides_[slot] =
+        VulkanBuffer::hostVisible(ctx_, sizeof(GuideUniform), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+    if (!ranges_[slot] || !readback_[slot] || !guides_[slot]) return false;
     if (timestampBits_) {
       VkQueryPoolCreateInfo info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
       info.queryType = VK_QUERY_TYPE_TIMESTAMP;
@@ -258,7 +261,8 @@ void VulkanFrameCompute::copyDiagnostics(VkCommandBuffer cmd, uint32_t slot,
 
 std::optional<VulkanFrameCompute::Draw> VulkanFrameCompute::encode(
     VkCommandBuffer cmd, uint32_t slot, VkBuffer camera, const VulkanBuffer& splats,
-    const VulkanBuffer& sh, int shDegree, const SplatRenderer::Frame& frame) {
+    const VulkanBuffer& labels, const VulkanBuffer& sh, int shDegree,
+    const SplatRenderer::Frame& frame) {
   if (!cmd || slot >= kFramesInFlight || !camera ||
       frame.orderSource != SplatRenderer::OrderSource::gpu)
     return std::nullopt;
@@ -271,6 +275,14 @@ std::optional<VulkanFrameCompute::Draw> VulkanFrameCompute::encode(
   input.sh = sh.handle();
   input.shBytes = sh.size();
   input.shDegree = shDegree;
+  const GuideUniform guide = makeGuideUniform(frame.labelStyles, frame.revealLevel,
+                                              frame.revealBand);
+  std::memcpy(guides_[slot]->mapped(), &guide, sizeof(guide));
+  guides_[slot]->flush(0, sizeof(guide));
+  input.labels = labels.handle();
+  input.labelsBytes = labels.size();
+  input.guide = guides_[slot]->handle();
+  input.guideBytes = guides_[slot]->size();
   input.keyBits = keyBits();
   input.keyOrder = VulkanVisibilityPass::KeyOrder::descending;  // Hardware uses back-to-front over.
   if (!lod_ && !prepareRanges(slot, frame, input)) return std::nullopt;

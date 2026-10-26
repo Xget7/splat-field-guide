@@ -96,6 +96,14 @@ class VulkanVisibilityPass {
     VkDeviceSize cameraBytes = sizeof(CameraUniform);
     VkDeviceSize splatsBytes = 0;
     VkDeviceSize shBytes = 0;
+    // Field Guide: the world's label stream, one byte per source record packed into uint words,
+    // and the frame's GuideUniform (std140) with the reveal and one style per label.
+    VkBuffer labels = VK_NULL_HANDLE;
+    VkDeviceSize labelsOffset = 0;
+    VkDeviceSize labelsBytes = 0;
+    VkBuffer guide = VK_NULL_HANDLE;
+    VkDeviceSize guideOffset = 0;
+    VkDeviceSize guideBytes = 0;
     CandidateMode mode = CandidateMode::prefix;
     VkBuffer candidates = VK_NULL_HANDLE;  // uint indices, or 16-byte Range records
     VkDeviceSize candidatesOffset = 0;

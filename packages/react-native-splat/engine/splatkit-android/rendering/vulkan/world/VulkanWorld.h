@@ -33,7 +33,7 @@ class VulkanWorld {
   // Converts a tile into records [offset, offset + count) of a slab: in place where the
   // slab is mapped, else through a blocking staged copy. The caller writes a range only
   // after every frame that drew it finished. Harmonics above the slab's degree are
-  // dropped, missing ones are zero.
+  // dropped, missing ones are zero; a tile without labels writes label 0.
   bool uploadTile(uint32_t offset, const splat::SplatCloud& cloud) const;
 
   // Records the copy of a new draw order into the world. Must be called outside a render
@@ -48,6 +48,11 @@ class VulkanWorld {
   // uint with no padding. A placeholder of one uint when the degree is 0, so the
   // descriptor is always valid and the degree 0 pipeline never reads it.
   std::unique_ptr<VulkanBuffer> sh;
+  // Field Guide's label stream: one part label byte per record, packed into uint words
+  // (packLabels), at least kMinLabelBytes so the descriptor is valid for an empty world. It
+  // belongs to the world, so frames still in flight on a replaced world read that world's labels.
+  std::unique_ptr<VulkanBuffer> labels;
+  static constexpr VkDeviceSize kMinLabelBytes = 16;
   int shDegree = 0;
   // One host visible staging buffer per frame slot: the slot's fence guarantees the GPU
   // finished reading it before the CPU writes the next order into it.

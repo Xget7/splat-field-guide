@@ -43,6 +43,9 @@ class VulkanFrameLoop {
   Status endFrame(const VulkanSwapchain& swapchain, uint32_t imageIndex);
 
   uint64_t lastSubmission() const { return lastSubmission_; }
+  // Field Guide: a submit, present, fence wait or completion query failed, so the device can no
+  // longer be trusted to finish frames.
+  bool failed() const { return completionFailed_; }
   // Nonblocking fence queries of the frames still in flight, including when the engine has
   // no new frame to draw; a finished frame's GPU time is read then too.
   // Zero after a fence/device error: failed GPU work must never announce readiness.

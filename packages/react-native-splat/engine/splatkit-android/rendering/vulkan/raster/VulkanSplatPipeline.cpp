@@ -8,26 +8,20 @@
 #include "rendering/vulkan/layout/VulkanShaderTypes.h"
 #include "shaders/projected_vert.h"
 #include "shaders/splat_frag.h"
-#include "shaders/splat_vert.h"
 #include "splatkit/Log.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
 namespace {
 
-// The bindings of set 0 in splat.vert.
+// The bindings of set 0 in projected.vert.
 constexpr uint32_t kCameraBinding = 0;
-constexpr uint32_t kSplatsBinding = 1;
-constexpr uint32_t kOrderBinding = 2;
-constexpr uint32_t kShBinding = 3;
-constexpr uint32_t kBindings = 4;
-// The bindings of set 0 in projected.vert: the camera, then these.
 constexpr uint32_t kProjectedBinding = 1;
 constexpr uint32_t kProjectedOrderBinding = 2;
 constexpr uint32_t kProjectedBindings = 3;
-// Each frame slot owns one set per path, each with one uniform buffer.
-constexpr uint32_t kSetFamilies = 2;
-constexpr uint32_t kStorageBindingsPerSlot = (kBindings - 1) + (kProjectedBindings - 1);
+// Each frame slot owns one set with one uniform buffer.
+constexpr uint32_t kSetFamilies = 1;
+constexpr uint32_t kStorageBindingsPerSlot = kProjectedBindings - 1;
 
 VkWriteDescriptorSet storageWrite(VkDescriptorSet set, uint32_t binding,
                                   const VkDescriptorBufferInfo& info) {
@@ -42,7 +36,7 @@ VkWriteDescriptorSet storageWrite(VkDescriptorSet set, uint32_t binding,
 
 // Binding 0 is the camera uniform, the rest are storage buffers, all read by the vertex stage.
 bool createSetLayout(VkDevice device, uint32_t bindingCount, VkDescriptorSetLayout& layout) {
-  std::array<VkDescriptorSetLayoutBinding, kBindings> bindings{};
+  std::array<VkDescriptorSetLayoutBinding, kProjectedBindings> bindings{};
   for (uint32_t binding = 0; binding < bindingCount; ++binding) {
     bindings[binding] = {binding,
                          binding == kCameraBinding ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
@@ -71,27 +65,19 @@ splat::Result<std::unique_ptr<VulkanSplatPipeline>> VulkanSplatPipeline::create(
 
 VulkanSplatPipeline::~VulkanSplatPipeline() {
   VkDevice device = ctx_.device();
-  for (VkPipeline pipeline : pipelines_) {
-    if (pipeline) vkDestroyPipeline(device, pipeline, nullptr);
-  }
   for (VkPipeline pipeline : projectedPipeline_) {
     if (pipeline) vkDestroyPipeline(device, pipeline, nullptr);
   }
-  if (layout_) vkDestroyPipelineLayout(device, layout_, nullptr);
   if (projectedLayout_) vkDestroyPipelineLayout(device, projectedLayout_, nullptr);
   if (pool_) vkDestroyDescriptorPool(device, pool_, nullptr);
-  if (setLayout_) vkDestroyDescriptorSetLayout(device, setLayout_, nullptr);
   if (projectedSetLayout_) vkDestroyDescriptorSetLayout(device, projectedSetLayout_, nullptr);
 }
 
-// CPU-order set: binding 0 camera (uniform), 1 splats, 2 draw order, 3 spherical harmonics.
-// GPU set: binding 0 camera, 1 projected records, 2 draw order. One set of each per frame in
-// flight so a uniform update never races the GPU.
+// Binding 0 camera, 1 projected records, 2 draw order. One set per frame in flight so a
+// uniform update never races the GPU.
 bool VulkanSplatPipeline::createDescriptors(const VulkanCameraUniforms& cameras) {
   VkDevice device = ctx_.device();
-  if (!createSetLayout(device, kBindings, setLayout_) ||
-      !createSetLayout(device, kProjectedBindings, projectedSetLayout_))
-    return false;
+  if (!createSetLayout(device, kProjectedBindings, projectedSetLayout_)) return false;
 
   VkDescriptorPoolSize sizes[2]{};
   sizes[0] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kSetFamilies * kFramesInFlight};
@@ -112,17 +98,13 @@ bool VulkanSplatPipeline::createDescriptors(const VulkanCameraUniforms& cameras)
     allocInfo.pSetLayouts = layouts.data();
     return vkAllocateDescriptorSets(device, &allocInfo, sets.data()) == VK_SUCCESS;
   };
-  if (!allocate(setLayout_, sets_) || !allocate(projectedSetLayout_, projectedSets_)) return false;
+  if (!allocate(projectedSetLayout_, projectedSets_)) return false;
 
   for (uint32_t i = 0; i < kFramesInFlight; ++i) {
     const VkDescriptorBufferInfo info{cameras.buffer(i), 0, sizeof(CameraUniform)};
-    std::array<VkWriteDescriptorSet, kSetFamilies> writes{};
-    for (uint32_t family = 0; family < kSetFamilies; ++family) {
-      writes[family] =
-          storageWrite(family == 0 ? sets_[i] : projectedSets_[i], kCameraBinding, info);
-      writes[family].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    }
-    vkUpdateDescriptorSets(device, kSetFamilies, writes.data(), 0, nullptr);
+    VkWriteDescriptorSet write = storageWrite(projectedSets_[i], kCameraBinding, info);
+    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
   }
   return true;
 }
@@ -228,27 +210,11 @@ bool VulkanSplatPipeline::createGraphicsPipelines(VkRenderPass renderPass, VkSha
 
 bool VulkanSplatPipeline::createPipelines(VkRenderPass renderPass) {
   VkDevice device = ctx_.device();
-  const VulkanShaderModule vert(device, shaders::splat_vert, shaders::splat_vert_size);
   const VulkanShaderModule projected(device, shaders::projected_vert, shaders::projected_vert_size);
   const VulkanShaderModule frag(device, shaders::splat_frag, shaders::splat_frag_size);
-  if (!vert || !projected || !frag) return false;
-  return createGraphicsPipelines(renderPass, vert.get(), frag.get(), setLayout_, layout_,
-                                 pipelines_) &&
-         createGraphicsPipelines(renderPass, projected.get(), frag.get(), projectedSetLayout_,
+  if (!projected || !frag) return false;
+  return createGraphicsPipelines(renderPass, projected.get(), frag.get(), projectedSetLayout_,
                                  projectedLayout_, projectedPipeline_);
-}
-
-void VulkanSplatPipeline::bindWorld(const VulkanWorld& world) {
-  for (uint32_t i = 0; i < kFramesInFlight; ++i) {
-    const VkDescriptorBufferInfo splats{world.splats->handle(), 0, VK_WHOLE_SIZE};
-    const VkDescriptorBufferInfo order{world.order->handle(), 0, VK_WHOLE_SIZE};
-    const VkDescriptorBufferInfo sh{world.sh->handle(), 0, VK_WHOLE_SIZE};
-    const std::array<VkWriteDescriptorSet, 3> writes{storageWrite(sets_[i], kSplatsBinding, splats),
-                                                     storageWrite(sets_[i], kOrderBinding, order),
-                                                     storageWrite(sets_[i], kShBinding, sh)};
-    vkUpdateDescriptorSets(ctx_.device(), static_cast<uint32_t>(writes.size()), writes.data(), 0,
-                           nullptr);
-  }
 }
 
 void VulkanSplatPipeline::bindProjected(uint32_t frameSlot, VkBuffer projected, VkBuffer order,
@@ -270,16 +236,6 @@ void VulkanSplatPipeline::drawProjected(VkCommandBuffer cmd, uint32_t frameSlot,
   vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, projectedLayout_, 0, 1,
                           &projectedSets_[frameSlot], 0, nullptr);
   vkCmdDrawIndirect(cmd, arguments, 0, 1, sizeof(VkDrawIndirectCommand));
-}
-
-void VulkanSplatPipeline::draw(VkCommandBuffer cmd, uint32_t frameSlot, const VulkanWorld& world,
-                               uint32_t count, int shDegree) {
-  if (count == 0) return;
-  const int degree = std::clamp(std::min(shDegree, world.shDegree), 0, VulkanWorld::kMaxShDegree);
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_[static_cast<size_t>(degree)]);
-  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &sets_[frameSlot], 0,
-                          nullptr);
-  vkCmdDraw(cmd, 4, std::min(count, world.count), 0, 0);
 }
 
 }  // namespace splatkit

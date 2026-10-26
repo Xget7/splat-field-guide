@@ -2,8 +2,19 @@ SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-android
 License: MIT, ../LICENSE
 Imported folders: src/main/cpp/rendering/vulkan as rendering/vulkan, with cull, device, frame, layout, presentation, raster, selection, sort and world.
-Left out: raster/splat.vert, the CPU-order path, src/main/cpp engine, jni and cmake, Kotlin, resources, docs, tests and Gradle.
-Field Guide keeps its own sfg_vulkan, cmake and CMake.
+Also imported: src/main/cpp/engine/TraceSection.h as engine/TraceSection.h, src/main/cpp/cmake as cmake, and tests as tests.
+Left out: raster/splat.vert, the CPU-order path, the rest of src/main/cpp engine, jni, Kotlin, resources, docs and Gradle.
+Field Guide keeps its own sfg_vulkan and CMakeLists.txt, which also builds tests with SPLATKIT_ANDROID_BUILD_TESTS.
 Dependencies: vk-bootstrap v1.4.307, VulkanMemoryAllocator v3.2.1.
 Dependency notices: licenses/, also bundled in the Android APK.
 Field Guide patches:
+- rendering/vulkan/guide: Field Guide's own, the label stream and GuideUniform bindings (10 and 11 of the visibility set) and guide_style.glsl.
+- layout/splat_projection.glsl and cull/visibility.comp: each splat reads its label, the reveal clips it, its style's opacity scales alpha before the cutoff and radius, and its style and the reveal glow tint its colour.
+- cull/VulkanVisibilityPass: Input takes the label stream and the guide uniform, validates and binds them, and the capability check counts them.
+- frame/VulkanFrameCompute: encode takes the world's labels and writes one GuideUniform per frame slot from the frame's styles and reveal.
+- world/VulkanWorld: each world and slab owns a label stream of at least 16 bytes, written by upload and uploadTile.
+- raster/VulkanSplatPipeline: the CPU-order pipeline, bindWorld and draw are removed, since splat.vert is left out.
+- VulkanSplatRenderer: failed() latches device, frame, encode and surface failures and visibility status; an endFrame error returns false; no CPU-order draw; black clear.
+- presentation/VulkanFrameLoop.h: failed() exposes the completion failure.
+- presentation/VulkanSurface.cpp: resize sets the TextureView producer's buffer size before the rebuild.
+- tests: CMakeLists.txt comment; WorldFrameCompletionTest drops upstream's JNI event ordinals; VulkanSplatPipelineTest drops the CPU-order cases; the visibility, frame compute and world tests add the label stream and guide cases.

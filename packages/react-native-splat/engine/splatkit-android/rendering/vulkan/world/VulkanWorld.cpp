@@ -5,6 +5,7 @@
 #include <limits>
 #include <vector>
 
+#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
@@ -17,7 +18,24 @@ bool hasConsistentArrays(const splat::SplatCloud& cloud) {
   const size_t n = cloud.count();
   return n <= std::numeric_limits<uint32_t>::max() && cloud.positions.size() == n * 3 &&
          cloud.covariances.size() == n * 6 && cloud.colors.size() == n * 3 &&
-         cloud.alphas.size() == n;
+         cloud.alphas.size() == n && (cloud.labels.empty() || cloud.labels.size() == n);
+}
+
+// One byte per record rounded up to whole words, never under the descriptor minimum.
+VkDeviceSize labelStreamBytes(size_t records) {
+  constexpr size_t kWord = sizeof(uint32_t);
+  return std::max(VulkanWorld::kMinLabelBytes, VkDeviceSize{(records + kWord - 1) / kWord * kWord});
+}
+
+std::unique_ptr<VulkanBuffer> createLabels(const VulkanContext& ctx, size_t records) {
+  return VulkanBuffer::deviceLocalMapped(ctx, labelStreamBytes(records),
+                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+}
+
+// Uploads the whole stream, zeros past the last record included, so no word is left undefined.
+bool uploadLabels(const VulkanWorld& world, std::vector<uint32_t> words) {
+  words.resize(static_cast<size_t>(world.labels->size() / sizeof(uint32_t)), 0u);
+  return world.labels->upload(words.data(), world.labels->size());
 }
 
 bool allocateOrderStaging(const VulkanContext& ctx, VulkanWorld& world, VkDeviceSize bytes) {
@@ -126,9 +144,11 @@ std::unique_ptr<VulkanWorld> VulkanWorld::upload(const VulkanContext& ctx,
       VulkanBuffer::deviceLocalMapped(ctx, sourceBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
   world->order = VulkanBuffer::deviceLocal(ctx, orderBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
   world->sh = VulkanBuffer::deviceLocalMapped(ctx, shBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-  if (!world->splats || !world->order || !world->sh) return nullptr;
+  world->labels = createLabels(ctx, n);
+  if (!world->splats || !world->order || !world->sh || !world->labels) return nullptr;
   if (cpuOrder && !allocateOrderStaging(ctx, *world, orderBytes)) return nullptr;
   if (!uploadWindows(cloud, *world, stride, cpuOrder)) return nullptr;
+  if (!uploadLabels(*world, packLabels(cloud))) return nullptr;
   return world;
 }
 
@@ -152,9 +172,12 @@ std::unique_ptr<VulkanWorld> VulkanWorld::createSlab(const VulkanContext& ctx, u
       VulkanBuffer::deviceLocal(ctx, VkDeviceSize{cpuOrder ? capacity : 1u} * sizeof(uint32_t),
                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
   world->sh = VulkanBuffer::deviceLocalMapped(ctx, shBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-  if (!world->splats || !world->order || !world->sh) return nullptr;
+  world->labels = createLabels(ctx, capacity);
+  if (!world->splats || !world->order || !world->sh || !world->labels) return nullptr;
   if (cpuOrder && !allocateOrderStaging(ctx, *world, VkDeviceSize{capacity} * sizeof(uint32_t)))
     return nullptr;
+  // Records no tile has written yet take label 0.
+  if (!uploadLabels(*world, {})) return nullptr;
   return world;
 }
 
@@ -162,6 +185,12 @@ bool VulkanWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) co
   const size_t n = cloud.count();
   if (n == 0) return true;
   if (offset > count || n > count - offset) return false;
+  if (!cloud.labels.empty() && cloud.labels.size() != n) return false;
+  // Vulkan buffers are little-endian, so byte i of the stream is byte i & 3 of word i >> 2, the
+  // one guideLabel reads. A tile without labels writes zeros, clearing an earlier tile's range.
+  const std::vector<uint8_t> tileLabels =
+      cloud.labels.empty() ? std::vector<uint8_t>(n, 0) : cloud.labels;
+  if (!labels->upload(VkDeviceSize{offset}, tileLabels.data(), n)) return false;
   const VkDeviceSize splatOffset = VkDeviceSize{offset} * sizeof(GpuSplat);
   const size_t splatBytes = n * sizeof(GpuSplat);
   if (auto* mapped = static_cast<GpuSplat*>(splats->mapped())) {

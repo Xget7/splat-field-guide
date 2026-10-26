@@ -1,4 +1,9 @@
-# Embed NDK-compiled SPIR-V in the native library so runtime shader asset loading is unnecessary.
+# Compiles GLSL to SPIR-V with the NDK's glslc and embeds each module as a uint32_t array
+# in a generated header, so shaders ship inside libsplatkit.so and need no asset loading.
+#
+# Usage: splatkit_compile_shaders(<interface target> <shader files...>)
+# A shader can live in any job folder; its file name foo.vert becomes
+# `splatkit::shaders::foo_vert` (std::vector-like span).
 
 function(splatkit_compile_shaders target)
   if(NOT DEFINED ANDROID_NDK OR NOT DEFINED ANDROID_HOST_TAG)
@@ -14,10 +19,13 @@ function(splatkit_compile_shaders target)
     string(REPLACE "." "_" symbol "${name}")
     set(spv "${out_dir}/${name}.spv")
     set(header "${out_dir}/${symbol}.h")
+    # Includes resolve from the cpp root; the depfile rebuilds a shader when one changes.
     add_custom_command(
       OUTPUT "${spv}"
-      COMMAND "${glslc}" -O --target-env=vulkan1.1 -o "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
+      COMMAND "${glslc}" -O --target-env=vulkan1.1 -I "${CMAKE_CURRENT_SOURCE_DIR}"
+        -MD -MF "${spv}.d" -o "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
+      DEPFILE "${spv}.d"
       COMMENT "glslc ${source}"
       VERBATIM
     )

@@ -9,10 +9,12 @@
 #include <vector>
 
 #include "rendering/vulkan/device/VulkanShaderModule.h"
+#include "rendering/vulkan/guide/VulkanGuideBindings.h"
 #include "rendering/vulkan/layout/VulkanShaderTypes.h"
 #include "shaders/prepare_indirect_comp.h"
 #include "shaders/visibility_comp.h"
 #include "splatkit/Log.h"
+#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
@@ -24,11 +26,22 @@ constexpr VkSubgroupFeatureFlags kRequiredSubgroupOperations = VK_SUBGROUP_FEATU
                                                                VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
                                                                VK_SUBGROUP_FEATURE_BALLOT_BIT;
 
-// visibility.comp binds the camera uniform and nine storage buffers: splats, values, depth keys,
-// count, status, candidates, the candidate count, the harmonics and the projected records.
+// Upstream's visibility.comp binds the camera uniform and nine storage buffers: splats, values,
+// depth keys, count, status, candidates, the candidate count, the harmonics and the projected
+// records. Field Guide adds the label stream (storage) and the guide (uniform) right after them.
 // prepare_indirect.comp binds the count, the indirect draw arguments and the status.
-constexpr uint32_t kVisibilityStorageBindings = 9;
-constexpr uint32_t kVisibilityBindings = 1 + kVisibilityStorageBindings;
+constexpr uint32_t kUpstreamVisibilityBindings = 10;
+static_assert(kGuideLabelsBinding == kUpstreamVisibilityBindings &&
+                  kGuideBinding == kGuideLabelsBinding + 1,
+              "the guide takes the first bindings upstream leaves free");
+constexpr uint32_t kVisibilityStorageBindings = 10;
+constexpr uint32_t kVisibilityUniformBindings = 2;
+constexpr uint32_t kVisibilityBindings = kVisibilityUniformBindings + kVisibilityStorageBindings;
+static_assert(kVisibilityBindings == kGuideBinding + 1, "visibility bindings must be contiguous");
+// Every Vulkan device accepts a uniform range this large, so the guide never narrows support.
+constexpr VkDeviceSize kGuaranteedUniformRange = 16384;
+static_assert(sizeof(GuideUniform) <= kGuaranteedUniformRange,
+              "GuideUniform must fit the uniform range every device guarantees");
 constexpr uint32_t kPrepareBindings = 3;
 // Each frame slot owns one visibility set and one prepare set.
 constexpr uint32_t kSetFamilies = 2;
@@ -130,10 +143,39 @@ bool describeCandidateCount(const VulkanVisibilityPass::Input& input, VkDeviceSi
   return true;
 }
 
-// Binding 0 takes `firstType`, every other binding is a storage buffer.
+// The camera and the guide are the visibility set's uniform buffers.
+VkDescriptorType visibilityType(uint32_t binding) {
+  return binding == 0 || binding == kGuideBinding ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                                                  : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+}
+
+VkDescriptorType prepareType(uint32_t) { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+
+// The label stream covers every source record, one byte each, rounded up to whole words.
+VkDeviceSize labelBytes(const VulkanVisibilityPass::Input& input) {
+  constexpr VkDeviceSize kWord = sizeof(uint32_t);
+  return (VkDeviceSize{std::max(input.sourceCount, 1u)} + kWord - 1) / kWord * kWord;
+}
+
+bool acceptsLabels(const VulkanVisibilityPass::Input& input, VkDeviceSize storageAlignment,
+                   VkDeviceSize maxStorageRange) {
+  const VkDeviceSize bytes = labelBytes(input);
+  return input.labels && isAligned(input.labelsOffset, storageAlignment) &&
+         input.labelsOffset <= std::numeric_limits<VkDeviceSize>::max() - bytes &&
+         bytes <= maxStorageRange && validRange(input.labelsOffset, bytes, input.labelsBytes);
+}
+
+bool acceptsGuide(const VulkanVisibilityPass::Input& input, const VkPhysicalDeviceLimits& limits) {
+  return input.guide && isAligned(input.guideOffset, limits.minUniformBufferOffsetAlignment) &&
+         sizeof(GuideUniform) <= limits.maxUniformBufferRange &&
+         input.guideOffset <= std::numeric_limits<VkDeviceSize>::max() - sizeof(GuideUniform) &&
+         validRange(input.guideOffset, sizeof(GuideUniform), input.guideBytes);
+}
+
 template <size_t N>
 void writeBindings(VkDevice device, VkDescriptorSet set,
-                   const std::array<VkDescriptorBufferInfo, N>& infos, VkDescriptorType firstType) {
+                   const std::array<VkDescriptorBufferInfo, N>& infos,
+                   VkDescriptorType (*typeOf)(uint32_t)) {
   std::array<VkWriteDescriptorSet, N> writes{};
   for (uint32_t binding = 0; binding < N; ++binding) {
     writes[binding] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -142,7 +184,7 @@ void writeBindings(VkDevice device, VkDescriptorSet set,
                        binding,
                        0,
                        1,
-                       binding == 0 ? firstType : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                       typeOf(binding),
                        nullptr,
                        &infos[binding],
                        nullptr};
@@ -196,8 +238,13 @@ VulkanVisibilityCapabilities VulkanVisibilityPass::queryCapabilities(const Vulka
                  kVisibilityStorageBindings ||
              properties.properties.limits.maxDescriptorSetStorageBuffers <
                  kVisibilityStorageBindings ||
+             properties.properties.limits.maxPerStageDescriptorUniformBuffers <
+                 kVisibilityUniformBindings ||
+             properties.properties.limits.maxDescriptorSetUniformBuffers <
+                 kVisibilityUniformBindings ||
              properties.properties.limits.maxPerStageResources < kVisibilityBindings ||
-             properties.properties.limits.maxUniformBufferRange < sizeof(CameraUniform) ||
+             properties.properties.limits.maxUniformBufferRange <
+                 std::max(sizeof(CameraUniform), sizeof(GuideUniform)) ||
              result.maxStorageBufferRange < sizeof(GpuSplat)) {
     result.reason = "descriptor or buffer-range limits are below visibility requirements";
   } else {
@@ -213,10 +260,8 @@ std::shared_ptr<const VulkanVisibilityPass::Pipelines> VulkanVisibilityPass::Pip
   VkDevice device = ctx.device();
   auto pipelines = std::make_shared<Pipelines>(device);
   VkDescriptorSetLayoutBinding visibilityBindings[kVisibilityBindings]{};
-  visibilityBindings[0] = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, kComputeShader, nullptr};
-  for (uint32_t binding = 1; binding < kVisibilityBindings; ++binding) {
-    visibilityBindings[binding] = {binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, kComputeShader,
-                                   nullptr};
+  for (uint32_t binding = 0; binding < kVisibilityBindings; ++binding) {
+    visibilityBindings[binding] = {binding, visibilityType(binding), 1, kComputeShader, nullptr};
   }
   VkDescriptorSetLayoutCreateInfo visibilitySetInfo{
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
@@ -338,7 +383,7 @@ VulkanVisibilityPass::~VulkanVisibilityPass() {
 bool VulkanVisibilityPass::createDescriptors() {
   VkDevice device = ctx_.device();
   VkDescriptorPoolSize sizes[kPoolSizeCount]{};
-  sizes[0] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kFramesInFlight};
+  sizes[0] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kVisibilityUniformBindings * kFramesInFlight};
   sizes[1] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               (kVisibilityStorageBindings + kPrepareBindings) * kFramesInFlight};
   VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
@@ -442,7 +487,8 @@ bool VulkanVisibilityPass::updateDescriptors(uint32_t slot, const Input& input) 
   if (!acceptsCamera(input, limits) || !acceptsSplats(input, storageAlignment, maxStorageRange) ||
       !describeSh(input, storageAlignment, maxStorageRange, shInfo) ||
       !describeCandidates(input, storageAlignment, maxStorageRange, candidateInfo) ||
-      !describeCandidateCount(input, storageAlignment, candidateCountInfo))
+      !describeCandidateCount(input, storageAlignment, candidateCountInfo) ||
+      !acceptsLabels(input, storageAlignment, maxStorageRange) || !acceptsGuide(input, limits))
     return false;
   const VkDescriptorBufferInfo camera{input.camera, input.cameraOffset, sizeof(CameraUniform)};
   const VkDescriptorBufferInfo splats{input.splats, input.splatsOffset, sourceBytes(input)};
@@ -452,12 +498,15 @@ bool VulkanVisibilityPass::updateDescriptors(uint32_t slot, const Input& input) 
   const VkDescriptorBufferInfo count{out.count, 0, sizeof(uint32_t)};
   const VkDescriptorBufferInfo indirect{out.indirect, 0, sizeof(VkDrawIndirectCommand)};
   const VkDescriptorBufferInfo status{out.status, 0, sizeof(uint32_t)};
+  const VkDescriptorBufferInfo labels{input.labels, input.labelsOffset, labelBytes(input)};
+  const VkDescriptorBufferInfo guide{input.guide, input.guideOffset, sizeof(GuideUniform)};
   writeBindings<kVisibilityBindings>(ctx_.device(), visibilitySets_[slot],
                                      {camera, splats, values, depthKeys, count, status,
-                                      candidateInfo, candidateCountInfo, shInfo, projected},
-                                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                                      candidateInfo, candidateCountInfo, shInfo, projected, labels,
+                                      guide},
+                                     visibilityType);
   writeBindings<kPrepareBindings>(ctx_.device(), prepareSets_[slot], {count, indirect, status},
-                                  VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                  prepareType);
   return true;
 }
 

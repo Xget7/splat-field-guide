@@ -56,11 +56,13 @@ std::vector<float> floats(JNIEnv* env, jfloatArray values) {
 }
 #define JNI_METHOD(name) Java_com_margelo_nitro_splat_SplatEngine_##name
 extern "C" {
-JNIEXPORT jlong JNICALL JNI_METHOD(create)(JNIEnv* env, jobject, jobject owner) {
+JNIEXPORT jlong JNICALL JNI_METHOD(create)(JNIEnv* env, jobject, jobject owner, jstring cacheDir) {
   auto state = std::make_shared<Engine>();
   env->GetJavaVM(&state->javaVm);
   state->owner = env->NewGlobalRef(owner);
-  state->handle = sfg_vulkan_create();
+  const char* directory = cacheDir ? env->GetStringUTFChars(cacheDir, nullptr) : nullptr;
+  state->handle = sfg_vulkan_create(directory);
+  if (directory) env->ReleaseStringUTFChars(cacheDir, directory);
   if (!state->handle) return 0;
   sfg_set_event_callback(state->handle, event, state.get());
   std::lock_guard<std::mutex> lock(registryMutex);

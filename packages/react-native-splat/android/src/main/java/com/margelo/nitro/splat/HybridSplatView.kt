@@ -53,7 +53,8 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     texture.surfaceTextureListener = this
     render.post {
       choreographer = Choreographer.getInstance()
-      engine = SplatEngine.create(this)
+      // Read on the render thread: the first cacheDir call may create the directory on disk.
+      engine = SplatEngine.create(this, context.cacheDir.absolutePath)
       if (engine == 0L) nativeEvent(EVENT_GPU_UNAVAILABLE, VULKAN_INITIALIZATION_FAILED, 0)
     }
     texture.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {

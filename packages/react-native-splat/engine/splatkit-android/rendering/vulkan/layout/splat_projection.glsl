@@ -2,10 +2,12 @@
 // (CPU order). Matches Metal's projectSplat (SplatProjection.metalh), which follows the
 // reference rasterizer of Kerbl et al. 2023 and Zwicker's EWA projection.
 // The including shader defines SH_BINDING, the set 0 binding of the spherical harmonics.
+// Field Guide imports only visibility.comp, which also binds the guide (guide_style.glsl).
 
 #include "rendering/vulkan/layout/splat_camera.glsl"
 #include "rendering/vulkan/layout/splat_footprint.glsl"
 #include "rendering/vulkan/layout/splat_quad.glsl"
+#include "rendering/vulkan/guide/guide_style.glsl"
 
 // GpuSplat in GpuLayout.h.
 struct Splat {
@@ -122,9 +124,13 @@ struct SplatView {
 // False when the splat has no quad on screen: its peak is under the quad cutoff, its centre is
 // outside the near and far planes, its half-packed quad misses the view, or its footprint is
 // under the camera's sub-pixel cutoff.
-bool projectSplat(Splat s, out SplatView v) {
+// Field Guide: `label` styles the splat; a splat above the reveal is not drawn.
+bool projectSplat(Splat s, uint label, out SplatView v) {
+  if (!guideRevealed(s.py)) return false;
   vec4 rgba = unpackUnorm4x8(s.rgba8);
   v.alpha = s.lodAlpha != 0u ? uintBitsToFloat(s.lodAlpha) : rgba.a;
+  // A part's opacity scales the peak before the cutoff and the radius, so a hidden part culls.
+  v.alpha *= guideOpacity(label);
   // Dark but opaque splats are kept: they occlude. NaN fails every comparison.
   if (!(v.alpha >= QUAD_MIN_ALPHA)) return false;
 
@@ -162,12 +168,13 @@ bool projectSplat(Splat s, out SplatView v) {
 
 // The record the raster stage expands, with the colour seen from the camera in the output's
 // encoding.
-ProjectedSplat packProjected(Splat s, uint index, SplatView v) {
+ProjectedSplat packProjected(Splat s, uint index, uint label, SplatView v) {
   vec3 rgb = unpackUnorm4x8(s.rgba8).rgb;
   if (SH_DEGREE >= 1u) {
     vec3 dir = normalize(vec3(s.px, s.py, s.pz) - cam.cameraPosition.xyz);
     rgb = max(rgb + shColor(index, dir), vec3(0.0));
   }
+  rgb = guideColor(label, rgb, s.py);
   if (cam.outputLinear == 1u) rgb = pow(rgb, vec3(kDisplayGamma));
   ProjectedSplat p;
   p.center = v.clip.xy / v.clip.w;

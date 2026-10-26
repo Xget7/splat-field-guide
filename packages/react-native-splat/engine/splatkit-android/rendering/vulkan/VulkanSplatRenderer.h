@@ -22,7 +22,8 @@ namespace splatkit {
 // The SplatRenderer behind an ANativeWindow: the frame script, the pipelines built for the
 // VulkanSurface's format and the world bound to them. Survives losing and regaining the
 // window, and the world stays through it. A rebuild that fails drops the surface and logs;
-// the view stays blank until the host attaches a surface again. Render thread only.
+// Field Guide also latches it in failed(), as for a device failure, so the app reports it
+// rather than showing a blank view. Render thread only.
 class VulkanSplatRenderer final : public SplatRenderer {
  public:
   VulkanSplatRenderer(VulkanContext& ctx, VulkanFrameLoop& frameLoop);
@@ -63,8 +64,11 @@ class VulkanSplatRenderer final : public SplatRenderer {
   bool uploadTile(uint32_t offset, const splat::SplatCloud& cloud) override;
   std::optional<GpuWorldInfo> world() const override;
 
-  // The world, or only the clear colour without one.
+  // The world, or only the clear colour without one. False for a frame that was not submitted,
+  // and for every frame once the renderer failed.
   bool draw(const Frame& frame) override;
+  // Field Guide: true once the device, a frame, a surface rebuild or the visibility pass failed.
+  bool failed() const override;
   uint64_t submittedFrames() const override { return frameLoop_.lastSubmission(); }
   uint64_t completedFrames() override { return frameLoop_.completedSubmission(); }
   bool hasCompletedWorldFrame() {
@@ -72,7 +76,7 @@ class VulkanSplatRenderer final : public SplatRenderer {
   }
   // Reads the stats of frames the GPU finished, without waiting. Call once per vsync, drawn
   // or not: a still scene draws no later frame whose encode would read them.
-  void collectCompletedFrames();
+  void collectCompletedFrames() const;
   double lastGpuMillis() const override { return frameLoop_.lastGpuMillis(); }
   double lastSortMillis() const override { return compute_ ? compute_->stats().sortMillis : 0; }
   double lastCullMillis() const override { return compute_ ? compute_->stats().cullMillis : 0; }
@@ -85,6 +89,8 @@ class VulkanSplatRenderer final : public SplatRenderer {
   bool createPipelines();
   void rebuildPipelinesIfNeeded();
   void rebuildSurface(VulkanFrameLoop::Status status);
+  // Latches a surface call that dropped the surface; true when the surface was kept.
+  bool keepSurfaceIf(bool kept);
   void applyPolicyToCompute();
   // The frame compute pipelines, compiled by the first world load that needs them and kept for
   // every later one. Null when the device cannot run them.
@@ -106,6 +112,7 @@ class VulkanSplatRenderer final : public SplatRenderer {
   std::unique_ptr<VulkanFrameCompute> compute_;
   RenderPolicy policy_;
   WorldFrameCompletion worldFrameCompletion_;
+  bool failed_ = false;
 };
 
 }  // namespace splatkit

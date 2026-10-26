@@ -49,6 +49,15 @@ bool VulkanSurface::resize(uint32_t width, uint32_t height) {
   if (!sizeWait_.pending({current.width, current.height})) return true;
   LOGI("surface resized to %ux%u, swapchain was %ux%u", width, height, current.width,
        current.height);
+  // Field Guide draws into a TextureView, whose producer keeps its old buffer size until told,
+  // so the surface would keep reporting the old extent. Setting it first lets the rebuild
+  // follow the view's size.
+  if (width > 0 && height > 0 &&
+      ANativeWindow_setBuffersGeometry(window_, static_cast<int32_t>(width),
+                                       static_cast<int32_t>(height), 0) != 0) {
+    drop();
+    return false;
+  }
   return rebuildWhenSurfaceReportsWindowSize();
 }
 

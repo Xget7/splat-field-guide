@@ -4,7 +4,8 @@ import android.view.Surface
 import java.nio.ByteBuffer
 
 internal object SplatEngine {
-  external fun create(owner: HybridSplatView): Long
+  // `cacheDir` keeps the compiled Vulkan pipelines between launches; null compiles every launch.
+  external fun create(owner: HybridSplatView, cacheDir: String?): Long
   external fun destroy(id: Long)
   external fun surface(id: Long, surface: Surface?)
   external fun resize(id: Long, width: Int, height: Int)

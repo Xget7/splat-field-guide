@@ -32,23 +32,37 @@ VulkanSplatRenderer::~VulkanSplatRenderer() {
 }
 
 void VulkanSplatRenderer::setWindow(ANativeWindow* window) {
-  if (surface_.attach(window)) rebuildPipelinesIfNeeded();
+  if (keepSurfaceIf(surface_.attach(window))) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::onSurfaceResized(uint32_t width, uint32_t height) {
-  if (surface_.resize(width, height)) rebuildPipelinesIfNeeded();
+  if (keepSurfaceIf(surface_.resize(width, height))) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::setRenderScale(float scale) {
-  if (surface_.setRenderScale(scale)) rebuildPipelinesIfNeeded();
+  if (keepSurfaceIf(surface_.setRenderScale(scale))) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::setLinearBlending(bool linear) {
-  if (surface_.setLinearBlending(linear)) rebuildPipelinesIfNeeded();
+  if (keepSurfaceIf(surface_.setLinearBlending(linear))) rebuildPipelinesIfNeeded();
 }
 
 void VulkanSplatRenderer::setVsync(bool vsync) {
-  if (surface_.setVsync(vsync)) rebuildPipelinesIfNeeded();
+  if (keepSurfaceIf(surface_.setVsync(vsync))) rebuildPipelinesIfNeeded();
+}
+
+// Field Guide, as before the sync: a surface the renderer could not rebuild is reported, so
+// the app shows the failure instead of a view that stays blank.
+bool VulkanSplatRenderer::keepSurfaceIf(bool kept) {
+  if (!kept) failed_ = true;
+  return kept;
+}
+
+// Field Guide: also reads the stats of finished frames, so a visibility pass that reported a
+// bad input fails the renderer instead of drawing nothing.
+bool VulkanSplatRenderer::failed() const {
+  collectCompletedFrames();
+  return failed_ || frameLoop_.failed() || (compute_ && compute_->stats().status != 0);
 }
 
 DeviceCapabilities VulkanSplatRenderer::deviceCapabilities() const {
@@ -134,7 +148,6 @@ void VulkanSplatRenderer::adoptWorld(std::unique_ptr<VulkanWorld> world,
   world_ = std::move(world);
   compute_ = std::move(compute);
   applyPolicyToCompute();
-  splats_->bindWorld(*world_);
   worldFrameCompletion_.reset();
   // The surface and compute pipelines exist by now; with nothing newly compiled, saving only
   // compares the cache size.
@@ -217,7 +230,8 @@ bool VulkanSplatRenderer::uploadTile(uint32_t offset, const splat::SplatCloud& c
 }
 
 bool VulkanSplatRenderer::draw(const Frame& frame) {
-  if (!ready()) return false;
+  // A failed device keeps failing, and each try could wait out a fence timeout again.
+  if (failed_ || !ready()) return false;
   uint32_t imageIndex = 0;
   VkCommandBuffer cmd = VK_NULL_HANDLE;
   VulkanFrameLoop::Status status = [&] {
@@ -228,7 +242,10 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
     rebuildSurface(status);
     return false;
   }
-  if (status != VulkanFrameLoop::Status::ok) return false;
+  if (status != VulkanFrameLoop::Status::ok) {
+    failed_ = true;
+    return false;
+  }
 
   const VkExtent2D extent = surface_.drawExtent();
   const VkExtent2D view = surface_.viewExtent();
@@ -242,19 +259,21 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
                                             view, outputLinear, turns, policy_.subpixelThreshold);
     {
       const TraceSection section(trace::kEncodeCompute);
-      gpuDraw = compute_->encode(cmd, slot, camera, *world_->splats, *world_->sh,
-                                 std::clamp(frame.shDegree, 0, world_->shDegree), frame);
+      gpuDraw = compute_->encode(cmd, slot, camera, *world_->splats, *world_->labels,
+                                 *world_->sh, std::clamp(frame.shDegree, 0, world_->shDegree),
+                                 frame);
     }
-    if (gpuDraw)
+    if (gpuDraw) {
       splats_->bindProjected(slot, gpuDraw->projected, gpuDraw->order, gpuDraw->capacity);
-    else
+    } else {
+      failed_ = true;
       LOGE("GPU frame encode failed; submitting clear frame to preserve fence lifecycle");
-  } else if (world_ && !compute_ && frame.order != nullptr) {
-    world_->recordOrderUpload(cmd, slot, frame.order, frame.orderCount);
+    }
   }
 
+  // Field Guide clears to black, as before the sync: the app's backdrop sits behind the view.
   VkClearValue clear{};
-  clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
+  clear.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
   VkRenderPassBeginInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   pass.renderPass = surface_.activeRenderPass();
   pass.framebuffer = surface_.framebuffer(imageIndex);
@@ -274,16 +293,7 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   vkCmdSetViewport(cmd, 0, 1, &viewport);
   vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-  if (world_ && gpuDraw) {
-    splats_->drawProjected(cmd, slot, gpuDraw->arguments);
-  } else if (world_ && !compute_ && frame.orderSource == OrderSource::cpu) {
-    const uint32_t count = std::min(frame.drawCount, world_->count);
-    if (count > 0) {
-      camera_->update(slot, frame.view, frame.proj, frame.cameraPosition, view, outputLinear, turns,
-                      policy_.subpixelThreshold);
-    }
-    splats_->draw(cmd, slot, *world_, count, std::min(frame.shDegree, world_->shDegree));
-  }
+  if (world_ && gpuDraw) splats_->drawProjected(cmd, slot, gpuDraw->arguments);
 
   vkCmdEndRenderPass(cmd);
   surface_.blitIfScaled(cmd, imageIndex);
@@ -295,9 +305,13 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   }
   if (gpuDraw && frameLoop_.lastSubmission() != submittedBefore)
     compute_->submitted(slot, frameLoop_.lastSubmission());
-  const bool drewWorld =
-      world_ && (gpuDraw || (!compute_ && frame.orderSource == OrderSource::cpu &&
-                             std::min(frame.drawCount, world_->count) > 0));
+  if (status == VulkanFrameLoop::Status::error) {
+    // A command buffer that failed to end was never submitted, so the last submission belongs
+    // to an older frame; the engine must not wait on it as this one's.
+    failed_ = true;
+    return false;
+  }
+  const bool drewWorld = world_ && gpuDraw;
   if (drewWorld && (status == VulkanFrameLoop::Status::ok ||
                     status == VulkanFrameLoop::Status::swapchainSuboptimal)) {
     worldFrameCompletion_.submitted(frameLoop_.lastSubmission());
@@ -306,7 +320,7 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   return true;
 }
 
-void VulkanSplatRenderer::collectCompletedFrames() {
+void VulkanSplatRenderer::collectCompletedFrames() const {
   const uint64_t completed = frameLoop_.completedSubmission();
   if (compute_) compute_->collectCompleted(completed);
 }
@@ -331,18 +345,19 @@ bool VulkanSplatRenderer::createPipelines() {
     return false;
   }
   splats_ = std::move(splats.value());
-  if (world_) splats_->bindWorld(*world_);
   return true;
 }
 
 // After a surface call that left a swapchain up: only a changed format, or a surface that
 // just came back (teardown cleared `splats_`), needs new pipelines. A failed build leaves
-// no pipeline to draw with, so the surface is dropped and the view stays blank until the
-// host attaches a surface again; the failure is logged.
+// no pipeline to draw with, so the surface is dropped and, in Field Guide, the renderer
+// reports failed().
 void VulkanSplatRenderer::rebuildPipelinesIfNeeded() {
   if (!surface_.ready()) return;
   if (splats_ && pipelineFormat_ == surface_.activeFormat()) return;
-  if (!createPipelines()) surface_.drop();
+  if (createPipelines()) return;
+  surface_.drop();
+  failed_ = true;
 }
 
 // Runs every frame; a few comparisons when nothing was rebuilt.

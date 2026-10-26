@@ -65,8 +65,10 @@ class VulkanFrameCompute {
   };
   // Nullopt means encoding failed; caller must still submit/end its acquired frame.
   // `sh` holds the harmonics bands 1 to `shDegree` of every splat; degree 0 never reads it.
+  // `labels` is the world's label stream, styled by the frame's label styles and reveal.
   std::optional<Draw> encode(VkCommandBuffer cmd, uint32_t slot, VkBuffer camera,
-                             const VulkanBuffer& splats, const VulkanBuffer& sh, int shDegree,
+                             const VulkanBuffer& splats, const VulkanBuffer& labels,
+                             const VulkanBuffer& sh, int shDegree,
                              const SplatRenderer::Frame& frame);
   const Stats& stats() const { return stats_; }
   // The queue submission that carried the slot's last encode.
@@ -115,6 +117,9 @@ class VulkanFrameCompute {
   std::unique_ptr<VulkanVisibilityPass> visibility_;
   std::unique_ptr<VulkanRadixSort> radix_;
   std::array<std::unique_ptr<VulkanBuffer>, kFramesInFlight> ranges_, readback_;
+  // Field Guide: per slot, the GuideUniform the slot's visibility pass reads, written by the
+  // CPU only after the slot's fence, so a frame in flight keeps its styles and reveal.
+  std::array<std::unique_ptr<VulkanBuffer>, kFramesInFlight> guides_;
   std::array<VkQueryPool, kFramesInFlight> queries_{};
   std::array<bool, kFramesInFlight> pending_{};
   // Per slot, whether its selection ran under the policy in effect, so it may adapt.
