@@ -422,10 +422,12 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
 
   SplatRenderer::Frame frame;
   // Field Guide's renderers cull and sort on the GPU, and a single file world is one range.
+  // The renderer copies the ranges while it encodes, so the range lives only as long as the draw.
   frame.orderSource = SplatRenderer::OrderSource::gpu;
+  SplatRenderer::Range worldRange;
   if (const auto world = renderer_->world()) {
-    worldRange_ = {0, world->count};
-    frame.ranges = &worldRange_;
+    worldRange = {0, world->count};
+    frame.ranges = &worldRange;
     frame.rangeCount = 1;
   }
   frame.shDegree = shDegree_;
