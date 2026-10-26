@@ -17,12 +17,6 @@ bool validCloud(const splat::SplatCloud& cloud) {
          cloud.alphas.size() == n && (cloud.labels.empty() || cloud.labels.size() == n);
 }
 
-id<MTLBuffer> privateBuffer(id<MTLDevice> device, size_t bytes) {
-  if (bytes > device.maxBufferLength) return nil;
-  return [device newBufferWithLength:std::max<size_t>(bytes, 4)
-                             options:MTLResourceStorageModePrivate];
-}
-
 }
 
 std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLCommandQueue> queue,
@@ -35,13 +29,13 @@ std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, id<MTLComma
   const size_t splatBytes = cloud.count() * sizeof(GpuSplat);
   const size_t stride = world->shDegree_ > 0 ? shStride(world->shDegree_) : 0;
   const size_t shBytes = std::max(size_t{4}, cloud.count() * stride * sizeof(uint32_t));
-  world->splats_ = privateBuffer(device, splatBytes);
-  world->sh_ = privateBuffer(device, shBytes);
+  world->splats_ = metal::privateBuffer(device, splatBytes);
+  world->sh_ = metal::privateBuffer(device, shBytes);
   constexpr size_t chunk = 65536;
   id<MTLBuffer> stagingSplats =
-      metal::buffer(device, std::min(size_t{world->count_}, chunk) * sizeof(GpuSplat));
+      metal::sharedBuffer(device, std::min(size_t{world->count_}, chunk) * sizeof(GpuSplat));
   id<MTLBuffer> stagingSh =
-      metal::buffer(device, std::min(size_t{world->count_}, chunk) * stride * 4);
+      metal::sharedBuffer(device, std::min(size_t{world->count_}, chunk) * stride * 4);
   if (world->splats_ == nil || world->sh_ == nil || stagingSplats == nil || stagingSh == nil) {
     return nullptr;
   }

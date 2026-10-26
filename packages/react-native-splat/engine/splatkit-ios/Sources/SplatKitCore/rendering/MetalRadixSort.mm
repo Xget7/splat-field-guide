@@ -16,8 +16,8 @@ bool MetalRadixSort::create(id<MTLDevice> device, id<MTLLibrary> library) {
     LOGE("radix sort requires 32-lane SIMD groups");
     return false;
   }
-  totals_ = metal::buffer(device, kBins * sizeof(uint32_t));
-  dispatch_ = metal::buffer(device, 4 * sizeof(uint32_t));
+  totals_ = metal::privateBuffer(device, kBins * sizeof(uint32_t));
+  dispatch_ = metal::privateBuffer(device, 4 * sizeof(uint32_t));
   return prepare_ != nil && histogram_ != nil && scan_ != nil && scatter_ != nil &&
          totals_ != nil && dispatch_ != nil;
 }
@@ -28,9 +28,10 @@ bool MetalRadixSort::reserve(uint32_t capacity) {
   const size_t blocks = (size_t{capacity} + kBlock - 1) / kBlock;
   std::array<id<MTLBuffer>, 2> keys{};
   std::array<id<MTLBuffer>, 2> values{};
-  for (auto& key : keys) key = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t));
-  for (auto& value : values) value = metal::buffer(device_, size_t{capacity} * sizeof(uint32_t));
-  id<MTLBuffer> histogram = metal::buffer(device_, blocks * kBins * sizeof(uint32_t));
+  const size_t bytes = size_t{capacity} * sizeof(uint32_t);
+  for (auto& key : keys) key = metal::privateBuffer(device_, bytes);
+  for (auto& value : values) value = metal::privateBuffer(device_, bytes);
+  id<MTLBuffer> histogram = metal::privateBuffer(device_, blocks * kBins * sizeof(uint32_t));
   if (keys[0] == nil || keys[1] == nil || values[0] == nil || values[1] == nil ||
       histogram == nil) {
     LOGE("sort buffers for %u pairs failed", capacity);

@@ -43,7 +43,9 @@ id<MTLBuffer> cameraAtOrigin() {
   u.focal[0] = u.focal[1] = 500;
   u.tanHalfFov[0] = u.tanHalfFov[1] = 1;
   u.screenSize[0] = u.screenSize[1] = 1000;
-  return [Gpu::get().device newBufferWithBytes:&u length:sizeof(u) options:MTLResourceStorageModeShared];
+  return [Gpu::get().device newBufferWithBytes:&u
+                                        length:sizeof(u)
+                                       options:MTLResourceStorageModeShared];
 }
 
 id<MTLBuffer> styleBuffer(const LabelStyles& styles) {
@@ -72,17 +74,22 @@ class MetalVisibilityTest : public ::testing::Test {
     ASSERT_EQ(cmd.status, MTLCommandBufferStatusCompleted);
   }
 
+  std::vector<ProjectedSplat> projected(uint32_t count) const {
+    return Gpu::get().readback<ProjectedSplat>(visibility.projected(), count);
+  }
+
   std::vector<uint32_t> drawn(uint32_t slot) const {
-    const auto* order = static_cast<const uint32_t*>(visibility.order().contents);
-    const auto* projected = static_cast<const ProjectedSplat*>(visibility.projected().contents);
+    const uint32_t count = visibility.count(slot);
+    const auto order = Gpu::get().readback<uint32_t>(visibility.order(), count);
+    const auto splats = projected(count);
     std::vector<uint32_t> indices;
-    for (uint32_t i = 0; i < visibility.count(slot); ++i) indices.push_back(projected[order[i]].index);
+    for (const uint32_t i : order) indices.push_back(splats[i].index);
     return indices;
   }
 
   void expectBatchesCover(uint32_t slot, uint32_t survivors) const {
-    const auto* draws = static_cast<const MTLDrawPrimitivesIndirectArguments*>(
-        visibility.drawArguments(slot).contents);
+    const auto draws = Gpu::get().readback<MTLDrawPrimitivesIndirectArguments>(
+        visibility.drawArguments(slot), MetalVisibility::kDrawBatches);
     uint32_t next = 0;
     for (uint32_t b = 0; b < MetalVisibility::kDrawBatches; ++b) {
       EXPECT_EQ(draws[b].vertexCount, 4u);
@@ -104,12 +111,11 @@ TEST_F(MetalVisibilityTest, ProjectsEverySplatOfALargeWorldOnce) {
   ASSERT_TRUE(visibility.reserve(n));
   run(0, splats, n);
   ASSERT_EQ(visibility.count(0), n);
-  const auto* projected = static_cast<const ProjectedSplat*>(visibility.projected().contents);
   std::vector<bool> seen(n, false);
-  for (uint32_t i = 0; i < n; ++i) {
-    ASSERT_LT(projected[i].index, n);
-    ASSERT_FALSE(seen[projected[i].index]);
-    seen[projected[i].index] = true;
+  for (const ProjectedSplat& p : projected(n)) {
+    ASSERT_LT(p.index, n);
+    ASSERT_FALSE(seen[p.index]);
+    seen[p.index] = true;
   }
 }
 
@@ -175,9 +181,7 @@ TEST_F(MetalVisibilityTest, EachSplatTakesItsLabelsStyle) {
   ASSERT_TRUE(visibility.reserve(4));
   run(0, splats, 4);
   ASSERT_EQ(visibility.count(0), 3u);
-  const auto* projected = static_cast<const ProjectedSplat*>(visibility.projected().contents);
-  for (uint32_t i = 0; i < 3; ++i) {
-    const ProjectedSplat& p = projected[i];
+  for (const ProjectedSplat& p : projected(3)) {
     SCOPED_TRACE(p.index);
     const float red = halfAt(p.color0, 0);
     const float blue = halfAt(p.color1, 0);

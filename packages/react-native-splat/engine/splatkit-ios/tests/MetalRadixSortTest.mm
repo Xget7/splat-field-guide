@@ -17,14 +17,20 @@ struct Pair {
   bool operator==(const Pair& o) const { return key == o.key && value == o.value; }
 };
 
-std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs) {
-  Gpu& gpu = Gpu::get();
-  auto* keys = static_cast<uint32_t*>(v.keys().contents);
-  auto* values = static_cast<uint32_t*>(v.values().contents);
+void uploadPairs(MetalRadixSort& v, const std::vector<Pair>& pairs) {
+  std::vector<uint32_t> keys(pairs.size());
+  std::vector<uint32_t> values(pairs.size());
   for (size_t i = 0; i < pairs.size(); ++i) {
     keys[i] = pairs[i].key;
     values[i] = pairs[i].value;
   }
+  Gpu::get().upload(v.keys(), keys);
+  Gpu::get().upload(v.values(), values);
+}
+
+std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs) {
+  Gpu& gpu = Gpu::get();
+  uploadPairs(v, pairs);
   uint32_t count = static_cast<uint32_t>(pairs.size());
   id<MTLBuffer> countBuffer = [gpu.device newBufferWithBytes:&count
                                                       length:sizeof(count)
@@ -34,11 +40,10 @@ std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs) {
   [cmd commit];
   [cmd waitUntilCompleted];
   EXPECT_EQ(cmd.status, MTLCommandBufferStatusCompleted);
+  const auto keys = gpu.readback<uint32_t>(v.keys(), pairs.size());
+  const auto values = gpu.readback<uint32_t>(v.values(), pairs.size());
   std::vector<Pair> out(pairs.size());
-  for (size_t i = 0; i < pairs.size(); ++i) {
-    out[i] = {static_cast<const uint32_t*>(v.keys().contents)[i],
-              static_cast<const uint32_t*>(v.values().contents)[i]};
-  }
+  for (size_t i = 0; i < pairs.size(); ++i) out[i] = {keys[i], values[i]};
   return out;
 }
 
@@ -111,13 +116,7 @@ TEST_F(MetalRadixSortTest, SortsEveryTailLengthLikeAStableCpuSort) {
 TEST_F(MetalRadixSortTest, ReportsTheSortTimeOfFiveMillionKeys) {
   const size_t n = 5000000;
   ASSERT_TRUE(sort.reserve(n));
-  const auto pairs = randomPairs(n, 0xffffffffu, 5);
-  auto* keys = static_cast<uint32_t*>(sort.keys().contents);
-  auto* values = static_cast<uint32_t*>(sort.values().contents);
-  for (size_t i = 0; i < n; ++i) {
-    keys[i] = pairs[i].key;
-    values[i] = pairs[i].value;
-  }
+  uploadPairs(sort, randomPairs(n, 0xffffffffu, 5));
   uint32_t count = static_cast<uint32_t>(n);
   id<MTLBuffer> countBuffer = [Gpu::get().device newBufferWithBytes:&count
                                                              length:sizeof(count)
@@ -131,8 +130,8 @@ TEST_F(MetalRadixSortTest, ReportsTheSortTimeOfFiveMillionKeys) {
     best = std::min(best, (cmd.GPUEndTime - cmd.GPUStartTime) * 1000.0);
     // The result is in place after an even number of passes: sort it again as is.
   }
-  const auto* sorted = static_cast<const uint32_t*>(sort.keys().contents);
-  EXPECT_TRUE(std::is_sorted(sorted, sorted + n));
+  const auto sorted = Gpu::get().readback<uint32_t>(sort.keys(), n);
+  EXPECT_TRUE(std::is_sorted(sorted.begin(), sorted.end()));
   printf("[ sort     ] %zu keys: %.2f ms on %s\n", n, best, Gpu::get().device.name.UTF8String);
 }
 

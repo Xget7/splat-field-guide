@@ -8,8 +8,8 @@
 namespace splatkit {
 
 // Stable ascending key/value sort returns results in its input buffers.
-// Reserve while idle and keep the GPU count within capacity; shared scratch and its consumers use
-// one render queue.
+// Reserve while idle and keep the GPU count within capacity; the one set of scratch buffers and its
+// consumers use one render queue.
 class MetalRadixSort {
  public:
   bool create(id<MTLDevice> device, id<MTLLibrary> library);

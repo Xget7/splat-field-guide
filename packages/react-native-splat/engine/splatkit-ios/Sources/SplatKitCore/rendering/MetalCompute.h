@@ -27,10 +27,19 @@ inline id<MTLComputePipelineState> pipeline(id<MTLDevice> device, id<MTLLibrary>
   return state;
 }
 
-inline id<MTLBuffer> buffer(id<MTLDevice> device, size_t bytes,
-                            MTLResourceOptions options = MTLResourceStorageModeShared) {
+inline id<MTLBuffer> buffer(id<MTLDevice> device, size_t bytes, MTLResourceOptions options) {
   if (bytes > device.maxBufferLength) return nil;
   return [device newBufferWithLength:std::max<size_t>(bytes, 16) options:options];
+}
+
+// For buffers the CPU writes or reads back; everything else stays private to the GPU.
+inline id<MTLBuffer> sharedBuffer(id<MTLDevice> device, size_t bytes) {
+  return buffer(device, bytes, MTLResourceStorageModeShared);
+}
+
+// Private contents start undefined, so the GPU must write them before any kernel reads them.
+inline id<MTLBuffer> privateBuffer(id<MTLDevice> device, size_t bytes) {
+  return buffer(device, bytes, MTLResourceStorageModePrivate);
 }
 
 }
