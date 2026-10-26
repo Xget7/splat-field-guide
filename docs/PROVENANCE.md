@@ -7,8 +7,8 @@ Shipped dependency terms and full license texts are indexed in [third-party noti
 
 | Material | Source identity |
 | --- | --- |
-| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `62cee54d884bd20c7dd450e8e6525e3d4c0e1652`, integrated revision `a28c8cc4e89fb0b40d98691f40fc8472870dda4c`; [retained license](../packages/react-native-splat/engine/LICENSE) |
-| SplatKit Vulkan/Nitro Android | [Xget7/splatkit revision 56524cf](https://github.com/Xget7/splatkit/tree/56524cfbcc4aac81f71405ad8c19d4f90420ab3d), imported surface, buffers, visibility, radix sorting and rendering with a Field Guide Kotlin/JNI binding; MIT under the retained SplatKit license |
+| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `9a1fd04af6a544bc3c0ffd225682f1e94dff8afb`, with LOD tree building, `.lodsplat` loading and GPU LOD selection; [retained license](../packages/react-native-splat/engine/LICENSE) |
+| SplatKit Vulkan/Nitro Android | [Xget7/splatkit revision 9a1fd04](https://github.com/Xget7/splatkit/tree/9a1fd04af6a544bc3c0ffd225682f1e94dff8afb), imported surface, buffers, GPU LOD selection, visibility, radix sorting and rendering with a Field Guide Kotlin/JNI binding; MIT under the retained SplatKit license |
 | vk-bootstrap | [v1.4.307](https://github.com/charles-lunarg/vk-bootstrap/tree/v1.4.307), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/vk-bootstrap.txt) |
 | Vulkan Memory Allocator | [v3.2.1](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/tree/v3.2.1), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/VulkanMemoryAllocator.txt) |
 | PicoSHA2 | [revision 161cb3f](https://github.com/okdshin/PicoSHA2/tree/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29), standalone Android SHA-256 header; [MIT license](../packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE) |
@@ -53,10 +53,10 @@ The SAM license restricts military, warfare and ITAR-related uses; review those 
 | Capture identity | Ordered photograph names/bytes/digests in [tracker cameras](../pipeline/pack/cameras.json), with the local ingest receipt |
 | Guide content | Authored under the root license, with [source qualifications](../content/gol-trend-engine-bay/SOURCES.md) and owner review requirements |
 | Masks | Eight-part reviewed prompts/keyframes; accepted revisions bind captures and imported byte identities have explicit receipt limits |
-| Pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) binds cloud/labels and source identities to the part mapping |
+| Pack | [Pinned manifest](../content/gol-trend-engine-bay/manifest.json) binds the LOD tree, its node labels and source identities to the part mapping |
 | AR | Author-supplied Object Capture/Create ML output and reviewed landmark picks, with physical alignment acceptance pending |
 | V8 assembly | "V8 Engine" by little.bucket, CC BY-NC 4.0; [pinned source/prepared identities and order](../apps/field-guide/assets/ar/v8-engine.json), with final-pose baking and original geometry/materials retained |
 
 Exact producing COLMAP/Brush settings and SAM checkpoint identities are required for deterministic reproduction; byte identity alone does not recover execution settings.
-The Vulkan import excludes LOD, streaming, render policy and CPU sorting; its [source receipt](../packages/react-native-splat/engine/splatkit-android/UPSTREAM) identifies the retained files.
-The retained engine contains guide-specific label-aware loading/filtering, picking, highlight and camera behaviour; its imported-source identity and license must accompany redistribution.
+The Vulkan import excludes streaming, render policy and CPU sorting; its [source receipt](../packages/react-native-splat/engine/splatkit-android/UPSTREAM) identifies the retained files.
+The retained engine contains guide-specific labelled tree building and loading, picking, highlight and camera behaviour; its imported-source identity and license must accompany redistribution.

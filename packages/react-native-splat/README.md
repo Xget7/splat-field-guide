@@ -11,19 +11,21 @@ Loading runs once per guide on a worker thread; drawing runs on a render thread 
 flowchart TB
   subgraph Load["Load, worker thread"]
     direction LR
-    map["Memory-map<br/>SPZ, labels"] --> verify["Check SHA-256<br/>and count"]
-    verify --> decode["Decode SPZ v3<br/>drop haze"]
-    decode --> index["Reorder, pick<br/>index, upload"]
+    map["Memory-map<br/>tree, labels"] --> verify["Check SHA-256<br/>and counts"]
+    verify --> decode["Decode<br/>LOD tree"]
+    decode --> index["Pick index,<br/>upload"]
   end
   subgraph Frame["Each changed frame, render thread"]
     direction LR
-    camera["Orbit<br/>camera"] --> cull["GPU cull,<br/>depth keys"]
+    camera["Orbit<br/>camera"] --> select["GPU LOD cut,<br/>splat budget"]
+    select --> cull["GPU cull,<br/>depth keys"]
     cull --> sort["GPU radix<br/>sort"]
-    sort --> draw["Draw, SH 3,<br/>part tint"]
+    sort --> draw["Draw, SH,<br/>part tint"]
   end
   Load --> Frame
 ```
 
+- Each frame draws the coarsest cut of the tree that keeps splats within a pixel of the leaves, capped at 1,600,000 splats, so close views reach the leaves and wide views draw merged nodes.
 - Gestures run as UI-thread worklets that call the engine synchronously through Nitro.
 - A tap returns the part label that contributes most to that pixel; the renderer brightens that part, dims the rest and frames it.
 - Metal composites front to back into a half-float target; Vulkan composites back to front into a scaled offscreen target.
@@ -39,7 +41,7 @@ The podspec rejects missing/stale artifacts and directs the caller to repository
 
 | Interface | Contract |
 | --- | --- |
-| [SplatView](src/SplatView.nitro.ts) | One engine per view; local SPZ/labels paths, manifest digests and expected source count |
+| [SplatView](src/SplatView.nitro.ts) | One engine per view; local `.lodsplat` tree and node-label paths, manifest digests and the expected leaf count |
 | `onReady` / `onError` | Ready after the accepted cloud's first GPU frame; failure retains the accepted cloud |
 | `orbit`, `dolly`, `frame` | Worklet calls enqueue render-thread mutations; radians and metres |
 | `pick` | Worker-backed asynchronous part-label result |
@@ -54,17 +56,17 @@ Spatial placement requires detected horizontal plane geometry and normal camera 
 The native assembly state machine preserves the authored hierarchy/transforms and reports the completed prefix, command identity and phase.
 Assembly translations take 1.35 seconds per part or repeated fastener/spring group; every controller in a group must finish before matching playback completion advances the sequence.
 A new forward command during active assembly completes its preceding target immediately before animating the new target; later parts stay hidden until their turn.
-The loader checks mapped-file digests and decoded source count on its worker before accepting content.
+The loader checks mapped-file digests and the tree's leaf and node counts on its worker before accepting content.
 Dropping a view detaches callbacks and stops its render thread; outstanding calls retain the engine until completion.
 C callbacks run on the reporting thread and must not wait for another engine call.
 
 ## Android adapter
 
 [The Vulkan adapter](engine/splatkit-android) implements the same `sfg` rendering interface with GPU visibility, radix sorting and splat rasterization.
-Label-aware filtering/reordering, picking and camera behaviour stay in the shared core; Vulkan applies the same tint, dimming and reveal parameters as Metal.
+Tree loading, picking and camera behaviour stay in the shared core; Vulkan applies the same tint, dimming and reveal parameters as Metal.
 The [Kotlin Nitro view](android/src/main/java/com/margelo/nitro/splat/HybridSplatView.kt) owns a TextureView, a render HandlerThread and worker-backed loading.
 Choreographer schedules frames while the shared core needs them and pauses on inactivity or detachment.
-Bundled assets become app-private files after manifest identity, size and SHA-256 checks; the core verifies the supplied digests and decoded source count before acceptance.
+Bundled assets become app-private files after manifest identity, size and SHA-256 checks; the core verifies the supplied digests and the tree's counts before acceptance.
 Gradle/CMake build the adapter and embed compiled shaders without an iOS framework.
 The Android viewer and its native dependencies are optimised in every variant, including Debug, while React Native Debug stays debuggable.
 Android hashing selects ARMv8 SHA-256 instructions when the CPU supports them and uses a bounded PicoSHA2 fallback; iOS uses CommonCrypto.

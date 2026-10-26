@@ -65,11 +65,14 @@ Lifting consistency does not establish correct physical annotations.
 [export.py](../pipeline/pack/export.py) crops/transforms cloud and labels together, including covariance and spherical harmonics.
 Photo acceleration supplies gravity; an approximate 0.242 m battery dimension supplies scale, pending measurement on the real equipment.
 The retained export report is `data/pack/gol-trend-engine-bay/1.report.json`.
-The [pinned manifest](../content/gol-trend-engine-bay/manifest.json) records 2498597 source splats, a 63040843-byte cloud and 2498613-byte labels.
+The [pinned manifest](../content/gol-trend-engine-bay/manifest.json) records 2438073 leaves and 2731791 nodes, a 301729408-byte SH1 tree and 2731807-byte node labels.
+On 2026-10-26, `export.py --rebuild-tree` rebuilt the tree from the exported 2498597-splat cloud and labels on the Mac's M4 Pro: `splat_lod_build` removed 22756 haze and 37768 sparse splats and built in 1.69 s, the whole rebuild took about 2.9 s at 1.17 GB peak memory, and a second build was byte-identical.
+The tree's SHA-256 is `87d7032b11bc39d8ab127dc540c4b349bc806f0646b67b5cedfcd8b7ec4134bb` and the node labels' is `5de528f44a5378dbbcd92f1f15997ccb47efe0ccffe9ffb4b375e7e85bee4420`.
+The lifting report and source artifacts were absent, so the source-backed export checks did not run; the tree and node-label checks passed.
 [export_checks.py](../pipeline/pack/export_checks.py) validates the app parser, digests, binary layout, source correspondence and bounds before publication.
 Full source verification requires `publication.json` and the artifacts named by `manifest.sources`; a release archive omits these inputs.
 [scripts/package-pack.sh](../scripts/package-pack.sh) creates the archive/checksum; [scripts/prepare.sh](../scripts/prepare.sh) verifies/reuses its files and prepares native, speech, JS and Ruby dependencies.
-The bundled version is `data/pack/gol-trend-engine-bay/1`; runtime resources contain only the manifest and its cloud/labels files.
+The bundled version is `data/pack/gol-trend-engine-bay/1`; runtime resources contain only the manifest and its tree and node-label files.
 Two preparation runs passed with clean tracked state after the second; published clean-clone acquisition remains open.
 
 ## Viewer and Nitro checks
@@ -86,6 +89,9 @@ On 2026-10-26, `splat_snapshot` compared the Metal renderer of the SplatKit 9a1f
 Median GPU time per settled frame was 17.4 ms on main (14.0 ms render, 3.5 ms cull and sort, range 16.2 to 21.9 ms) and 12.8 ms on the sync (9.4 ms render, 3.1 ms cull and sort, range 11.9 to 14.2 ms).
 The sync draws 2143581 of the 2438073 splats against main's 2323573, because upstream culls peaks below 2/255 and quads outside the view without main's 20 percent margin; the plain and highlighted captures look the same.
 These single Mac frames are evidence for the sync, not iPad performance acceptance.
+On 2026-10-26, the SH1 tree drew on the Mac's M4 Pro through `splat_snapshot`: 1529521 to 1553690 of 2731791 nodes at wide poses under the 1600000-splat budget, 491824 at a 0.4 m close-up with no quality-limited refinements, at about 6 to 10 ms GPU time and 663 MB peak memory; picks named the coolant reservoir, fuse box, valve cover and brake fluid reservoir.
+The same day a Debug iPad simulator build loaded the tree with 2438073 leaves, first frame at 2.7 s, highlighted the engine in a wide view and picked and framed the coolant reservoir; the app does not show the drawn count.
+Physical iPhone and iPad orbit and performance, and Android drawing of the tree, remain unchecked.
 
 ## Android
 

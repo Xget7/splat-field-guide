@@ -3,7 +3,7 @@ Origin: https://github.com/Xget7/splatkit, packages/splatkit-ios
 License: MIT, ../LICENSE
 Imported folders: Sources/SplatKitCore/rendering/metal with cull, device, diagnostics, frame, layout, presentation, raster, selection, sort and world, and cmake.
 Imported tests: MetalContextTest, MetalFrameCaptureTest, MetalFrameComputeTest, MetalFrameLoopTest, MetalRadixSortTest, MetalRenderTargetTest, MetalSurfaceTest, MetalUpscalerTest, MetalVisibilityPassTest, MetalWorldTest, support/MetalTestContext.h and support/MetalVisibilityRig.h.
-Left out: Sources/SplatKit Swift views, Sources/SplatKitCore engine, diagnostics and include, distribution, the other tests and CMake.
+Left out: README.md, Sources/SplatKit Swift views, Sources/SplatKitCore engine, diagnostics and include, distribution, the other tests and CMake.
 Field Guide keeps its own CMake, sfg_metal, rendering/metal/guide, rendering/metal/backdrop, tools/splat_snapshot.mm, MetalRasterTest and SfgMetalTest.
 The engine's load replacement race fix lives in Field Guide's own SplatEngine, so no Metal file carries it.
 Field Guide patches:

@@ -3,7 +3,7 @@ Origin: https://github.com/Xget7/splatkit, packages/splatkit-android
 License: MIT, ../LICENSE
 Imported folders: src/main/cpp/rendering/vulkan as rendering/vulkan, with cull, device, frame, layout, presentation, raster, selection, sort and world.
 Also imported: src/main/cpp/engine/TraceSection.h as engine/TraceSection.h, src/main/cpp/cmake as cmake, and tests as tests.
-Left out: raster/splat.vert, the CPU-order path, the rest of src/main/cpp engine, jni, Kotlin, resources, docs and Gradle.
+Left out: raster/splat.vert, the CPU-order path, the rest of src/main/cpp engine, jni, src/main/cpp/splatkit.map, Kotlin with its src/test tests, resources, src/main/AndroidManifest.xml, consumer-rules.pro, README.md, docs and Gradle.
 Field Guide keeps its own sfg_vulkan and CMakeLists.txt, which also builds tests with SPLATKIT_ANDROID_BUILD_TESTS.
 Dependencies: vk-bootstrap v1.4.307, VulkanMemoryAllocator v3.2.1.
 Dependency notices: licenses/, also bundled in the Android APK.
