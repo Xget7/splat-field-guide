@@ -21,8 +21,7 @@ engine="$package/engine"
 build="${SPLAT_IOS_BUILD_DIR:-$package/build/ios-engine}"
 jobs="${SPLAT_BUILD_JOBS:-$(sysctl -n hw.ncpu)}"
 output="$package/ios/Frameworks/SplatKitCore.xcframework"
-# React Native's own minimum; the renderer itself needs an A14 GPU, which it checks at run time.
-deployment_target=15.1
+deployment_target="$(ruby "$identity" --deployment-target)"
 sdks=(iphoneos iphonesimulator)
 
 for sdk in "${sdks[@]}"; do

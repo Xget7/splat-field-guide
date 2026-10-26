@@ -6,6 +6,9 @@ module EngineArtifact
   FRAMEWORK = "ios/Frameworks/SplatKitCore.xcframework"
   SOURCE_EXTENSIONS = %w[.cpp .c .h .hpp .mm .m .metal .metalh .cmake .modulemap].freeze
   SLICES = %w[ios-arm64 ios-arm64-simulator].freeze
+  # SplatKit's own minimum, above React Native's, for the MetalFX spatial scaler and the Metal
+  # API the renderer uses; the renderer also needs an A14 GPU, which it checks at run time.
+  DEPLOYMENT_TARGET = "17.0"
 
   def self.fingerprint(package)
     # Android sources, build trees and tests never reach the iOS framework.
@@ -44,11 +47,13 @@ if $PROGRAM_NAME == __FILE__
     puts EngineArtifact.fingerprint(package)
   when "--verify"
     EngineArtifact.verify!(package)
+  when "--deployment-target"
+    puts EngineArtifact::DEPLOYMENT_TARGET
   when "--record"
     output, fingerprint = ARGV
     raise "Expected a framework path and source fingerprint" unless output && fingerprint&.match?(/\A[0-9a-f]{64}\z/)
     File.write(File.join(output, EngineArtifact::FINGERPRINT_FILE), "#{fingerprint}\n")
   else
-    abort "Usage: engine-artifact.rb [--verify | --record <framework> <fingerprint>]"
+    abort "Usage: engine-artifact.rb [--verify | --deployment-target | --record <framework> <fingerprint>]"
   end
 end

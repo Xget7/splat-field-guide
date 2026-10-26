@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/xget7/splat-field-guide"
   s.license      = "MIT"
   s.authors      = "Xget7"
-  s.platforms    = { :ios => min_ios_version_supported }
+  s.platforms    = { :ios => EngineArtifact::DEPLOYMENT_TARGET }
   s.source       = { :git => "https://github.com/xget7/splat-field-guide.git", :tag => "#{s.version}" }
 
   engine = "ios/Frameworks/SplatKitCore.xcframework"
