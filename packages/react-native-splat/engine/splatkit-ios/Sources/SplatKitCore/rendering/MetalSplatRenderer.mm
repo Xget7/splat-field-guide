@@ -80,8 +80,8 @@ std::unique_ptr<MetalSplatRenderer> MetalSplatRenderer::create() {
   }
   if (r->queue_ == nil) return nullptr;
   for (uint32_t slot = 0; slot < kFramesInFlight; ++slot) {
-    r->uniforms_[slot] = metal::sharedBuffer(r->device_, sizeof(CameraUniform));
-    r->labelStyles_[slot] = metal::sharedBuffer(r->device_, sizeof(LabelStyles));
+    r->uniforms_[slot] = metal::buffer(r->device_, sizeof(CameraUniform));
+    r->labelStyles_[slot] = metal::buffer(r->device_, sizeof(LabelStyles));
     if (r->uniforms_[slot] == nil || r->labelStyles_[slot] == nil) return nullptr;
   }
   if (!r->visibility_.create(r->device_, r->library_)) {

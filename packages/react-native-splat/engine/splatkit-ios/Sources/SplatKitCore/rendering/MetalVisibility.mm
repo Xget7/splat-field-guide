@@ -21,8 +21,8 @@ bool MetalVisibility::create(id<MTLDevice> device, id<MTLLibrary> library) {
   }
   prepareDraw_ = metal::pipeline(device, library, "prepareDrawArguments");
   for (uint32_t slot = 0; slot < kSlots; ++slot) {
-    count_[slot] = metal::sharedBuffer(device, sizeof(uint32_t));
-    drawArguments_[slot] = metal::privateBuffer(device, kDrawBatches * kDrawArgumentBytes);
+    count_[slot] = metal::buffer(device, sizeof(uint32_t));
+    drawArguments_[slot] = metal::buffer(device, kDrawBatches * kDrawArgumentBytes);
     ok = ok && count_[slot] != nil && drawArguments_[slot] != nil;
   }
   return ok && prepareDraw_ != nil && sort_.create(device, library);
@@ -31,8 +31,7 @@ bool MetalVisibility::create(id<MTLDevice> device, id<MTLLibrary> library) {
 bool MetalVisibility::reserve(uint32_t capacity) {
   capacity = std::max(capacity, 1u);
   if (capacity <= capacity_) return true;
-  id<MTLBuffer> projected =
-      metal::privateBuffer(device_, size_t{capacity} * sizeof(ProjectedSplat));
+  id<MTLBuffer> projected = metal::buffer(device_, size_t{capacity} * sizeof(ProjectedSplat));
   if (projected == nil || !sort_.reserve(capacity)) {
     LOGE("visibility buffers for %u splats failed", capacity);
     return false;
