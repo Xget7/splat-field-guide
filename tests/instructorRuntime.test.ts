@@ -20,7 +20,7 @@ import type { AppEvents } from '../apps/field-guide/src/features/events/types';
 import { foregroundAppState, voiceEvents } from './voiceSession';
 import { SwitchLabel } from '../apps/field-guide/src/features/instructor/mode/modeCopy';
 import { fixturePack } from './fixturePack';
-import { createInstructorRuntime } from '../apps/field-guide/src/app/instructorRuntime';
+import { createInstructorRuntime } from '../apps/field-guide/src/features/instructor/runtime/instructorRuntime';
 import type { NetworkPath } from 'react-native-on-device';
 import {
   PROBE_INTERVAL_MS,

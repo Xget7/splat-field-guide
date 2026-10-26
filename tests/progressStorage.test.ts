@@ -3,7 +3,7 @@ import {
   clearProgress,
   loadProgress,
   saveProgress,
-} from '../apps/field-guide/src/app/progressStorage';
+} from '../apps/field-guide/src/app/storage/progressStorage';
 
 const good = {
   guideId: 'gol-trend-engine-bay',

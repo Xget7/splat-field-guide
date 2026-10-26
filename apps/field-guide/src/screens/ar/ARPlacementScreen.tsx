@@ -4,8 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
 import { ARPlacementView, type ARPlacementEvent } from 'react-native-splat';
 import { findReadyGuide } from '../../features/pack/catalog';
-import { useCatalog } from '../../app/CatalogContext';
-import { Route, type ScreenProps } from '../../app/routes';
+import { useCatalog } from '../../app/context/CatalogContext';
+import { Route, type ScreenProps } from '../../app/navigation/routes';
 import {
   Button,
   ButtonVariant,

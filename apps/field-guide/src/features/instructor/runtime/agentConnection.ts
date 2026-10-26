@@ -1,5 +1,5 @@
-import { fetchSignedUrl } from '../features/instructor/agent/agentClient';
-import { VoiceStartFailure } from '../features/instructor/voice/voiceSession';
+import { fetchSignedUrl } from '../agent/agentClient';
+import { VoiceStartFailure } from '../voice/voiceSession';
 
 export const SIGNED_URL_REUSE_MS = 600000;
 export function createAgentConnection({

@@ -1,4 +1,4 @@
-import { LearnMode } from '../../app/routes';
+import { LearnMode } from '../../app/navigation/routes';
 import { IconName } from '../../ui/Icon';
 
 export const MODE_OPTIONS = [

@@ -6,7 +6,7 @@ import {
 } from '../../features/guide/session';
 import type { ReadyGuide } from '../../features/pack/catalog';
 import { sessionForExchange } from '../../features/instructor/turn';
-import type { InstructorRuntime } from '../../app/instructorRuntime';
+import type { InstructorRuntime } from '../../features/instructor/runtime/instructorRuntime';
 import { stepKeyFor } from '../../features/instructor/voice/voiceSession';
 import {
   UtteranceKind,
@@ -17,7 +17,7 @@ import {
   useInstructorVoice,
   type Utterance,
 } from '../../features/instructor/voice/useInstructorVoice';
-import { clearProgress, saveProgress } from '../../app/progressStorage';
+import { clearProgress, saveProgress } from '../../app/storage/progressStorage';
 import { cardContentFor } from './guideContent';
 import {
   answeredExchanges,

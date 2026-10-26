@@ -5,13 +5,13 @@ import {
   catalogFor,
   type ReadyGuide,
 } from '../apps/field-guide/src/features/pack/catalog';
-import { CatalogProvider } from '../apps/field-guide/src/app/CatalogContext';
+import { CatalogProvider } from '../apps/field-guide/src/app/context/CatalogContext';
 import { TOUR_ID } from '../apps/field-guide/src/features/guide/tour';
 import {
   LearnMode,
   Route,
   type ScreenProps,
-} from '../apps/field-guide/src/app/routes';
+} from '../apps/field-guide/src/app/navigation/routes';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 import { procedureRowsFor } from '../apps/field-guide/src/features/guide/procedureRows';
 import { GuideDetailScreen } from '../apps/field-guide/src/screens/guide-detail/GuideDetailScreen';

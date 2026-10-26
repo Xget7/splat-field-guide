@@ -8,23 +8,23 @@ import {
   InstructorMode,
   VoiceSource,
   type ModeStatus,
-} from '../features/events/types';
-import type { AgentClient } from '../features/instructor/agent/agentClient';
+} from '../../events/types';
+import type { AgentClient } from '../agent/agentClient';
 import {
   createAgentVoiceSession,
   type SessionAgentHandlers,
-} from '../features/instructor/voice/agentVoiceSession';
-import { createFallbackVoiceSession } from '../features/instructor/voice/fallbackVoiceSession';
-import { createPipelineVoiceSession } from '../features/instructor/voice/pipelineVoiceSession';
-import { recognitionHintsFor } from '../features/instructor/voice/recognitionHints';
-import { SpeechVoice } from '../features/instructor/voice/voiceCopy';
+} from '../voice/agentVoiceSession';
+import { createFallbackVoiceSession } from '../voice/fallbackVoiceSession';
+import { createPipelineVoiceSession } from '../voice/pipelineVoiceSession';
+import { recognitionHintsFor } from '../voice/recognitionHints';
+import { SpeechVoice } from '../voice/voiceCopy';
 import type {
   VoiceConnection,
   VoiceSession,
   VoiceStartFailure,
   VoicePrompt,
-} from '../features/instructor/voice/voiceSession';
-import type { Pack } from '../features/pack/pack';
+} from '../voice/voiceSession';
+import type { Pack } from '../../pack/pack';
 
 interface SessionDependencies {
   input: typeof speechInput;

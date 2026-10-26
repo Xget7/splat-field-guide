@@ -28,7 +28,7 @@ import {
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
 import { createModelInstructor } from '../apps/field-guide/src/features/instructor/models/modelInstructor';
-import { InstructorRuntimeContext } from '../apps/field-guide/src/app/InstructorRuntimeContext';
+import { InstructorRuntimeContext } from '../apps/field-guide/src/app/context/InstructorRuntimeContext';
 import {
   fakeVoiceSession,
   fakeVoiceRuntime,
@@ -38,10 +38,10 @@ import type { VoiceSessionEvents } from '../apps/field-guide/src/features/instru
 import {
   createInstructorRuntime,
   type InstructorRuntime,
-} from '../apps/field-guide/src/app/instructorRuntime';
+} from '../apps/field-guide/src/features/instructor/runtime/instructorRuntime';
 import { fixturePack } from './fixturePack';
 import { catalogFor } from '../apps/field-guide/src/features/pack/catalog';
-import { CatalogProvider } from '../apps/field-guide/src/app/CatalogContext';
+import { CatalogProvider } from '../apps/field-guide/src/app/context/CatalogContext';
 import { highlightFor } from '../apps/field-guide/src/features/guide/derive';
 import type { ProcedureId } from '../apps/field-guide/src/features/pack/pack';
 import { SessionEventType } from '../apps/field-guide/src/features/guide/session';
@@ -51,10 +51,10 @@ import {
   Route,
   type RootStackParamList,
   type ScreenProps,
-} from '../apps/field-guide/src/app/routes';
+} from '../apps/field-guide/src/app/navigation/routes';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 import { continueRowFor } from '../apps/field-guide/src/screens/library/library';
-import { loadProgress } from '../apps/field-guide/src/app/progressStorage';
+import { loadProgress } from '../apps/field-guide/src/app/storage/progressStorage';
 import {
   ViewerScreen,
   type FieldGuideDebug,

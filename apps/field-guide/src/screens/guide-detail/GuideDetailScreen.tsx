@@ -9,11 +9,15 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CATEGORY_TITLE, findReadyGuide } from '../../features/pack/catalog';
-import { offersArCheck } from '../../app/arCheck';
-import { useCatalog } from '../../app/CatalogContext';
+import { offersArCheck } from '../../app/navigation/arCheck';
+import { useCatalog } from '../../app/context/CatalogContext';
 import type { ProcedureId } from '../../features/pack/pack';
 import { TOUR_ID } from '../../features/guide/tour';
-import { LearnMode, Route, type ScreenProps } from '../../app/routes';
+import {
+  LearnMode,
+  Route,
+  type ScreenProps,
+} from '../../app/navigation/routes';
 import { Button, IconButton, IconButtonVariant } from '../../ui/Button';
 import { ModelPreview, Turns } from '../../features/viewport/ModelPreview';
 import { Backdrop, FadingPhoto, Spotlight } from '../../ui/Gradients';

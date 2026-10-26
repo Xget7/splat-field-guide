@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
-import { InstructorRuntimeContext } from './app/InstructorRuntimeContext';
-import { instructorRuntime } from './app/instructorRuntime';
+import { InstructorRuntimeContext } from './app/context/InstructorRuntimeContext';
+import { createInstructorRuntime } from './features/instructor/runtime/instructorRuntime';
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RootNavigator } from './app/RootNavigator';
+import { RootNavigator } from './app/navigation/RootNavigator';
 import { bundledPack } from './features/pack/bundledPack';
-import { PackErrorScreen } from './app/PackErrorScreen';
+import { PackErrorScreen } from './screens/pack-error/PackErrorScreen';
 import { Color } from './ui/theme';
+
+const instructorRuntime = createInstructorRuntime();
 
 function App() {
   useEffect(() => {

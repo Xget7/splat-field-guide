@@ -34,9 +34,9 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 
 | Unit | Owns |
 | --- | --- |
-| `src/App.tsx`, `src/app` | Startup, navigation, catalog context and the native progress adapter |
+| `src/App.tsx`, `src/app` | Startup, navigation, shared contexts and the native progress adapter |
 | `src/features/pack`, `src/features/guide` | Pure pack parsing/catalog and session, tour, progress, highlight and framing rules |
-| `src/features/instructor` | Command routing, turns, authored grounding, model adapters and voice |
+| `src/features/instructor` | Command routing, turns, authored grounding, model adapters, voice and the runtime that wires them to speech, network and modes |
 | `src/features/viewport` | Native viewer readiness, gestures, camera conversion, framing and projected markers |
 | `src/screens`, `src/ui` | Screen composition and view models, then business-free presentation primitives |
 | `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views, iOS spatial placement/assembly and provisional AR alignment |

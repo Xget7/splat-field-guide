@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Backdrop } from '../ui/Gradients';
-import { Icon, IconName } from '../ui/Icon';
-import { Label } from '../ui/Label';
-import { Color, Space, Type } from '../ui/theme';
+import { Backdrop } from '../../ui/Gradients';
+import { Icon, IconName } from '../../ui/Icon';
+import { Label } from '../../ui/Label';
+import { Color, Space, Type } from '../../ui/theme';
 
 const ICON_SIZE = 20;
 

@@ -1,5 +1,5 @@
 import type { AppStateStatus } from 'react-native';
-import { createInstructorForeground } from '../apps/field-guide/src/app/instructorForeground';
+import { createInstructorForeground } from '../apps/field-guide/src/features/instructor/runtime/instructorForeground';
 
 test('applies a real background only after the last system prompt settles, even on rejection', async () => {
   let state: AppStateStatus = 'active';

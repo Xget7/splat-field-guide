@@ -10,26 +10,17 @@ import {
   VoiceSource,
   type ModeSources,
   type ModeStatus,
-} from '../features/events/types';
-import type { Pack } from '../features/pack/pack';
-import type { InstructorModel } from '../features/instructor/models/InstructorModel';
-import type {
-  SwitchOutcome,
-  SwitchPieceTask,
-} from '../features/instructor/mode/modeSwitcher';
-import {
-  ModeAnnouncement,
-  SwitchLabel,
-} from '../features/instructor/mode/modeCopy';
-import {
-  SpeechAvailability,
-  VOICE_LOCALE,
-} from '../features/instructor/voice/voiceCopy';
+} from '../../events/types';
+import type { Pack } from '../../pack/pack';
+import type { InstructorModel } from '../models/InstructorModel';
+import type { SwitchOutcome, SwitchPieceTask } from '../mode/modeSwitcher';
+import { ModeAnnouncement, SwitchLabel } from '../mode/modeCopy';
+import { SpeechAvailability, VOICE_LOCALE } from '../voice/voiceCopy';
 import {
   UtteranceKind,
   utteranceId,
   type Utterance,
-} from '../features/instructor/voice/voiceSession';
+} from '../voice/voiceSession';
 
 interface SwitchDependencies {
   input: typeof speechInput;

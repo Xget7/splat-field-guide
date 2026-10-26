@@ -8,10 +8,14 @@ import {
   type ComingSoonGuide,
   type ReadyGuide,
 } from '../../features/pack/catalog';
-import { useCatalog } from '../../app/CatalogContext';
-import { LearnMode, Route, type ScreenProps } from '../../app/routes';
+import { useCatalog } from '../../app/context/CatalogContext';
+import {
+  LearnMode,
+  Route,
+  type ScreenProps,
+} from '../../app/navigation/routes';
 import { type Progress } from '../../features/guide/progress';
-import { loadProgress } from '../../app/progressStorage';
+import { loadProgress } from '../../app/storage/progressStorage';
 import { SectionHeader } from '../../ui/SectionHeader';
 import { Backdrop } from '../../ui/Gradients';
 import { ScrollEdge, useScrollOffset } from '../../ui/ScrollEdge';

@@ -6,7 +6,7 @@ import {
   speechOutput,
   type NetworkPath,
 } from 'react-native-on-device';
-import { createInstructorRuntime } from '../apps/field-guide/src/app/instructorRuntime';
+import { createInstructorRuntime } from '../apps/field-guide/src/features/instructor/runtime/instructorRuntime';
 import { fakeAgentTransport } from './agentTransport';
 import { foregroundAppState } from './voiceSession';
 import { fixturePack } from './fixturePack';

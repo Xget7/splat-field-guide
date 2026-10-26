@@ -18,7 +18,7 @@ import {
   type ARPlacementEvent,
 } from 'react-native-splat';
 import V8_CAPTURE from '../../../assets/ar/v8-engine.json';
-import { Route, type ScreenProps } from '../../app/routes';
+import { Route, type ScreenProps } from '../../app/navigation/routes';
 import { IconName } from '../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../ui/theme';
 import { ARGlassButton } from './ARGlassButton';

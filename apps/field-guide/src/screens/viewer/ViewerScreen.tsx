@@ -6,7 +6,7 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { findReadyGuide, type ReadyGuide } from '../../features/pack/catalog';
-import { useCatalog } from '../../app/CatalogContext';
+import { useCatalog } from '../../app/context/CatalogContext';
 import {
   type Pack,
   type PartId,
@@ -18,9 +18,13 @@ import {
   type SessionEvent,
   type SessionState,
 } from '../../features/guide/session';
-import { useInstructorRuntime } from '../../app/InstructorRuntimeContext';
-import type { InstructorRuntime } from '../../app/instructorRuntime';
-import { LearnMode, Route, type ScreenProps } from '../../app/routes';
+import { useInstructorRuntime } from '../../app/context/InstructorRuntimeContext';
+import type { InstructorRuntime } from '../../features/instructor/runtime/instructorRuntime';
+import {
+  LearnMode,
+  Route,
+  type ScreenProps,
+} from '../../app/navigation/routes';
 import { IconButton } from '../../ui/Button';
 import { IconName } from '../../ui/Icon';
 import { Color, Space, Type } from '../../ui/theme';

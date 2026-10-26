@@ -2,8 +2,11 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Linking } from 'react-native';
 import { catalogFor } from '../apps/field-guide/src/features/pack/catalog';
-import { CatalogProvider } from '../apps/field-guide/src/app/CatalogContext';
-import { Route, type ScreenProps } from '../apps/field-guide/src/app/routes';
+import { CatalogProvider } from '../apps/field-guide/src/app/context/CatalogContext';
+import {
+  Route,
+  type ScreenProps,
+} from '../apps/field-guide/src/app/navigation/routes';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 import { ARScreen } from '../apps/field-guide/src/screens/ar/ARScreen';
 

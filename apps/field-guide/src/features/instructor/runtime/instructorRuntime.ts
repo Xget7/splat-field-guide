@@ -7,7 +7,7 @@ import {
   type NetworkPath,
 } from 'react-native-on-device';
 import { Platform } from 'react-native';
-import { appEvents, type EventBus } from '../features/events/bus';
+import { appEvents, type EventBus } from '../../events/bus';
 import {
   AppEvent,
   AgentState,
@@ -19,40 +19,37 @@ import {
   VoiceSource,
   type AppEvents,
   type ModeStatus,
-} from '../features/events/types';
-import { isSwitching } from '../features/events/mode';
-import { createQualityEstimator } from '../features/connectivity/networkQuality';
+} from '../../events/types';
+import { isSwitching } from '../../events/mode';
+import { createQualityEstimator } from '../../connectivity/networkQuality';
 import {
   createNetworkService,
   pingProbe,
-} from '../features/connectivity/networkService';
-import { createModeController } from '../features/instructor/mode/modeController';
-import { runSwitch } from '../features/instructor/mode/modeSwitcher';
-import {
-  NO_PROXY_REASON,
-  SwitchLabel,
-} from '../features/instructor/mode/modeCopy';
-import { SpeechVoice } from '../features/instructor/voice/voiceCopy';
+} from '../../connectivity/networkService';
+import { createModeController } from '../mode/modeController';
+import { runSwitch } from '../mode/modeSwitcher';
+import { NO_PROXY_REASON, SwitchLabel } from '../mode/modeCopy';
+import { SpeechVoice } from '../voice/voiceCopy';
 import {
   createAgentClient,
   type AudioPort,
   type SocketPort,
-} from '../features/instructor/agent/agentClient';
-import { createCloudModel } from '../features/instructor/models/cloudModel';
-import { onDeviceModel } from '../features/instructor/models/onDeviceModel';
+} from '../agent/agentClient';
+import { createCloudModel } from '../models/cloudModel';
+import { onDeviceModel } from '../models/onDeviceModel';
 import {
   createModelInstructor,
   type ModelInstructor,
-} from '../features/instructor/models/modelInstructor';
-import type { InstructorModel } from '../features/instructor/models/InstructorModel';
-import { INSTRUCTOR_PROXY_URL } from '../features/instructor/proxy';
+} from '../models/modelInstructor';
+import type { InstructorModel } from '../models/InstructorModel';
+import { INSTRUCTOR_PROXY_URL } from '../proxy';
 import {
   VoiceStartFailure,
   type VoiceRuntime,
   type VoiceRuntimeState,
-} from '../features/instructor/voice/voiceSession';
-import { voiceFailure } from '../features/instructor/voice/voiceFailure';
-import type { Pack } from '../features/pack/pack';
+} from '../voice/voiceSession';
+import { voiceFailure } from '../voice/voiceFailure';
+import type { Pack } from '../../pack/pack';
 import {
   createInstructorForeground,
   type AppStatePort,
@@ -459,4 +456,3 @@ export function createInstructorRuntime(
     },
   };
 }
-export const instructorRuntime = createInstructorRuntime();
