@@ -1,6 +1,6 @@
 # A pruned SplatKit copy without LOD
 
-Status: accepted.
+Status: superseded by [ADR 0011](0011-labelled-lod-with-a-splat-budget.md).
 
 An equipment guide needs labelled geometry and a bounded viewer rather than a general scene SDK.
 Keep a recorded SplatKit source copy with one cloud per tier, export-time cropping and runtime filtering, without a LOD tree.

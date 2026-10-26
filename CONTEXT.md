@@ -39,8 +39,16 @@ The collection of splats representing one capture of equipment.
 _Avoid_: point cloud, scene, world, remote instructor
 
 **Part label**:
-The small integer identifying the part a splat belongs to, with zero meaning no part.
+The small integer identifying the part a splat, or a node of the LOD tree, belongs to, with zero meaning no part.
 _Avoid_: class, segment id, mask id
+
+**LOD tree**:
+The hierarchy over a cloud's splats in which each node stands in for the splats beneath it, so distant equipment can be drawn with fewer splats.
+_Avoid_: octree, mipmap, level
+
+**Splat budget**:
+The most splats the viewer draws for one frame, spent on the nodes of the LOD tree nearest the camera first.
+_Avoid_: limit, cap, quality setting
 
 **Highlight**:
 The emphasis on the parts relevant to the current session, with the rest dimmed, or no emphasis.

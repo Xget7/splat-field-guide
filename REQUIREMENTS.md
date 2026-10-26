@@ -17,7 +17,7 @@ Android emulator checks establish functionality; physical Android performance an
 - R9. Animate framing to fit the highlighted parts.
 - R10. Sustain 60 fps while orbiting on the acceptance iPhone and draw no unchanged idle frames.
 
-The [tier metadata](content/gol-trend-engine-bay/manifest.json) records the source count; physical performance determines whether a smaller export is needed.
+The [tier metadata](content/gol-trend-engine-bay/manifest.json) records the LOD tree's leaf and node counts, and the viewer draws at most 1.6 million splats a frame; physical performance determines whether a smaller export is needed.
 
 ## Guidance and instructor
 
