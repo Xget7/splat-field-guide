@@ -38,7 +38,7 @@ def validate(directory: Path, expected: dict):
 def entries(manifest: dict) -> dict[str, int]:
     expected = {MANIFEST_NAME: MAX_MANIFEST_BYTES}
     for tier in manifest['tiers']:
-        for kind in ('cloud', 'labels'):
+        for kind in ('world', 'labels'):
             name = tier[kind]['path']
             if name in expected:
                 raise ValueError('pack file paths repeat')

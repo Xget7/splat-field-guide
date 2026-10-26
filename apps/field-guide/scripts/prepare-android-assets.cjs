@@ -42,9 +42,10 @@ function prepareAssets(destination, packRoot = PACK_ROOT) {
       fs.mkdirSync(target, { recursive: true });
       fs.copyFileSync(manifestPath, path.join(target, 'manifest.json'));
       for (const tier of manifest.tiers) {
-        if (tier.labels.bytes !== tier.splatCount + LABEL_HEADER_BYTES)
+        // Labels carry one byte per tree node.
+        if (tier.labels.bytes !== tier.nodeCount + LABEL_HEADER_BYTES)
           throw new Error(`Pack count mismatch: ${source}`);
-        for (const record of [tier.cloud, tier.labels]) {
+        for (const record of [tier.world, tier.labels]) {
           const file = path.resolve(source, record.path);
           if (!file.startsWith(source + path.sep))
             throw new Error('Pack path escapes its directory');

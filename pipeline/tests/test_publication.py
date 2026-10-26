@@ -34,6 +34,47 @@ class SourceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, 'partLabels'):
             export_checks.parse_pack(manifest)
 
+TREE_FIXTURE_SPLATS = 3000
+TREE_FIXTURE_CLUSTERS = 6
+TREE_FIXTURE_SEED = 5
+
+
+class TreeExportTests(unittest.TestCase):
+    def test_export_ships_a_labelled_tree_the_consumer_accepts(self):
+        import json
+        import numpy as np
+        from pipeline.pack import export
+        rng = np.random.default_rng(TREE_FIXTURE_SEED)
+        cloud = export_checks.random_cloud(rng, TREE_FIXTURE_SPLATS, export.SH_MAX_DEGREE)
+        # Dense huddles, like captured parts, so the sparse filter keeps most of them.
+        centres = rng.uniform(-1, 1, (TREE_FIXTURE_CLUSTERS, 3))
+        huddle = rng.integers(0, TREE_FIXTURE_CLUSTERS, TREE_FIXTURE_SPLATS)
+        cloud['positions'] = (centres[huddle] + rng.normal(scale=0.02, size=(TREE_FIXTURE_SPLATS, 3))).astype(np.float32)
+        cloud['opacity'] = np.full(TREE_FIXTURE_SPLATS, 3, np.float32)
+        labels = (huddle + 1).astype(np.uint8)
+        with tempfile.TemporaryDirectory() as directory:
+            out = pathlib.Path(directory)
+            export.write_spz(out / export.CLOUD_PATH, cloud)
+            export.write_labels(out / export.SPLAT_LABELS_PATH, labels)
+            tier = export.build_tier(out, export.lod_tool())
+            manifest = export_checks.sample_manifest()
+            manifest['tiers'] = [tier]
+            (out / 'manifest.json').write_text(json.dumps(manifest))
+            verified = subprocess.run(['node', str(export_checks.HERE.parents[1] / 'scripts/validate-pack.cjs'),
+                                       str(out)], capture_output=True, text=True)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertEqual(json.loads(verified.stdout)['files'], [export.WORLD_PATH, export.LABELS_PATH])
+            header = export_checks.read_lodsplat_header(out / export.WORLD_PATH)
+            node_labels = (out / export.LABELS_PATH).read_bytes()
+
+        self.assertEqual(header['shDegree'], export.LOD_SH_DEGREE)
+        self.assertEqual((header['leafCount'], header['nodeCount']), (tier['splatCount'], tier['nodeCount']))
+        self.assertLessEqual(tier['splatCount'], TREE_FIXTURE_SPLATS)
+        self.assertGreater(tier['nodeCount'], tier['splatCount'])
+        self.assertEqual(len(node_labels), export.LABELS_HEADER.size + tier['nodeCount'])
+        self.assertEqual(set(node_labels[export.LABELS_HEADER.size:]), set(labels.tolist()))
+
+
 class ExportFailureTests(unittest.TestCase):
     def test_failed_export_keeps_the_published_pack(self):
         import json

@@ -28,7 +28,7 @@ const step = (id: string, parts: string[], caution = '') => ({
 });
 
 export const fixtureManifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   packId: 'fixture',
   packVersion: 1,
   title: 'Fixture engine bay',
@@ -36,7 +36,8 @@ export const fixtureManifest = {
     {
       id: 'high',
       splatCount: 10,
-      cloud: { path: 'high/cloud.spz', bytes: 1, sha256: 'a' },
+      nodeCount: 13,
+      world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a' },
       labels: { path: 'high/labels.bin', bytes: 1, sha256: 'b' },
     },
   ],

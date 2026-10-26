@@ -8,16 +8,17 @@ Targets and physical acceptance are in [REQUIREMENTS.md](../../REQUIREMENTS.md) 
 ## Pack contract
 
 [parsePack.ts](../../apps/field-guide/src/features/pack/parsePack.ts) is the consumer schema used by preparation and pipeline publication.
-Manifest schema 1 contains pack identity/version, tiers, camera limits/home, parts, procedures and knowledge.
-Each tier records cloud and label paths, byte counts, SHA-256 digests and a splat count.
-The cloud is gzip SPZ version 3 in RUB coordinates.
-The little-endian labels.bin header is 16 bytes: `SFGL`, u16 version 1, u16 label width 1, u32 splat count and u32 reserved zero.
-One u8 label follows for each SPZ splat; zero means no part and labels 1-255 identify parts within that representation.
-Part IDs persist across pack versions; labels and cloud indices belong to a tier.
+Manifest schema 2 contains pack identity/version, tiers, camera limits/home, parts, procedures and knowledge.
+Each tier records `world` and `labels` paths, byte counts and SHA-256 digests, a `splatCount` of the tree's leaves and a `nodeCount` of all its nodes.
+The world is SplatKit's `.lodsplat` LOD tree in RUB coordinates, built at export with SH degree 1.
+The little-endian labels.bin header is 16 bytes: `SFGL`, u16 version 1, u16 label width 1, u32 node count and u32 reserved zero.
+One u8 label follows for each tree node in node order; zero means no part and labels 1-255 identify parts within that representation.
+A leaf keeps its splat's part, and a merged node takes the part carrying most of its leaves' opacity.
+Part IDs persist across pack versions; labels and node indices belong to a tier.
 The optional `sources` field binds capture/reconstruction digests, PLY, labels, lifting report, content, knowledge and the exact part-to-label mapping.
-Preparation verifies the pinned manifest and runtime bytes; the native loader verifies supplied digests and the decoded source count.
-Filtering and spatial reordering carry labels with every splat attribute.
-Source artifacts and publication diagnostics stay outside the distribution archive.
+Preparation verifies the pinned manifest and runtime bytes; the native loader verifies supplied digests, the leaf count and one label per node before decoding.
+Haze and sparse floaters leave the cloud at export, before the tree is built, so the leaves are fewer than the exported splats.
+The exported SPZ cloud and per-splat labels stay in the pack directory as build inputs; they, the source artifacts and publication diagnostics stay outside the distribution archive.
 
 ## Session rules
 

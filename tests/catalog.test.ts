@@ -32,6 +32,6 @@ test('coming soon and unknown guides cannot open a pack', () => {
 
 test('bundled facts match the on-device pack', () => {
   expect(packFacts(pack)).toEqual({
-    splats: '2.5M',
+    splats: '2.4M',
   });
 });

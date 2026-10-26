@@ -10,7 +10,7 @@ internal object BundledPack {
   @Synchronized
   fun resolve(context: Context, source: SplatSource): SplatSource {
     if (File(source.splatPath).isAbsolute) return source
-    require(source.splatPath.startsWith("packs/")) { "Cloud is not in a bundled pack" }
+    require(source.splatPath.startsWith("packs/")) { "World is not in a bundled pack" }
     val segments = source.splatPath.split('/')
     require(segments.size >= 5 && segments.none { it == ".." }) { "Invalid pack path" }
     val base = segments.take(3).joinToString("/")
@@ -26,20 +26,21 @@ internal object BundledPack {
     var matchingTier = false
     for (i in 0 until tiers.length()) {
       val tier = tiers.getJSONObject(i)
-      val cloud = "$base/${tier.getJSONObject("cloud").getString("path")}"
+      val world = "$base/${tier.getJSONObject("world").getString("path")}"
       val labels = "$base/${tier.getJSONObject("labels").getString("path")}"
-      if (source.splatPath == cloud && source.labelsPath == labels) {
-        require(source.splatSha256 == tier.getJSONObject("cloud").getString("sha256") &&
+      if (source.splatPath == world && source.labelsPath == labels) {
+        require(source.splatSha256 == tier.getJSONObject("world").getString("sha256") &&
           source.labelsSha256 == tier.getJSONObject("labels").getString("sha256") &&
           source.expectedSplatCount == tier.getLong("splatCount").toDouble()) {
           "Source identity does not match its manifest tier"
         }
         matchingTier = true
       }
-      require(tier.getJSONObject("labels").getLong("bytes") == tier.getLong("splatCount") + LABEL_HEADER_BYTES) {
+      // Labels carry one byte per tree node.
+      require(tier.getJSONObject("labels").getLong("bytes") == tier.getLong("nodeCount") + LABEL_HEADER_BYTES) {
         "Pack count mismatch"
       }
-      for (name in listOf("cloud", "labels")) {
+      for (name in listOf("world", "labels")) {
         val record = tier.getJSONObject(name)
         val relative = record.getString("path")
         val file = File(directory, relative)

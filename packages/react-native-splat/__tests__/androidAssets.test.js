@@ -17,7 +17,7 @@ test('Android packages only verified runtime records and rejects corrupt packs',
     const source = path.join(packs, 'engine-bay/1');
     fs.mkdirSync(source, { recursive: true });
     const records = {};
-    for (const name of ['cloud', 'labels']) {
+    for (const name of ['world', 'labels']) {
       const bytes = name === 'labels' ? Buffer.alloc(19) : Buffer.from(name);
       fs.writeFileSync(path.join(source, name), bytes);
       records[name] = {
@@ -29,7 +29,7 @@ test('Android packages only verified runtime records and rejects corrupt packs',
     const manifest = {
       packId: 'engine-bay',
       packVersion: 1,
-      tiers: [{ ...records, splatCount: 3 }],
+      tiers: [{ ...records, splatCount: 2, nodeCount: 3 }],
       sources: { path: '.sources/private.npy' },
     };
     fs.writeFileSync(
@@ -48,7 +48,7 @@ test('Android packages only verified runtime records and rejects corrupt packs',
     ]);
     assert.deepEqual(
       fs.readdirSync(path.join(destination, 'packs/engine-bay/1')).sort(),
-      ['cloud', 'labels', 'manifest.json'],
+      ['labels', 'manifest.json', 'world'],
     );
     assert.ok(fs.existsSync(path.join(destination, 'fonts/Geist-Regular.ttf')));
     const notices = fs.readFileSync(
@@ -60,13 +60,13 @@ test('Android packages only verified runtime records and rejects corrupt packs',
     assert.match(notices, /PicoSHA2/);
     assert.match(notices, /Fresco/);
     assert.doesNotMatch(notices, /Kokoro model/);
-    manifest.tiers[0].splatCount = 4;
+    manifest.tiers[0].nodeCount = 4;
     fs.writeFileSync(
       path.join(source, 'manifest.json'),
       JSON.stringify(manifest),
     );
     assert.throws(() => prepareAssets(destination, packs), /count mismatch/);
-    manifest.tiers[0].splatCount = 3;
+    manifest.tiers[0].nodeCount = 3;
     fs.writeFileSync(
       path.join(source, 'manifest.json'),
       JSON.stringify(manifest),

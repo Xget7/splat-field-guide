@@ -14,9 +14,10 @@ Demo builds consume an archive through the [root quickstart](../README.md#quicks
 | Marking | [sam_live.py](pack/sam_live.py), [live_api.py](pack/live_api.py) | Reviewed per-part prompts/masks in accepted revisions |
 | Propagation | [sam_track.py](pack/sam_track.py) | Masks, comparison scores and source/checkpoint identities |
 | Lifting | [lift_all.py](pack/lift_all.py) | PLY-order labels, previews and source-bound report |
-| Export | [export.py](pack/export.py), [export_checks.py](pack/export_checks.py) | Verified pack candidate, then publication |
+| Export | [export.py](pack/export.py), [export_checks.py](pack/export_checks.py) | Labelled LOD tree in a verified pack candidate, then publication |
 
 Local geometry stages use Python/uv, Node for the app parser, COLMAP, exiftool and the Brush binary.
+Export builds the engine copy's `splat_lod_build` with CMake and runs it on the exported cloud and labels.
 SAM runs on Modal with approved model access and a named Hugging Face secret; tool identities and terms are in [provenance](../docs/PROVENANCE.md#preparation-tools).
 [pack.yaml](../content/gol-trend-engine-bay/pack.yaml), [knowledge.md](../content/gol-trend-engine-bay/knowledge.md) and [source qualifications](../content/gol-trend-engine-bay/SOURCES.md) supply authored content.
 [artifacts.py](artifacts.py) shares identity and staging helpers; pack-specific mask/geometry helpers stay in `pack/`.
@@ -26,7 +27,7 @@ SAM runs on Modal with approved model access and a named Hugging Face secret; to
 Capture identity binds ordered photograph names and bytes.
 [masks.py](pack/masks.py) writes a complete accepted revision before promoting `current.json`, rejecting stale capture/revision saves.
 Tracking/lifting require exact capture, reconstruction and annotation identities; imported annotation bytes do not establish their producing model environment.
-Export transforms cloud and labels together and validates the actual app parser, binary correspondence, digests and bounds.
+Export transforms cloud and labels together, builds the tree and its node labels from them, and validates the actual app parser, binary correspondence, digests and bounds.
 The publication receipt and source artifacts are required for full verification and remain outside release archives.
 Existing pack versions require explicit replacement; staged candidates and rollback preserve accepted content on failure.
 Physical part correctness, authored content and metric dimensions require owner review before publication.

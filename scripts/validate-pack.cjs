@@ -2,7 +2,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const zlib = require('node:zlib');
 const ROOT = path.resolve(__dirname, '..');
 const ts = require(path.join(ROOT, 'apps/field-guide/node_modules/typescript'));
 require.extensions['.ts'] = (module, filename) => {
@@ -19,13 +18,37 @@ function parse(value) {
   return result.pack;
 }
 
+// SplatKit's LODSPLAT layout, from splat-core lod/LodFile.cpp.
+const LODSPLAT_MAGIC = 'LODSPLAT';
+const LODSPLAT_HEADER_BYTES = 64;
+const LODSPLAT_NODE_BYTES = 64;
+const LODSPLAT_CLUSTER_BYTES = 64;
+const LODSPLAT_LEAF_REF_BYTES = 4;
+const LABELS_HEADER_BYTES = 16;
+
+function checkWorld(world, tier) {
+  if (world.length < LODSPLAT_HEADER_BYTES || world.toString('ascii', 0, 8) !== LODSPLAT_MAGIC) {
+    throw new Error('invalid LODSPLAT header');
+  }
+  const [version, nodes, leaves, degree] = [8, 12, 16, 20].map(offset => world.readUInt32LE(offset));
+  const clusters = world.readUInt32LE(28);
+  const leafRefs = world.readUInt32LE(56);
+  if ((version !== 1 && version !== 2) || degree > 3 || nodes !== tier.nodeCount || leaves !== tier.splatCount) {
+    throw new Error('LODSPLAT header differs from the tier');
+  }
+  const stride = LODSPLAT_NODE_BYTES + ((degree + 1) ** 2 - 1) * 3 * 4;
+  const size = LODSPLAT_HEADER_BYTES + nodes * stride + clusters * LODSPLAT_CLUSTER_BYTES +
+    leafRefs * LODSPLAT_LEAF_REF_BYTES;
+  if (world.length !== size) throw new Error('invalid LODSPLAT length');
+}
+
 function verify(directory) {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   const pack = parse(manifest);
   const files = new Set();
   for (const tier of pack.tiers) {
     const bytes = {};
-    for (const kind of ['cloud', 'labels']) {
+    for (const kind of ['world', 'labels']) {
       const entry = tier[kind];
       const filename = path.join(directory, entry.path);
       if (fs.lstatSync(filename).isSymbolicLink()) throw new Error(`symlink in pack: ${entry.path}`);
@@ -37,22 +60,17 @@ function verify(directory) {
       files.add(entry.path);
       bytes[kind] = data;
     }
-    const cloud = zlib.gunzipSync(bytes.cloud);
+    checkWorld(bytes.world, tier);
+    // One label per tree node, in node order.
     const labels = bytes.labels;
-    const count = tier.splatCount;
-    if (cloud.length < 16 || cloud.readUInt32LE(0) !== 0x5053474e || cloud.readUInt32LE(4) !== 3 ||
-        cloud.readUInt32LE(8) !== count || cloud[14] !== 0 || cloud[15] !== 0 || cloud[12] > 3 || cloud[13] > 23) {
-      throw new Error('invalid SPZ v3 header');
-    }
-    const coefficients = (cloud[12] + 1) ** 2 - 1;
-    if (cloud.length !== 16 + count * (20 + 3 * coefficients)) throw new Error('invalid SPZ payload length');
-    if (labels.length !== 16 + count || labels.toString('ascii', 0, 4) !== 'SFGL' ||
+    const count = tier.nodeCount;
+    if (labels.length !== LABELS_HEADER_BYTES + count || labels.toString('ascii', 0, 4) !== 'SFGL' ||
         labels.readUInt16LE(4) !== 1 || labels.readUInt16LE(6) !== 1 ||
         labels.readUInt32LE(8) !== count || labels.readUInt32LE(12) !== 0) {
       throw new Error('invalid labels header or count');
     }
     const known = new Set([0, ...pack.parts.map(part => part.label)]);
-    for (const label of labels.subarray(16)) if (!known.has(label)) throw new Error(`unknown part label ${label}`);
+    for (const label of labels.subarray(LABELS_HEADER_BYTES)) if (!known.has(label)) throw new Error(`unknown part label ${label}`);
   }
   return { packId: pack.packId, packVersion: pack.packVersion, files: [...files] };
 }

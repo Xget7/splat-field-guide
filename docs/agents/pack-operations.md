@@ -23,6 +23,14 @@ nice -n 19 uv run --project pipeline python -m pipeline.pack.export_checks --pac
 ```
 
 Source-backed export checks require every corresponding source artifact and the publication receipt; report missing inputs as blockers.
+
+Rebuild only the tree of an exported pack, from the cloud and per-splat labels it keeps, when tree settings change:
+
+```sh
+nice -n 19 uv run --project pipeline python -m pipeline.pack.export --rebuild-tree <exported pack> --out <new pack> [--replace]
+```
+
+The rebuild carries the manifest's parts, camera and sources unchanged; a schema 1 pack keeps its per-splat labels as `high/labels.bin`, so stage it as `high/splat-labels.bin` first.
 Pipeline unit tests do not establish source-backed export acceptance.
 After reviewed export, update the pinned content manifest and run `scripts/package-pack.sh`; publishing requires explicit authorization.
 

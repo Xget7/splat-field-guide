@@ -227,10 +227,21 @@ function readSources(
 
 function readTier(value: unknown, path: string): Tier {
   const object = readObject(value, path);
+  const splatCount = readCount(object.splatCount, at(path, 'splatCount'));
+  const nodeCount = readCount(object.nodeCount, at(path, 'nodeCount'));
+  // Every leaf is a node, so a smaller node count cannot describe the tree.
+  if (nodeCount < splatCount) {
+    fail(
+      PackErrorCode.invalidField,
+      at(path, 'nodeCount'),
+      'expected at least one node per leaf',
+    );
+  }
   return {
     id: readName(object.id, at(path, 'id')),
-    splatCount: readCount(object.splatCount, at(path, 'splatCount')),
-    cloud: readFile(object.cloud, at(path, 'cloud')),
+    splatCount,
+    nodeCount,
+    world: readFile(object.world, at(path, 'world')),
     labels: readFile(object.labels, at(path, 'labels')),
   };
 }

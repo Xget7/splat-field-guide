@@ -25,7 +25,7 @@ def copy_packs(source: Path, destination: Path, packs: list[str]):
             raise ValueError(f'pack identity differs from its directory: {name}')
         files = [MANIFEST_NAME]
         for tier in manifest['tiers']:
-            files.extend(tier[kind]['path'] for kind in ('cloud', 'labels'))
+            files.extend(tier[kind]['path'] for kind in ('world', 'labels'))
         for name in files:
             file = directory / relative_path(name)
             file.resolve().relative_to(directory.resolve())

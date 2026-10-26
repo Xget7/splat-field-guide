@@ -1,5 +1,4 @@
 
-import gzip
 import json
 import os
 from pathlib import Path
@@ -32,9 +31,9 @@ class PreparationTests(unittest.TestCase):
             pack = repo / 'data/pack/gol-trend-engine-bay/1'
             (pack / 'high').mkdir(parents=True)
             manifest = {'packId': 'gol-trend-engine-bay', 'packVersion': 1, 'tiers': [
-                {'cloud': {'path': 'high/cloud.spz'}, 'labels': {'path': 'high/labels.bin'}}]}
+                {'world': {'path': 'high/world.lodsplat'}, 'labels': {'path': 'high/labels.bin'}}]}
             (pack / 'manifest.json').write_text(json.dumps(manifest))
-            for name in ['high/cloud.spz', 'high/labels.bin', 'unreferenced.bin']:
+            for name in ['high/world.lodsplat', 'high/labels.bin', 'high/cloud.spz', 'unreferenced.bin']:
                 (pack / name).write_bytes(b'fixture')
             for name in ['releases/demo.tar.gz', '.sources/labels.npy', 'gol-trend-engine-bay/.prepare.lock']:
                 file = repo / 'data/pack' / name
@@ -48,7 +47,7 @@ class PreparationTests(unittest.TestCase):
             result = subprocess.run(['sh', '-c', script], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             expected = {'gol-trend-engine-bay/1/' + name for name in
-                        ['manifest.json', 'high/cloud.spz', 'high/labels.bin']}
+                        ['manifest.json', 'high/world.lodsplat', 'high/labels.bin']}
             files = {str(file.relative_to(destination)): file.stat().st_mtime_ns
                      for file in destination.rglob('*') if file.is_file()}
             self.assertEqual(set(files), expected)
@@ -84,11 +83,12 @@ class PreparationTests(unittest.TestCase):
             manifest = export_checks.sample_manifest()
             manifest['packId'] = 'gol-trend-engine-bay'
             count = 1
-            # A native-readable SPZ v3 with one zeroed splat, and its no-part label.
-            cloud = gzip.compress(struct.pack('<IIIBBBB', 0x5053474E, 3, count, 0, 12, 0, 0) + bytes(20))
+            # A LODSPLAT tree of one zeroed SH0 leaf, and its no-part label.
+            header = export_checks.LODSPLAT_MAGIC + struct.pack('<6I', 1, count, count, 0, 0, 0)
+            world = header.ljust(export_checks.LODSPLAT_HEADER_BYTES, b'\0') + bytes(export_checks.LODSPLAT_NODE_BYTES)
             labels = struct.pack('<4sHHII', b'SFGL', 1, 1, count, 0) + b'\0'
             import hashlib
-            for kind, data, name in [('cloud', cloud, 'cloud.spz'), ('labels', labels, 'labels.bin')]:
+            for kind, data, name in [('world', world, 'world.lodsplat'), ('labels', labels, 'labels.bin')]:
                 (pack / 'high' / name).write_bytes(data)
                 manifest['tiers'][0][kind] = {'path': 'high/' + name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
             (pack / 'manifest.json').write_text(json.dumps(manifest))

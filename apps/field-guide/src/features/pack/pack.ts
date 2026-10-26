@@ -1,6 +1,6 @@
-export const SUPPORTED_SCHEMA_VERSION = 1;
+export const SUPPORTED_SCHEMA_VERSION = 2;
 
-// A part label is one byte in labels.bin and zero means "no part".
+// A part label is one byte per tree node in labels.bin and zero means "no part".
 export const PART_LABEL_MIN = 1;
 export const PART_LABEL_MAX = 255;
 
@@ -32,10 +32,15 @@ export interface PackSources {
   readonly partLabels: Readonly<Record<PartId, PartLabel>>;
 }
 
+/** A level-of-detail tree whose leaves are the captured splats. */
 export interface Tier {
   readonly id: string;
+  /** Leaves: the splats left after export-time filtering. */
   readonly splatCount: number;
-  readonly cloud: PackFile;
+  /** Leaves plus the merged nodes above them. */
+  readonly nodeCount: number;
+  readonly world: PackFile;
+  /** One part label per node, in node order. */
   readonly labels: PackFile;
 }
 

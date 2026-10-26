@@ -11,9 +11,9 @@ test('the bundled manifest parses and includes the generated tour first', () => 
   }
   expect(bundledPack.pack.procedures[0].id).toBe('tour');
   expect(sourceFor(bundledPack.pack)).toEqual({
-    splatPath: 'packs/gol-trend-engine-bay/1/high/cloud.spz',
+    splatPath: 'packs/gol-trend-engine-bay/1/high/world.lodsplat',
     labelsPath: 'packs/gol-trend-engine-bay/1/high/labels.bin',
-    splatSha256: bundledPack.pack.tiers[0].cloud.sha256,
+    splatSha256: bundledPack.pack.tiers[0].world.sha256,
     labelsSha256: bundledPack.pack.tiers[0].labels.sha256,
     expectedSplatCount: bundledPack.pack.tiers[0].splatCount,
   });
@@ -29,16 +29,16 @@ test('source uses the pack identity and first tier paths', () => {
       tiers: [
         {
           ...pack.tiers[0],
-          cloud: { ...pack.tiers[0].cloud, path: 'low/scene.spz' },
+          world: { ...pack.tiers[0].world, path: 'low/scene.lodsplat' },
           labels: { ...pack.tiers[0].labels, path: 'low/parts.bin' },
         },
         ...pack.tiers,
       ],
     }),
   ).toEqual({
-    splatPath: 'packs/another-pack/12/low/scene.spz',
+    splatPath: 'packs/another-pack/12/low/scene.lodsplat',
     labelsPath: 'packs/another-pack/12/low/parts.bin',
-    splatSha256: pack.tiers[0].cloud.sha256,
+    splatSha256: pack.tiers[0].world.sha256,
     labelsSha256: pack.tiers[0].labels.sha256,
     expectedSplatCount: pack.tiers[0].splatCount,
   });

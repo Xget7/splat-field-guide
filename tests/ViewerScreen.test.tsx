@@ -700,7 +700,7 @@ describe('viewer screen', () => {
 
   test('loading shows until ready; renderer errors keep the session', async () => {
     await mount();
-    expect(text('splat-loading')).toBe('Loading 2.5M splats');
+    expect(text('splat-loading')).toBe('Loading 2.4M splats');
     expect(has('marker-0')).toBe(false);
     await act(() => native().props.onReady());
     expect(has('splat-loading')).toBe(false);

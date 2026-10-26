@@ -1,4 +1,4 @@
-"""Cloud and labels share a crop and transform into right-handed RUB coordinates with +Y up."""
+"""Cloud and labels share a crop and transform into right-handed RUB coordinates with +Y up, then become a LOD tree."""
 
 import argparse
 import gzip
@@ -6,6 +6,7 @@ import itertools
 import json
 import math
 import pathlib
+import shutil
 import struct
 import subprocess
 import time
@@ -19,15 +20,29 @@ from pipeline.pack import knowledge
 from pipeline.pack import lift
 from pipeline.pack import mask_tools
 HERE = pathlib.Path(__file__).parent
-DATA = HERE.parents[1] / "data"
-CONTENT = HERE.parents[1] / "content" / "gol-trend-engine-bay" / "pack.yaml"
+ROOT = HERE.parents[1]
+DATA = ROOT / "data"
+CONTENT = ROOT / "content" / "gol-trend-engine-bay" / "pack.yaml"
 KNOWLEDGE = CONTENT.with_name("knowledge.md")
 PACK_ID = "gol-trend-engine-bay"
 PACK_VERSION = 1
 PACK_TITLE = "VW Gol Trend 1.6 engine bay"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TIER = "high"
-CLOUD_PATH, LABELS_PATH = f"{TIER}/cloud.spz", f"{TIER}/labels.bin"
+# The app loads the tree and its node-order labels; the cloud and per-splat labels it is built
+# from stay in the pack directory as build inputs, outside the manifest and the archive.
+WORLD_PATH, LABELS_PATH = f"{TIER}/world.lodsplat", f"{TIER}/labels.bin"
+CLOUD_PATH, SPLAT_LABELS_PATH = f"{TIER}/cloud.spz", f"{TIER}/splat-labels.bin"
+
+# The tree stores float32 attributes, so SH3 makes the high tier about 695 MB; SH1 keeps it near
+# 302 MB with the view-dependent shading a guide needs.
+LOD_SH_DEGREE = 1
+LOD_FRAME = "rub"               # the cloud's frame, as written by write_spz
+# The engine copy's own tree builder writes exactly the format the app decodes.
+SPLAT_CORE = ROOT / "packages" / "react-native-splat" / "engine" / "splat-core"
+LOD_TOOL_BUILD = ROOT / "packages" / "react-native-splat" / "build" / "lod-tool"
+LOD_TOOL_TARGET = "splat_lod_build"
+LOD_TOOL_JOBS = 2
 
 EXIF_ORIENTATION = 274
 EXIF_IFD, EXIF_MAKER_NOTE = 0x8769, 0x927C
@@ -453,15 +468,63 @@ def file_entry(root: pathlib.Path, rel: str) -> dict:
     return {"path": rel, "bytes": (root / rel).stat().st_size, "sha256": sha256(root / rel)}
 
 
-def build_manifest(content: dict, out: pathlib.Path, count: int, geometry: dict, camera: dict) -> dict:
+def run_tool(command: list) -> str:
+    result = subprocess.run([str(part) for part in command], capture_output=True, text=True)
+    assert result.returncode == 0, f"{pathlib.Path(str(command[0])).name} failed: {result.stderr.strip()}"
+    return result.stdout
+
+
+def lod_tool(build: pathlib.Path = LOD_TOOL_BUILD) -> pathlib.Path:
+    """Configure and build splat_lod_build from the engine copy; an unchanged build only checks its inputs."""
+    run_tool(["cmake", "-S", SPLAT_CORE, "-B", build, "-DCMAKE_BUILD_TYPE=Release",
+              "-DSPLAT_CORE_BUILD_TESTS=OFF", "-DSPLAT_CORE_BUILD_TOOLS=ON"])
+    run_tool(["cmake", "--build", build, "--target", LOD_TOOL_TARGET, "--parallel", LOD_TOOL_JOBS])
+    return build / "tools" / LOD_TOOL_TARGET
+
+
+def build_tier(out: pathlib.Path, tool: pathlib.Path) -> dict:
+    """The tier's tree and node labels from the cloud and per-splat labels in `out`.
+
+    The tool removes haze and sparse floaters before building, so the tree's leaves are fewer
+    than the cloud's splats; a merged node takes the part that carries most of its opacity.
+    """
+    from pipeline.pack import export_checks
+    print(run_tool([tool, out / CLOUD_PATH, out / WORLD_PATH, "--frame", LOD_FRAME, "--sh", LOD_SH_DEGREE,
+                    "--labels", out / SPLAT_LABELS_PATH, out / LABELS_PATH]).strip())
+    header = export_checks.read_lodsplat_header(out / WORLD_PATH)
+    return {"id": TIER, "splatCount": header["leafCount"], "nodeCount": header["nodeCount"],
+            "world": file_entry(out, WORLD_PATH), "labels": file_entry(out, LABELS_PATH)}
+
+
+def build_manifest(content: dict, tier: dict, geometry: dict, camera: dict) -> dict:
     notes = knowledge.read_notes(KNOWLEDGE, content["parts"])
     parts = [{"id": p["id"], "label": i + 1, "parent": p["parent"], "name": p["name"], "aliases": p["aliases"],
               "summary": p["summary"], "details": p["details"], "notes": notes[p["id"]], **geometry[p["id"]]}
              for i, p in enumerate(content["parts"])]
     return {"schemaVersion": SCHEMA_VERSION, "packId": PACK_ID, "packVersion": PACK_VERSION, "title": PACK_TITLE,
-            "tiers": [{"id": TIER, "splatCount": count, "cloud": file_entry(out, CLOUD_PATH),
-                       "labels": file_entry(out, LABELS_PATH)}],
-            "camera": camera, "parts": parts, "procedures": content["procedures"]}
+            "tiers": [tier], "camera": camera, "parts": parts, "procedures": content["procedures"]}
+
+
+def validate_consumer(out: pathlib.Path):
+    verify = subprocess.run(["node", str(ROOT / "scripts/validate-pack.cjs"), str(out)], capture_output=True, text=True)
+    assert verify.returncode == 0, verify.stderr.strip()
+
+
+def rebuild_tree(source: pathlib.Path, out: pathlib.Path):
+    """Rebuild an exported pack's tree from the build inputs it kept, carrying everything else over.
+
+    Tree settings can change without the capture, reconstruction and lifting sources a full export needs.
+    """
+    from pipeline.pack import export_checks
+    manifest = json.loads((source / "manifest.json").read_text())
+    for rel in (CLOUD_PATH, SPLAT_LABELS_PATH):
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source / rel, out / rel)
+    manifest["schemaVersion"] = SCHEMA_VERSION
+    manifest["tiers"] = [build_tier(out, lod_tool())]
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    validate_consumer(out)
+    print(export_checks.test_tree_files(out))
 
 
 
@@ -479,13 +542,18 @@ def main():
     parser.add_argument("--allow-missing-parts", action="store_true",
                         help="pack parts without splats with empty bounds (test packs only)")
     parser.add_argument("--lift-report", type=pathlib.Path, help="identity report from lift_all.py")
+    parser.add_argument("--rebuild-tree", type=pathlib.Path, metavar="PACK",
+                        help="only rebuild the tree of an exported pack from its build inputs")
     args = parser.parse_args()
     args.out = args.out or DATA / "pack" / PACK_ID / str(args.pack_version)
     assert args.pack_version > 0, "pack version must be positive"
     if args.out.exists() and not args.replace:
         raise ValueError("pack version already published; use a new version or explicitly pass --replace")
     with artifacts.candidate(args.out) as out:
-        publish(args, out)
+        if args.rebuild_tree:
+            rebuild_tree(args.rebuild_tree, out)
+        else:
+            publish(args, out)
 
 
 def source_contract(ply: pathlib.Path, labels: pathlib.Path, report_path: pathlib.Path, part_ids: list[str]) -> dict:
@@ -503,7 +571,7 @@ def source_contract(ply: pathlib.Path, labels: pathlib.Path, report_path: pathli
     def entry(path: pathlib.Path) -> dict:
         # Repository paths are portable; external fixtures retain their artifact name.
         try:
-            name = path.resolve().relative_to(HERE.parents[1].resolve()).as_posix()
+            name = path.resolve().relative_to(ROOT.resolve()).as_posix()
         except ValueError:
             name = path.name
         return {"path": name, "bytes": path.stat().st_size, "sha256": sha256(path)}
@@ -564,16 +632,17 @@ def publish(args, out: pathlib.Path):
     cloud = placement.apply(load_splats(splat, keep, args.sh_degree))
     lap(f"transformed, SH degree {cloud['degree']} (PLY carries {cloud['ply_degree']})")
     clipped = write_spz(out / CLOUD_PATH, cloud, args.sh1_bits, args.sh_rest_bits)
-    write_labels(out / LABELS_PATH, labels)
-    cloud_mb, labels_mb = ((out / path).stat().st_size / 1e6 for path in (CLOUD_PATH, LABELS_PATH))
-    lap(f"written {cloud_mb:.1f} MB cloud, {labels_mb:.1f} MB labels")
+    write_labels(out / SPLAT_LABELS_PATH, labels)
+    tier = build_tier(out, lod_tool())
+    world_mb, labels_mb = ((out / path).stat().st_size / 1e6 for path in (WORLD_PATH, LABELS_PATH))
+    lap(f"built a {world_mb:.1f} MB tree of {tier['splatCount']:,} leaves, {labels_mb:.1f} MB node labels")
 
     geometry, missing = part_geometry(content["parts"], labels, placed, args.allow_missing_parts)
     marked_points = placed[labels > 0]
     extent = float(np.linalg.norm(np.ptp(marked_points, axis=0)))
     boxes = [(np.array(g["bounds"]["min"]), np.array(g["bounds"]["max"])) for g in geometry.values()]
     camera = camera_block(placement.points(cameras["centres"]), extent, boxes)
-    manifest = build_manifest(content, out, len(keep), geometry, camera)
+    manifest = build_manifest(content, tier, geometry, camera)
     manifest["sources"] = sources
     manifest["packVersion"] = args.pack_version
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -581,6 +650,8 @@ def publish(args, out: pathlib.Path):
     report = {"splats": {"input": count, "kept": len(keep), "labelled_kept": int((labels > 0).sum()),
                          "label_counts": {i + 1: int((labels == i + 1).sum()) for i in range(len(part_ids))}},
               "spz": {"version": SPZ_VERSION, "frame": "RUB", "sh_degree": cloud["degree"], **clipped},
+              "tree": {"sh_degree": LOD_SH_DEGREE, "leaves": tier["splatCount"], "nodes": tier["nodeCount"],
+                       "filtered": len(keep) - tier["splatCount"]},
               "levelling": {"up_in_colmap": up.tolist(), "forward_in_colmap": forward.tolist(), **up_stats,
                             "note": "gravity is the robust mean of the photos' accelerometer readings"},
               "scale": scale_report,
@@ -592,12 +663,11 @@ def publish(args, out: pathlib.Path):
     report["sources"] = sources
     report_path = out / "publication.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    verify = subprocess.run(["node", str(HERE.parents[1] / "scripts/validate-pack.cjs"), str(out)],
-                            capture_output=True, text=True)
-    assert verify.returncode == 0, verify.stderr.strip()
+    validate_consumer(out)
     from pipeline.pack import export_checks
     export_checks.test_pack_files(out, args.labels, args.mask_part, source_ply=args.ply,
                                   source_report=args.lift_report or args.labels.with_name("report.json"))
+    export_checks.test_tree_files(out)
     export_checks.test_bounds_and_anchors(out, export_checks.read_spz((out / CLOUD_PATH).read_bytes()), labels)
     lap(f"verified pack ready for publication to {args.out}")
     print(json.dumps({k: report[k] for k in ("levelling", "scale", "parts_without_splats")}, indent=2))

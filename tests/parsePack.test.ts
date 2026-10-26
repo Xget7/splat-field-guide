@@ -85,10 +85,27 @@ describe('parsePack', () => {
     expect(!result.ok && result.error.code).toBe(PackErrorCode.invalidField);
   });
 
-  it('refuses an unknown schema version', () => {
-    const error = errorOf(m => (m.schemaVersion = 2));
+  it('refuses schema 1, whose tier is a cloud without a tree', () => {
+    const error = errorOf(m => (m.schemaVersion = 1));
     expect(error.code).toBe(PackErrorCode.unsupportedSchemaVersion);
     expect(error.path).toBe('schemaVersion');
+  });
+
+  it('reads a tier as a tree of leaves and nodes', () => {
+    const result = parsePack(fixtureManifest);
+    expect(result.ok && result.pack.tiers[0]).toEqual({
+      id: 'high',
+      splatCount: 10,
+      nodeCount: 13,
+      world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a' },
+      labels: { path: 'high/labels.bin', bytes: 1, sha256: 'b' },
+    });
+  });
+
+  it('refuses a tree with fewer nodes than leaves', () => {
+    const error = errorOf(m => (m.tiers[0].nodeCount = 9));
+    expect(error.code).toBe(PackErrorCode.invalidField);
+    expect(error.path).toBe('tiers[0].nodeCount');
   });
 
   it('checks the schema version before anything else', () => {
@@ -228,8 +245,13 @@ describe('parsePack', () => {
     ],
     [
       'a missing tier file',
-      (m: any) => delete m.tiers[0].cloud,
-      'tiers[0].cloud',
+      (m: any) => delete m.tiers[0].world,
+      'tiers[0].world',
+    ],
+    [
+      'a missing node count',
+      (m: any) => delete m.tiers[0].nodeCount,
+      'tiers[0].nodeCount',
     ],
     [
       'a missing camera limit',

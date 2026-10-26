@@ -1,21 +1,22 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "packId": "gol-trend-engine-bay",
   "packVersion": 1,
   "title": "VW Gol Trend 1.6 engine bay",
   "tiers": [
     {
       "id": "high",
-      "splatCount": 2498597,
-      "cloud": {
-        "path": "high/cloud.spz",
-        "bytes": 63040843,
-        "sha256": "95481cec8678680585c64188a650b81594eb2fc6589537f31d12dcc6f9589068"
+      "splatCount": 2438073,
+      "nodeCount": 2731791,
+      "world": {
+        "path": "high/world.lodsplat",
+        "bytes": 301729408,
+        "sha256": "87d7032b11bc39d8ab127dc540c4b349bc806f0646b67b5cedfcd8b7ec4134bb"
       },
       "labels": {
         "path": "high/labels.bin",
-        "bytes": 2498613,
-        "sha256": "71667879c3fe7f5abf0bc75daeadcfd0fbc84d4cdc7790b570b047bd3d2eae97"
+        "bytes": 2731807,
+        "sha256": "5de528f44a5378dbbcd92f1f15997ccb47efe0ccffe9ffb4b375e7e85bee4420"
       }
     }
   ],

@@ -37,11 +37,13 @@ export interface CameraLimits {
 
 /** A pack tier's files on disk: absolute, or relative to the app bundle's resources. */
 export interface SplatSource {
+  /** The tier's level-of-detail tree, a `.lodsplat` file. */
   splatPath: string;
+  /** One part label per tree node, in node order. */
   labelsPath: string;
   splatSha256: string;
   labelsSha256: string;
-  /** Source count before native haze removal and spatial reordering. */
+  /** The tree's leaves, as the pack manifest records them. */
   expectedSplatCount: number;
 }
 

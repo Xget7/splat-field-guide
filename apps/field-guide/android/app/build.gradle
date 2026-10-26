@@ -68,7 +68,7 @@ dependencies {
 def runtimeAssets = layout.buildDirectory.dir('generated/fieldGuideAssets')
 def prepareFieldGuideAssets = tasks.register('prepareFieldGuideAssets', Exec) {
     inputs.files(fileTree('../../../../data/pack') {
-        include '**/manifest.json', '**/*.spz', '**/labels.bin'
+        include '**/manifest.json', '**/*.lodsplat', '**/labels.bin'
         exclude '.sources/**', 'releases/**'
     })
     inputs.dir('../../assets/fonts')

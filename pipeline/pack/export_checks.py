@@ -41,6 +41,14 @@ RENDER_COVERAGE_TOLERANCE = 0.01  # cells covered in only one of the two renders
 BOUNDS_TOLERANCE = 1e-3
 SPZ_DIMS = {0: 0, 1: 3, 2: 8, 3: 15, 4: 24}
 
+# SplatKit's LODSPLAT layout, from splat-core lod/LodFile.cpp.
+LODSPLAT_MAGIC = b"LODSPLAT"
+LODSPLAT_VERSIONS = (1, 2)      # version 2 appends GPU selection clusters and leaf references
+LODSPLAT_HEADER_BYTES = 64
+LODSPLAT_NODE_BYTES = 64        # position, size, children, covariance, colour and alpha, before SH
+LODSPLAT_CLUSTER_BYTES = 64
+LODSPLAT_LEAF_REF_BYTES = 4
+
 
 def check(name: str):
     def wrap(fn):
@@ -91,6 +99,22 @@ def read_spz(data: bytes) -> dict:
             "alpha": alpha, "opacity": opacity, "dc": (blocks["colours"].reshape(n, 3) / 255 - 0.5) / 0.15,
             "log_scales": blocks["scales"].reshape(n, 3) / 16 - 10, "quats_xyzw": q,
             "sh": (blocks["sh"].reshape(n, dim, 3).astype(np.float64) - 128) / 128}
+
+
+
+def read_lodsplat_header(path: pathlib.Path) -> dict:
+    """The counts a LODSPLAT header declares, checked against the file's length."""
+    with open(path, "rb") as f:
+        head = f.read(LODSPLAT_HEADER_BYTES)
+    assert len(head) == LODSPLAT_HEADER_BYTES and head[:8] == LODSPLAT_MAGIC, "not a LODSPLAT file"
+    version, nodes, leaves, degree, depth, clusters = struct.unpack_from("<6I", head, 8)
+    leaf_refs, = struct.unpack_from("<I", head, 56)
+    assert version in LODSPLAT_VERSIONS and 0 < leaves <= nodes and degree <= 3, "invalid LODSPLAT header"
+    stride = LODSPLAT_NODE_BYTES + ((degree + 1) ** 2 - 1) * 3 * 4
+    size = (LODSPLAT_HEADER_BYTES + nodes * stride + clusters * LODSPLAT_CLUSTER_BYTES
+            + leaf_refs * LODSPLAT_LEAF_REF_BYTES)
+    assert path.stat().st_size == size, "LODSPLAT length does not match its header"
+    return {"version": version, "nodeCount": nodes, "leafCount": leaves, "shDegree": degree, "depth": depth}
 
 
 
@@ -344,8 +368,8 @@ def sample_manifest() -> dict:
     content = yaml.safe_load(export.CONTENT.read_text())
     zero = {"bounds": {"min": [0.0] * 3, "max": [1.0] * 3}, "anchor": [0.0, 1.0, 0.0]}
     entry = {"path": "high/test.bin", "bytes": 1, "sha256": ""}
-    return {"schemaVersion": 1, "packId": "p", "packVersion": 1, "title": "t",
-            "tiers": [{"id": "high", "splatCount": 1, "cloud": entry, "labels": entry}],
+    return {"schemaVersion": export.SCHEMA_VERSION, "packId": "p", "packVersion": 1, "title": "t",
+            "tiers": [{"id": "high", "splatCount": 1, "nodeCount": 1, "world": entry, "labels": entry}],
             "camera": {"home": {"azimuth": 0, "elevation": 35, "radius": 1.2},
                        "limits": {"minAzimuth": -90, "maxAzimuth": 90, "minElevation": 10, "maxElevation": 80,
                                   "minRadius": 0.25, "maxRadius": 2.5}},
@@ -415,7 +439,7 @@ def test_manifest_against_files(pack: pathlib.Path):
     parse_pack(manifest)
     content = yaml.safe_load(export.CONTENT.read_text())
     tier = manifest["tiers"][0]
-    for key in ("cloud", "labels"):
+    for key in ("world", "labels"):
         path = pack / tier[key]["path"]
         assert path.stat().st_size == tier[key]["bytes"], f"{key} byte count"
         assert export.sha256(path) == tier[key]["sha256"], f"{key} sha256"
@@ -434,17 +458,33 @@ def test_manifest_against_files(pack: pathlib.Path):
     return f"{len(manifest['parts'])} parts, {tier['splatCount']:,} splats"
 
 
-def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_part: str, source_ply: pathlib.Path | None = None, source_report: pathlib.Path | None = None):
-    manifest, report = load_pack(pack)
-    tier = manifest["tiers"][0]
-    decoded = read_spz((pack / tier["cloud"]["path"]).read_bytes())
-    assert decoded["count"] == tier["splatCount"], "SPZ count differs from the manifest"
-    raw = (pack / tier["labels"]["path"]).read_bytes()
+def read_part_labels(path: pathlib.Path, count: int, parts: int) -> np.ndarray:
+    raw = path.read_bytes()
     header = struct.unpack("<HHII", raw[4:16])
-    assert raw[:4] == b"SFGL" and header == (1, 1, tier["splatCount"], 0), "labels.bin header"
-    assert len(raw) == 16 + tier["splatCount"], "labels.bin length"
+    assert raw[:4] == b"SFGL" and header == (1, 1, count, 0), f"{path.name} header"
+    assert len(raw) == 16 + count, f"{path.name} length"
     labels = np.frombuffer(raw, np.uint8, offset=16)
-    assert labels.max() <= len(manifest["parts"]), "a label no part carries"
+    assert labels.max() <= parts, f"{path.name} holds a label no part carries"
+    return labels
+
+
+def test_tree_files(pack: pathlib.Path):
+    """The shipped tree and its node labels agree with the manifest tier."""
+    manifest = json.loads((pack / "manifest.json").read_text())
+    tier = manifest["tiers"][0]
+    header = read_lodsplat_header(pack / tier["world"]["path"])
+    assert header["leafCount"] == tier["splatCount"], "tree leaves differ from the manifest splat count"
+    assert header["nodeCount"] == tier["nodeCount"], "tree nodes differ from the manifest node count"
+    assert header["shDegree"] == export.LOD_SH_DEGREE, f"tree SH degree {header['shDegree']}"
+    read_part_labels(pack / tier["labels"]["path"], tier["nodeCount"], len(manifest["parts"]))
+    return f"{tier['splatCount']:,} leaves, {tier['nodeCount']:,} nodes, SH{header['shDegree']}"
+
+
+def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_part: str, source_ply: pathlib.Path | None = None, source_report: pathlib.Path | None = None):
+    """The tree's build inputs are the source PLY under the recorded placement, with the source labels."""
+    manifest, report = load_pack(pack)
+    decoded = read_spz((pack / export.CLOUD_PATH).read_bytes())
+    labels = read_part_labels(pack / export.SPLAT_LABELS_PATH, decoded["count"], len(manifest["parts"]))
 
     sources = manifest["sources"]
     source_ply = source_ply or HERE.parents[1] / sources["ply"]["path"]
@@ -467,7 +507,7 @@ def test_pack_files(pack: pathlib.Path, label_path: pathlib.Path | None, mask_pa
     assert len(keep) == decoded["count"], f"{len(keep):,} splats in the crop box, {decoded['count']:,} in the SPZ"
     detail = f"{decoded['count']:,} splats"
     source = export.read_labels(label_path, len(splat), [p["id"] for p in manifest["parts"]], mask_part)
-    assert np.array_equal(source[keep], labels), "labels.bin is not the input labels in SPZ order"
+    assert np.array_equal(source[keep], labels), "the per-splat labels are not the input labels in SPZ order"
     detail += f", labels match {label_path.name}"
     compare_clouds(placement.apply(export.load_splats(splat, keep, decoded["degree"])), decoded)
     return detail, decoded, keep, labels, splat, placement, report
@@ -609,7 +649,8 @@ def main():
             loaded["rest"] = rest
             return detail
 
-        check("SPZ and labels.bin match the PLY, the placement and the labels")(pack_files)
+        check("the tree and node labels match the manifest")(lambda: test_tree_files(args.pack))
+        check("the tree's SPZ and labels inputs match the PLY, the placement and the labels")(pack_files)
         if "rest" in loaded:
             decoded, keep, labels, splat, placement, report = loaded["rest"]
             check("part bounds and anchors match the decoded splats")(
