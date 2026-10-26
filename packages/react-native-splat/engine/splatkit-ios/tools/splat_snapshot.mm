@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-#include "rendering/MetalSplatRenderer.h"
+#include "rendering/metal/MetalSplatRenderer.h"
 #include "splatkit/engine/SplatEngine.h"
 
 namespace {
@@ -54,10 +54,9 @@ std::vector<float> numbers(const std::string& list) {
 }
 
 int usage() {
-  std::fprintf(stderr,
-               "usage: splat_snapshot --spz FILE [--labels FILE] [--highlight L,L]\n"
-               "       [--pose AZ,EL,R[,X,Y,Z] | --bounds X,Y,Z,X,Y,Z] [--size WxH]\n"
-               "       [--pick X,Y[,X,Y...]] --out FILE\n");
+  std::fprintf(stderr, "usage: splat_snapshot --spz FILE [--labels FILE] [--highlight L,L]\n"
+                       "       [--pose AZ,EL,R[,X,Y,Z] | --bounds X,Y,Z,X,Y,Z] [--size WxH]\n"
+                       "       [--pick X,Y[,X,Y...]] --out FILE\n");
   return 2;
 }
 
@@ -132,7 +131,7 @@ bool writePng(const std::vector<uint8_t>& bgra, uint32_t width, uint32_t height,
   return ok;
 }
 
-}
+}  // namespace
 
 int main(int argc, char** argv) {
   @autoreleasepool {
@@ -211,9 +210,10 @@ int main(int argc, char** argv) {
     engine.publishStats();
     const auto stats = engine.stats();
     const auto& pose = engine.cameraPose();
-    std::printf("%u of %u splats drawn, gpu %.1f ms; pose az %.1f el %.1f r %.3f at (%.3f, %.3f, "
-                "%.3f)\n",
-                stats.drawnSplatCount, stats.splatCount, stats.gpuMillis,
+    // The cull and sort run in a command buffer of their own, before the one the gpu time is of.
+    std::printf("%u of %u splats drawn, gpu %.1f ms, sort %.1f ms; pose az %.1f el %.1f r %.3f at "
+                "(%.3f, %.3f, %.3f)\n",
+                stats.drawnSplatCount, stats.splatCount, stats.gpuMillis, stats.sortMillis,
                 pose.azimuth / kRadiansPerDegree, pose.elevation / kRadiansPerDegree, pose.radius,
                 pose.target.x, pose.target.y, pose.target.z);
     for (size_t i = 0; i < o.picks.size(); i += 2) {

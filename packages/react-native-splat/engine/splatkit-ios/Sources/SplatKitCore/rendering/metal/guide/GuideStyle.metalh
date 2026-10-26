@@ -1,0 +1,54 @@
+#pragma once
+#include "../layout/SplatTypes.metalh"
+
+// Field Guide's part styles and reveal, applied where a splat is projected. Layouts match
+// LabelStyle and GuideUniform in splatkit/guide/GuideLayout.h.
+
+struct LabelStyle {
+  packed_float3 tint;
+  float tintAmount;
+  float brightness;
+  float opacity;
+  float2 reserved;
+};
+
+constant uint kLabelCount = 256;  // one style per value a label byte can take
+
+struct Guide {
+  float2 reveal;  // world height drawn up to, and the glowing band under it
+  float2 pad;
+  LabelStyle styles[kLabelCount];
+};
+
+// The reveal band peaks in accent tint and brightness at the sweep level.
+constant float3 kRevealTint = float3(0x0A, 0x6C, 0xFF) / 255.0;
+constant float kRevealTintAmount = 0.85;
+constant float kRevealBoost = 0.9;
+
+// One byte per splat, in the order of the splat records.
+inline uint guideLabel(const device uchar* labels, uint index) {
+  return labels[index];
+}
+
+// A splat above the reveal level is not drawn. A NaN height fails the comparison, so it is
+// dropped too; with no reveal running the level is +infinity.
+inline bool guideRevealed(constant Guide& g, float y) {
+  return g.reveal.x - y >= 0.0;
+}
+
+inline float guideOpacity(constant Guide& g, uint label) {
+  return g.styles[label].opacity;
+}
+
+// The captured colour mixed toward the part's tint and scaled by its brightness, then lit by the
+// reveal band when the splat is close under the level.
+inline float3 guideColor(constant Guide& g, uint label, float3 rgb, float y) {
+  const LabelStyle style = g.styles[label];
+  rgb = mix(rgb, float3(style.tint), style.tintAmount) * style.brightness;
+  if (g.reveal.y > 0.0) {
+    float glow = saturate(1.0 - (g.reveal.x - y) / g.reveal.y);
+    glow *= glow;
+    rgb = mix(rgb, kRevealTint, glow * kRevealTintAmount) * (1.0 + glow * kRevealBoost);
+  }
+  return rgb;
+}

@@ -2,6 +2,19 @@ SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-ios
 License: MIT, ../LICENSE
 Imported folders: Sources/SplatKitCore/rendering/metal with cull, device, diagnostics, frame, layout, presentation, raster, selection, sort and world, and cmake.
-Left out: Sources/SplatKit Swift views, Sources/SplatKitCore engine, diagnostics and include, distribution, tests and CMake.
-Field Guide keeps its own sfg_metal, rendering/shaders/SplatBackdrop.metal and tools/splat_snapshot.mm.
+Imported tests: MetalContextTest, MetalFrameCaptureTest, MetalFrameComputeTest, MetalFrameLoopTest, MetalRadixSortTest, MetalRenderTargetTest, MetalSurfaceTest, MetalUpscalerTest, MetalVisibilityPassTest, MetalWorldTest, support/MetalTestContext.h and support/MetalVisibilityRig.h.
+Left out: Sources/SplatKit Swift views, Sources/SplatKitCore engine, diagnostics and include, distribution, the other tests and CMake.
+Field Guide keeps its own CMake, sfg_metal, rendering/metal/guide, rendering/metal/backdrop, tools/splat_snapshot.mm, MetalRasterTest and SfgMetalTest.
+The engine's load replacement race fix lives in Field Guide's own SplatEngine, so no Metal file carries it.
 Field Guide patches:
+- rendering/metal/device/MetalContext.mm: the simulator skips the Apple family 7 check and lets the shader compile decide, because its GPU reports family 2 but is the Mac's.
+- rendering/metal/MetalSplatRenderer.h and .mm: failed() reports the frame loop's GPU failure latch, and each frame puts MetalBackdrop under the splats.
+- rendering/metal/raster/MetalSplatPipeline.h and .mm: the pass clears to transparent and draws no flat background, for the backdrop to fill; the simulator skips the saturation mask, which needs framebuffer fetch; CPU-ordered draws bind the world's labels and the frame's guide.
+- rendering/metal/raster/SplatRaster.metal: splatVertex reads the label stream and guide, and the unused backgroundFragment is gone.
+- rendering/metal/layout/SplatProjection.metalh: projectSplat takes the guide and the splat's label, clipping above the reveal, scaling opacity before the cutoff and styling colour after the harmonics.
+- rendering/metal/cull/SplatVisibility.metal and MetalVisibilityPass.h and .mm: the visibility pass reads the label stream and the frame's guide at kGuideLabelsBuffer and kGuideBuffer.
+- rendering/metal/device/MetalShaderLibrary.h: the shaders get those bindings as SPLAT_GUIDE_LABELS_BUFFER and SPLAT_GUIDE_BUFFER.
+- rendering/metal/device/Splat.metal: includes the guide and backdrop shaders.
+- rendering/metal/frame/MetalFrameCompute.h and .mm: one GuideUniform per frame slot, written with the camera.
+- rendering/metal/world/MetalWorld.h and .mm: each world owns its label stream, written at upload and by tiles, and rejects labels that do not match its splats.
+- tests/MetalVisibilityPassTest.mm, tests/MetalWorldTest.mm and tests/support/MetalVisibilityRig.h: label stream and guide coverage, and the guide arguments of encodeProject.

@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "rendering/metal/device/MetalShaderLibrary.h"
+#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
@@ -15,7 +16,12 @@ bool validCloud(const splat::SplatCloud& cloud) {
   const size_t n = cloud.count();
   return n <= std::numeric_limits<uint32_t>::max() && cloud.positions.size() == n * 3 &&
          cloud.covariances.size() == n * 6 && cloud.colors.size() == n * 3 &&
-         cloud.alphas.size() == n;
+         cloud.alphas.size() == n && (cloud.labels.empty() || cloud.labels.size() == n);
+}
+
+// The label stream holds a byte per splat, padded to the whole words both GPU APIs read.
+size_t labelBytes(size_t count) {
+  return (count + sizeof(uint32_t) - 1) / sizeof(uint32_t) * sizeof(uint32_t);
 }
 
 }  // namespace
@@ -31,7 +37,11 @@ std::unique_ptr<MetalWorld> MetalWorld::upload(id<MTLDevice> device, const splat
   world->splats_ = metal::buffer(device, cloud.count() * sizeof(GpuSplat));
   world->sh_ =
       metal::buffer(device, std::max(size_t{4}, cloud.count() * stride * sizeof(uint32_t)));
-  if (world->splats_ == nil || world->sh_ == nil) return nullptr;
+  world->labels_ = metal::buffer(device, labelBytes(cloud.count()));
+  if (world->splats_ == nil || world->sh_ == nil || world->labels_ == nil) return nullptr;
+  const auto labels = packLabels(cloud);
+  std::memset(world->labels_.contents, 0, world->labels_.length);
+  std::memcpy(world->labels_.contents, labels.data(), labels.size() * sizeof(uint32_t));
   // Unified memory: the pack writes the GPU's bytes in place, so a load is one pass over the
   // cloud with no staging copy. Shared storage is coherent by the time a command buffer commits.
   packSplatRange(cloud, 0, cloud.count(), static_cast<GpuSplat*>(world->splats_.contents));
@@ -56,7 +66,9 @@ std::unique_ptr<MetalWorld> MetalWorld::slab(id<MTLDevice> device, uint32_t capa
                              : sizeof(uint32_t);
   world->splats_ = metal::buffer(device, size_t{capacity} * sizeof(GpuSplat));
   world->sh_ = metal::buffer(device, shBytes);
-  if (world->splats_ == nil || world->sh_ == nil) return nullptr;
+  world->labels_ = metal::buffer(device, labelBytes(capacity));
+  if (world->splats_ == nil || world->sh_ == nil || world->labels_ == nil) return nullptr;
+  std::memset(world->labels_.contents, 0, world->labels_.length);
   return world;
 }
 
@@ -66,6 +78,12 @@ bool MetalWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) {
   if (offset > count_ || n > count_ - offset) return false;
   if (n == 0) return true;
   packSplatRange(cloud, 0, n, static_cast<GpuSplat*>(splats_.contents) + offset);
+  auto* labels = static_cast<uint8_t*>(labels_.contents) + offset;
+  if (cloud.labels.empty()) {
+    std::memset(labels, 0, n);
+  } else {
+    std::memcpy(labels, cloud.labels.data(), n);
+  }
   if (shDegree_ == 0) return true;
   const size_t stride = shStride(shDegree_);
   uint32_t* sh = static_cast<uint32_t*>(sh_.contents) + size_t{offset} * stride;

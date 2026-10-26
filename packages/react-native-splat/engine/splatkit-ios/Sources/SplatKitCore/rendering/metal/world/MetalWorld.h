@@ -32,6 +32,9 @@ class MetalWorld {
   }
   id<MTLBuffer> splats() const { return splats_; }
   id<MTLBuffer> harmonics() const { return sh_; }
+  // Field Guide: one part label byte per splat in record order, zero where a cloud has none,
+  // at least 16 bytes. Written at upload and by tiles, read by the visibility pass.
+  id<MTLBuffer> labels() const { return labels_; }
   id<MTLBuffer> order() const { return orders_[currentOrder_]; }
 
  private:
@@ -39,6 +42,7 @@ class MetalWorld {
   id<MTLDevice> device_ = nil;
   id<MTLBuffer> splats_ = nil;
   id<MTLBuffer> sh_ = nil;
+  id<MTLBuffer> labels_ = nil;
   std::array<id<MTLBuffer>, 2> orders_{};
   uint32_t currentOrder_ = 0;
   uint32_t count_ = 0;

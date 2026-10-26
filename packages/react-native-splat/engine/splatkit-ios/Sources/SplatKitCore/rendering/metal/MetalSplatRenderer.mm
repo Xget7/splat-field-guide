@@ -47,6 +47,10 @@ void MetalSplatRenderer::setLayer(CAMetalLayer* layer) {
     built = pipeline_.create(context_->device(), context_->library(), surface_->targetFormat()) &&
             built;
   }
+  if (backdrop_.format() != surface_->targetFormat()) {
+    built = backdrop_.create(context_->device(), context_->library(), surface_->targetFormat()) &&
+            built;
+  }
   if (!built) {
     LOGE("rendering stopped: no pipelines");
     surface_->setLayer(nil);
@@ -69,7 +73,8 @@ void MetalSplatRenderer::setLinearBlending(bool linear) {
   if (linear == surface_->linearBlending()) return;
   const bool blitReady = surface_->setLinearBlending(linear);
   const bool pipelinesReady =
-      pipeline_.create(context_->device(), context_->library(), surface_->targetFormat());
+      pipeline_.create(context_->device(), context_->library(), surface_->targetFormat()) &&
+      backdrop_.create(context_->device(), context_->library(), surface_->targetFormat());
   if (!blitReady || !pipelinesReady) {
     LOGE("rendering stopped: no pipelines");
     surface_->setLayer(nil);
@@ -208,9 +213,11 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
   id<MTLTexture> colour = surface_->target().colorOr(drawable.texture);
   surface_->ensureDepth(colour.width, colour.height);
   pipeline_.encode(cmd, surface_->target(), drawable.texture, compute_->uniforms(slot),
-                   world_.get(), frame.shDegree,
+                   compute_->guide(slot), world_.get(), frame.shDegree,
                    {compute_->projected(), compute_->order(), compute_->drawArguments(slot)},
                    drawCount, gpuOrder);
+  // Field Guide: a frame drawn straight to the drawable keeps black where nothing was drawn.
+  if (surface_->target().color() != nil) backdrop_.encode(cmd, surface_->target().color());
   surface_->encodeOutput(cmd, drawable.texture);
   MetalFrameCapture::Readback readback = capture_->encode(cmd, drawable.texture);
   if (readback) surface_->allowReadback(false);

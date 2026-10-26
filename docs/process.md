@@ -82,6 +82,10 @@ Hermes collection releases hybrid wrappers; onDropView must release the cloud/GP
 On 2026-10-05, the iPad simulator verified pack digests in 111.83 ms and accepted 2438073 filtered splats from 2498597 source splats.
 The host C-interface harness measured digest verification at 119.67 ms with the same files.
 App/interface tests and a Debug iPad simulator build pass; physical stress, gestures, picking and sustained performance remain unchecked.
+On 2026-10-26, `splat_snapshot` compared the Metal renderer of the SplatKit 9a1fd04 sync with main at 894dc01 on the Mac's M4 Pro, using the high engine-bay pack at the default 1206 x 2622 framing in A-B-B-A blocks of five runs.
+Median GPU time per settled frame was 17.4 ms on main (14.0 ms render, 3.5 ms cull and sort, range 16.2 to 21.9 ms) and 12.8 ms on the sync (9.4 ms render, 3.1 ms cull and sort, range 11.9 to 14.2 ms).
+The sync draws 2143581 of the 2438073 splats against main's 2323573, because upstream culls peaks below 2/255 and quads outside the view without main's 20 percent margin; the plain and highlighted captures look the same.
+These single Mac frames are evidence for the sync, not iPad performance acceptance.
 
 ## Android
 

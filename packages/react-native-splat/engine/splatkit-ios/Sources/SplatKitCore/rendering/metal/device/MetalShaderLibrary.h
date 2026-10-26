@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "SplatShaderSource.h"
+#include "rendering/metal/guide/MetalGuideBindings.h"
 #include "rendering/metal/layout/MetalShaderTypes.h"
 #include "splatkit/Log.h"
 
@@ -15,7 +16,11 @@ namespace splatkit::metal {
 inline id<MTLLibrary> shaderLibrary(id<MTLDevice> device, NSError** error) {
   MTLCompileOptions* options = [MTLCompileOptions new];
   options.languageVersion = MTLLanguageVersion2_3;
-  options.preprocessorMacros = @{@"SPLAT_QUAD_MIN_ALPHA" : @(kQuadMinAlpha)};
+  options.preprocessorMacros = @{
+    @"SPLAT_QUAD_MIN_ALPHA" : @(kQuadMinAlpha),
+    @"SPLAT_GUIDE_LABELS_BUFFER" : @(kGuideLabelsBuffer),
+    @"SPLAT_GUIDE_BUFFER" : @(kGuideBuffer),
+  };
   return [device newLibraryWithSource:@(SplatShaderSource) options:options error:error];
 }
 

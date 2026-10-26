@@ -24,16 +24,28 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../splatkit-engine splatkit-engine)
 # The Metal shader source travels inside the library as a string and is compiled by the
 # device at start, so a host app needs no metallib of ours in its bundle.
 include(cmake/embed.cmake)
+set(SPLATKIT_METAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Sources/SplatKitCore/rendering/metal)
 splatkit_embed_text(splatkit_ios_shaders
-  ${CMAKE_CURRENT_SOURCE_DIR}/Sources/SplatKitCore/rendering/shaders/Splat.metal
+  ${SPLATKIT_METAL_DIR}/device/Splat.metal
   SplatShaderSource
+  ${SPLATKIT_METAL_DIR}
 )
 
 add_library(splatkit_ios STATIC
-  Sources/SplatKitCore/rendering/MetalRadixSort.mm
-  Sources/SplatKitCore/rendering/MetalSplatRenderer.mm
-  Sources/SplatKitCore/rendering/MetalVisibility.mm
-  Sources/SplatKitCore/rendering/MetalWorld.mm
+  Sources/SplatKitCore/rendering/metal/MetalSplatRenderer.mm
+  Sources/SplatKitCore/rendering/metal/backdrop/MetalBackdrop.mm
+  Sources/SplatKitCore/rendering/metal/cull/MetalVisibilityPass.mm
+  Sources/SplatKitCore/rendering/metal/device/MetalContext.mm
+  Sources/SplatKitCore/rendering/metal/diagnostics/MetalFrameCapture.mm
+  Sources/SplatKitCore/rendering/metal/frame/MetalFrameCompute.mm
+  Sources/SplatKitCore/rendering/metal/presentation/MetalFrameLoop.mm
+  Sources/SplatKitCore/rendering/metal/presentation/MetalRenderTarget.mm
+  Sources/SplatKitCore/rendering/metal/presentation/MetalSurface.mm
+  Sources/SplatKitCore/rendering/metal/presentation/MetalUpscaler.mm
+  Sources/SplatKitCore/rendering/metal/raster/MetalSplatPipeline.mm
+  Sources/SplatKitCore/rendering/metal/selection/MetalLodSelection.mm
+  Sources/SplatKitCore/rendering/metal/sort/MetalRadixSort.mm
+  Sources/SplatKitCore/rendering/metal/world/MetalWorld.mm
   Sources/SplatKitCore/sfg/sfg_metal.mm
 )
 target_include_directories(splatkit_ios
@@ -44,6 +56,11 @@ target_compile_options(splatkit_ios PRIVATE -Wall -Wextra -Werror -fobjc-arc)
 target_link_libraries(splatkit_ios PUBLIC splatkit_engine
   "-framework Metal" "-framework QuartzCore" "-framework Foundation"
   "-framework CoreGraphics" "-framework ImageIO" "-framework UniformTypeIdentifiers")
+# The iOS simulator SDK has no MetalFX; MetalUpscaler compiles the scaler out via __has_include.
+find_library(SPLATKIT_METALFX_FRAMEWORK MetalFX)
+if(SPLATKIT_METALFX_FRAMEWORK)
+  target_link_libraries(splatkit_ios PUBLIC "-framework MetalFX")
+endif()
 add_dependencies(splatkit_ios splatkit_ios_shaders)
 
 if(SPLATKIT_IOS_BUILD_TOOLS)

@@ -4,7 +4,9 @@
 #include <cstring>
 
 #include "rendering/metal/device/MetalShaderLibrary.h"
+#include "rendering/metal/guide/MetalGuideBindings.h"
 #include "splatkit/Log.h"
+#include "splatkit/guide/GuideLayout.h"
 
 namespace splatkit {
 
@@ -99,7 +101,8 @@ bool MetalVisibilityPass::reserve(uint32_t capacity, uint32_t activeCapacity) {
 }
 
 bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
-                                        id<MTLBuffer> uniforms, id<MTLBuffer> splats,
+                                        id<MTLBuffer> uniforms, id<MTLBuffer> guide,
+                                        id<MTLBuffer> splats, id<MTLBuffer> labels,
                                         id<MTLBuffer> sh, int shDegree,
                                         const SplatRenderer::Range* ranges, uint32_t rangeCount,
                                         id<MTLBuffer> keys, id<MTLBuffer> values,
@@ -112,6 +115,7 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
     return false;
   const size_t sortBytes = size_t{capacity_} * sizeof(uint32_t);
   if (keys.length < sortBytes || values.length < sortBytes) return false;
+  if (guide.length < sizeof(GuideUniform) || labels.length < sourceCapacity_) return false;
   // Validate before writing slot inputs, so a rejected request cannot corrupt them.
   uint32_t total = 0;
   for (uint32_t i = 0; i < rangeCount; ++i) {
@@ -147,6 +151,8 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
   [cull setBuffer:count_[slot] offset:0 atIndex:7];
   [cull setBuffer:sh offset:0 atIndex:8];
   [cull setBuffer:projected_ offset:0 atIndex:9];
+  [cull setBuffer:labels offset:0 atIndex:kGuideLabelsBuffer];
+  [cull setBuffer:guide offset:0 atIndex:kGuideBuffer];
   if (indexed) {
     [cull setBuffer:indices offset:0 atIndex:10];
     [cull setBuffer:activeCount offset:0 atIndex:11];

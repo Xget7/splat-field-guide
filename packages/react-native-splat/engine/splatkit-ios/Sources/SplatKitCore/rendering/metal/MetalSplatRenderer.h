@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "rendering/metal/backdrop/MetalBackdrop.h"
 #include "rendering/metal/device/MetalContext.h"
 #include "rendering/metal/diagnostics/MetalFrameCapture.h"
 #include "rendering/metal/frame/MetalFrameCompute.h"
@@ -83,6 +84,8 @@ class MetalSplatRenderer final : public SplatRenderer {
     return frameLoop_.gpuFailed() ? 0 : frameLoop_.completedFrames();
   }
   double lastGpuMillis() const override { return frameLoop_.lastGpuMillis(); }
+  // Latched by the first command buffer the GPU reports as failed.
+  bool failed() const override { return frameLoop_.gpuFailed(); }
   // The cull and the sort run as compute passes on the GPU (MetalFrameCompute); the engine
   // hands over the ranges to draw and never sorts on the CPU for this renderer.
   bool sortsOnGpu() const override { return compute_->gpuSort(); }
@@ -112,6 +115,7 @@ class MetalSplatRenderer final : public SplatRenderer {
   std::unique_ptr<MetalContext> context_;
   MetalFrameLoop frameLoop_{kFramesInFlight};
   MetalSplatPipeline pipeline_;
+  MetalBackdrop backdrop_;
 
   std::unique_ptr<MetalFrameCompute> compute_;
   std::unique_ptr<MetalSurface> surface_;

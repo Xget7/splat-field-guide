@@ -1,4 +1,4 @@
-#include "SplatTypes.metalh"
+#include "../layout/SplatTypes.metalh"
 
 // A capture holds nothing past what was scanned, so the frame's own colours, spread outward and
 // blurred, stand in for the surroundings instead of black.
@@ -62,12 +62,11 @@ fragment float4 backdropBlur(BlitVertex in [[stage_in]], texture2d<float> source
   return sum;
 }
 
-// The capture over its backdrop, dithered so the backdrop's slow gradients do not band in 8 bits.
-fragment float4 compositeFragment(BlitVertex in [[stage_in]], texture2d<float> scene [[texture(0)]],
-                                  texture2d<float> backdrop [[texture(1)]]) {
+// The backdrop under the splats, dithered so its slow gradients do not band in 8 bits. The blend
+// keeps it to the coverage the splats left.
+fragment float4 backdropUnder(BlitVertex in [[stage_in]], texture2d<float> backdrop [[texture(0)]]) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  const float4 front = scene.sample(linearSampler, in.uv);
   const float3 back = backdrop.sample(linearSampler, in.uv).rgb;
   const float noise = fract(52.9829189 * fract(dot(in.position.xy, float2(0.06711056, 0.00583715))));
-  return float4(front.rgb + (1.0 - front.a) * back + (noise - 0.5) / 255.0, 1);
+  return float4(back + (noise - 0.5) / 255.0, 1);
 }

@@ -5,19 +5,21 @@ Requires Apple GPU family 7 (A14 or M1) or later; `MetalSplatRenderer::create` r
 
 Each frame the GPU does the whole pipeline:
 
-1. `visibility` projects every splat, drops what is behind the camera, outside the view or below a pixel, and appends the rest keyed by squared distance.
-2. A 32-bit radix sort orders them nearest first.
+1. `visibility` projects every splat, drops what is behind the camera, outside the view, below a pixel, above the reveal or in a hidden part, and appends the rest keyed by view depth with their part styles applied.
+2. A radix sort orders them nearest first.
 3. Seven indirect draws composite them front to back ("under") into a half-float target, with a mask between draws so saturated pixels stop shading.
-4. The backdrop fills what the capture leaves empty: the target is averaged into a small mip pyramid, each pixel takes the colour of the nearest covered area (a pull-push fill), and two blur passes soften it.
-5. A last pass composites the target over the backdrop into the drawable.
+4. The backdrop fills what the capture leaves empty: the target is averaged into a small mip pyramid, each pixel takes the colour of the nearest covered area (a pull-push fill), two blur passes soften it, and it is drawn under the splats.
+5. A last pass copies the target to the drawable.
+
+Part labels sit in a stream of their own, one byte per splat beside the records, so the records stay those of upstream SplatKit.
 
 The shaders are compiled at run time from source embedded by [`cmake/`](cmake), so the library is a plain static archive with no metallib to ship.
 
 ## Layout
 
 ```
-Sources/SplatKitCore/rendering/          renderer, world upload, visibility, radix sort
-Sources/SplatKitCore/rendering/shaders/  MSL, one file per stage, included by Splat.metal
+Sources/SplatKitCore/rendering/metal/    renderer, one folder per stage with its MSL, included by device/Splat.metal
+Sources/SplatKitCore/sfg/                the C interface's Metal renderer
 tests/                                   GPU tests that run on a Mac
 tools/splat_snapshot.mm                  draws a pack through the engine into a PNG, on a Mac
 ```

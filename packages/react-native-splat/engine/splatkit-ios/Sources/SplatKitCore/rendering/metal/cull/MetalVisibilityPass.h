@@ -45,11 +45,13 @@ class MetalVisibilityPass {
   // or this returns false. Invalid ranges fail before encoding any work. Empty ranges produce an
   // empty draw. Caller owns uniforms/source buffers and must keep slot inputs unchanged until this
   // frame completes. Ranges must be disjoint and refer to the reserved source.
+  // Field Guide: `guide` holds the frame's GuideUniform and `labels` one byte per source splat,
+  // read at the visibility pass's guide bindings; smaller buffers return false.
   bool encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms,
-                     id<MTLBuffer> splats, id<MTLBuffer> sh, int shDegree,
-                     const SplatRenderer::Range* ranges, uint32_t rangeCount, id<MTLBuffer> keys,
-                     id<MTLBuffer> values, id<MTLBuffer> indices = nil,
-                     id<MTLBuffer> activeCount = nil);
+                     id<MTLBuffer> guide, id<MTLBuffer> splats, id<MTLBuffer> labels,
+                     id<MTLBuffer> sh, int shDegree, const SplatRenderer::Range* ranges,
+                     uint32_t rangeCount, id<MTLBuffer> keys, id<MTLBuffer> values,
+                     id<MTLBuffer> indices = nil, id<MTLBuffer> activeCount = nil);
   // Turns the slot's survivor count into the indirect draw arguments. Encode it after the
   // sort of the same command buffer.
   void encodeIndirect(id<MTLCommandBuffer> cmd, uint32_t slot);

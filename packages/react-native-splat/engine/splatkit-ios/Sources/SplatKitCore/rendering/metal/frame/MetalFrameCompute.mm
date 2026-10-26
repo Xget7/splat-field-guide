@@ -6,6 +6,7 @@
 #include "rendering/metal/device/MetalShaderLibrary.h"
 #include "rendering/metal/layout/MetalShaderTypes.h"
 #include "splatkit/Log.h"
+#include "splatkit/guide/GuideLayout.h"
 
 namespace splatkit {
 
@@ -43,6 +44,10 @@ bool MetalFrameCompute::create() {
   for (auto& uniform : uniforms_) {
     uniform = metal::buffer(device_, sizeof(CameraUniform));
     if (uniform == nil) return false;
+  }
+  for (auto& guide : guides_) {
+    guide = metal::buffer(device_, sizeof(GuideUniform));
+    if (guide == nil) return false;
   }
   gpuSort_ =
       visibility_.create(device_, library_, KeyBits::Full32) && sort_.create(device_, library_);
@@ -151,6 +156,9 @@ void MetalFrameCompute::updateCamera(const SplatRenderer::Frame& frame, uint32_t
   u.cameraPosition[1] = frame.cameraPosition.y;
   u.cameraPosition[2] = frame.cameraPosition.z;
   std::memcpy(uniforms_[slot].contents, &u, sizeof(u));
+  const GuideUniform guide =
+      makeGuideUniform(frame.labelStyles, frame.revealLevel, frame.revealBand);
+  std::memcpy(guides_[slot].contents, &guide, sizeof(guide));
 }
 
 void MetalFrameCompute::adaptLodThreshold() {
@@ -202,10 +210,10 @@ id<MTLCommandBuffer> MetalFrameCompute::encodeVisibilityAndSort(const SplatRende
                                                                 const MetalWorld& world) {
   id<MTLCommandBuffer> sort = [queue_ commandBuffer];
   const int degree = world.drawDegree(frame.shDegree);
-  if (!visibility_.encodeProject(sort, slot, uniforms_[slot], world.splats(), world.harmonics(),
-                                 degree, lod_ ? nullptr : frame.ranges, lod_ ? 0 : frame.rangeCount,
-                                 sort_.keys(), sort_.values(), lod_ ? lod_->indices() : nil,
-                                 lod_ ? lod_->count() : nil)) {
+  if (!visibility_.encodeProject(
+          sort, slot, uniforms_[slot], guides_[slot], world.splats(), world.labels(),
+          world.harmonics(), degree, lod_ ? nullptr : frame.ranges, lod_ ? 0 : frame.rangeCount,
+          sort_.keys(), sort_.values(), lod_ ? lod_->indices() : nil, lod_ ? lod_->count() : nil)) {
     LOGE("invalid visibility ranges");
     return nil;
   }

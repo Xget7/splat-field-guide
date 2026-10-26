@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdlib>
 
-#include "rendering/MetalSplatRenderer.h"
+#include "rendering/metal/MetalSplatRenderer.h"
 #include "splat/formats/SpzDecoder.h"
 #include "splat/io/MappedFile.h"
 #include "splat/sorting/SpatialOrder.h"
@@ -52,21 +52,32 @@ class MetalRasterTest : public testing::Test {
       dispatch_semaphore_signal(captured);
     });
     EXPECT_TRUE(renderer->draw(frame));
-    EXPECT_EQ(dispatch_semaphore_wait(captured,
-                                      dispatch_time(DISPATCH_TIME_NOW, kCaptureTimeoutNanos)),
-              0);
+    EXPECT_EQ(
+        dispatch_semaphore_wait(captured, dispatch_time(DISPATCH_TIME_NOW, kCaptureTimeoutNanos)),
+        0);
     return pixels;
   }
 
+  // A frame that culls and sorts the whole world on the GPU, as the engine draws it.
+  SplatRenderer::Frame worldFrame(uint32_t splats) {
+    range = {0, splats};
+    SplatRenderer::Frame frame;
+    frame.orderSource = SplatRenderer::OrderSource::gpu;
+    frame.ranges = &range;
+    frame.rangeCount = 1;
+    frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+    return frame;
+  }
+
   std::unique_ptr<MetalSplatRenderer> renderer;
+  SplatRenderer::Range range;
 };
 
 TEST_F(MetalRasterTest, AWorldFrameCompletesOnlyAfterTheGpuDrawsIt) {
   attach(64, 64);
   drawAndCapture({});
   EXPECT_FALSE(renderer->hasCompletedWorldFrame());
-  SplatRenderer::Frame frame;
-  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  const SplatRenderer::Frame frame = worldFrame(1);
   for (int replacement = 0; replacement < 2; ++replacement) {
     ASSERT_TRUE(renderer->uploadWorld(redSplat(), 0));
     EXPECT_FALSE(renderer->hasCompletedWorldFrame());
@@ -78,9 +89,7 @@ TEST_F(MetalRasterTest, AWorldFrameCompletesOnlyAfterTheGpuDrawsIt) {
 TEST_F(MetalRasterTest, ASplatReachesThePresentedPixels) {
   attach(64, 64);
   ASSERT_TRUE(renderer->uploadWorld(redSplat(), 0));
-  SplatRenderer::Frame frame;
-  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
-  const auto pixels = drawAndCapture(frame);
+  const auto pixels = drawAndCapture(worldFrame(1));
   ASSERT_EQ(pixels.size(), 64u * 64u * 4u);
   const size_t center = (32 * 64 + 32) * 4;
   EXPECT_GT(pixels[center + 2], 200);  // red, not the background
@@ -93,8 +102,7 @@ TEST_F(MetalRasterTest, TheBackdropTakesTheCapturesColourAndIsBlackWithoutOne) {
   constexpr uint8_t kDither = 1;   // the composite's dither moves a channel by at most this
   constexpr uint8_t kTinted = 30;  // how far red must lead green to read as the capture's colour
   attach(64, 64);
-  SplatRenderer::Frame frame;
-  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  const SplatRenderer::Frame frame = worldFrame(1);
   const auto empty = drawAndCapture(frame);
   EXPECT_LE(empty[kCorner + 2], kDither);
   ASSERT_TRUE(renderer->uploadWorld(redSplat(), 0));
@@ -111,8 +119,7 @@ TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   auto cloud = redSplat();
   cloud.labels = {kPart};
   ASSERT_TRUE(renderer->uploadWorld(cloud, 0));
-  SplatRenderer::Frame frame;
-  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  SplatRenderer::Frame frame = worldFrame(1);
   const auto asCaptured = drawAndCapture(frame);
 
   Highlight highlight;
@@ -155,7 +162,7 @@ TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
   pose.target = {(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2};
   pose.radius = splat::length({b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]});
   ASSERT_TRUE(camera.setPose(pose));
-  SplatRenderer::Frame frame;
+  SplatRenderer::Frame frame = worldFrame(static_cast<uint32_t>(cloud.count()));
   frame.view = camera.viewMatrix();
   frame.cameraPosition = camera.position();
   frame.proj = splat::Mat4::perspective(65.0f * 3.14159265f / 180.0f,
@@ -174,5 +181,5 @@ TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
   }
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit

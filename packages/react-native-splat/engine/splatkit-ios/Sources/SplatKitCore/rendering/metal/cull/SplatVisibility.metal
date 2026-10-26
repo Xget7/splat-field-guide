@@ -38,7 +38,9 @@ kernel void visibility(uint t [[thread_position_in_grid]],
                        const device uint* shData [[buffer(8)]],
                        device Projected* projected [[buffer(9)]],
                        const device uint* activeIndices [[buffer(10), function_constant(kIndexedLOD)]],
-                       const device uint* activeCount [[buffer(11), function_constant(kIndexedLOD)]]) {
+                       const device uint* activeCount [[buffer(11), function_constant(kIndexedLOD)]],
+                       const device uchar* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
+                       constant Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
   const uint total = kIndexedLOD ? activeCount[0] : rangeStarts[rangeCount];
   bool visible = false;
   uint key = 0;
@@ -54,7 +56,7 @@ kernel void visibility(uint t [[thread_position_in_grid]],
       index = ranges[r].offset + (t - rangeStarts[r]);
     }
     Splat s = splats[index];
-    visible = projectSplat(cam, s, index, shData, p);
+    visible = projectSplat(cam, s, index, shData, guide, guideLabel(labels, index), p);
     // Both key widths order by view depth, which the blend order along a view ray needs;
     // positive IEEE float bits sort in ascending numeric order. Behind the camera a
     // negative depth yields a key in the high half, after every visible splat, and

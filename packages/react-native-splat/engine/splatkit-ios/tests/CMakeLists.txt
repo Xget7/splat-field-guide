@@ -1,13 +1,21 @@
 add_executable(splatkit_ios_tests
+  MetalContextTest.mm
+  MetalFrameCaptureTest.mm
+  MetalFrameComputeTest.mm
+  MetalFrameLoopTest.mm
   MetalRadixSortTest.mm
   MetalRasterTest.mm
-  MetalVisibilityTest.mm
+  MetalRenderTargetTest.mm
+  MetalSurfaceTest.mm
+  MetalUpscalerTest.mm
+  MetalVisibilityPassTest.mm
   MetalWorldTest.mm
   SfgMetalTest.mm
 )
 # The engine's test worlds, and spz's headers they write with.
 target_include_directories(splatkit_ios_tests PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/../Sources/SplatKitCore ${CMAKE_CURRENT_BINARY_DIR}/../embedded
+  ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../Sources/SplatKitCore
+  ${CMAKE_CURRENT_BINARY_DIR}/../embedded
   ${CMAKE_CURRENT_SOURCE_DIR}/../../splatkit-engine/tests
   $<TARGET_PROPERTY:spz,INTERFACE_INCLUDE_DIRECTORIES>
 )

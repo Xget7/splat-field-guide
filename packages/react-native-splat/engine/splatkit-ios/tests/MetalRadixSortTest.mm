@@ -3,9 +3,10 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <random>
+#include <unordered_map>
 #include <vector>
-#include "MetalTestContext.h"
-#include "rendering/MetalRadixSort.h"
+#include "rendering/metal/sort/MetalRadixSort.h"
+#include "support/MetalTestContext.h"
 
 namespace splatkit {
 namespace {
@@ -17,27 +18,41 @@ struct Pair {
   bool operator==(const Pair& o) const { return key == o.key && value == o.value; }
 };
 
-std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs) {
-  Gpu& gpu = Gpu::get();
-  auto* keys = static_cast<uint32_t*>(v.keys().contents);
-  auto* values = static_cast<uint32_t*>(v.values().contents);
+void fill(MetalRadixSort& v, const std::vector<Pair>& pairs) {
+  std::vector<uint32_t> keys(pairs.size());
+  std::vector<uint32_t> values(pairs.size());
   for (size_t i = 0; i < pairs.size(); ++i) {
     keys[i] = pairs[i].key;
     values[i] = pairs[i].value;
   }
+  Gpu::get().upload(v.keys(), keys.data(), keys.size());
+  Gpu::get().upload(v.values(), values.data(), values.size());
+}
+
+// Fills the key and value buffers with `pairs`, sorts on the GPU, returns what came out.
+std::vector<Pair> sortOnGpu(MetalRadixSort& v, const std::vector<Pair>& pairs,
+                            KeyBits bits = KeyBits::Full32) {
+  Gpu& gpu = Gpu::get();
+  fill(v, pairs);
   uint32_t count = static_cast<uint32_t>(pairs.size());
   id<MTLBuffer> countBuffer = [gpu.device newBufferWithBytes:&count
                                                       length:sizeof(count)
                                                      options:MTLResourceStorageModeShared];
   id<MTLCommandBuffer> cmd = [gpu.queue commandBuffer];
-  v.encode(cmd, countBuffer);
+  v.encode(cmd, countBuffer, bits);
   [cmd commit];
   [cmd waitUntilCompleted];
   EXPECT_EQ(cmd.status, MTLCommandBufferStatusCompleted);
+  // Only the values come out sorted; these tests give every pair a distinct value, which
+  // names its key.
+  std::unordered_map<uint32_t, uint32_t> keyOf;
+  for (const Pair& pair : pairs) keyOf[pair.value] = pair.key;
+  const auto values = gpu.readback<uint32_t>(v.values());
   std::vector<Pair> out(pairs.size());
   for (size_t i = 0; i < pairs.size(); ++i) {
-    out[i] = {static_cast<const uint32_t*>(v.keys().contents)[i],
-              static_cast<const uint32_t*>(v.values().contents)[i]};
+    const uint32_t value = values[i];
+    const auto found = keyOf.find(value);
+    out[i] = {found == keyOf.end() ? ~0u : found->second, value};
   }
   return out;
 }
@@ -95,46 +110,48 @@ TEST_F(MetalRadixSortTest, SortsExactlyOneBlock) {
   EXPECT_EQ(sortOnGpu(sort, pairs), sortOnCpu(pairs));
 }
 
-TEST_F(MetalRadixSortTest, SortsEveryTailLengthLikeAStableCpuSort) {
+TEST_F(MetalRadixSortTest, TwoPassKeysMatchFourPassAndStableCpuIncludingTiesAndTails) {
   ASSERT_TRUE(sort.reserve(1000003));
   for (uint32_t n : {0u, 1u, 31u, 32u, 33u, 4095u, 4096u, 4097u, 1000003u}) {
     SCOPED_TRACE(n);
-    auto pairs = randomPairs(n, 0xffffffffu, 16);
+    auto pairs = randomPairs(n, 0xffffu, 16);
     if (n > 1) {
-      pairs.front().key = 0xffffffffu;
+      pairs.front().key = 65535;
       pairs.back().key = 0;
     }
-    EXPECT_EQ(sortOnGpu(sort, pairs), sortOnCpu(pairs));
+    const auto expected = sortOnCpu(pairs);
+    EXPECT_EQ(sortOnGpu(sort, pairs, KeyBits::Low16), expected);
+    EXPECT_EQ(sortOnGpu(sort, pairs), expected);
   }
+  const auto ties = randomPairs(70000, 0x7u, 17);
+  EXPECT_EQ(sortOnGpu(sort, ties, KeyBits::Low16), sortOnCpu(ties));
 }
 
+// Not a check, a number: the GPU time of a sort at the scale a phone draws.
 TEST_F(MetalRadixSortTest, ReportsTheSortTimeOfFiveMillionKeys) {
   const size_t n = 5000000;
   ASSERT_TRUE(sort.reserve(n));
   const auto pairs = randomPairs(n, 0xffffffffu, 5);
-  auto* keys = static_cast<uint32_t*>(sort.keys().contents);
-  auto* values = static_cast<uint32_t*>(sort.values().contents);
-  for (size_t i = 0; i < n; ++i) {
-    keys[i] = pairs[i].key;
-    values[i] = pairs[i].value;
-  }
   uint32_t count = static_cast<uint32_t>(n);
   id<MTLBuffer> countBuffer = [Gpu::get().device newBufferWithBytes:&count
                                                              length:sizeof(count)
                                                             options:MTLResourceStorageModeShared];
   double best = 1e9;
   for (int i = 0; i < 10; ++i) {
+    // A sort leaves keys() as scratch and values() permuted: refill both so every
+    // iteration sorts the same pairs.
+    fill(sort, pairs);
     id<MTLCommandBuffer> cmd = [Gpu::get().queue commandBuffer];
     sort.encode(cmd, countBuffer);
     [cmd commit];
     [cmd waitUntilCompleted];
     best = std::min(best, (cmd.GPUEndTime - cmd.GPUStartTime) * 1000.0);
-    // The result is in place after an even number of passes: sort it again as is.
   }
-  const auto* sorted = static_cast<const uint32_t*>(sort.keys().contents);
-  EXPECT_TRUE(std::is_sorted(sorted, sorted + n));
+  const auto order = Gpu::get().readback<uint32_t>(sort.values());
+  EXPECT_TRUE(std::is_sorted(order.begin(), order.begin() + n,
+                             [&](uint32_t a, uint32_t b) { return pairs[a].key < pairs[b].key; }));
   printf("[ sort     ] %zu keys: %.2f ms on %s\n", n, best, Gpu::get().device.name.UTF8String);
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit
