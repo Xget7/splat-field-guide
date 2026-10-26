@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(SPLAT_CORE_BUILD_TESTS "Build splat_core unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(SPLAT_CORE_BUILD_TOOLS "Build splat_lod_build, which prepares a pack's LOD tree" ${PROJECT_IS_TOP_LEVEL})
 option(SPLAT_CORE_PORTABLE_SHA256 "Use vendored SHA-256 without platform crypto" ${ANDROID})
 # "thread" or "address" (address implies undefined). Off by default; CI runs both.
 set(SPLAT_CORE_SANITIZE "" CACHE STRING "Sanitizer for splat_core and its tests")
@@ -28,6 +29,7 @@ add_library(splat_core STATIC
   src/filtering/Haze.cpp
   src/filtering/Sparse.cpp
   src/formats/PartLabels.cpp
+  src/formats/SplatDecoder.cpp
   src/formats/SpzDecoder.cpp
   src/io/MappedFile.cpp
   src/loading/Sha256.cpp
@@ -64,4 +66,8 @@ target_compile_options(splat_core PRIVATE
 if(SPLAT_CORE_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(SPLAT_CORE_BUILD_TOOLS)
+  add_subdirectory(tools)
 endif()

@@ -9,12 +9,22 @@ namespace {
 
 // A header for `count` labels; the bytes after it are the caller's.
 std::vector<std::uint8_t> header(std::uint32_t count) {
-  return {'S', 'F', 'G', 'L',  // magic
-          1,   0,              // version
-          1,   0,              // bytes per label
-          static_cast<std::uint8_t>(count), static_cast<std::uint8_t>(count >> 8),
-          static_cast<std::uint8_t>(count >> 16), static_cast<std::uint8_t>(count >> 24),
-          0,   0,   0,   0};  // reserved
+  return {'S',
+          'F',
+          'G',
+          'L',  // magic
+          1,
+          0,  // version
+          1,
+          0,  // bytes per label
+          static_cast<std::uint8_t>(count),
+          static_cast<std::uint8_t>(count >> 8),
+          static_cast<std::uint8_t>(count >> 16),
+          static_cast<std::uint8_t>(count >> 24),
+          0,
+          0,
+          0,
+          0};  // reserved
 }
 
 std::vector<std::uint8_t> file(std::vector<std::uint8_t> labels) {
@@ -38,6 +48,12 @@ TEST(PartLabels, DecodesOneLabelPerSplat) {
   labels = decode(file({}));
   ASSERT_TRUE(labels.ok());
   EXPECT_TRUE(labels.value().empty());
+}
+
+TEST(PartLabels, EncodesTheFileItDecodes) {
+  const std::vector<std::uint8_t> labels(70000, 9);
+  EXPECT_EQ(encodePartLabels(labels), file(labels));
+  EXPECT_EQ(encodePartLabels({}), file({}));
 }
 
 TEST(PartLabels, RefusesAnotherFormat) {
@@ -66,5 +82,5 @@ TEST(PartLabels, RefusesASizeThatDisagreesWithTheCount) {
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::corrupt);
 }
 
-}
-}
+}  // namespace
+}  // namespace splat

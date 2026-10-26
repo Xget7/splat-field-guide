@@ -2,10 +2,12 @@ add_executable(splat_core_tests
   filtering/HazeTest.cpp
   filtering/SparseTest.cpp
   formats/PartLabelsTest.cpp
+  formats/SplatDecoderTest.cpp
   formats/SpzDecoderTest.cpp
   io/MappedFileTest.cpp
   loading/Sha256Test.cpp
   loading/SplatWorldLoaderTest.cpp
+  lod/LabelledLodTreeTest.cpp
   lod/LodTreeTest.cpp
   math/CovarianceTest.cpp
   math/HalfTest.cpp

@@ -70,6 +70,8 @@ struct LodBuildOptions {
 };
 
 // Builds the tree. The cloud is consumed: its splats become the leaves.
+// Field Guide: a cloud with one label per splat gives one label per node, in node order; a
+// merged node takes the part whose leaves hold the most opacity, the lower part on a tie.
 LodTree buildLodTree(SplatCloud cloud, const LodBuildOptions& options = {});
 
 // Offline metadata construction; requires a validated hierarchy. Does not alter splats.

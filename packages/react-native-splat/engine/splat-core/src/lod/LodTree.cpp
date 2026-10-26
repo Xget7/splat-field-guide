@@ -241,6 +241,53 @@ void copyInLayoutOrder(const Nodes& nodes, const std::vector<uint32_t>& order, L
   }
 }
 
+// Field Guide: one part label per node, in node order. A leaf keeps its splat's part; a merged
+// node takes the part whose leaves under it hold the most opacity, the lower part on a tie, so a
+// wide view styles each merged node like most of what it stands in for.
+void labelInLayoutOrder(const std::vector<uint8_t>& splatLabels, const std::vector<uint32_t>& order,
+                        LodTree& tree) {
+  constexpr std::size_t kParts = 256;
+  using PartWeights = std::vector<std::pair<uint8_t, double>>;
+  const std::size_t total = order.size();
+  std::vector<uint8_t>& labels = tree.nodes.labels;
+  labels.assign(total, 0);
+  // Children follow their parent in the layout, so walking it backwards meets every child
+  // first. A merged node's weights live until its parent has summed them.
+  std::vector<PartWeights> merged(total);
+  std::array<double, kParts> sum{};
+  std::array<bool, kParts> present{};
+  for (std::size_t i = total; i-- > 0;) {
+    const LodNode& node = tree.layout[i];
+    if (node.childCount == 0) {
+      labels[i] = splatLabels[order[i]];
+      continue;
+    }
+    sum.fill(0);
+    present.fill(false);
+    for (uint32_t c = node.childStart; c < node.childStart + node.childCount; ++c) {
+      if (tree.layout[c].childCount == 0) {
+        sum[labels[c]] += tree.nodes.alphas[c];
+        present[labels[c]] = true;
+        continue;
+      }
+      for (const auto& [part, weight] : merged[c]) {
+        sum[part] += weight;
+        present[part] = true;
+      }
+      PartWeights().swap(merged[c]);
+    }
+    double heaviest = -1;
+    for (std::size_t part = 0; part < kParts; ++part) {
+      if (!present[part]) continue;
+      merged[i].emplace_back(static_cast<uint8_t>(part), sum[part]);
+      if (sum[part] > heaviest) {
+        heaviest = sum[part];
+        labels[i] = static_cast<uint8_t>(part);
+      }
+    }
+  }
+}
+
 }  // namespace
 
 LodTree buildLodTree(SplatCloud cloud, const LodBuildOptions& options) {
@@ -255,6 +302,7 @@ LodTree buildLodTree(SplatCloud cloud, const LodBuildOptions& options) {
 
   const std::vector<uint32_t> order = layOutBreadthFirst(nodes, root, tree);
   copyInLayoutOrder(nodes, order, tree);
+  if (cloud.labels.size() == leaves) labelInLayoutOrder(cloud.labels, order, tree);
   tree.nodes.shDegree = cloud.shDegree;
   tree.nodes.bounds = cloud.bounds;
   return tree;
