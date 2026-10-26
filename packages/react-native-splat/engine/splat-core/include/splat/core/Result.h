@@ -15,6 +15,7 @@ enum class ErrorCode {
   gpuUnavailable,
   unreadable,          // a file that cannot be opened, is empty, or cannot be mapped
   insufficientMemory,  // a load the process could not hold without being ended for memory
+  labelsMismatch,      // part labels that disagree with the cloud count or pack identity
 };
 
 struct Error {

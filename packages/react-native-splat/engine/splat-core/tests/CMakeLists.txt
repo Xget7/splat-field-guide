@@ -6,8 +6,11 @@ add_executable(splat_core_tests
   io/MappedFileTest.cpp
   loading/Sha256Test.cpp
   loading/SplatWorldLoaderTest.cpp
+  lod/LodTreeTest.cpp
+  math/CovarianceTest.cpp
   math/HalfTest.cpp
   math/Mat4Test.cpp
+  math/SymmetricEigenTest.cpp
   sorting/SpatialOrderTest.cpp
 )
 # Only add spz headers because splat_core already links its archive, avoiding Apple's duplicate-archive warning.

@@ -3,6 +3,10 @@ Origin: https://github.com/Xget7/splatkit, packages/splat-core
 License: MIT, ../LICENSE
 Imported folders: core, math and io, headers and sources.
 Imported files: formats/SplatCloud.h, formats/SpzDecoder, loading/LoadCost.h, lod/LodTree, lod/LodFile and src/lod/LodSelection.cpp.
-Left out: diagnostics, tiles, navigation, sorting, loading/LoadCost.cpp and SplatWorldLoader, the GLB and generic decoders, tools, tests and CMake.
-Field Guide keeps its own filtering, formats/PartLabels, sorting/SpatialOrder, loading/SplatWorldLoader with Sha256, and vendor/picosha2.
+Imported tests: tests/math/CovarianceTest.cpp, tests/math/SymmetricEigenTest.cpp and tests/lod/LodTreeTest.cpp.
+Left out: diagnostics, tiles, navigation, sorting, loading/LoadCost.cpp and SplatWorldLoader, the GLB and generic decoders, formats/TriangleMesh.h, tools, the other tests, CMake, README.md and third_party/splat-transform-LICENSE.txt.
+Field Guide keeps its own filtering, formats/PartLabels, loading/SplatWorldLoader with Sha256, and vendor/picosha2.
+sorting/SpatialOrder is not Field Guide's own file: it came from SplatKit 62cee54 and is not resynced here, and it differs from 9a1fd04 only in permuting part labels and in comment wording.
 Field Guide patches:
+- include/splat/formats/SplatCloud.h: the labels field, one part label per splat or empty.
+- include/splat/core/Result.h: the labelsMismatch error code, appended after upstream's codes.

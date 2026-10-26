@@ -32,6 +32,11 @@ add_library(splat_core STATIC
   src/io/MappedFile.cpp
   src/loading/Sha256.cpp
   src/loading/SplatWorldLoader.cpp
+  src/lod/LodFile.cpp
+  src/lod/LodSelection.cpp
+  src/lod/LodTree.cpp
+  src/math/Covariance.cpp
+  src/math/SymmetricEigen.cpp
   src/sorting/SpatialOrder.cpp
 )
 target_include_directories(splat_core PUBLIC include)
