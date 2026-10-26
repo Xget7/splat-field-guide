@@ -7,9 +7,9 @@
 #include <mutex>
 #include <string>
 
-#include "splat/core/CoordinateFrame.h"
 #include "splat/core/Result.h"
 #include "splat/formats/SplatCloud.h"
+#include "splat/lod/LodTree.h"
 
 namespace splat {
 
@@ -20,52 +20,50 @@ struct ByteView {
   bool empty() const { return size == 0; }
 };
 
+// What the pack manifest says a tier's files are.
 struct SourceIdentity {
-  std::string splatSha256;
+  std::string worldSha256;
   std::string labelsSha256;
+  // The tree's leaves: the splats left of the capture after the pack was prepared.
   uint32_t expectedSplatCount;
 };
 
-// Concurrent loads decode on their calling threads, and the last successful completion replaces the
-// pending world for the render thread.
+// Loads a pack tier as it ships: a SplatKit .lodsplat tree, prepared offline, with one part
+// label per tree node in node order. Concurrent loads decode on their calling threads, and the
+// last successful completion replaces the pending world for the render thread.
 class SplatWorldLoader {
  public:
   struct WorldReport {
+    // The tree's leaves, the splats the capture kept.
     std::size_t splatCount = 0;
+    std::size_t nodeCount = 0;
     int shDegree = 0;
     bool labelled = false;
     Bounds bounds;
-    // splatCount is measured after both filters.
-    std::size_t hazeRemoved = 0;
-    // Sparse filtering follows haze removal.
-    std::size_t sparseRemoved = 0;
     double decodeMillis = 0;
-    double reorderMillis = 0;
     double verificationMillis = 0;
-    std::size_t sourceSplatCount = 0;
     bool verified = false;
   };
 
-  // Highest SH degree materialized for worlds loaded from now on. The source SPZ remains full.
+  // Highest SH degree materialized for worlds loaded from now on. The source file remains full.
   void setMaxShDegree(int degree);
 
-  // Absent labels leave splats unlabelled; count/digest mismatches return labelsMismatch before
-  // filtering, and errors preserve the pending world.
-  Result<WorldReport> loadWorld(ByteView spz, ByteView labels, CoordinateFrame sourceFrame,
+  // Absent labels leave the tree unlabelled; a digest or a count that disagrees with the tree
+  // returns labelsMismatch before decoding, and errors preserve the pending world.
+  Result<WorldReport> loadWorld(ByteView world, ByteView labels,
                                 const SourceIdentity* identity = nullptr);
   // An empty labels path means no labels.
-  Result<WorldReport> loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
-                                    CoordinateFrame sourceFrame,
+  Result<WorldReport> loadWorldFile(const std::string& worldPath, const std::string& labelsPath,
                                     const SourceIdentity* identity = nullptr);
 
   // Transfers the pending world once.
-  std::unique_ptr<SplatCloud> takeWorld();
+  std::unique_ptr<LodTree> takeWorld();
   bool hasWorld() const;
 
  private:
   std::atomic<int> maxShDegree_{3};
   mutable std::mutex mutex_;
-  std::unique_ptr<SplatCloud> pendingWorld_;
+  std::unique_ptr<LodTree> pendingWorld_;
 };
 
-}
+}  // namespace splat

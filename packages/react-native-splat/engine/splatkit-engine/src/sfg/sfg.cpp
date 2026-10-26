@@ -18,9 +18,6 @@ struct sfg_engine {
 namespace splatkit {
 namespace {
 
-// Packs keep their cloud in SPZ's own frame, +X right, +Y up, +Z back.
-constexpr splat::CoordinateFrame kPackFrame = splat::CoordinateFrame::rub;
-
 sfg_event toC(SplatEngine::Event event) {
   switch (event) {
     case SplatEngine::Event::worldReady:
@@ -47,7 +44,7 @@ sfg_vec3 toC(splat::Vec3 v) {
   return {v.x, v.y, v.z};
 }
 
-}
+}  // namespace
 
 sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile,
                           std::shared_ptr<void> platform) {
@@ -63,7 +60,7 @@ const SplatEngine& engineOf(const sfg_engine* engine) {
   return *engine->engine;
 }
 
-}
+}  // namespace splatkit
 
 using splatkit::engineOf;
 
@@ -84,20 +81,22 @@ void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback callback, voi
   });
 }
 
-bool sfg_load(sfg_engine* engine, const char* spz_path, const char* labels_path) {
-  return engineOf(engine).loadWorldFile(spz_path, labels_path != nullptr ? labels_path : "",
-                                        splatkit::kPackFrame);
+bool sfg_load(sfg_engine* engine, const char* world_path, const char* labels_path) {
+  return engineOf(engine).loadWorldFile(world_path, labels_path != nullptr ? labels_path : "");
 }
 
-uint64_t sfg_begin_load(sfg_engine* engine) { return engineOf(engine).beginLoad(); }
+uint64_t sfg_begin_load(sfg_engine* engine) {
+  return engineOf(engine).beginLoad();
+}
 
-bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path, const char* labels_path,
-                      const sfg_source_identity* identity) {
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* world_path,
+                      const char* labels_path, const sfg_source_identity* identity) {
   std::optional<splat::SourceIdentity> source;
-  if (identity) source.emplace(splat::SourceIdentity{identity->splat_sha256, identity->labels_sha256,
-                                                   identity->expected_splat_count});
-  return engineOf(engine).loadWorldFile(request, spz_path, labels_path != nullptr ? labels_path : "",
-                                        splatkit::kPackFrame, source ? &*source : nullptr);
+  if (identity)
+    source.emplace(splat::SourceIdentity{identity->splat_sha256, identity->labels_sha256,
+                                         identity->expected_splat_count});
+  return engineOf(engine).loadWorldFile(
+      request, world_path, labels_path != nullptr ? labels_path : "", source ? &*source : nullptr);
 }
 
 bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos) {
@@ -172,5 +171,4 @@ size_t sfg_project(const sfg_engine* engine, const float* points, size_t count, 
 bool sfg_drawn_direction(const sfg_engine* engine, sfg_view_direction* out) {
   return engineOf(engine).drawnDirection(out->azimuth, out->elevation);
 }
-
 }

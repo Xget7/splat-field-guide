@@ -5,10 +5,10 @@
 #include <cstdlib>
 
 #include "rendering/metal/MetalSplatRenderer.h"
-#include "splat/formats/SpzDecoder.h"
-#include "splat/io/MappedFile.h"
-#include "splat/sorting/SpatialOrder.h"
+#include "splat/loading/SplatWorldLoader.h"
+#include "splat/lod/LodTree.h"
 #include "splatkit/camera/OrbitCamera.h"
+#include "splatkit/engine/SplatEngine.h"
 #include "splatkit/highlight/Highlight.h"
 
 namespace splatkit {
@@ -139,30 +139,67 @@ TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
   EXPECT_LT(dimmed[kCenter], 20);
 }
 
+// With a budget of one node the selection draws the root, which stands for all three leaves and
+// carries the part that holds most of their opacity.
+TEST_F(MetalRasterTest, DrawsAMergedNodeWithItsMajorityStyle) {
+  constexpr uint8_t kPart = 3;
+  constexpr uint8_t kOtherPart = 4;
+  constexpr uint32_t kOneNode = 1;
+  constexpr size_t kCenter = (32 * 64 + 32) * 4;  // BGRA
+  attach(64, 64);
+  splat::SplatCloud leaves;
+  leaves.positions = {-0.05f, 0, -2, 0.05f, 0, -2, 0, 0.05f, -2};
+  leaves.colors = {1, 0, 0, 1, 0, 0, 1, 0, 0};
+  leaves.alphas = {1, 1, 1};
+  for (int leaf = 0; leaf < 3; ++leaf)
+    leaves.covariances.insert(leaves.covariances.end(), {0.04f, 0, 0, 0.04f, 0, 0.04f});
+  leaves.labels = {kPart, kPart, kOtherPart};
+  leaves.bounds.min = {-0.05f, 0, -2};
+  leaves.bounds.max = {0.05f, 0.05f, -2};
+  const splat::LodTree tree = splat::buildLodTree(std::move(leaves));
+  ASSERT_GT(tree.nodeCount(), kOneNode);
+  ASSERT_EQ(tree.nodes.labels[0], kPart);
+  ASSERT_TRUE(renderer->uploadLodWorld(tree, 0, kOneNode));
+  SplatRenderer::Frame frame = worldFrame(static_cast<uint32_t>(tree.nodeCount()));
+  const auto asCaptured = drawAndCapture(frame);
+  EXPECT_EQ(renderer->lastDrawCount(), kOneNode);
+
+  Highlight highlight;
+  highlight.set(&kPart, 1);
+  highlight.update(Highlight::kFadeSeconds);
+  frame.labelStyles = &highlight.styles();
+  const auto emphasised = drawAndCapture(frame);
+  highlight.set(&kOtherPart, 1);
+  highlight.update(Highlight::kFadeSeconds);
+  const auto dimmed = drawAndCapture(frame);
+
+  EXPECT_LT(asCaptured[kCenter], 20);
+  EXPECT_GT(emphasised[kCenter], asCaptured[kCenter] + 20);
+  EXPECT_LT(dimmed[kCenter + 2], asCaptured[kCenter + 2] * 0.7f);
+  EXPECT_LT(dimmed[kCenter], 20);
+}
+
 TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
-  const char* path = std::getenv("SPLAT_SPZ_PATH");
-  if (!path) GTEST_SKIP() << "Set SPLAT_SPZ_PATH to an SPZ capture";
-  auto file = splat::MappedFile::open(path);
-  ASSERT_TRUE(file);
-  splat::SpzDecodeOptions options;
-  options.maxShDegree = 1;
-  auto decoded = splat::decodeSpz(file.value().data(), file.value().size(), options);
-  ASSERT_TRUE(decoded);
-  auto& cloud = decoded.value();
-  splat::reorderSpatially(cloud);
+  const char* path = std::getenv("SPLAT_LOD_PATH");
+  if (!path) GTEST_SKIP() << "Set SPLAT_LOD_PATH to a pack's .lodsplat tree";
+  splat::SplatWorldLoader loader;
+  loader.setMaxShDegree(1);
+  const auto loaded = loader.loadWorldFile(path, "");
+  ASSERT_TRUE(loaded) << loaded.error().message;
+  const auto tree = loader.takeWorld();
 
   constexpr uint32_t kWidth = 1206;
   constexpr uint32_t kHeight = 2622;
   attach(kWidth, kHeight);
   ASSERT_TRUE(renderer->draw({}));
-  ASSERT_TRUE(renderer->uploadWorld(cloud, 1));
-  const splat::Bounds& b = cloud.bounds;
+  ASSERT_TRUE(renderer->uploadLodWorld(*tree, 1, SplatEngine::kSplatBudget));
+  const splat::Bounds& b = tree->nodes.bounds;
   OrbitCamera camera;
   OrbitPose pose;
   pose.target = {(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2};
   pose.radius = splat::length({b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]});
   ASSERT_TRUE(camera.setPose(pose));
-  SplatRenderer::Frame frame = worldFrame(static_cast<uint32_t>(cloud.count()));
+  SplatRenderer::Frame frame = worldFrame(static_cast<uint32_t>(tree->nodeCount()));
   frame.view = camera.viewMatrix();
   frame.cameraPosition = camera.position();
   frame.proj = splat::Mat4::perspective(65.0f * 3.14159265f / 180.0f,
@@ -178,6 +215,7 @@ TEST_F(MetalRasterTest, ARealWorldFillsTheView) {
            visiblePixels, renderer->lastDrawCount(), renderer->lastSortMillis(),
            renderer->lastGpuMillis());
     EXPECT_GT(visiblePixels, 10000u);
+    EXPECT_LE(renderer->lastDrawCount(), SplatEngine::kSplatBudget);
   }
 }
 

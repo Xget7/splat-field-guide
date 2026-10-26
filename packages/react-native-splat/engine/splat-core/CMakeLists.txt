@@ -39,7 +39,6 @@ add_library(splat_core STATIC
   src/lod/LodTree.cpp
   src/math/Covariance.cpp
   src/math/SymmetricEigen.cpp
-  src/sorting/SpatialOrder.cpp
 )
 target_include_directories(splat_core PUBLIC include)
 find_package(ZLIB REQUIRED)  # the SPZ gzip container is inflated here, with a ceiling

@@ -24,10 +24,13 @@ constexpr float kTolerance = 1e-4f;
 constexpr float kFramingMargin = 1.05f;
 constexpr float kMinFramingAspect = 1e-3f;
 constexpr std::size_t kBoxCornerCount = 8;
-constexpr splat::CoordinateFrame kFrame = splat::CoordinateFrame::rub;
 constexpr Extent kLandscape{2000, 1000};
 constexpr Extent kPortrait{1000, 2000};
-constexpr uint32_t kPairSplats = 2;
+// The pair is a three-node tree: its merged root, then its two leaves.
+constexpr uint32_t kPairNodes = 3;
+constexpr uint32_t kPairLeaves = 2;
+// A root label the leaves do not carry, so a pick that hit the root would show.
+constexpr uint8_t kRootPart = 9;
 
 std::array<float, kBoxCornerCount * 3> cornerPoints(const splat::Bounds& bounds) {
   std::array<float, kBoxCornerCount * 3> points;
@@ -66,7 +69,7 @@ class SplatEngineTest : public ::testing::Test {
   bool tick() { return engine->render(++vsync * kVsyncNanos); }
 
   void load(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& labels = {}) {
-    engine->loadWorld({bytes.data(), bytes.size()}, {labels.data(), labels.size()}, kFrame);
+    engine->loadWorld({bytes.data(), bytes.size()}, {labels.data(), labels.size()});
   }
 
   void expectTightFit(const splat::Bounds& bounds) {
@@ -128,7 +131,7 @@ TEST_F(SplatEngineTest, ReportsAWorldReadyOnceItIsOnScreen) {
   renderer->gpuFinished = true;
   EXPECT_FALSE(tick());
   ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady});
-  EXPECT_EQ(events.counts[0], 2u);
+  EXPECT_EQ(events.counts[0], kPairLeaves);
   EXPECT_FALSE(engine->needsFrame());
 }
 
@@ -155,14 +158,34 @@ TEST_F(SplatEngineTest, DrawsTheWholeWorldAsOneRangeTheGpuSorts) {
   EXPECT_EQ(renderer->last.orderSource, SplatRenderer::OrderSource::gpu);
   ASSERT_EQ(renderer->last.rangeCount, 1u);
   EXPECT_EQ(renderer->last.ranges[0].offset, 0u);
-  EXPECT_EQ(renderer->last.ranges[0].count, kPairSplats);
+  EXPECT_EQ(renderer->last.ranges[0].count, kPairNodes);
+}
+
+TEST_F(SplatEngineTest, LoadsALabelledTreeAndUploadsItWithTheBudget) {
+  load(pairBytes(), labelBytes({kRootPart, 1, 2}));
+  ASSERT_TRUE(tick());
+  EXPECT_EQ(renderer->uploadedBudget, 1600000u);
+  EXPECT_EQ(renderer->uploadedLabels, (std::vector<uint8_t>{kRootPart, 1, 2}));
+  EXPECT_EQ(renderer->world()->count, kPairNodes);
+}
+
+// Field Guide ships only trees, and a tree drawn without selection would draw every node at once.
+TEST_F(SplatEngineTest, RefusesATreeWithoutGpuSelection) {
+  Events events;
+  engine->setEventSink(events.sink());
+  renderer->gpuLodSelection = false;
+  load(pairBytes());
+  tick();
+  tick();
+  ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldFailed});
+  EXPECT_EQ(renderer->world(), std::nullopt);
 }
 
 TEST_F(SplatEngineTest, NeedsFramesOnlyWhileThereIsSomethingToDo) {
   EXPECT_TRUE(engine->needsFrame());  // the first frame clears the view
   tick();
   EXPECT_FALSE(engine->needsFrame());
-  load(pairBytes(), labelBytes({1, 0}));
+  load(pairBytes(), labelBytes({1, 1, 0}));
   EXPECT_TRUE(engine->needsFrame());  // a world waits to be uploaded
   tick();
   EXPECT_FALSE(engine->needsFrame());
@@ -210,13 +233,14 @@ TEST_F(SplatEngineTest, ReportsBadBytesAtOnceAndKeepsTheWorld) {
   ASSERT_EQ(events.kinds.size(), 2u);
   EXPECT_EQ(events.kinds[1], SplatEngine::Event::worldFailed);
   tick();
-  EXPECT_EQ(renderer->world()->count, 2u);
+  EXPECT_EQ(renderer->world()->count, kPairNodes);
 }
 
-TEST_F(SplatEngineTest, ReportsLabelsForAnotherCloudAsTheirOwnFailure) {
+TEST_F(SplatEngineTest, ReportsLabelsForAnotherTreeAsTheirOwnFailure) {
   Events events;
   engine->setEventSink(events.sink());
-  load(pairBytes(), labelBytes({1, 2, 3}));
+  // One label per leaf is the cloud's count, not the tree's.
+  load(pairBytes(), labelBytes({1, 2}));
   ASSERT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::labelsMismatch});
   tick();
   EXPECT_EQ(renderer->world(), std::nullopt);
@@ -246,14 +270,14 @@ TEST_F(SplatEngineTest, RefusesAWorldItCannotSortAndNeverCallsItReady) {
 
 TEST_F(SplatEngineTest, ReportsALoadTooLargeForMemoryAsAFailedLoad) {
   const SplatEngine::FileLoader outOfMemory =
-      [](const std::string&, const std::string&, splat::CoordinateFrame, int,
+      [](const std::string&, const std::string&, int,
          const splat::SourceIdentity*) -> splat::Result<SplatEngine::LoadedWorld> {
     return splat::Error{splat::ErrorCode::insufficientMemory, "too large"};
   };
   SplatEngine limited(std::make_unique<FakeRenderer>(), outOfMemory);
   Events events;
   limited.setEventSink(events.sink());
-  EXPECT_FALSE(limited.loadWorldFile("world.spz", "", kFrame));
+  EXPECT_FALSE(limited.loadWorldFile("world.lodsplat", ""));
   EXPECT_EQ(events.kinds, std::vector<SplatEngine::Event>{SplatEngine::Event::worldFailed});
 }
 
@@ -277,7 +301,7 @@ TEST_F(SplatEngineTest, TheDefaultFramingFollowsTheViewShape) {
     renderer->extent = atLoad;
     SplatEngine engine(std::move(owned));
     const auto bytes = pairBytes();
-    engine.loadWorld({bytes.data(), bytes.size()}, {}, kFrame);
+    engine.loadWorld({bytes.data(), bytes.size()}, {});
     engine.render(1);
     renderer->extent = after;
     engine.render(1 + kVsyncNanos);
@@ -374,9 +398,11 @@ TEST_F(SplatEngineTest, TheBoxFitIsNeverFartherThanTheOldSphereFit) {
   splat::Bounds tall;
   tall.min = {-0.1f, -2, -0.5f};
   tall.max = {0.1f, 2, 0.5f};
-  const SplatEngine::ViewDirection directions[] = {
-      {}, {-0.08f, 0.85f}, {1.2f, -0.4f},
-      {0.5f, OrbitLimits{}.minElevation}, {-0.5f, OrbitLimits{}.maxElevation}};
+  const SplatEngine::ViewDirection directions[] = {{},
+                                                   {-0.08f, 0.85f},
+                                                   {1.2f, -0.4f},
+                                                   {0.5f, OrbitLimits{}.minElevation},
+                                                   {-0.5f, OrbitLimits{}.maxElevation}};
   for (const auto& bounds : {flat, tall, unitPart()}) {
     const splat::Vec3 half{(bounds.max[0] - bounds.min[0]) * 0.5f,
                            (bounds.max[1] - bounds.min[1]) * 0.5f,
@@ -387,11 +413,11 @@ TEST_F(SplatEngineTest, TheBoxFitIsNeverFartherThanTheOldSphereFit) {
                                : 1.0f;
       const float halfY = SplatEngine::kFieldOfViewRadians * 0.5f;
       const float halfX = std::atan(std::tan(halfY) * std::max(aspect, kMinFramingAspect));
-      const float sphereFit = splat::length(half) * kFramingMargin /
-                              std::sin(std::min(halfX, halfY));
+      const float sphereFit =
+          splat::length(half) * kFramingMargin / std::sin(std::min(halfX, halfY));
       for (const auto from : directions) {
         SCOPED_TRACE(::testing::Message() << "aspect " << aspect << ", azimuth " << from.azimuth
-                                         << ", elevation " << from.elevation);
+                                          << ", elevation " << from.elevation);
         EXPECT_LE(fittedRadius(extent, bounds, from), sphereFit + kTolerance);
       }
     }
@@ -422,8 +448,9 @@ TEST_F(SplatEngineTest, ATinyBoxKeepsEveryCornerInFrontOfTheNearPlane) {
   const auto points = cornerPoints(part);
   float minDepth = engine->cameraPose().radius;
   for (std::size_t i = 0; i < kBoxCornerCount; ++i) {
-    const float depth = -renderer->last.view.transformPoint(
-        {points[i * 3], points[i * 3 + 1], points[i * 3 + 2]}).z;
+    const float depth =
+        -renderer->last.view.transformPoint({points[i * 3], points[i * 3 + 1], points[i * 3 + 2]})
+             .z;
     EXPECT_GE(depth, SplatEngine::kNearPlane - kTolerance);
     minDepth = std::min(minDepth, depth);
   }
@@ -496,7 +523,7 @@ TEST_F(SplatEngineTest, AStallStepsTheAnimationByAtMostATenthOfASecond) {
 }
 
 TEST_F(SplatEngineTest, TimeStandsStillWhileTheEngineRests) {
-  load(pairBytes(), labelBytes({4, 0}));
+  load(pairBytes(), labelBytes({4, 4, 0}));
   while (engine->needsFrame()) tick();
   vsync += 300;  // the host stops its display link for five seconds
   const uint8_t part = 4;
@@ -519,7 +546,7 @@ TEST_F(SplatEngineTest, RefusesToFrameNonFiniteBounds) {
 }
 
 TEST_F(SplatEngineTest, AHighlightFadesInThenTheEngineIdles) {
-  load(pairBytes(), labelBytes({4, 0}));
+  load(pairBytes(), labelBytes({4, 4, 0}));
   tick();
   ASSERT_NE(renderer->last.labelStyles, nullptr);
   EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);
@@ -544,7 +571,7 @@ TEST_F(SplatEngineTest, TheProjectionFollowsTheDrawExtent) {
 }
 
 TEST_F(SplatEngineTest, PicksThePartWhereAPointShowsInTheLastFrame) {
-  load(solidPairBytes(), labelBytes({1, 2}));
+  load(solidPairBytes(), labelBytes({kRootPart, 1, 2}));
   EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);
   ASSERT_TRUE(tick());
   // Framed whole from +Z: the splat at -x shows left of the centre, both on the horizon.
@@ -556,7 +583,8 @@ TEST_F(SplatEngineTest, PicksThePartWhereAPointShowsInTheLastFrame) {
   EXPECT_NEAR(at[0] + at[2], 1, kTolerance);
   EXPECT_EQ(engine->pick(at[0], at[1]), 1);
   EXPECT_EQ(engine->pick(at[2], at[3]), 2);
-  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);  // the gap between them
+  // The gap between them: picks read the leaves, never the merged root that covers it.
+  EXPECT_EQ(engine->pick(0.5f, 0.5f), 0);
   ASSERT_TRUE(engine->orbit(0.3f, 0.2f));
   ASSERT_TRUE(tick());
   ASSERT_EQ(engine->project(kPairPoints, 2, at), 2u);
@@ -596,11 +624,11 @@ TEST_F(SplatEngineTest, ReportsTheDirectionOfTheFrameLastDrawn) {
 }
 
 TEST_F(SplatEngineTest, PickSeesANewWorldOnlyOnceItIsDrawn) {
-  load(solidPairBytes(), labelBytes({1, 2}));
+  load(solidPairBytes(), labelBytes({kRootPart, 1, 2}));
   ASSERT_TRUE(tick());
   float at[4];
   ASSERT_EQ(engine->project(kPairPoints, 2, at), 2u);
-  load(solidPairBytes(), labelBytes({3, 4}));
+  load(solidPairBytes(), labelBytes({kRootPart, 3, 4}));
   EXPECT_EQ(engine->pick(at[0], at[1]), 1);  // the frame on screen is still the old world
   ASSERT_TRUE(tick());
   EXPECT_EQ(engine->pick(at[0], at[1]), 3);
@@ -609,5 +637,5 @@ TEST_F(SplatEngineTest, PickSeesANewWorldOnlyOnceItIsDrawn) {
   EXPECT_EQ(engine->pick(at[0], at[1]), 0);
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit

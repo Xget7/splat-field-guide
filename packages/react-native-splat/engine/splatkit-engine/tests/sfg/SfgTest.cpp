@@ -1,12 +1,12 @@
 #include "splatkit/sfg.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <cmath>
-#include <future>
-#include <mutex>
+#include <condition_variable>
 #include <fstream>
+#include <future>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -27,16 +27,16 @@ using test::solidPairBytes;
 
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
-// solidPairBytes() as written on macOS; zlib records the host OS in the gzip header, so
-// clouds generated at test time hash differently on Linux.
-const std::vector<uint8_t> kSolidPairSpz = {
-    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x13, 0xf3, 0x73, 0x0f,
-    0x0e, 0x60, 0x62, 0x60, 0x60, 0x00, 0x61, 0x06, 0x1e, 0x20, 0xfe, 0xf0, 0x1f,
-    0xc4, 0x52, 0x60, 0x60, 0x10, 0x60, 0x80, 0x30, 0xfe, 0xfe, 0x6d, 0x00, 0x83,
-    0x02, 0x30, 0x80, 0xb0, 0x01, 0xe4, 0xf1, 0xe3, 0xba, 0x36, 0x00, 0x00, 0x00};
-// SHA-256 of the fixture files, calculated independently with Python hashlib.
-constexpr char kSolidPairSha256[] = "6c0cb0b4f32b7af8c2852d3a7728e0db0558edaeddf8690090e2be217c09d29e";
-constexpr char kPairLabelsSha256[] = "4349096d3451d685e805cdd983de84c250b63d722e7dae5d3cfba17e6ab79316";
+// SHA-256 of solidPairBytes() and labelBytes({kRootPart, 1, 2}), calculated independently with
+// Python hashlib. The tree is written by hand, so its bytes are the same on every platform.
+constexpr char kSolidPairSha256[] =
+    "4256dedff9e570e2a67bbfa035ffeb5b749fffdd67a5cf5fee6e1101acd11b23";
+constexpr char kPairLabelsSha256[] =
+    "16c0e4987473f593a8cb1e6034eddfbdc8b529f5f1d8a82e1f44ac278cb97557";
+// The pair is a three-node tree: its merged root, then its two leaves.
+constexpr uint32_t kPairLeaves = 2;
+// A root label the leaves do not carry, so a pick that hit the root would show.
+constexpr uint8_t kRootPart = 9;
 
 std::string writeFile(const std::string& name, const std::vector<uint8_t>& bytes) {
   const std::string path = ::testing::TempDir() + name;
@@ -81,28 +81,30 @@ class SfgTest : public ::testing::Test {
 };
 
 TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
-  const std::string spz = writeFile("pair.spz", pairBytes());
-  const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 2}));
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), labels.c_str()));
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  const std::string labels = writeFile("pair.labels.bin", labelBytes({kRootPart, 1, 2}));
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), labels.c_str()));
   EXPECT_TRUE(events.empty());
   EXPECT_TRUE(sfg_needs_frame(engine));
   EXPECT_TRUE(draw());
   ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
   EXPECT_EQ(events[0].message, "");
-  EXPECT_EQ(events[0].count, 2u);
+  EXPECT_EQ(events[0].count, kPairLeaves);
   EXPECT_FALSE(sfg_needs_frame(engine));
 }
 
 TEST_F(SfgTest, RejectsUnrelatedLabelsWithTheSameSplatCount) {
-  const std::string spz = writeFile("solid.spz", kSolidPairSpz);
-  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
-  const sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
-  ASSERT_TRUE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), labels.c_str(), &identity));
+  const std::string world = writeFile("solid.lodsplat", solidPairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({kRootPart, 1, 2}));
+  const sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, kPairLeaves};
+  ASSERT_TRUE(
+      sfg_load_request(engine, sfg_begin_load(engine), world.c_str(), labels.c_str(), &identity));
   ASSERT_TRUE(draw());
   events.clear();
-  const std::string otherLabels = writeFile("other.labels.bin", labelBytes({3, 4}));
-  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), otherLabels.c_str(), &identity));
+  const std::string otherLabels = writeFile("other.labels.bin", labelBytes({kRootPart, 3, 4}));
+  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), world.c_str(), otherLabels.c_str(),
+                                &identity));
   draw();
   ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_LABELS_MISMATCH);
@@ -113,34 +115,37 @@ TEST_F(SfgTest, RejectsUnrelatedLabelsWithTheSameSplatCount) {
   EXPECT_EQ(sfg_pick(engine, at[2], at[3]), 2);
 }
 
-TEST_F(SfgTest, RejectsACloudWhoseDigestOrSourceCountDisagreesWithTheManifest) {
-  const std::string spz = writeFile("solid.spz", kSolidPairSpz);
-  const std::string other = writeFile("other.spz", pairBytes());
-  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
-  sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, 2};
-  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), other.c_str(), labels.c_str(), &identity));
+TEST_F(SfgTest, RejectsAWorldWhoseDigestOrLeafCountDisagreesWithTheManifest) {
+  const std::string world = writeFile("solid.lodsplat", solidPairBytes());
+  const std::string other = writeFile("other.lodsplat", pairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({kRootPart, 1, 2}));
+  sfg_source_identity identity{kSolidPairSha256, kPairLabelsSha256, kPairLeaves};
+  EXPECT_FALSE(
+      sfg_load_request(engine, sfg_begin_load(engine), other.c_str(), labels.c_str(), &identity));
+  // The manifest counts the leaves, so the node count is the wrong number.
   identity.expected_splat_count = 3;
-  EXPECT_FALSE(sfg_load_request(engine, sfg_begin_load(engine), spz.c_str(), labels.c_str(), &identity));
+  EXPECT_FALSE(
+      sfg_load_request(engine, sfg_begin_load(engine), world.c_str(), labels.c_str(), &identity));
   draw();
   EXPECT_FALSE(renderer->world().has_value());
   ASSERT_EQ(events.size(), 2u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_LOAD_FAILED);
-  EXPECT_EQ(events[0].message, "Cloud SHA-256 does not match the pack manifest");
+  EXPECT_EQ(events[0].message, "World SHA-256 does not match the pack manifest");
   EXPECT_EQ(events[1].kind, SFG_EVENT_LOAD_FAILED);
-  EXPECT_EQ(events[1].message, "Cloud splat count does not match the pack manifest");
+  EXPECT_EQ(events[1].message, "World splat count does not match the pack manifest");
 }
 
-TEST_F(SfgTest, SupersededLoadsCannotReplaceTheCloudOrReportAnOutcome) {
-  const std::string spz = writeFile("solid.spz", solidPairBytes());
-  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
+TEST_F(SfgTest, SupersededLoadsCannotReplaceTheWorldOrReportAnOutcome) {
+  const std::string world = writeFile("solid.lodsplat", solidPairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({kRootPart, 1, 2}));
   const uint64_t old = sfg_begin_load(engine);
   const uint64_t current = sfg_begin_load(engine);
-  EXPECT_FALSE(sfg_load_request(engine, old, spz.c_str(), labels.c_str(), nullptr));
-  EXPECT_FALSE(sfg_load_request(engine, old, "missing.spz", nullptr, nullptr));
+  EXPECT_FALSE(sfg_load_request(engine, old, world.c_str(), labels.c_str(), nullptr));
+  EXPECT_FALSE(sfg_load_request(engine, old, "missing.lodsplat", nullptr, nullptr));
   draw();
   EXPECT_FALSE(renderer->world().has_value());
   EXPECT_TRUE(events.empty());
-  ASSERT_TRUE(sfg_load_request(engine, current, spz.c_str(), labels.c_str(), nullptr));
+  ASSERT_TRUE(sfg_load_request(engine, current, world.c_str(), labels.c_str(), nullptr));
   ASSERT_TRUE(draw());
   ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
@@ -150,20 +155,22 @@ TEST_F(SfgTest, SupersededLoadsCannotReplaceTheCloudOrReportAnOutcome) {
 }
 
 TEST_F(SfgTest, AReplacementWinsWhileAnOlderSuccessOrFailureIsStillDecoding) {
-  const std::string currentSpz = writeFile("current.spz", solidPairBytes());
-  const std::string labels = writeFile("current.labels.bin", labelBytes({3, 4}));
+  const std::string currentWorld = writeFile("current.lodsplat", solidPairBytes());
+  const std::string labels = writeFile("current.labels.bin", labelBytes({kRootPart, 3, 4}));
   for (const bool fails : {false, true}) {
-    const std::string oldSpz = writeFile("older.spz", fails ? std::vector<uint8_t>{1} : solidPairBytes());
+    const std::string oldWorld =
+        writeFile("older.lodsplat", fails ? std::vector<uint8_t>{1} : solidPairBytes());
     std::mutex mutex;
     std::condition_variable changed;
     bool decoding = false;
     bool released = false;
-    auto loader = [&](const std::string& spzPath, const std::string& labelsPath,
-                       splat::CoordinateFrame frame, int degree, const splat::SourceIdentity* identity) -> splat::Result<SplatEngine::LoadedWorld> {
+    auto loader =
+        [&](const std::string& worldPath, const std::string& labelsPath, int degree,
+            const splat::SourceIdentity* identity) -> splat::Result<SplatEngine::LoadedWorld> {
       splat::SplatWorldLoader files;
       files.setMaxShDegree(degree);
-      const auto result = files.loadWorldFile(spzPath, labelsPath, frame, identity);
-      if (spzPath == oldSpz) {
+      const auto result = files.loadWorldFile(worldPath, labelsPath, identity);
+      if (worldPath == oldWorld) {
         std::unique_lock<std::mutex> lock(mutex);
         decoding = true;
         changed.notify_one();
@@ -177,17 +184,24 @@ TEST_F(SfgTest, AReplacementWinsWhileAnOlderSuccessOrFailureIsStillDecoding) {
     renderer = owned.get();
     engine = makeSfgEngine(std::move(owned), loader);
     events.clear();
-    sfg_set_event_callback(engine, [](void* context, sfg_event kind, const char* message, uint32_t count) {
-      static_cast<std::vector<Event>*>(context)->push_back({kind, message, count});
-    }, &events);
-    auto older = std::async(std::launch::async, [&] { return sfg_load(engine, oldSpz.c_str(), nullptr); });
+    sfg_set_event_callback(
+        engine,
+        [](void* context, sfg_event kind, const char* message, uint32_t count) {
+          static_cast<std::vector<Event>*>(context)->push_back({kind, message, count});
+        },
+        &events);
+    auto older =
+        std::async(std::launch::async, [&] { return sfg_load(engine, oldWorld.c_str(), nullptr); });
     {
       std::unique_lock<std::mutex> lock(mutex);
       const bool began = changed.wait_for(lock, std::chrono::seconds(5), [&] { return decoding; });
-      if (!began) { released = true; changed.notify_one(); }
+      if (!began) {
+        released = true;
+        changed.notify_one();
+      }
       ASSERT_TRUE(began);
     }
-    const bool loaded = sfg_load(engine, currentSpz.c_str(), labels.c_str());
+    const bool loaded = sfg_load(engine, currentWorld.c_str(), labels.c_str());
     draw();
     {
       const std::lock_guard<std::mutex> lock(mutex);
@@ -207,14 +221,14 @@ TEST_F(SfgTest, AReplacementWinsWhileAnOlderSuccessOrFailureIsStillDecoding) {
 }
 
 TEST_F(SfgTest, AReplacementSuppressesPendingUploadAndGpuCompletion) {
-  const std::string spz = writeFile("pair.spz", pairBytes());
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), nullptr));
   sfg_begin_load(engine);
   draw();
   EXPECT_FALSE(renderer->world().has_value());
   EXPECT_TRUE(events.empty());
   renderer->gpuFinished = false;
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), nullptr));
   ASSERT_TRUE(draw());
   sfg_begin_load(engine);
   renderer->gpuFinished = true;
@@ -223,23 +237,31 @@ TEST_F(SfgTest, AReplacementSuppressesPendingUploadAndGpuCompletion) {
 }
 
 TEST_F(SfgTest, ALoadWithoutLabelsIsAWorldWithNoParts) {
-  const std::string spz = writeFile("solid.spz", solidPairBytes());
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  const std::string world = writeFile("solid.lodsplat", solidPairBytes());
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), nullptr));
   ASSERT_TRUE(draw());
   float at[4];
   ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
   EXPECT_EQ(sfg_pick(engine, at[0], at[1]), 0);
 }
 
-TEST_F(SfgTest, ReportsEachLoadFailureByItsKind) {
-  const std::string spz = writeFile("pair.spz", pairBytes());
-  const std::string labels = writeFile("three.labels.bin", labelBytes({1, 2, 3}));
-  EXPECT_FALSE(sfg_load(engine, spz.c_str(), labels.c_str()));
-  EXPECT_FALSE(sfg_load(engine, (::testing::TempDir() + "missing.spz").c_str(), nullptr));
-  ASSERT_EQ(events.size(), 2u);
+TEST_F(SfgTest, RefusesLabelsCountedByLeaves) {
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  // One label per leaf counts the cloud the tree was built from, not the tree's nodes.
+  const std::string labels = writeFile("leaves.labels.bin", labelBytes({1, 2}));
+  EXPECT_FALSE(sfg_load(engine, world.c_str(), labels.c_str()));
+  draw();
+  ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_LABELS_MISMATCH);
-  EXPECT_EQ(events[1].kind, SFG_EVENT_LOAD_FAILED);
-  EXPECT_FALSE(events[1].message.empty());
+  EXPECT_EQ(events[0].message, "2 part labels for 3 tree nodes");
+  EXPECT_FALSE(renderer->world().has_value());
+}
+
+TEST_F(SfgTest, ReportsAMissingWorldAsAFailedLoad) {
+  EXPECT_FALSE(sfg_load(engine, (::testing::TempDir() + "missing.lodsplat").c_str(), nullptr));
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(events[0].kind, SFG_EVENT_LOAD_FAILED);
+  EXPECT_FALSE(events[0].message.empty());
 }
 
 TEST_F(SfgTest, ReportsAGpuFailure) {
@@ -263,9 +285,9 @@ TEST(SfgPlatformTest, ReleasesThePlatformObjectsAfterTheRenderer) {
 }
 
 TEST_F(SfgTest, PicksAndProjectsTheLastFrame) {
-  const std::string spz = writeFile("solid.spz", solidPairBytes());
-  const std::string labels = writeFile("solid.labels.bin", labelBytes({1, 2}));
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), labels.c_str()));
+  const std::string world = writeFile("solid.lodsplat", solidPairBytes());
+  const std::string labels = writeFile("solid.labels.bin", labelBytes({kRootPart, 1, 2}));
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), labels.c_str()));
   ASSERT_TRUE(draw());
   float at[4];
   ASSERT_EQ(sfg_project(engine, kPairPoints, 2, at), 2u);
@@ -325,9 +347,9 @@ TEST_F(SfgTest, FramesBoundsFromADirectionOrFromWhereItLooks) {
 }
 
 TEST_F(SfgTest, HighlightsAndClearsParts) {
-  const std::string spz = writeFile("pair.spz", pairBytes());
-  const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 0}));
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), labels.c_str()));
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 1, 0}));
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), labels.c_str()));
   settle();
   const uint8_t part = 1;
   sfg_set_highlight(engine, &part, 1);
@@ -338,5 +360,5 @@ TEST_F(SfgTest, HighlightsAndClearsParts) {
   EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, 0.0f);
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit

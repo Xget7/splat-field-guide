@@ -13,7 +13,6 @@ add_executable(splat_core_tests
   math/HalfTest.cpp
   math/Mat4Test.cpp
   math/SymmetricEigenTest.cpp
-  sorting/SpatialOrderTest.cpp
 )
 # Only add spz headers because splat_core already links its archive, avoiding Apple's duplicate-archive warning.
 target_link_libraries(splat_core_tests PRIVATE splat_core ZLIB::ZLIB GTest::gtest_main)

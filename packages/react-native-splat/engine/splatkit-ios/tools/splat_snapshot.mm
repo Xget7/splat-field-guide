@@ -34,7 +34,7 @@ constexpr int kMarkerThickness = 3;
 constexpr uint8_t kMarkerBgra[4] = {0xFF, 0x00, 0xFF, 0xFF};  // magenta, unlike anything in a car
 
 struct Options {
-  std::string spz;
+  std::string world;
   std::string labels;
   std::string out;
   std::vector<uint8_t> highlight;
@@ -54,7 +54,7 @@ std::vector<float> numbers(const std::string& list) {
 }
 
 int usage() {
-  std::fprintf(stderr, "usage: splat_snapshot --spz FILE [--labels FILE] [--highlight L,L]\n"
+  std::fprintf(stderr, "usage: splat_snapshot --world FILE [--labels FILE] [--highlight L,L]\n"
                        "       [--pose AZ,EL,R[,X,Y,Z] | --bounds X,Y,Z,X,Y,Z] [--size WxH]\n"
                        "       [--pick X,Y[,X,Y...]] --out FILE\n");
   return 2;
@@ -65,8 +65,8 @@ std::optional<Options> parse(int argc, char** argv) {
   for (int i = 1; i + 1 < argc; i += 2) {
     const std::string flag = argv[i];
     const std::string value = argv[i + 1];
-    if (flag == "--spz") {
-      o.spz = value;
+    if (flag == "--world") {
+      o.world = value;
     } else if (flag == "--labels") {
       o.labels = value;
     } else if (flag == "--out") {
@@ -88,7 +88,7 @@ std::optional<Options> parse(int argc, char** argv) {
   const bool poseOk = o.pose.empty() || o.pose.size() == 3 || o.pose.size() == 6;
   const bool boundsOk = o.bounds.empty() || o.bounds.size() == 6;
   const bool picksOk = o.picks.size() % 2 == 0;
-  if ((argc - 1) % 2 != 0 || o.spz.empty() || o.out.empty() || !poseOk || !boundsOk || !picksOk) {
+  if ((argc - 1) % 2 != 0 || o.world.empty() || o.out.empty() || !poseOk || !boundsOk || !picksOk) {
     return std::nullopt;
   }
   return o;
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
             failure = message;
           }
         });
-    engine.loadWorldFile(o.spz, o.labels, splat::CoordinateFrame::rub);
+    engine.loadWorldFile(o.world, o.labels);
     if (!failure.empty()) {
       std::fprintf(stderr, "load failed: %s\n", failure.c_str());
       return 1;

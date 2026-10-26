@@ -2,47 +2,58 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iterator>
 #include <random>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "load-spz.h"
 #include "splat/formats/PartLabels.h"
-#include "splat/formats/SpzDecoder.h"
+#include "splat/lod/LodFile.h"
 
 namespace splat {
 namespace {
 
-std::vector<std::uint8_t> encodeSpz(int points) {
-  spz::GaussianCloud cloud;
-  cloud.numPoints = points;
+std::string tempPath(const std::string& name) {
+  return testing::TempDir() + "/" + name;
+}
+
+// A .lodsplat as the pack ships it: the tree over `leaves` random splats with its selection data.
+std::vector<std::uint8_t> treeBytes(int leaves) {
+  SplatCloud cloud;
   std::mt19937 rng(3);
   std::uniform_real_distribution<float> u(-2.0f, 2.0f);
-  for (int i = 0; i < points; ++i) {
+  cloud.bounds.min = {-2, -2, -2};
+  cloud.bounds.max = {2, 2, 2};
+  for (int i = 0; i < leaves; ++i) {
     for (int k = 0; k < 3; ++k) cloud.positions.push_back(u(rng));
-    for (int k = 0; k < 3; ++k) cloud.scales.push_back(-3.0f);
-    cloud.rotations.insert(cloud.rotations.end(), {0.0f, 0.0f, 0.0f, 1.0f});
-    cloud.alphas.push_back(0.0f);
-    for (int k = 0; k < 3; ++k) cloud.colors.push_back(0.0f);
+    cloud.covariances.insert(cloud.covariances.end(), {0.01f, 0, 0, 0.01f, 0, 0.01f});
+    cloud.colors.insert(cloud.colors.end(), {0.5f, 0.5f, 0.5f});
+    cloud.alphas.push_back(0.5f);
   }
-  std::vector<std::uint8_t> bytes;
-  EXPECT_TRUE(spz::saveSpz(cloud, spz::PackOptions{}, &bytes));
+  LodTree tree = buildLodTree(std::move(cloud));
+  tree.selection = buildLodSelectionData(tree);
+  // writeLodSplat never replaces a file, and the serialized bytes are what the tests need.
+  const std::string path = tempPath("world-loader-tree.lodsplat");
+  std::remove(path.c_str());
+  EXPECT_TRUE(writeLodSplat(tree, path).ok());
+  std::ifstream in(path, std::ios::binary);
+  std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
+                                  std::istreambuf_iterator<char>());
+  std::remove(path.c_str());
   return bytes;
 }
 
-// A labels.bin for `count` splats, labelling splat i with i % 256.
-std::vector<std::uint8_t> encodeLabels(std::uint32_t count) {
-  std::vector<std::uint8_t> bytes(part_labels::kHeaderBytes + count, 0);
-  std::copy(std::begin(part_labels::kMagic), std::end(part_labels::kMagic), bytes.begin());
-  bytes[4] = part_labels::kVersion;
-  bytes[6] = part_labels::kBytesPerLabel;
-  for (int i = 0; i < 4; ++i) bytes[8 + i] = static_cast<std::uint8_t>(count >> (8 * i));
-  for (std::uint32_t i = 0; i < count; ++i) {
-    bytes[part_labels::kHeaderBytes + i] = static_cast<std::uint8_t>(i);
-  }
-  return bytes;
+std::size_t nodeCountOf(const std::vector<std::uint8_t>& bytes) {
+  return readLodSplatHeader(bytes.data(), bytes.size()).value().nodeCount;
+}
+
+// A labels.bin for `count` entries, labelling entry i with i % 256.
+std::vector<std::uint8_t> labelBytes(std::size_t count) {
+  std::vector<std::uint8_t> labels(count);
+  for (std::size_t i = 0; i < count; ++i) labels[i] = static_cast<std::uint8_t>(i);
+  return encodePartLabels(labels);
 }
 
 ByteView view(const std::vector<std::uint8_t>& bytes) {
@@ -50,13 +61,12 @@ ByteView view(const std::vector<std::uint8_t>& bytes) {
 }
 
 std::string writeTemp(const std::string& name, const std::vector<std::uint8_t>& bytes) {
-  const std::string path = testing::TempDir() + "/" + name;
+  const std::string path = tempPath(name);
   std::ofstream out(path, std::ios::binary);
-  out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  out.write(reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
   return path;
 }
-
-constexpr CoordinateFrame kFrame = CoordinateFrame::rub;
 
 TEST(SplatWorldLoader, NothingIsWaitingAtFirst) {
   SplatWorldLoader loader;
@@ -64,27 +74,31 @@ TEST(SplatWorldLoader, NothingIsWaitingAtFirst) {
   EXPECT_EQ(loader.takeWorld(), nullptr);
 }
 
-TEST(SplatWorldLoader, TheCloudWaitsForTheRenderer) {
+TEST(SplatWorldLoader, TheTreeWaitsForTheRenderer) {
   SplatWorldLoader loader;
-  const auto bytes = encodeSpz(50);
-  auto report = loader.loadWorld(view(bytes), {}, kFrame);
+  const auto bytes = treeBytes(50);
+  auto report = loader.loadWorld(view(bytes), {});
   ASSERT_TRUE(report.ok()) << report.error().message;
   EXPECT_EQ(report.value().splatCount, 50u);
+  EXPECT_EQ(report.value().nodeCount, nodeCountOf(bytes));
+  EXPECT_GT(report.value().nodeCount, 50u);
+  EXPECT_FALSE(report.value().labelled);
   EXPECT_TRUE(loader.hasWorld());
 
-  auto world = loader.takeWorld();
-  ASSERT_NE(world, nullptr);
-  EXPECT_EQ(world->count(), 50u);
+  auto tree = loader.takeWorld();
+  ASSERT_NE(tree, nullptr);
+  EXPECT_EQ(tree->leafCount, 50u);
+  EXPECT_TRUE(tree->nodes.labels.empty());
   EXPECT_FALSE(loader.hasWorld());
   EXPECT_EQ(loader.takeWorld(), nullptr);
 }
 
 TEST(SplatWorldLoader, BadBytesFailAndLeaveTheWaitingWorld) {
   SplatWorldLoader loader;
-  const auto bytes = encodeSpz(10);
-  ASSERT_TRUE(loader.loadWorld(view(bytes), {}, kFrame).ok());
+  const auto bytes = treeBytes(10);
+  ASSERT_TRUE(loader.loadWorld(view(bytes), {}).ok());
   const std::uint8_t junk[] = {1, 2, 3, 4, 5, 6, 7, 8};
-  auto failed = loader.loadWorld({junk, sizeof(junk)}, {}, kFrame);
+  auto failed = loader.loadWorld({junk, sizeof(junk)}, {});
   ASSERT_FALSE(failed.ok());
   EXPECT_EQ(failed.error().code, ErrorCode::unsupportedFormat);
   EXPECT_NE(loader.takeWorld(), nullptr);
@@ -92,93 +106,70 @@ TEST(SplatWorldLoader, BadBytesFailAndLeaveTheWaitingWorld) {
 
 TEST(SplatWorldLoader, ANewerLoadReplacesTheWaitingOne) {
   SplatWorldLoader loader;
-  const auto ten = encodeSpz(10);
-  const auto twenty = encodeSpz(20);
-  ASSERT_TRUE(loader.loadWorld(view(ten), {}, kFrame).ok());
-  ASSERT_TRUE(loader.loadWorld(view(twenty), {}, kFrame).ok());
-  auto world = loader.takeWorld();
-  ASSERT_NE(world, nullptr);
-  EXPECT_EQ(world->count(), 20u);
+  const auto ten = treeBytes(10);
+  const auto twenty = treeBytes(20);
+  ASSERT_TRUE(loader.loadWorld(view(ten), {}).ok());
+  ASSERT_TRUE(loader.loadWorld(view(twenty), {}).ok());
+  auto tree = loader.takeWorld();
+  ASSERT_NE(tree, nullptr);
+  EXPECT_EQ(tree->leafCount, 20u);
   EXPECT_EQ(loader.takeWorld(), nullptr);
 }
 
-TEST(SplatWorldLoader, TheSourceFrameReachesTheDecoder) {
-  const auto bytes = encodeSpz(10);
-  SplatWorldLoader rub;
-  SplatWorldLoader rdf;
-  ASSERT_TRUE(rub.loadWorld(view(bytes), {}, CoordinateFrame::rub).ok());
-  ASSERT_TRUE(rdf.loadWorld(view(bytes), {}, CoordinateFrame::rdf).ok());
-  const auto up = rub.takeWorld();
-  const auto down = rdf.takeWorld();
-  // RDF to RUB flips Y and Z, so the bounds mirror.
-  EXPECT_FLOAT_EQ(up->bounds.max[1], -down->bounds.min[1]);
-  EXPECT_FLOAT_EQ(up->bounds.max[2], -down->bounds.min[2]);
-  EXPECT_FLOAT_EQ(up->bounds.max[0], down->bounds.max[0]);
-}
-
-TEST(SplatWorldLoader, EachSplatKeepsItsLabelThroughTheReorder) {
-  // Labels encode source indices so they can verify attribute alignment after reordering.
-  const auto bytes = encodeSpz(200);
-  const auto labels = encodeLabels(200);
-  SplatWorldLoader plain;
-  SplatWorldLoader labelled;
-  ASSERT_TRUE(plain.loadWorld(view(bytes), {}, kFrame).ok());
-  auto report = labelled.loadWorld(view(bytes), view(labels), kFrame);
+TEST(SplatWorldLoader, EachNodeTakesItsLabelInNodeOrder) {
+  const auto bytes = treeBytes(200);
+  const std::size_t nodes = nodeCountOf(bytes);
+  SplatWorldLoader loader;
+  auto report = loader.loadWorld(view(bytes), view(labelBytes(nodes)));
   ASSERT_TRUE(report.ok()) << report.error().message;
   EXPECT_TRUE(report.value().labelled);
-  const auto without = plain.takeWorld();
-  const auto with = labelled.takeWorld();
-  EXPECT_TRUE(without->labels.empty());
-  ASSERT_EQ(with->labels.size(), 200u);
-  const auto decoded = decodeSpz(bytes.data(), bytes.size(), SpzDecodeOptions{kFrame, 3});
-  ASSERT_TRUE(decoded.ok());
-  for (std::size_t i = 0; i < with->count(); ++i) {
-    const std::size_t from = with->labels[i];
-    for (int k = 0; k < 3; ++k) {
-      EXPECT_EQ(with->positions[i * 3 + k], decoded.value().positions[from * 3 + k]);
-    }
-  }
+  const auto tree = loader.takeWorld();
+  ASSERT_EQ(tree->nodes.labels.size(), nodes);
+  for (std::size_t i = 0; i < nodes; ++i)
+    ASSERT_EQ(tree->nodes.labels[i], static_cast<std::uint8_t>(i));
 }
 
-TEST(SplatWorldLoader, LabelsForAnotherCloudFailAndLeaveTheWaitingWorld) {
+TEST(SplatWorldLoader, LabelsForAnotherTreeFailAndLeaveTheWaitingWorld) {
   SplatWorldLoader loader;
-  const auto bytes = encodeSpz(10);
-  ASSERT_TRUE(loader.loadWorld(view(bytes), {}, kFrame).ok());
-  const auto labels = encodeLabels(11);
-  auto failed = loader.loadWorld(view(bytes), view(labels), kFrame);
+  const auto bytes = treeBytes(10);
+  ASSERT_TRUE(loader.loadWorld(view(bytes), {}).ok());
+  const std::size_t nodes = nodeCountOf(bytes);
+  auto failed = loader.loadWorld(view(bytes), view(labelBytes(nodes + 1)));
   ASSERT_FALSE(failed.ok());
   EXPECT_EQ(failed.error().code, ErrorCode::labelsMismatch);
-  EXPECT_EQ(failed.error().message, "11 part labels for 10 splats");
-  auto world = loader.takeWorld();
-  ASSERT_NE(world, nullptr);
-  EXPECT_TRUE(world->labels.empty());
+  EXPECT_EQ(failed.error().message, std::to_string(nodes + 1) + " part labels for " +
+                                        std::to_string(nodes) + " tree nodes");
+  auto tree = loader.takeWorld();
+  ASSERT_NE(tree, nullptr);
+  EXPECT_TRUE(tree->nodes.labels.empty());
 }
 
 TEST(SplatWorldLoader, LoadsAWorldAndItsLabelsFromFiles) {
-  const std::string spz = writeTemp("world-loader-test.spz", encodeSpz(30));
-  const std::string labels = writeTemp("world-loader-test.bin", encodeLabels(30));
+  const auto bytes = treeBytes(30);
+  const std::string world = writeTemp("world-loader-test.lodsplat", bytes);
+  const std::string labels = writeTemp("world-loader-test.bin", labelBytes(nodeCountOf(bytes)));
   SplatWorldLoader loader;
-  auto report = loader.loadWorldFile(spz, labels, kFrame);
+  auto report = loader.loadWorldFile(world, labels);
   ASSERT_TRUE(report.ok()) << report.error().message;
   EXPECT_EQ(report.value().splatCount, 30u);
   EXPECT_TRUE(report.value().labelled);
   ASSERT_NE(loader.takeWorld(), nullptr);
 
-  report = loader.loadWorldFile(spz, "", kFrame);
+  report = loader.loadWorldFile(world, "");
   ASSERT_TRUE(report.ok()) << report.error().message;
   EXPECT_FALSE(report.value().labelled);
   ASSERT_NE(loader.takeWorld(), nullptr);
 
-  auto missing = loader.loadWorldFile("/nonexistent/world.spz", labels, kFrame);
+  auto missing = loader.loadWorldFile("/nonexistent/world.lodsplat", labels);
   ASSERT_FALSE(missing.ok());
   EXPECT_EQ(missing.error().code, ErrorCode::unreadable);
-  missing = loader.loadWorldFile(spz, "/nonexistent/labels.bin", kFrame);
+  missing = loader.loadWorldFile(world, "/nonexistent/labels.bin");
   ASSERT_FALSE(missing.ok());
   EXPECT_EQ(missing.error().code, ErrorCode::unreadable);
   EXPECT_EQ(loader.takeWorld(), nullptr);
-  std::remove(spz.c_str());
+  std::remove(world.c_str());
   std::remove(labels.c_str());
 }
 
-}
-}
+}  // namespace
+}  // namespace splat

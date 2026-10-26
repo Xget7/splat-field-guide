@@ -63,9 +63,10 @@ class SfgMetalTest : public testing::Test {
 };
 
 TEST_F(SfgMetalTest, AWorldIsReadyOnceTheGpuHasDrawnItThenTheViewRests) {
-  const std::string spz = writeFile("metal-solid.spz", test::solidPairBytes());
-  const std::string labels = writeFile("metal-solid.labels.bin", test::labelBytes({1, 2}));
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), labels.c_str()));
+  const std::string world = writeFile("metal-solid.lodsplat", test::solidPairBytes());
+  // Node order: the merged root's label, then each leaf's.
+  const std::string labels = writeFile("metal-solid.labels.bin", test::labelBytes({1, 1, 2}));
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), labels.c_str()));
   settle();
   ASSERT_EQ(events, std::vector<sfg_event>{SFG_EVENT_WORLD_READY});
   EXPECT_FALSE(sfg_needs_frame(engine));
@@ -77,8 +78,8 @@ TEST_F(SfgMetalTest, AWorldIsReadyOnceTheGpuHasDrawnItThenTheViewRests) {
 
 TEST_F(SfgMetalTest, WithoutALayerThereIsNothingToDo) {
   sfg_metal_set_layer(engine, nil);
-  const std::string spz = writeFile("metal-pair.spz", test::pairBytes());
-  ASSERT_TRUE(sfg_load(engine, spz.c_str(), nullptr));
+  const std::string world = writeFile("metal-pair.lodsplat", test::pairBytes());
+  ASSERT_TRUE(sfg_load(engine, world.c_str(), nullptr));
   EXPECT_FALSE(sfg_needs_frame(engine));
   sfg_metal_set_layer(engine, layer);
   EXPECT_TRUE(sfg_needs_frame(engine));
@@ -86,5 +87,5 @@ TEST_F(SfgMetalTest, WithoutALayerThereIsNothingToDo) {
   EXPECT_EQ(events, std::vector<sfg_event>{SFG_EVENT_WORLD_READY});
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit

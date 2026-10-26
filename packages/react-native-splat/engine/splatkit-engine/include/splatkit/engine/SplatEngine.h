@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-#include "splat/core/CoordinateFrame.h"
 #include "splat/core/Result.h"
 #include "splat/loading/SplatWorldLoader.h"
 #include "splat/math/Mat4.h"
@@ -28,12 +27,11 @@ namespace splatkit {
 class SplatEngine {
  public:
   struct LoadedWorld {
-    std::unique_ptr<splat::SplatCloud> cloud;
+    std::unique_ptr<splat::LodTree> tree;
     splat::SplatWorldLoader::WorldReport report;
   };
   using FileLoader = std::function<splat::Result<LoadedWorld>(
-      const std::string&, const std::string&, splat::CoordinateFrame, int,
-      const splat::SourceIdentity*)>;
+      const std::string&, const std::string&, int, const splat::SourceIdentity*)>;
   explicit SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile = {});
   ~SplatEngine();
 
@@ -48,17 +46,15 @@ class SplatEngine {
   // completion or a new surface wakes them.
   bool needsFrame() const;
 
-  // Thread-safe decoding reports errors without replacing the current world; empty labels mean no
-  // parts.
-  bool loadWorld(splat::ByteView spz, splat::ByteView labels, splat::CoordinateFrame sourceFrame);
-  bool loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
-                     splat::CoordinateFrame sourceFrame);
+  // Thread-safe decoding of a .lodsplat tree reports errors without replacing the current world;
+  // labels come one per tree node in node order, and empty labels mean no parts.
+  bool loadWorld(splat::ByteView world, splat::ByteView labels);
+  bool loadWorldFile(const std::string& worldPath, const std::string& labelsPath);
 
-  // Any thread may reserve a replacement; only the newest reservation can publish a cloud or report
+  // Any thread may reserve a replacement; only the newest reservation can publish a world or report
   // an outcome.
   uint64_t beginLoad();
-  bool loadWorldFile(uint64_t request, const std::string& spzPath, const std::string& labelsPath,
-                     splat::CoordinateFrame sourceFrame,
+  bool loadWorldFile(uint64_t request, const std::string& worldPath, const std::string& labelsPath,
                      const splat::SourceIdentity* identity = nullptr);
 
   // Ready reports from the render thread after GPU completion, failures report from their detecting
@@ -122,6 +118,8 @@ class SplatEngine {
   static constexpr float kFieldOfViewRadians = 65.0f * 3.14159265358979f / 180.0f;
   static constexpr float kNearPlane = 0.05f;
   static constexpr float kFarPlane = 200.0f;
+  // The most tree nodes the GPU selection draws per frame.
+  static constexpr uint32_t kSplatBudget = 1'600'000;
 
  private:
   static constexpr int kMaxShDegree = 3;
@@ -162,7 +160,7 @@ class SplatEngine {
   mutable std::recursive_mutex loadMutex_;
   uint64_t currentLoad_ = 0;
   uint64_t uploadedLoad_ = 0;
-  std::unique_ptr<splat::SplatCloud> pendingWorld_;
+  std::unique_ptr<splat::LodTree> pendingWorld_;
   OrbitCamera camera_;
   Highlight highlight_;
   Reveal reveal_;
@@ -194,4 +192,4 @@ class SplatEngine {
   uint32_t lastDrawnGeneration_ = 0;
 };
 
-}
+}  // namespace splatkit

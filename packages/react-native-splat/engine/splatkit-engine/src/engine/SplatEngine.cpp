@@ -6,6 +6,7 @@
 #include <limits>
 #include <utility>
 
+#include "splat/filtering/Compaction.h"
 #include "splatkit/Log.h"
 
 namespace splatkit {
@@ -19,6 +20,8 @@ constexpr float kFramingMargin = 1.05f;
 constexpr float kMinFramingAspect = 1e-3f;
 // Field Guide draws only from a GPU order, so a renderer without GPU sorting cannot show a world.
 constexpr char kNoGpuSortMessage[] = "renderer lacks GPU sort support";
+// Field Guide ships only trees, which a renderer without GPU selection would draw whole.
+constexpr char kNoGpuLodMessage[] = "renderer lacks GPU level of detail selection";
 
 using Clock = std::chrono::steady_clock;
 
@@ -27,13 +30,11 @@ double millisSince(Clock::time_point start) {
 }
 
 splat::Vec3 centre(const splat::Bounds& b) {
-  return {(b.min[0] + b.max[0]) * 0.5f, (b.min[1] + b.max[1]) * 0.5f,
-          (b.min[2] + b.max[2]) * 0.5f};
+  return {(b.min[0] + b.max[0]) * 0.5f, (b.min[1] + b.max[1]) * 0.5f, (b.min[2] + b.max[2]) * 0.5f};
 }
 
 // The closest distance that keeps every corner inside the screen margin and near plane.
-float framingRadius(const splat::Bounds& bounds, Extent extent,
-                    SplatEngine::ViewDirection from) {
+float framingRadius(const splat::Bounds& bounds, Extent extent, SplatEngine::ViewDirection from) {
   const splat::Vec3 half{(bounds.max[0] - bounds.min[0]) * 0.5f,
                          (bounds.max[1] - bounds.min[1]) * 0.5f,
                          (bounds.max[2] - bounds.min[2]) * 0.5f};
@@ -64,6 +65,20 @@ float framingRadius(const splat::Bounds& bounds, Extent extent,
   return radius;
 }
 
+// Picks read the leaves alone: a merged node stands in for its leaves and would cover the gaps
+// between them. The upload has copied the tree, so its nodes are compacted in place.
+std::shared_ptr<const PickIndex> takeLeafPickIndex(splat::LodTree& tree) {
+  splat::SplatCloud& nodes = tree.nodes;
+  if (nodes.labels.empty()) return PickIndex::take(nodes);
+  // Colours and harmonics are not picked, so they need no compaction.
+  nodes.colors.clear();
+  nodes.sh.clear();
+  std::vector<bool> leaf(tree.layout.size());
+  for (std::size_t i = 0; i < leaf.size(); ++i) leaf[i] = tree.layout[i].childCount == 0;
+  splat::keepSplats(nodes, leaf);
+  return PickIndex::take(nodes);
+}
+
 bool finite(const splat::Bounds& b) {
   for (int i = 0; i < 3; ++i) {
     if (!std::isfinite(b.min[i]) || !std::isfinite(b.max[i]) || b.min[i] > b.max[i]) return false;
@@ -71,17 +86,16 @@ bool finite(const splat::Bounds& b) {
   return true;
 }
 
-}
+}  // namespace
 
 SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile)
     : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
   if (!loadFile_) {
-    loadFile_ = [](const std::string& spzPath, const std::string& labelsPath,
-                   splat::CoordinateFrame frame, int degree,
+    loadFile_ = [](const std::string& worldPath, const std::string& labelsPath, int degree,
                    const splat::SourceIdentity* identity) -> splat::Result<LoadedWorld> {
       splat::SplatWorldLoader loader;
       loader.setMaxShDegree(degree);
-      const auto result = loader.loadWorldFile(spzPath, labelsPath, frame, identity);
+      const auto result = loader.loadWorldFile(worldPath, labelsPath, identity);
       if (!result) return result.error();
       return LoadedWorld{loader.takeWorld(), result.value()};
     };
@@ -100,36 +114,33 @@ void SplatEngine::setShDegree(int degree) {
   redrawNeeded_ = true;
 }
 
-
 uint64_t SplatEngine::beginLoad() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
   pendingWorld_.reset();
   return ++currentLoad_;
 }
 
-bool SplatEngine::loadWorld(splat::ByteView spz, splat::ByteView labels,
-                            splat::CoordinateFrame sourceFrame) {
+bool SplatEngine::loadWorld(splat::ByteView world, splat::ByteView labels) {
   const uint64_t request = beginLoad();
   splat::SplatWorldLoader loader;
   loader.setMaxShDegree(maxShDegree_.load());
-  const auto result = loader.loadWorld(spz, labels, sourceFrame);
+  const auto result = loader.loadWorld(world, labels);
   if (!result) return finishLoad(request, result.error());
   return finishLoad(request, LoadedWorld{loader.takeWorld(), result.value()});
 }
 
-bool SplatEngine::loadWorldFile(const std::string& spzPath, const std::string& labelsPath,
-                                splat::CoordinateFrame sourceFrame) {
-  return loadWorldFile(beginLoad(), spzPath, labelsPath, sourceFrame);
+bool SplatEngine::loadWorldFile(const std::string& worldPath, const std::string& labelsPath) {
+  return loadWorldFile(beginLoad(), worldPath, labelsPath);
 }
 
-bool SplatEngine::loadWorldFile(uint64_t request, const std::string& spzPath,
-                                const std::string& labelsPath, splat::CoordinateFrame sourceFrame,
+bool SplatEngine::loadWorldFile(uint64_t request, const std::string& worldPath,
+                                const std::string& labelsPath,
                                 const splat::SourceIdentity* identity) {
   {
     const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
     if (request == 0 || request != currentLoad_) return false;
   }
-  return finishLoad(request, loadFile_(spzPath, labelsPath, sourceFrame, maxShDegree_.load(), identity));
+  return finishLoad(request, loadFile_(worldPath, labelsPath, maxShDegree_.load(), identity));
 }
 
 bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result) {
@@ -137,7 +148,7 @@ bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result
   if (request != currentLoad_) return false;
   if (!result) return report(result.error());
   report(result.value().report);
-  pendingWorld_ = std::move(result.value().cloud);
+  pendingWorld_ = std::move(result.value().tree);
   return true;
 }
 
@@ -150,46 +161,52 @@ bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldRepor
   if (!report) {
     const splat::Error& error = report.error();
     LOGE("world load failed: %s", error.message.c_str());
-    emit(error.code == splat::ErrorCode::labelsMismatch ? Event::labelsMismatch
-                                                        : Event::worldFailed,
-         error.message);
+    emit(
+        error.code == splat::ErrorCode::labelsMismatch ? Event::labelsMismatch : Event::worldFailed,
+        error.message);
     return false;
   }
   const auto& r = report.value();
-  if (r.verified) LOGI("verified pack SHA-256 in %.2f ms, source splats %zu",
-                       r.verificationMillis, r.sourceSplatCount);
-  LOGI("decoded %zu %s splats in %.0f ms (%zu removed as haze, %zu as floaters), sh degree "
-       "%d, bounds y [%.2f, %.2f], reordered in %.0f ms",
-       r.splatCount, r.labelled ? "labelled" : "unlabelled", r.decodeMillis, r.hazeRemoved,
-       r.sparseRemoved, r.shDegree, r.bounds.min[1], r.bounds.max[1], r.reorderMillis);
+  if (r.verified) LOGI("verified pack SHA-256 in %.2f ms", r.verificationMillis);
+  LOGI(
+      "decoded a %s tree of %zu nodes over %zu splats in %.0f ms, sh degree %d, bounds y "
+      "[%.2f, %.2f]",
+      r.labelled ? "labelled" : "unlabelled", r.nodeCount, r.splatCount, r.decodeMillis, r.shDegree,
+      r.bounds.min[1], r.bounds.max[1]);
   return true;
 }
 
 bool SplatEngine::applyPendingWorld() {
   const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  auto cloud = std::move(pendingWorld_);
-  if (!cloud) return false;
+  auto tree = std::move(pendingWorld_);
+  if (!tree) return false;
   // An upload would succeed and draw empty frames, which would then report the world ready.
   if (!renderer_->sortsOnGpu()) {
     LOGE("world load failed: %s", kNoGpuSortMessage);
     emit(Event::worldFailed, kNoGpuSortMessage);
     return false;
   }
+  if (!renderer_->selectsLodOnGpu()) {
+    LOGE("world load failed: %s", kNoGpuLodMessage);
+    emit(Event::worldFailed, kNoGpuLodMessage);
+    return false;
+  }
   const auto start = Clock::now();
-  if (!renderer_->uploadWorld(*cloud, kMaxShDegree)) {
+  if (!renderer_->uploadLodWorld(*tree, kMaxShDegree, kSplatBudget)) {
     LOGE("world upload failed");
     emit(Event::worldFailed, "GPU upload failed");
     return false;
   }
-  sourceCount_ = static_cast<uint32_t>(cloud->count());
-  pickIndex_ = PickIndex::take(*cloud);
+  sourceCount_ = static_cast<uint32_t>(tree->leafCount);
+  const splat::Bounds bounds = tree->nodes.bounds;
+  pickIndex_ = takeLeafPickIndex(*tree);
   if (!poseSet_) {
-    framedBounds_ = cloud->bounds;
+    framedBounds_ = bounds;
     framedExtent_ = {};
   }
   uploadedLoad_ = currentLoad_;
   showing_ = Showing::awaitingDraw;
-  reveal_.start(cloud->bounds, revealSeconds_);
+  reveal_.start(bounds, revealSeconds_);
   const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
   LOGI("uploaded %u splats in %.0f ms, sh degree %d", gpu.count, millisSince(start), gpu.shDegree);
   return true;
@@ -206,7 +223,6 @@ void SplatEngine::reportShown() {
   LOGI("cloud ready: %u splats", sourceCount_);
   emit(Event::worldReady, {}, sourceCount_);
 }
-
 
 bool SplatEngine::setCameraPose(const OrbitPose& pose) {
   if (!camera_.setPose(pose)) return false;
@@ -282,7 +298,6 @@ splat::Mat4 SplatEngine::projection(Extent extent) const {
   return splat::Mat4::perspective(kFieldOfViewRadians, aspect, kNearPlane, kFarPlane);
 }
 
-
 void SplatEngine::publishView(const SplatRenderer::Frame& frame) {
   View view;
   view.view = frame.view;
@@ -339,7 +354,6 @@ bool SplatEngine::drawnDirection(float& azimuth, float& elevation) const {
   return true;
 }
 
-
 void SplatEngine::publishStats() {
   stats_.publish(sample());
 }
@@ -352,7 +366,6 @@ StatsPublisher::Sample SplatEngine::sample() const {
   s.sourceSplats = renderer_->world() ? sourceCount_ : 0;
   return s;
 }
-
 
 float SplatEngine::frameSeconds(int64_t frameTimeNanos) {
   const float dt =
@@ -438,4 +451,4 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   return true;
 }
 
-}
+}  // namespace splatkit

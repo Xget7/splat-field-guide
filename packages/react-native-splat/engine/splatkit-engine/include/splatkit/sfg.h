@@ -60,10 +60,10 @@ typedef struct {
 } sfg_camera_limits;
 
 typedef enum {
-  // The loaded world is on screen; the count is its splats.
+  // The loaded world is on screen; the count is its tree's leaves, the splats the capture kept.
   SFG_EVENT_WORLD_READY = 0,
   SFG_EVENT_LOAD_FAILED = 1,
-  // The part labels are for another cloud.
+  // The part labels are for another world.
   SFG_EVENT_LABELS_MISMATCH = 2,
   // Final: the view draws nothing more.
   SFG_EVENT_GPU_FAILED = 3,
@@ -80,22 +80,25 @@ void sfg_destroy(sfg_engine* engine);
 void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback SFG_NULLABLE callback,
                             void* SFG_NULLABLE context);
 
-// Any thread may decode SPZ RUB files with optional labels; failure reports an event and preserves
-// the current world until a successful replacement draws.
-bool sfg_load(sfg_engine* engine, const char* spz_path, const char* SFG_NULLABLE labels_path);
+// Any thread may decode a SplatKit .lodsplat tree with optional labels, one per tree node in node
+// order; failure reports an event and preserves the current world until a successful replacement
+// draws.
+bool sfg_load(sfg_engine* engine, const char* world_path, const char* SFG_NULLABLE labels_path);
 
 // Any thread may reserve a replacement that supersedes older decoding, pending uploads and
 // completion events.
 uint64_t sfg_begin_load(sfg_engine* engine);
-// Identity from the pack manifest, checked before a decoded cloud can be accepted.
+// Identity from the pack manifest, checked before a decoded world can be accepted.
 typedef struct {
+  // The world file's digest.
   const char* splat_sha256;
   const char* labels_sha256;
+  // The tree's leaves, the splats the capture kept.
   uint32_t expected_splat_count;
 } sfg_source_identity;
 // Any thread may decode for a reservation while retaining the engine; superseded requests return
 // false without failure events.
-bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* spz_path,
+bool sfg_load_request(sfg_engine* engine, uint64_t request, const char* world_path,
                       const char* SFG_NULLABLE labels_path,
                       const sfg_source_identity* SFG_NULLABLE identity);
 

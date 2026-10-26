@@ -25,10 +25,10 @@ tools/splat_snapshot.mm                  draws a pack through the engine into a 
 ```
 
 Build/test commands are in [agent checks](../../../../docs/agents/checks.md); the macOS Metal build also tests the shared core and C interface.
-Set `SPLAT_SPZ_PATH` to an SPZ to enable `MetalRasterTest.ARealWorldFillsTheView`.
-`splat_snapshot` uses the app's renderer to draw a labelled cloud from a pose, with selected parts highlighted.
+Set `SPLAT_LOD_PATH` to a .lodsplat tree to enable `MetalRasterTest.ARealWorldFillsTheView`.
+`splat_snapshot` uses the app's renderer to draw a labelled tree from a pose, with selected parts highlighted.
 From the repository root after the Metal build:
 
 ```sh
-packages/react-native-splat/build/checks/splat_snapshot --spz data/pack/gol-trend-engine-bay/1/high/cloud.spz --labels data/pack/gol-trend-engine-bay/1/high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out /tmp/engine.png
+packages/react-native-splat/build/checks/splat_snapshot --world data/pack/gol-trend-engine-bay/1/high/world.lodsplat --labels data/pack/gol-trend-engine-bay/1/high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out /tmp/engine.png
 ```

@@ -4,6 +4,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "splatkit/rendering/SplatRenderer.h"
 
@@ -26,6 +27,15 @@ class FakeRenderer final : public SplatRenderer {
     if (failUploads) return false;
     world_ =
         GpuWorldInfo{static_cast<uint32_t>(cloud.count()), std::min(cloud.shDegree, maxShDegree)};
+    return true;
+  }
+  bool selectsLodOnGpu() const override { return gpuLodSelection; }
+  bool uploadLodWorld(const splat::LodTree& tree, int maxShDegree, uint32_t budget) override {
+    if (failUploads) return false;
+    world_ = GpuWorldInfo{static_cast<uint32_t>(tree.nodeCount()),
+                          std::min(tree.nodes.shDegree, maxShDegree)};
+    uploadedBudget = budget;
+    uploadedLabels = tree.nodes.labels;
     return true;
   }
   // Field Guide loads single file worlds only, so no test builds a slab.
@@ -52,6 +62,7 @@ class FakeRenderer final : public SplatRenderer {
   bool isReady = true;
   bool failUploads = false;
   bool gpuSort = true;
+  bool gpuLodSelection = true;
   bool gpuFinished = true;
   bool gpuFailed = false;
   Extent extent{1000, 1000};
@@ -59,6 +70,9 @@ class FakeRenderer final : public SplatRenderer {
   Frame last;
   uint32_t frames = 0;
   std::function<void()> onDestroyed;
+  // What the last tree upload handed the GPU.
+  uint32_t uploadedBudget = 0;
+  std::vector<uint8_t> uploadedLabels;
 
  private:
   float scale_ = 1;
@@ -68,4 +82,4 @@ class FakeRenderer final : public SplatRenderer {
   std::string description_ = "fake";
 };
 
-}
+}  // namespace splatkit::test
