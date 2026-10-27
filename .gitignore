@@ -4,6 +4,8 @@ packages/react-native-on-device/ios/KokoroResources/
 packages/react-native-on-device/ios/.kokoro-fetch.lock
 /tools/
 __pycache__/
+.pytest_cache/
+.ruff_cache/
 .venv/
 # The engine's iOS build and the XCFramework it makes: scripts/build-ios-engine.sh
 packages/react-native-splat/build/

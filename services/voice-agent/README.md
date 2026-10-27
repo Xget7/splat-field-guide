@@ -32,7 +32,7 @@ Default voices are account-dependent, so choose an available voice from your own
 From this directory:
 
 ```sh
-npm install
+nice -n 19 npm ci
 cp .env.example .env
 ```
 
@@ -41,8 +41,8 @@ The shared secret is stored in ElevenLabs as `field-guide-agent-llm`; the agent 
 Then review and sync:
 
 ```sh
-npm run plan
-npm run sync
+nice -n 19 npm run plan
+nice -n 19 npm run sync
 ```
 
 `plan` makes no requests or state changes and prints complete agent, tool and dictionary bodies with a redacted secret.
