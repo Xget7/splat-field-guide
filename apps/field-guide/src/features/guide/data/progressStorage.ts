@@ -1,4 +1,4 @@
-import type { KeyValueStorage } from '../../../platform/ports';
+import type { KeyValueStorage } from '../../../platform/storage';
 import { parseProgress, type Progress } from '../domain/progress';
 
 const PROGRESS_KEY = 'field-guide/progress/v1';

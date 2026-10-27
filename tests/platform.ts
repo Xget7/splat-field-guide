@@ -3,7 +3,6 @@ import type { PathInfo } from '../apps/field-guide/src/platform/connectivity/net
 import type {
   AppStatePort,
   AudioLink,
-  KeyValueStorage,
   LanguageModel,
   Platform,
   Socket,
@@ -11,6 +10,7 @@ import type {
   SpeechOutput,
   StreamingRequest,
 } from '../apps/field-guide/src/platform/ports';
+import type { KeyValueStorage } from '../apps/field-guide/src/platform/storage';
 
 const ACTIVE: AppStateStatus = 'active';
 // Backoff jitter stays centred, so timed tests land on exact delays.
