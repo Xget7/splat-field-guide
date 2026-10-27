@@ -18,8 +18,6 @@ import { clearProgress, saveProgress } from '../../guide/views';
 import {
   useInstructor,
   useInstructorVoice,
-  FADE_IN,
-  FADE_OUT,
   panelLayout,
 } from '../../instructor/views';
 import type { Instructor } from '../../instructor';
@@ -27,7 +25,7 @@ import type { Instructor } from '../../instructor';
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
 
 import { Capability } from '../domain/capability';
-import type { Size } from '../domain/screenGeometry';
+import { NO_SIZE, type Size } from '../domain/screenGeometry';
 import {
   attachProgressAutosave,
   type ProgressWriter,
@@ -51,17 +49,15 @@ import {
 } from '../state/viewerHooks';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
+import { FADE_IN, FADE_OUT_FAST } from '../../../ui/motion';
 import { Color, Space, Type } from '../../../ui/theme';
 
-import {
-  AssistantDock,
-  DOCK_EXPANDED_HEIGHT,
-} from './instructor/AssistantDock';
+import { AssistantDock } from './instructor/AssistantDock';
 import { ExploreDrawer } from './shell/ExploreDrawer';
 import { GuideDrawer } from './shell/GuideDrawer';
-import { DRAWER_IN, DRAWER_OUT } from './shell/layout';
+import { DOCK_EXPANDED_HEIGHT, DRAWER_IN, DRAWER_OUT } from './shell/layout';
 import { ViewerRail } from './shell/ViewerRail';
-import { Breadcrumb } from './stage/Breadcrumb';
+import { Breadcrumb, BREADCRUMB_HEIGHT } from './stage/Breadcrumb';
 import { PartCard } from './stage/PartCard';
 import { DevPanel } from './stage/DevPanel';
 import { ToolDock } from './stage/ToolDock';
@@ -86,8 +82,6 @@ export interface FieldGuideDebug {
 
 const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
-const BREADCRUMB_HEIGHT = 40;
-const NO_SIZE: Size = { width: 0, height: 0 };
 const PROGRESS: ProgressWriter = { save: saveProgress, clear: clearProgress };
 
 export function ViewerScreen({
@@ -273,7 +267,7 @@ function Viewer({
       {!(instructorDockExpanded && docks.toolsCovered) && (
         <Animated.View
           entering={FADE_IN}
-          exiting={FADE_OUT}
+          exiting={FADE_OUT_FAST}
           pointerEvents="box-none"
           style={[
             styles.toolDock,

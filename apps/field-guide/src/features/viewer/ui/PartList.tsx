@@ -3,10 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
 import type { Part, PartId } from '../../pack/pack';
+import { CHEVRON_SIZE, ROW_HEIGHT } from './shell/layout';
 
-const ROW_HEIGHT = 48;
 const GLYPH_SIZE = 16;
-const CHEVRON_SIZE = 14;
 const CHILD_INDENT = 20;
 const EMPTY_LABEL = 'No parts match';
 const SELECT_HINT = 'Inspect this part';

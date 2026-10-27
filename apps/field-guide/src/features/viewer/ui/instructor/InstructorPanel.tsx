@@ -24,8 +24,6 @@ import {
   Composer,
   ContentFade,
   composerStyles,
-  FADE_IN,
-  FADE_OUT,
   PANEL_LAYOUT,
   InstructorScan,
   InstructorStatus,
@@ -39,6 +37,7 @@ import {
   type InstructorVoice,
 } from '../../../instructor/views';
 import { speechTextFor } from '../../../instructor';
+import { FADE_IN, FADE_OUT_FAST } from '../../../../ui/motion';
 import {
   Color,
   HAIRLINE,
@@ -293,7 +292,7 @@ export function InstructorPanel({
               </ContentFade>
             </Pressable>
             {!minimized && canStop && (
-              <Animated.View entering={FADE_IN} exiting={FADE_OUT}>
+              <Animated.View entering={FADE_IN} exiting={FADE_OUT_FAST}>
                 <IconButton
                   testID="instructor-stop"
                   icon={IconName.stop}

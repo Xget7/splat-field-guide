@@ -36,7 +36,6 @@ import {
   Radius,
   Space,
   Type,
-  BOTTOM_BAND_HEIGHT,
 } from '../../../../ui/theme';
 import {
   EntryKind,
@@ -44,16 +43,15 @@ import {
   type ThreadEntry,
 } from '../../domain/viewerState';
 
+import {
+  DOCK_COLLAPSED,
+  DOCK_EXPANDED_HEIGHT,
+  DOCK_EXPANDED_WIDTH,
+} from '../shell/layout';
 import { InstructorThread } from './InstructorThread';
 
 import { useDockKeyboard } from '../../../../ui/useKeyboardOverlap';
 
-export const DOCK_COLLAPSED = {
-  width: 320,
-  height: BOTTOM_BAND_HEIGHT,
-} as const;
-export const DOCK_EXPANDED_WIDTH = 380;
-export const DOCK_EXPANDED_HEIGHT = 640;
 const DockSize = {
   collapsedHeight: DOCK_COLLAPSED.height,
   expandedHeight: DOCK_EXPANDED_HEIGHT,

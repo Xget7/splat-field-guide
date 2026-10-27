@@ -51,7 +51,7 @@ import {
 import { cameraLimitsInRadians } from '../../domain/camera';
 import { PartMarkers } from './PartMarkers';
 import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
-import { type Size } from '../../domain/screenGeometry';
+import { NO_SIZE } from '../../domain/screenGeometry';
 import { useGuideFraming } from './useGuideFraming';
 
 const RADIANS_PER_POINT = 0.01;
@@ -59,8 +59,6 @@ const PAN_ACTIVATION_POINTS = 8;
 const TAP_MAX_DISTANCE_POINTS = 8;
 const ERROR_ICON = 16;
 const MS_PER_SECOND = 1000;
-
-const NO_SIZE: Size = { width: 0, height: 0 };
 
 interface Props {
   pack: Pack;

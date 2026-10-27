@@ -40,7 +40,9 @@ import {
 } from '../../domain/viewerState';
 import { CautionNote } from '../../../../ui/CautionNote';
 import { InstructorAnswer } from './InstructorAnswer';
-import { FADE_IN, ReplyText } from '../../../instructor/views';
+import { ReplyText } from '../../../instructor/views';
+import { FADE_IN } from '../../../../ui/motion';
+import { SCROLL_EVENT_THROTTLE_MS } from '../shell/layout';
 import {
   assistantBlocks,
   isRepeatedText,
@@ -355,7 +357,7 @@ export function InstructorThread({
           assistant && styles.assistantContent,
         ]}
         keyboardShouldPersistTaps={assistant ? 'handled' : undefined}
-        scrollEventThrottle={16}
+        scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS}
         onScroll={({ nativeEvent: { contentOffset } }) => {
           const nextScrolled = contentOffset.y > 0;
           if (nextScrolled !== wasScrolled.current) {

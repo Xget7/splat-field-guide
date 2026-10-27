@@ -8,8 +8,7 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-
-const CHEVRON = 14;
+import { CHEVRON_SIZE } from './shell/layout';
 
 interface Props {
   topInset: number;
@@ -51,7 +50,7 @@ export function ViewerTopBar({
         <Text numberOfLines={1} style={styles.procedureTitle}>
           {procedureTitle}
         </Text>
-        <Icon name={IconName.down} size={CHEVRON} color={Color.muted} />
+        <Icon name={IconName.down} size={CHEVRON_SIZE} color={Color.muted} />
       </Pressable>
       <Pressable
         testID="instructor-toggle"

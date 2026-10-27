@@ -8,27 +8,17 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { Glass, GlassTone } from '../../../../ui/Glass';
+import { FADE_IN, FADE_OUT } from '../../../../ui/motion';
 import { Icon, IconName } from '../../../../ui/Icon';
-import {
-  Color,
-  Motion,
-  Radius,
-  Space,
-  Type,
-  BOTTOM_BAND_HEIGHT,
-} from '../../../../ui/theme';
+import { Color, Motion, Radius, Space, Type } from '../../../../ui/theme';
+import { TOOLS_HEIGHT } from '../shell/layout';
 
-/** The tool row fills the bottom band, so it lines up with the collapsed assistant. */
-export const TOOLS_HEIGHT = BOTTOM_BAND_HEIGHT;
 const TOOL_WIDTH = 60;
 const ICON_DIAMETER = 32;
 const ICON_SIZE = 20;
@@ -68,8 +58,6 @@ const HELP_LINES = [
   'Pinch to zoom.',
   'Tap a part to select it.',
 ] as const;
-const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.Never);
-const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 
 const Popover = { help: 'help', dev: 'dev' } as const;
 type Popover = (typeof Popover)[keyof typeof Popover];

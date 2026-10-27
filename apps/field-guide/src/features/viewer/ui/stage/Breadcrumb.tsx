@@ -4,7 +4,8 @@ import { Glass, GlassTone } from '../../../../ui/Glass';
 import { Icon, IconName } from '../../../../ui/Icon';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../../ui/theme';
 
-const HEIGHT = 40;
+/** The capsule's height, which the part card keeps clear of. */
+export const BREADCRUMB_HEIGHT = 40;
 const ICON_SIZE = 16;
 const AREA_WIDTH = 180;
 const MIDDLE_WIDTH = 120;
@@ -80,7 +81,7 @@ export function Breadcrumb({ area, trail, onArea, onPart }: Props) {
               segment.id === null ? CrumbHint.area : CrumbHint.part
             }
             accessibilityState={{ disabled: false }}
-            hitSlop={(MIN_TOUCH - HEIGHT) / 2}
+            hitSlop={(MIN_TOUCH - BREADCRUMB_HEIGHT) / 2}
             onPress={() =>
               segment.id === null ? onArea() : onPart(segment.id)
             }
@@ -96,7 +97,7 @@ export function Breadcrumb({ area, trail, onArea, onPart }: Props) {
 
 const styles = StyleSheet.create({
   capsule: {
-    height: HEIGHT,
+    height: BREADCRUMB_HEIGHT,
     maxWidth: '100%',
     paddingHorizontal: Space.lg,
     flexDirection: 'row',
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   },
   segment: {
     minWidth: ICON_SIZE + Space.sm,
-    height: HEIGHT,
+    height: BREADCRUMB_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.sm,

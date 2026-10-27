@@ -10,10 +10,7 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
-  FadeIn,
-  FadeOut,
   LinearTransition,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   useReducedMotion,
@@ -55,12 +52,6 @@ export function panelLayout() {
     .overshootClamping(Number(Motion.spring.overshootClamping));
 }
 export const PANEL_LAYOUT = panelLayout();
-export const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(
-  ReduceMotion.Never,
-);
-export const FADE_OUT = FadeOut.duration(Motion.fast).reduceMotion(
-  ReduceMotion.Never,
-);
 const SCAN_SHARE = 1 / 3;
 const SCAN_WIDTH = '33.333333%';
 const SCAN_HEIGHT = 2;

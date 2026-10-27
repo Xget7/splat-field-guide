@@ -2,8 +2,6 @@ export {
   Composer,
   composerStyles,
   ContentFade,
-  FADE_IN,
-  FADE_OUT,
   InstructorScan,
   InstructorStatus,
   LevelMeter,

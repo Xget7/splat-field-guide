@@ -7,13 +7,12 @@ import { GuideStatus, type ReadyGuide } from '../../pack/catalog';
 import type { Pack } from '../../pack/pack';
 import { sourceFor } from '../../pack/bundledPack';
 import { INITIAL_SESSION } from '../../guide';
-import { cameraLimitsInRadians, type Size } from '../../viewer';
+import { cameraLimitsInRadians, NO_SIZE } from '../../viewer';
 import { useGuideFraming } from '../../viewer/views';
 
 import { Color } from '../../../ui/theme';
 
 const NO_FRAME_REQUEST = 0;
-const NO_SIZE: Size = { width: 0, height: 0 };
 const NO_HIGHLIGHT: number[] = [];
 const MAX_SWEEP_DEGREES = 40;
 // Stopping short of the azimuth limits keeps the sweep moving, since orbit stops at a limit.

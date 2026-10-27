@@ -5,11 +5,11 @@ import type { CardContent, StepRow } from '../../../guide';
 import { StepControls, StepControlsSites } from '../StepControls';
 import { StepList } from '../StepList';
 import { Drawer } from './Drawer';
+import { CHEVRON_SIZE } from './layout';
 
 const TITLE = 'Guide';
 const PROCEDURE_LABEL = 'Procedure';
 const CHOOSE_HINT = 'Choose another procedure';
-const CHEVRON_SIZE = 14;
 
 interface Props {
   topInset: number;
