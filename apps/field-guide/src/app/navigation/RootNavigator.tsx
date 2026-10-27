@@ -16,7 +16,9 @@ import { ViewerScreen } from '../../screens/viewer/ViewerScreen';
 import { ARScreen } from '../../screens/ar/ARScreen';
 import { ARPlacementScreen } from '../../screens/ar/ARPlacementScreen';
 import { ARAssemblyScreen } from '../../screens/ar/ARAssemblyScreen';
+import { BenchScreen } from '../../screens/bench/BenchScreen';
 import { Color } from '../../ui/theme';
+import { LINKING } from './linking';
 import { Route, type RootStackParamList } from './routes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -45,7 +47,7 @@ export function RootNavigator({ pack }: { pack: Pack }) {
   const catalog = useMemo(() => catalogFor(pack), [pack]);
   return (
     <CatalogProvider catalog={catalog}>
-      <NavigationContainer theme={NAVIGATION_THEME}>
+      <NavigationContainer theme={NAVIGATION_THEME} linking={LINKING}>
         <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
           <Stack.Screen name={Route.library} component={LibraryScreen} />
           <Stack.Screen name={Route.guide} component={GuideDetailScreen} />
@@ -75,6 +77,11 @@ export function RootNavigator({ pack }: { pack: Pack }) {
               options={VIEWER_OPTIONS}
             />
           )}
+          <Stack.Screen
+            name={Route.bench}
+            component={BenchScreen}
+            options={VIEWER_OPTIONS}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </CatalogProvider>

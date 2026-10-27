@@ -1,6 +1,8 @@
 import React from 'react';
+import { Linking } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../apps/field-guide/src/App';
+import { BENCH_URL } from '../apps/field-guide/src/app/navigation/linking';
 import { bundledPack } from '../apps/field-guide/src/features/pack/bundledPack';
 
 jest.mock('react-native-splat', () => ({
@@ -13,6 +15,18 @@ jest.mock('react-native-nitro-modules', () => ({
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children: React.ReactNode }) =>
     children,
+  GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+  usePanGesture: jest.fn(config => ({ kind: 'pan', config })),
+  usePinchGesture: jest.fn(config => ({ kind: 'pinch', config })),
+  useTapGesture: jest.fn(config => ({ kind: 'tap', config })),
+  useSimultaneousGestures: jest.fn((...gestures) => ({
+    kind: 'simultaneous',
+    gestures,
+  })),
+  useExclusiveGestures: jest.fn((...gestures) => ({
+    kind: 'exclusive',
+    gestures,
+  })),
 }));
 
 describe('app', () => {
@@ -49,5 +63,21 @@ describe('app', () => {
     } finally {
       Object.assign(bundledPack, original);
     }
+  });
+
+  test('the bench link opens only the splat view, framed on the whole pack', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(BENCH_URL);
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    expect(
+      renderer.root.findAllByProps({ testID: 'bench-screen' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'library-screen' }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(1);
   });
 });

@@ -36,7 +36,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
           let factory = (UIApplication.shared.delegate as? AppDelegate)?.reactNativeFactory else { return }
     let window = UIWindow(windowScene: windowScene)
     self.window = window
-    factory.startReactNative(withModuleName: "FieldGuide", in: window, launchOptions: nil)
+    // Linking reads a cold-launch URL from the launch options, which the scene receives instead.
+    let launchOptions = connectionOptions.urlContexts.first.map { [UIApplication.LaunchOptionsKey.url: $0.url] }
+    factory.startReactNative(withModuleName: "FieldGuide", in: window, launchOptions: launchOptions)
+  }
+
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    guard let url = URLContexts.first?.url else { return }
+    RCTLinkingManager.application(UIApplication.shared, open: url, options: [:])
   }
 }
 

@@ -7,6 +7,7 @@ export const Route = {
   ar: 'AR',
   placement: 'ARPlacement',
   assembly: 'ARAssembly',
+  bench: 'Bench',
 } as const;
 export type Route = (typeof Route)[keyof typeof Route];
 
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   [Route.ar]: { guideId: string };
   [Route.placement]: { guideId: string };
   [Route.assembly]: undefined;
+  [Route.bench]: undefined;
   [Route.viewer]: {
     guideId: string;
     procedureId: string;
