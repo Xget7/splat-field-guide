@@ -1,5 +1,5 @@
 import type { Pack } from '../../../apps/field-guide/src/features/pack/pack.ts';
-import { agentToolSpecs } from '../../../apps/field-guide/src/features/instructor/agent/agentTools.ts';
+import { agentToolSpecs } from '../../../apps/field-guide/src/features/instructor/domain/agent/agentTools.ts';
 
 export const TOOL_TIMEOUT_SECONDS = 5;
 export const CLIENT_TOOL_TYPE = 'client';

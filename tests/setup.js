@@ -84,10 +84,10 @@ jest.mock('react-native-reanimated', () => {
 
 // The shared cloud model is disabled; cloud tests inject fake requests.
 jest.mock(
-  '../apps/field-guide/src/features/instructor/models/cloudModel',
+  '../apps/field-guide/src/features/instructor/data/answerers/cloudModel',
   () => {
     const actual = jest.requireActual(
-      '../apps/field-guide/src/features/instructor/models/cloudModel',
+      '../apps/field-guide/src/features/instructor/data/answerers/cloudModel',
     );
     return { ...actual, cloudModel: actual.createCloudModel({ url: null }) };
   },

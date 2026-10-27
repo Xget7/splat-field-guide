@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { agentToolSpecs } from '../../../apps/field-guide/src/features/instructor/agent/agentTools.ts';
+import { agentToolSpecs } from '../../../apps/field-guide/src/features/instructor/domain/agent/agentTools.ts';
 import { buildToolConfigs, CLIENT_TOOL_TYPE, TOOL_TIMEOUT_SECONDS } from '../src/tools.ts';
 import { pack } from './pack.ts';
 

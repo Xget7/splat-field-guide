@@ -1,9 +1,9 @@
 import type { Pack } from '../../../apps/field-guide/src/features/pack/pack.ts';
-import { rulesFor, ReplyFormat } from '../../../apps/field-guide/src/features/instructor/grounding.ts';
-import { packKnowledge } from '../../../apps/field-guide/src/features/instructor/knowledge.ts';
-import { agentVariables } from '../../../apps/field-guide/src/features/instructor/agent/agentVariables.ts';
-import { recognitionHintsFor } from '../../../apps/field-guide/src/features/instructor/voice/recognitionHints.ts';
-import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/session.ts';
+import { rulesFor, ReplyFormat } from '../../../apps/field-guide/src/features/instructor/domain/grounding.ts';
+import { packKnowledge } from '../../../apps/field-guide/src/features/instructor/domain/knowledge.ts';
+import { agentVariables } from '../../../apps/field-guide/src/features/instructor/domain/agent/agentVariables.ts';
+import { recognitionHintsFor } from '../../../apps/field-guide/src/features/instructor/domain/voice/recognitionHints.ts';
+import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/domain/session.ts';
 import type { AgentState } from './state.ts';
 
 export type AgentConfigIds = Required<Pick<AgentState, 'secretId' | 'dictionary'>> & {

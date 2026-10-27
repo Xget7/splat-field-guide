@@ -1,0 +1,118 @@
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import type { Pack, ProcedureId } from '../../pack/pack';
+import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
+import { procedureRowsFor } from '../../guide/domain/procedureRows';
+import { ProcedureList } from '../../guide/ui/ProcedureList';
+
+interface Props {
+  visible: boolean;
+  pack: Pack;
+  current: ProcedureId | null;
+  onChoose: (procedureId: ProcedureId) => void;
+  onClose: () => void;
+}
+
+export function ProcedureSheet({
+  visible,
+  pack,
+  current,
+  onChoose,
+  onClose,
+}: Props) {
+  return (
+    <Modal
+      testID="procedure-sheet"
+      visible={visible}
+      presentationStyle="formSheet"
+      animationType="slide"
+      backdropColor={Color.surface}
+      allowSwipeDismissal
+      // Native swipe dismissal must also clear the controlled visible state.
+      onRequestClose={onClose}
+    >
+      {/* The sheet measures its own insets: none on an iPad card, the status bar on Android. */}
+      <SafeAreaProvider>
+        <SheetContent
+          pack={pack}
+          current={current}
+          onChoose={onChoose}
+          onClose={onClose}
+        />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function SheetContent({
+  pack,
+  current,
+  onChoose,
+  onClose,
+}: Omit<Props, 'visible'>) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.surface,
+        {
+          paddingTop: insets.top + Space.lg,
+          paddingLeft: insets.left + Space.lg,
+          paddingRight: insets.right + Space.lg,
+          paddingBottom: insets.bottom + Space.lg,
+        },
+      ]}
+    >
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          Procedures
+        </Text>
+        <Pressable
+          testID="procedure-done"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+        >
+          <Text style={styles.doneText}>Done</Text>
+        </Pressable>
+      </View>
+      <ScrollView>
+        <ProcedureList
+          rows={procedureRowsFor(pack)}
+          current={current}
+          onChoose={onChoose}
+        />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  surface: { flex: 1, backgroundColor: Color.surface },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Space.md,
+    paddingBottom: Space.lg,
+  },
+  heading: { ...Type.title, color: Color.text },
+  done: {
+    minHeight: MIN_TOUCH,
+    justifyContent: 'center',
+    paddingHorizontal: Space.md,
+    borderRadius: Radius.round,
+  },
+  doneText: { ...Type.headline, color: Color.accent },
+  pressed: { backgroundColor: Color.pressed },
+});

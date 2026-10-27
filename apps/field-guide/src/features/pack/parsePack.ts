@@ -17,7 +17,7 @@ import {
   Tier,
   Vec3,
 } from './pack';
-import { TOUR_ID, tourOf } from '../guide/tour';
+import { TOUR_ID, tourOf } from './tour';
 
 export const PackErrorCode = {
   invalidField: 'invalidField',
