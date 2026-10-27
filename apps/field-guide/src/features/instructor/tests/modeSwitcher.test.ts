@@ -1,5 +1,8 @@
 import { runSwitch, SwitchTiming } from '../domain/mode/modeSwitcher';
 import { SwitchPiece } from '../domain/mode/modeTypes';
+import { fakePlatform } from '@tests/platform';
+
+const { platform } = fakePlatform();
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
@@ -21,6 +24,7 @@ test('all pieces start first and independent failures settle without blocking re
       task(SwitchPiece.answers, async () => true),
     ],
     emit,
+    platform,
   ).then(value => {
     done();
     return value;
@@ -56,6 +60,7 @@ test('a hanging piece falls back at eight seconds and never emits a late ready',
       ),
     ],
     emit,
+    platform,
   );
   await jest.advanceTimersByTimeAsync(SwitchTiming.PIECE_TIMEOUT_MS);
   expect(await result).toEqual({ listening: false });

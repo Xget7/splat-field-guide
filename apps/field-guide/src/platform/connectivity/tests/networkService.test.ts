@@ -8,6 +8,10 @@ import {
 import { GrpcBackoff } from '../backoff';
 import type { PathInfo } from '../networkQuality';
 import { Transport } from '../networkStatus';
+import { fakePlatform } from '@tests/platform';
+
+const { platform } = fakePlatform();
+const { clock, timers, random } = platform;
 
 const route: PathInfo = {
   satisfied: true,
@@ -33,6 +37,8 @@ test('a path probes immediately and publishes only quality or transport changes'
     },
     probe: async () => 900,
     emit,
+    timers,
+    random,
   });
   service.start();
   changed(route);
@@ -70,6 +76,8 @@ test('a lost route aborts the probe in flight and ignores its answer', async () 
       });
     },
     emit,
+    timers,
+    random,
   });
   service.start();
   changed(route);
@@ -96,6 +104,8 @@ test('failed probes retry with backoff in the foreground until the route answers
     },
     probe,
     emit,
+    timers,
+    random,
   });
   service.start();
   changed(route);
@@ -130,17 +140,23 @@ test('ping measures a 204 and rejects a bad status or a hanging fetch', async ()
   const fetcher = jest.fn(async () => ({
     status: 204,
   })) as unknown as typeof fetch;
-  expect(await pingProbe('https://worker', fetcher, now)()).toBe(30);
+  expect(
+    await pingProbe('https://worker', { fetch: fetcher, clock: now, timers })(),
+  ).toBe(30);
   await expect(
-    pingProbe(
-      'https://worker',
-      jest.fn(async () => ({ status: 500 })) as unknown as typeof fetch,
-    )(),
+    pingProbe('https://worker', {
+      fetch: jest.fn(async () => ({
+        status: 500,
+      })) as unknown as typeof fetch,
+      clock,
+      timers,
+    })(),
   ).rejects.toThrow();
-  const hanging = pingProbe(
-    'https://worker',
-    jest.fn(() => new Promise(() => {})) as unknown as typeof fetch,
-  )();
+  const hanging = pingProbe('https://worker', {
+    fetch: jest.fn(() => new Promise(() => {})) as unknown as typeof fetch,
+    clock,
+    timers,
+  })();
   const failure = hanging.catch(error => error.message);
   jest.advanceTimersByTime(PROBE_TIMEOUT_MS);
   expect(await failure).toBe('Network probe failed');

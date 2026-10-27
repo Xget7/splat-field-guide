@@ -1,3 +1,5 @@
+import type { Random } from '../ports';
+
 /**
  * gRPC's connection backoff (https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md):
  * the first retry waits the initial delay, each later one grows by the multiplier up to the cap
@@ -14,10 +16,7 @@ export interface Backoff {
   /** Starts again from the initial delay, once the remote answers. */
   reset(): void;
 }
-export function createBackoff(
-  limits: BackoffLimits,
-  random: () => number = Math.random,
-): Backoff {
+export function createBackoff(limits: BackoffLimits, random: Random): Backoff {
   let current: number | null = null;
   return {
     next() {

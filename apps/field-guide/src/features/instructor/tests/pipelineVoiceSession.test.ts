@@ -1,8 +1,11 @@
-import { speechInput, speechOutput } from 'react-native-on-device';
+import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import { INITIAL_SESSION } from '../../guide';
 import { createPipelineVoiceSession } from '../data/voice/pipelineVoiceSession';
 import { voiceEvents } from '@tests/voiceSession';
+
+const { speechInput, speechOutput, timers } = fakePlatform().platform;
+const ports = { input: speechInput, output: speechOutput, timers };
 
 const context = {
   pack: fixturePack(),
@@ -33,6 +36,7 @@ test('a voice start installs missing recognition through the system prompt port'
     return 'available';
   });
   const session = createPipelineVoiceSession({
+    ...ports,
     voice: 'system',
     hints: [],
     prompt: async request => {
@@ -55,7 +59,11 @@ test('a voice start installs missing recognition through the system prompt port'
 test('a scheduled or failed install leaves listening unavailable so the user can type', async () => {
   jest.mocked(speechInput().prepare).mockResolvedValueOnce('unavailable');
   jest.mocked(speechInput().install).mockResolvedValueOnce('unavailable');
-  const session = createPipelineVoiceSession({ voice: 'system', hints: [] });
+  const session = createPipelineVoiceSession({
+    ...ports,
+    voice: 'system',
+    hints: [],
+  });
   const changed = voiceEvents();
   await expect(session.start(context, changed)).rejects.toMatchObject({
     failure: 'unavailable',
@@ -67,6 +75,7 @@ test('a scheduled or failed install leaves listening unavailable so the user can
 test('settles a spoken question and ignores callbacks after stopping', async () => {
   const changed = events();
   const session = createPipelineVoiceSession({
+    ...ports,
     voice: 'system',
     hints: ['Battery'],
   });
@@ -87,7 +96,11 @@ test('settles a spoken question and ignores callbacks after stopping', async () 
 test('filters echo and noise, joins an unfinished question and cancels a stale answer on continuation', async () => {
   jest.useFakeTimers();
   const changed = events();
-  const session = createPipelineVoiceSession({ voice: 'kokoro', hints: [] });
+  const session = createPipelineVoiceSession({
+    ...ports,
+    voice: 'kokoro',
+    hints: [],
+  });
   await session.start(context, changed);
   const [, , partial, turn, , voice] = jest
     .mocked(speechInput().listen)
@@ -123,7 +136,11 @@ test('filters echo and noise, joins an unfinished question and cancels a stale a
 
 test('speaks reply and caution with their own ranges and reports spontaneous loss', async () => {
   const changed = events();
-  const session = createPipelineVoiceSession({ voice: 'system', hints: [] });
+  const session = createPipelineVoiceSession({
+    ...ports,
+    voice: 'system',
+    hints: [],
+  });
   await session.start(context, changed);
   const stopped = jest.mocked(speechInput().listen).mock.calls.at(-1)![6];
   jest

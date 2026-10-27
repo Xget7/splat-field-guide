@@ -1,8 +1,5 @@
 import { useEffect } from 'react';
-import {
-  InstructorRuntimeContext,
-  createInstructorRuntime,
-} from '../features/instructor/views';
+import { InstructorRuntimeContext } from '../features/instructor/views';
 
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,8 +8,9 @@ import { RootNavigator } from './navigation/RootNavigator';
 import { bundledPack } from '../features/pack/bundledPack';
 import { PackErrorScreen } from './startup/PackErrorScreen';
 import { Color } from '../ui/theme';
+import { createAppInstructor } from './startup';
 
-const instructorRuntime = createInstructorRuntime();
+const instructorRuntime = createAppInstructor();
 
 function App() {
   useEffect(() => {

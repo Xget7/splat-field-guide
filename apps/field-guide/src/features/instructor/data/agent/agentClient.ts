@@ -23,36 +23,19 @@ import {
   sessionUrl,
 } from '../../domain/agent/agentFailure';
 import { AgentToolCopy } from '../../domain/agent/agentCopy';
+import type {
+  AudioLink,
+  Cancel,
+  Fetch,
+  Socket,
+  Timers,
+} from '../../../../platform/ports';
 
 export const AgentTiming = {
   CONNECT_TIMEOUT_MS: 8000,
   WORD_TICK_MS: 50,
   PLAYOUT_MARGIN_MS: 300,
 } as const;
-
-/** Mirrors the native AudioLink. */
-export interface AudioPort {
-  start(
-    inputRate: number,
-    outputRate: number,
-    onInput: (chunk: string) => void,
-    onLevel: (level: number) => void,
-    onStopped: (reason: string) => void,
-  ): Promise<void>;
-  play(chunk: string): void;
-  clear(): void;
-  playedMs(): number;
-  stop(): void;
-}
-
-export interface SocketPort {
-  send(data: string): void;
-  close(): void;
-  onopen: (() => void) | null;
-  onmessage: ((event: { data: unknown }) => void) | null;
-  onerror: (() => void) | null;
-  onclose: ((event: { code: number; reason: string }) => void) | null;
-}
 
 export const AgentEnd = {
   silence: 'silence',
@@ -90,13 +73,10 @@ export interface AgentClientHandlers {
 export interface AgentClientOptions {
   /** Resolves the signed URL or rejects with an Error whose message is an AgentFailure. */
   readonly signedUrl: () => Promise<string>;
-  readonly connect: (url: string) => SocketPort;
-  readonly audio: AudioPort;
+  readonly connect: (url: string) => Socket;
+  readonly audio: AudioLink;
   readonly handlers: AgentClientHandlers;
-  readonly setInterval?: typeof setInterval;
-  readonly clearInterval?: typeof clearInterval;
-  readonly setTimeout?: typeof setTimeout;
-  readonly clearTimeout?: typeof clearTimeout;
+  readonly timers: Timers;
 }
 
 export interface AgentClient {
@@ -114,19 +94,15 @@ const NO_EVENT_ID = -1;
 const NEXT_EVENT_ID = 1;
 const NO_RATE = 0;
 export function createAgentClient(options: AgentClientOptions): AgentClient {
-  const { audio, handlers } = options;
-  const schedule = options.setTimeout ?? setTimeout;
-  const cancel = options.clearTimeout ?? clearTimeout;
-  const repeat = options.setInterval ?? setInterval;
-  const cancelRepeat = options.clearInterval ?? clearInterval;
-  let socket: SocketPort | null = null;
+  const { audio, handlers, timers } = options;
+  let socket: Socket | null = null;
   let running = false;
   let connected = false;
   let muted = false;
   let generation = 0;
   let rejectStart: ((error: Error) => void) | null = null;
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  let tick: ReturnType<typeof setInterval> | null = null;
+  let cancelConnectTimeout: Cancel | null = null;
+  let stopWordTicks: Cancel | null = null;
   let timeline = createWordTimeline();
   let queuedMs = 0;
   let playbackStartMs = 0;
@@ -140,9 +116,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let held: AgentServerEvent[] | null = null;
   let goodbye = false;
   function finishSpeaking() {
-    if (tick !== null) {
-      cancelRepeat(tick);
-      tick = null;
+    if (stopWordTicks !== null) {
+      stopWordTicks();
+      stopWordTicks = null;
     }
     handlers.word(null);
     if (speaking) {
@@ -178,9 +154,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     connected = false;
     held = null;
     generation++;
-    if (timeout !== null) {
-      cancel(timeout);
-      timeout = null;
+    if (cancelConnectTimeout !== null) {
+      cancelConnectTimeout();
+      cancelConnectTimeout = null;
     }
     const previous = socket;
     socket = null;
@@ -252,11 +228,11 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       return;
     }
     const owner = generation;
-    schedule(() => {
+    timers.after(remaining + AgentTiming.PLAYOUT_MARGIN_MS, () => {
       if (generation === owner) {
         end(reason);
       }
-    }, remaining + AgentTiming.PLAYOUT_MARGIN_MS);
+    });
   }
   function words() {
     const played = playedMs();
@@ -329,8 +305,8 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           speaking = true;
           handlers.speaking(true);
         }
-        if (queuedMs > 0 && tick === null) {
-          tick = repeat(words, AgentTiming.WORD_TICK_MS);
+        if (queuedMs > 0 && stopWordTicks === null) {
+          stopWordTicks = timers.every(AgentTiming.WORD_TICK_MS, words);
         }
         break;
       }
@@ -388,9 +364,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       handlers.status({ state: AgentState.connecting, reason: null });
       return new Promise<void>((resolve, reject) => {
         rejectStart = reject;
-        timeout = schedule(
-          () => end(AgentEnd.network),
+        cancelConnectTimeout = timers.after(
           AgentTiming.CONNECT_TIMEOUT_MS,
+          () => end(AgentEnd.network),
         );
         async function open() {
           try {
@@ -444,9 +420,9 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
                     return;
                   }
                   connected = true;
-                  if (timeout !== null) {
-                    cancel(timeout);
-                    timeout = null;
+                  if (cancelConnectTimeout !== null) {
+                    cancelConnectTimeout();
+                    cancelConnectTimeout = null;
                   }
                   const early = held ?? [];
                   held = null;
@@ -491,11 +467,11 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
             };
             // The close that usually follows an error says why, so it wins.
             opened.onerror = () => {
-              schedule(() => {
+              timers.after(0, () => {
                 if (current()) {
                   end(AgentEnd.network);
                 }
-              }, 0);
+              });
             };
             opened.onclose = event => {
               if (!current()) {
@@ -550,7 +526,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
 const VOICE_SESSION_PATH = '/v1/voice/session';
 export async function fetchSignedUrl(
   baseUrl: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: Fetch,
 ): Promise<string> {
   let response: Response;
   let body: unknown;

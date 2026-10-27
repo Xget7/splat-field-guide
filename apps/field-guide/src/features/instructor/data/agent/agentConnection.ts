@@ -1,15 +1,16 @@
 import { fetchSignedUrl } from './agentClient';
 import { VoiceStartFailure } from '../../domain/voice/voiceSession';
+import type { Clock, Fetch } from '../../../../platform/ports';
 
 export const SIGNED_URL_REUSE_MS = 600000;
 export function createAgentConnection({
   url,
-  fetchImpl,
-  now = Date.now,
+  fetch,
+  clock: now,
 }: {
   url: string | null;
-  fetchImpl?: typeof fetch;
-  now?: () => number;
+  fetch: Fetch;
+  clock: Clock;
 }) {
   let available = url !== null;
   let cached: { url: string; at: number } | null = null;
@@ -18,7 +19,7 @@ export function createAgentConnection({
     if (!available || url === null) {
       throw new Error(VoiceStartFailure.auth);
     }
-    return fetchSignedUrl(url, fetchImpl);
+    return fetchSignedUrl(url, fetch);
   }
   return {
     available: () => available,

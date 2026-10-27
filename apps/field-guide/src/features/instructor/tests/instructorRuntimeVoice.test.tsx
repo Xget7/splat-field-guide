@@ -1,21 +1,19 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Text, type AppStateStatus } from 'react-native';
-import {
-  speechInput,
-  speechOutput,
-  type NetworkPath,
-} from 'react-native-on-device';
 import { createInstructorRuntime } from '../data/runtime/instructorRuntime';
-import { fakeAgentTransport } from './agentTransport';
-import { foregroundAppState } from '@tests/voiceSession';
+import { OfflineVoices } from '../data/runtime/instructorSwitch';
+import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import {
   appEvents,
   createEventBus,
   AppEvent,
   type AppEvents,
+  type EventBus,
 } from '../state/bus';
+import type { Fetch, Platform } from '../../../platform/ports';
+import type { PathInfo } from '../../../platform/connectivity/networkQuality';
 import { InstructorMode } from '../domain/mode/modeTypes';
 import { INITIAL_SESSION } from '../../guide';
 import {
@@ -32,6 +30,29 @@ const context = {
   history: [],
   thinking: false,
 };
+const PROXY_URL = 'https://proxy.example';
+const WIFI: PathInfo = {
+  satisfied: true,
+  transport: 'wifi',
+  downstreamKbps: -1,
+  signalLevel: -1,
+};
+const signedUrl = async () => ({
+  status: 200,
+  json: async () => ({ signedUrl: 'wss://agent.example/session' }),
+});
+const signedUrlOrPing = async (address: unknown) =>
+  String(address).endsWith('/v1/voice/session') ? signedUrl() : { status: 204 };
+
+/** Builds the proxied runtime over a fake platform, speaking offline with Kokoro as on iOS. */
+function runtimeOn(platform: Platform, bus: EventBus<AppEvents>) {
+  return createInstructorRuntime({
+    platform,
+    proxyUrl: PROXY_URL,
+    offlineVoice: OfflineVoices.kokoro,
+    appEvents: bus,
+  });
+}
 
 test.each([
   'signed URL network failure',
@@ -42,8 +63,6 @@ test.each([
   '%s shows the device voice notice until a later agent conversation opens',
   async failure => {
     jest.useFakeTimers();
-    const transport = fakeAgentTransport();
-    let path!: (value: NetworkPath) => void;
     let firstRequest = true;
     const fetchImpl = jest.fn(async (address: unknown) => {
       if (String(address).endsWith('/v1/ping')) {
@@ -58,24 +77,11 @@ test.each([
           return { status: 404, json: async () => ({}) };
         }
       }
-      return {
-        status: 200,
-        json: async () => ({ signedUrl: 'wss://agent.example/session' }),
-      };
+      return signedUrl();
     });
-    const runtime = createInstructorRuntime({
-      appEvents,
-      appState: foregroundAppState,
-      proxyUrl: 'https://proxy.example',
-      connect: transport.connect,
-      networkMonitor: () => ({
-        start: callback => {
-          path = callback;
-        },
-        stop: () => {},
-      }),
-      fetch: fetchImpl as unknown as typeof fetch,
-    });
+    const fake = fakePlatform({ fetch: fetchImpl as unknown as Fetch });
+    const { transport } = fake;
+    const runtime = runtimeOn(fake.platform, appEvents);
     let renderer!: Renderer.ReactTestRenderer;
     const text = () =>
       renderer.root.findAllByType(Text).map(node => node.props.children);
@@ -108,7 +114,7 @@ test.each([
         caution: '',
         stepKey: null,
       });
-      expect(speechOutput().speak).toHaveBeenCalledWith(
+      expect(fake.output.speak).toHaveBeenCalledWith(
         'Check the battery terminals.',
         VOICE_LOCALE,
         expect.any(Function),
@@ -122,16 +128,7 @@ test.each([
         'Online voice unavailable',
         'Using on-device voice.',
       ]);
-      await act(async () =>
-        path({
-          satisfied: true,
-          transport: 'wifi',
-          expensive: false,
-          constrained: false,
-          downstreamKbps: -1,
-          signalLevel: -1,
-        }),
-      );
+      await act(async () => fake.network.emit(WIFI));
       expect(text()).toContain('Online voice unavailable');
       fallback.session.stop();
       const next = runtime.sessionFor(context.pack)!;
@@ -181,47 +178,17 @@ function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
 
 test('an offline switch never installs speech assets, but the next Voice tap may open the model prompt', async () => {
   jest.useFakeTimers();
-  const transport = fakeAgentTransport();
   const bus = createEventBus<AppEvents>();
-  let state: AppStateStatus = 'active';
-  let change!: (state: AppStateStatus) => void;
-  let path!: (value: NetworkPath) => void;
-  const runtime = createInstructorRuntime({
-    appEvents: bus,
-    networkMonitor: () => ({
-      start: callback => {
-        path = callback;
-      },
-      stop: () => {},
-    }),
-    appState: {
-      get currentState() {
-        return state;
-      },
-      addEventListener: (_event, callback) => {
-        change = callback;
-        return { remove: () => {} };
-      },
-    },
-    proxyUrl: 'https://proxy.example',
-    connect: transport.connect,
-    fetch: jest.fn(async () => ({
-      status: 200,
-      json: async () => ({ signedUrl: 'wss://agent.example/session' }),
-    })) as unknown as typeof fetch,
+  const fake = fakePlatform({
+    fetch: jest.fn(signedUrl) as unknown as Fetch,
   });
+  const { transport, input } = fake;
+  const runtime = runtimeOn(fake.platform, bus);
   const h = harness(runtime);
   let renderer!: Renderer.ReactTestRenderer;
   try {
     runtime.start();
-    path({
-      satisfied: true,
-      transport: 'wifi',
-      expensive: false,
-      constrained: false,
-      downstreamKbps: -1,
-      signalLevel: -1,
-    });
+    fake.network.emit(WIFI);
     await act(async () => {
       renderer = Renderer.create(<h.Harness />);
       await jest.advanceTimersByTimeAsync(0);
@@ -231,7 +198,7 @@ test('an offline switch never installs speech assets, but the next Voice tap may
       transport.ready();
     });
     expect(h.voice.open).toBe(true);
-    jest.mocked(speechInput().prepare).mockResolvedValue('unavailable');
+    input.prepare.mockResolvedValue('unavailable');
     await act(async () =>
       bus.emit(AppEvent.modeRequest, { type: 'acceptSuggestion' }),
     );
@@ -239,53 +206,39 @@ test('an offline switch never installs speech assets, but the next Voice tap may
       await jest.advanceTimersByTimeAsync(600);
     });
     expect(bus.latest(AppEvent.mode)?.mode).toBe('offline');
-    expect(speechInput().install).not.toHaveBeenCalled();
+    expect(input.install).not.toHaveBeenCalled();
     expect(h.voice.on).toBe(false);
     expect(h.voice.hint).toBe(
       'On-device speech recognition is unavailable. You can still type.',
     );
-    jest.mocked(speechInput().install).mockImplementationOnce(async () => {
-      state = 'background';
-      change(state);
+    input.install.mockImplementationOnce(async () => {
+      fake.appState.change('background');
       expect(runtime.voiceSnapshot().foreground).toBe(true);
-      state = 'active';
-      change(state);
+      fake.appState.change('active');
       return 'available';
     });
     await act(async () => h.voice.toggle());
-    expect(speechInput().install).toHaveBeenCalledTimes(1);
+    expect(input.install).toHaveBeenCalledTimes(1);
     expect(h.voice.on).toBe(true);
     expect(h.voice.open).toBe(true);
   } finally {
-    jest.mocked(speechInput().prepare).mockResolvedValue('available');
     await act(async () => renderer?.unmount());
     runtime.stop();
     jest.useRealTimers();
   }
 });
 
-test.each(['active', 'inactive'])(
+test.each<AppStateStatus>(['active', 'inactive'])(
   'an initially %s conversation survives inactive, but background leaves voice off on return',
   async initialState => {
     jest.useFakeTimers();
-    const transport = fakeAgentTransport();
-    let changeState!: (state: AppStateStatus) => void;
-    const runtime = createInstructorRuntime({
-      appEvents: createEventBus<AppEvents>(),
-      appState: {
-        currentState: initialState,
-        addEventListener: (_event, listener) => {
-          changeState = listener;
-          return { remove: () => {} };
-        },
-      },
-      proxyUrl: 'https://proxy.example',
-      connect: transport.connect,
-      fetch: jest.fn(async () => ({
-        status: 200,
-        json: async () => ({ signedUrl: 'wss://agent.example/session' }),
-      })) as unknown as typeof fetch,
+    const fake = fakePlatform({
+      initialAppState: initialState,
+      fetch: jest.fn(signedUrl) as unknown as Fetch,
     });
+    const { transport } = fake;
+    const changeState = fake.appState.change;
+    const runtime = runtimeOn(fake.platform, createEventBus<AppEvents>());
     runtime.start();
     const h = harness(runtime);
     let renderer!: Renderer.ReactTestRenderer;
@@ -330,40 +283,15 @@ test.each(['active', 'inactive'])(
 
 test('a socket failure before the offline event carries the waiting question through device startup and the switch', async () => {
   jest.useFakeTimers();
-  const transport = fakeAgentTransport();
   const bus = createEventBus<AppEvents>();
-  let path!: (value: NetworkPath) => void;
-  const runtime = createInstructorRuntime({
-    appEvents: bus,
-    appState: foregroundAppState,
-    proxyUrl: 'https://proxy.example',
-    connect: transport.connect,
-    networkMonitor: () => ({
-      start: callback => {
-        path = callback;
-      },
-      stop: () => {},
-    }),
-    fetch: jest.fn(async (address: unknown) =>
-      String(address).endsWith('/v1/voice/session')
-        ? {
-            status: 200,
-            json: async () => ({ signedUrl: 'wss://agent.example/session' }),
-          }
-        : { status: 204 },
-    ) as unknown as typeof fetch,
+  const fake = fakePlatform({
+    fetch: jest.fn(signedUrlOrPing) as unknown as Fetch,
   });
+  const { transport } = fake;
+  const runtime = runtimeOn(fake.platform, bus);
   runtime.setPack(context.pack);
   runtime.start();
-  const route = {
-    satisfied: true,
-    transport: 'wifi' as const,
-    expensive: false,
-    constrained: false,
-    downstreamKbps: -1,
-    signalLevel: -1,
-  };
-  path(route);
+  fake.network.emit(WIFI);
   const questions: string[] = [];
   const h = harness(
     runtime,
@@ -386,7 +314,7 @@ test('a socket failure before the offline event carries the waiting question thr
   });
   expect(questions).toEqual(['Why check the battery?']);
   expect(h.voice.open).toBe(true);
-  await act(async () => path({ ...route, satisfied: false }));
+  await act(async () => fake.network.emit({ ...WIFI, satisfied: false }));
   expect(bus.latest(AppEvent.mode)?.mode).toBe(
     InstructorMode.switchingToOffline,
   );
@@ -413,40 +341,15 @@ test('a socket failure before the offline event carries the waiting question thr
 
 test('a conversation that fell back to the device voice reconnects to the agent on a new route', async () => {
   jest.useFakeTimers();
-  const transport = fakeAgentTransport();
   const bus = createEventBus<AppEvents>();
-  let path!: (value: NetworkPath) => void;
-  const runtime = createInstructorRuntime({
-    appEvents: bus,
-    appState: foregroundAppState,
-    proxyUrl: 'https://proxy.example',
-    connect: transport.connect,
-    networkMonitor: () => ({
-      start: callback => {
-        path = callback;
-      },
-      stop: () => {},
-    }),
-    fetch: jest.fn(async (address: unknown) =>
-      String(address).endsWith('/v1/voice/session')
-        ? {
-            status: 200,
-            json: async () => ({ signedUrl: 'wss://agent.example/session' }),
-          }
-        : { status: 204 },
-    ) as unknown as typeof fetch,
+  const fake = fakePlatform({
+    fetch: jest.fn(signedUrlOrPing) as unknown as Fetch,
   });
+  const { transport } = fake;
+  const runtime = runtimeOn(fake.platform, bus);
   runtime.setPack(context.pack);
   runtime.start();
-  const route = {
-    satisfied: true,
-    transport: 'wifi' as const,
-    expensive: false,
-    constrained: false,
-    downstreamKbps: -1,
-    signalLevel: -1,
-  };
-  path(route);
+  fake.network.emit(WIFI);
   const h = harness(runtime);
   let renderer!: Renderer.ReactTestRenderer;
   await act(async () => {
@@ -465,7 +368,7 @@ test('a conversation that fell back to the device voice reconnects to the agent 
   expect(bus.latest(AppEvent.mode)?.voice).toBe('device');
   const connections = transport.connections;
   await act(async () => {
-    path({ ...route, transport: 'cellular' });
+    fake.network.emit({ ...WIFI, transport: 'cellular' });
     await jest.advanceTimersByTimeAsync(0);
   });
   expect(transport.connections).toBe(connections + 1);

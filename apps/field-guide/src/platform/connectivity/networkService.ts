@@ -1,10 +1,14 @@
 import { NetworkQuality, type NetworkStatus } from './networkStatus';
 import { createBackoff, type BackoffLimits } from './backoff';
-import {
-  createQualityEstimator,
-  type PathInfo,
-  type RoundTrip,
-} from './networkQuality';
+import { createQualityEstimator, type RoundTrip } from './networkQuality';
+import type {
+  Cancel,
+  Clock,
+  Fetch,
+  NetworkMonitor,
+  Random,
+  Timers,
+} from '../ports';
 
 export const PROBE_INTERVAL_MS = 30000;
 export const PROBE_TIMEOUT_MS = 3000;
@@ -13,18 +17,13 @@ export const ProbeRetry: BackoffLimits = {
   initialMs: 1000,
   maxMs: PROBE_INTERVAL_MS,
 };
-export interface PathSource {
-  start(onChange: (info: PathInfo) => void): void;
-  stop(): void;
-}
 export interface NetworkServiceOptions {
-  readonly paths: PathSource;
+  readonly paths: NetworkMonitor;
   /** Resolves with the round trip in milliseconds; the signal aborts a probe whose answer no longer matters. */
   readonly probe: (signal: AbortSignal) => Promise<number>;
   readonly emit: (status: NetworkStatus) => void;
-  readonly setTimeout?: typeof setTimeout;
-  readonly clearTimeout?: typeof clearTimeout;
-  readonly random?: () => number;
+  readonly timers: Timers;
+  readonly random: Random;
 }
 export interface NetworkService {
   start(): void;
@@ -42,15 +41,13 @@ export interface NetworkService {
 export function createNetworkService(
   options: NetworkServiceOptions,
 ): NetworkService {
-  const schedule = options.setTimeout ?? setTimeout;
-  const cancel = options.clearTimeout ?? clearTimeout;
   const estimator = createQualityEstimator();
   const backoff = createBackoff(ProbeRetry, options.random);
   let started = false;
   let active = false;
   let foreground = true;
   let satisfied = false;
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  let cancelTimer: Cancel | null = null;
   let inFlight: AbortController | null = null;
   let emitted: NetworkStatus | undefined;
   function publish(status: NetworkStatus) {
@@ -73,10 +70,8 @@ export function createNetworkService(
     }
   }
   function clearTimer() {
-    if (timer !== null) {
-      cancel(timer);
-      timer = null;
-    }
+    cancelTimer?.();
+    cancelTimer = null;
   }
   function halt() {
     clearTimer();
@@ -95,7 +90,7 @@ export function createNetworkService(
       ? PROBE_INTERVAL_MS
       : null;
     if (delay !== null) {
-      timer = schedule(probe, delay);
+      cancelTimer = options.timers.after(delay, probe);
     }
   }
   async function probe() {
@@ -174,35 +169,41 @@ const HTTP_NO_CONTENT = 204;
 const PROBE_FAILED = 'Network probe failed';
 export function pingProbe(
   baseUrl: string,
-  fetchImpl: typeof fetch = fetch,
-  now: () => number = Date.now,
+  ports: {
+    readonly fetch: Fetch;
+    readonly clock: Clock;
+    readonly timers: Timers;
+  },
 ): (signal?: AbortSignal) => Promise<number> {
+  const { clock, timers } = ports;
   return async signal => {
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort);
-    const began = now();
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const began = clock();
+    let cancelTimeout: Cancel | undefined;
     try {
       return await Promise.race([
-        fetchImpl(`${baseUrl}${PING_PATH}`, {
-          method: 'GET',
-          signal: controller.signal,
-        }).then(response => {
-          if (response.status !== HTTP_NO_CONTENT) {
-            throw new Error(PROBE_FAILED);
-          }
-          return now() - began;
-        }),
+        ports
+          .fetch(`${baseUrl}${PING_PATH}`, {
+            method: 'GET',
+            signal: controller.signal,
+          })
+          .then(response => {
+            if (response.status !== HTTP_NO_CONTENT) {
+              throw new Error(PROBE_FAILED);
+            }
+            return clock() - began;
+          }),
         new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
+          cancelTimeout = timers.after(PROBE_TIMEOUT_MS, () => {
             controller.abort();
             reject(new Error(PROBE_FAILED));
-          }, PROBE_TIMEOUT_MS);
+          });
         }),
       ]);
     } finally {
-      clearTimeout(timer);
+      cancelTimeout?.();
       signal?.removeEventListener('abort', abort);
     }
   };

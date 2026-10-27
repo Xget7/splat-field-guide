@@ -1,4 +1,4 @@
-import { speechInput, speechOutput } from 'react-native-on-device';
+import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import { fakeVoiceSession, voiceEvents } from '@tests/voiceSession';
 import { INITIAL_SESSION } from '../../guide';
@@ -12,6 +12,9 @@ import {
   VoiceStartError,
   VoiceStartFailure,
 } from '../domain/voice/voiceSession';
+
+const { speechInput, speechOutput, timers } = fakePlatform().platform;
+const ports = { input: speechInput, output: speechOutput, timers };
 const context = {
   pack: fixturePack(),
   state: INITIAL_SESSION,
@@ -128,6 +131,7 @@ test.each([VoiceEnd.quota, VoiceEnd.auth])(
       primary: primary.session,
       primaryQuestions: primary.questions,
       fallback: createPipelineVoiceSession({
+        ...ports,
         voice: SpeechVoice.system,
         hints: [],
       }),

@@ -17,6 +17,7 @@ export const VoiceStartHint = {
   [VoiceStartFailure.network]: VoiceHint.failed,
 } as const;
 export const SpeechVoice = { kokoro: 'kokoro', system: 'system' } as const;
+export type SpeechVoice = (typeof SpeechVoice)[keyof typeof SpeechVoice];
 export const SpeechPermission = { granted: 'granted' } as const;
 export const SpeechAvailability = { available: 'available' } as const;
 export const VOICE_LOCALE = 'en-US';

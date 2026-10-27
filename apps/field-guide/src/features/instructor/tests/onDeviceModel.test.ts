@@ -1,15 +1,18 @@
-import { languageModel } from 'react-native-on-device';
+import { fakePlatform } from '@tests/platform';
 import { createModelInstructor } from '../domain/turn/modelInstructor';
 import { INITIAL_SESSION, startAt } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
 import {
+  createOnDeviceModel,
   onDeviceInstructions,
-  onDeviceModel,
 } from '../data/answerers/onDeviceModel';
 
 const pack = fixturePack();
-const model = languageModel();
+const fake = fakePlatform();
+const model = fake.model;
+const languageModel = jest.fn(fake.platform.languageModel);
+const onDeviceModel = createOnDeviceModel(languageModel);
 const noNativeModule = () => {
   throw new Error('no native module');
 };

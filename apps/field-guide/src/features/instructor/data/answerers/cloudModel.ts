@@ -7,6 +7,12 @@ import {
 } from '../../domain/grounding';
 import { packKnowledge } from '../../domain/knowledge';
 import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import type {
+  Cancel,
+  Clock,
+  StreamingRequest,
+  Timers,
+} from '../../../../platform/ports';
 
 // Fall back to on-device generation if the cloud takes too long to begin answering.
 export const FIRST_TEXT_MS = 6000;
@@ -48,17 +54,19 @@ export interface CloudModelOptions {
   readonly url: string | null;
   readonly isOnline?: () => boolean;
   readonly onFailure?: () => void;
-  readonly now?: () => number;
-  readonly Request?: typeof XMLHttpRequest;
+  readonly clock: Clock;
+  readonly timers: Timers;
+  readonly streamingRequest: () => StreamingRequest;
 }
 
 /** The proxy retains the API key and streams one JSON object per line. */
 export function createCloudModel({
   url,
-  now = Date.now,
+  clock: now,
+  timers,
   isOnline = () => true,
   onFailure,
-  Request,
+  streamingRequest,
 }: CloudModelOptions): InstructorModel {
   let offlineUntil = 0;
   let stopCurrent: (() => void) | null = null;
@@ -71,15 +79,14 @@ export function createCloudModel({
     respond({ question, state, pack, history, evidence }, onText) {
       stopCurrent?.();
       return new Promise<string>((resolve, reject) => {
-        // Looked up per request: the global only exists where React Native installs it.
-        const xhr = new (Request ?? XMLHttpRequest)();
+        const xhr = streamingRequest();
         let text = '';
         let consumed = 0;
         let finished = false;
-        const timers: ReturnType<typeof setTimeout>[] = [];
+        const deadlines: Cancel[] = [];
         const settle = () => {
           finished = true;
-          timers.forEach(clearTimeout);
+          deadlines.forEach(cancel => cancel());
           stopCurrent = null;
         };
         const fail = (reason: string, coolOff = true) => {
@@ -131,7 +138,7 @@ export function createCloudModel({
             } else if (typeof event.text === 'string') {
               text += event.text;
               if (text.trim() !== '') {
-                clearTimeout(timers[0]);
+                deadlines[0]?.();
               }
               onText(text);
             } else if (event.done === true) {
@@ -167,9 +174,9 @@ export function createCloudModel({
             ),
           }),
         );
-        timers.push(
-          setTimeout(() => fail(Failure.firstText), FIRST_TEXT_MS),
-          setTimeout(() => fail(Failure.total), TOTAL_MS),
+        deadlines.push(
+          timers.after(FIRST_TEXT_MS, () => fail(Failure.firstText)),
+          timers.after(TOTAL_MS, () => fail(Failure.total)),
         );
         stopCurrent = () => fail(Failure.cancelled, false);
       });

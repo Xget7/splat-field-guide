@@ -1,4 +1,4 @@
-import { audioLink, speechInput } from 'react-native-on-device';
+import { fakePlatform } from '@tests/platform';
 import { voiceEvents as events } from '@tests/voiceSession';
 import { SpeechPermission } from '../domain/voice/voiceCopy';
 import { VoiceStartFailure } from '../domain/voice/voiceSession';
@@ -9,6 +9,7 @@ import {
   type SessionAgentHandlers,
 } from '../data/voice/agentVoiceSession';
 
+const { audioLink, speechInput } = fakePlatform().platform;
 const pack = fixturePack();
 const client = () => ({
   start: jest.fn(async () => {}),
@@ -40,6 +41,7 @@ test.each([false, true])(
       pack,
       client: () => transport,
       audio: () => ({
+        ...audioLink(),
         requestPermission: () =>
           new Promise<boolean>(resolve => {
             grant = resolve;
@@ -72,6 +74,7 @@ test('streams an exchange and retains a corrected interrupted answer', async () 
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    audio: audioLink,
     client: handlers => {
       heard = handlers;
       return transport;
@@ -103,6 +106,7 @@ test('tool navigation is applied without repeating its narration and typed echoe
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    audio: audioLink,
     client: handlers => {
       heard = handlers;
       return transport;
@@ -165,6 +169,7 @@ test('a step read after an answer leaves that answer as it was', async () => {
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    audio: audioLink,
     client: handlers => {
       heard = handlers;
       return client();
@@ -199,6 +204,7 @@ test.each([
     const changed = events();
     const session = createAgentVoiceSession({
       pack,
+      audio: audioLink,
       client: handlers => {
         heard = handlers;
         return client();
@@ -236,7 +242,11 @@ test('requests only microphone access before starting agent audio and rejects de
   );
   const transport = client();
   const makeClient = jest.fn(() => transport);
-  const session = createAgentVoiceSession({ pack, client: makeClient });
+  const session = createAgentVoiceSession({
+    pack,
+    client: makeClient,
+    audio: audioLink,
+  });
   const started = session.start(
     { pack, state: INITIAL_SESSION, history: [], thinking: false },
     events(),
@@ -269,6 +279,7 @@ test.each([false, true])(
     const changed = events();
     const session = createAgentVoiceSession({
       pack,
+      audio: audioLink,
       client: handlers => {
         heard = handlers;
         return client();
@@ -307,6 +318,7 @@ test('a correction belongs to the reply it names, never to an earlier answer', a
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    audio: audioLink,
     client: handlers => {
       heard = handlers;
       return client();

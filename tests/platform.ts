@@ -1,0 +1,222 @@
+import type { AppStateStatus } from 'react-native';
+import type { PathInfo } from '../apps/field-guide/src/platform/connectivity/networkQuality';
+import type {
+  AppStatePort,
+  AudioLink,
+  LanguageModel,
+  Platform,
+  Socket,
+  SpeechInput,
+  SpeechOutput,
+} from '../apps/field-guide/src/platform/ports';
+
+const ACTIVE: AppStateStatus = 'active';
+// Backoff jitter stays centred, so timed tests land on exact delays.
+const CENTRED_RANDOM = 0.5;
+const UNSCRIPTED_FETCH = 'The fake platform has no scripted fetch';
+const UNSCRIPTED_REQUEST =
+  'The fake platform has no scripted streaming request';
+const NOT_MONITORING = 'The network monitor has not started';
+
+export const AGENT_METADATA = {
+  type: 'conversation_initiation_metadata',
+  conversation_initiation_metadata_event: {
+    conversation_id: 'conversation',
+    user_input_audio_format: 'pcm_16000',
+    agent_output_audio_format: 'pcm_24000',
+  },
+};
+
+/** Agent sockets the test opens, answers and closes. */
+export function fakeAgentTransport() {
+  const sockets: Socket[] = [];
+  const closed = new Set<Socket>();
+  const sent: unknown[] = [];
+  return {
+    connect(): Socket {
+      const socket: Socket = {
+        send: data => sent.push(JSON.parse(data)),
+        close: () => {
+          closed.add(socket);
+        },
+        onopen: null,
+        onmessage: null,
+        onerror: null,
+        onclose: null,
+      };
+      sockets.push(socket);
+      return socket;
+    },
+    receive(message: unknown) {
+      sockets.at(-1)?.onmessage?.({ data: JSON.stringify(message) });
+    },
+    ready() {
+      sockets.at(-1)?.onopen?.();
+      this.receive(AGENT_METADATA);
+    },
+    get current() {
+      return sockets.at(-1)!;
+    },
+    get connections() {
+      return sockets.length;
+    },
+    get open() {
+      return sockets.filter(socket => !closed.has(socket)).length;
+    },
+    sent,
+  };
+}
+
+/** An app state the test moves between foreground and background. */
+function fakeAppState(initial: string) {
+  let current: string | null = initial;
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  const port: AppStatePort = {
+    get currentState() {
+      return current;
+    },
+    addEventListener(_event, listener) {
+      listeners.add(listener);
+      return { remove: () => listeners.delete(listener) };
+    },
+  };
+  return {
+    port,
+    /** Sets the current state and reports it, as the system does. */
+    change(state: AppStateStatus) {
+      current = state;
+      [...listeners].forEach(listener => listener(state));
+    },
+  };
+}
+
+/** A network monitor the test feeds routes. */
+function fakeNetworkMonitor() {
+  let listener: ((path: PathInfo) => void) | null = null;
+  const monitor = {
+    start: jest.fn((onChange: (path: PathInfo) => void) => {
+      listener = onChange;
+    }),
+    stop: jest.fn(() => {
+      listener = null;
+    }),
+  };
+  return {
+    monitor,
+    emit(path: PathInfo) {
+      if (listener === null) {
+        throw new Error(NOT_MONITORING);
+      }
+      listener(path);
+    },
+  };
+}
+
+export interface FakePlatformOptions
+  extends Partial<Omit<Platform, 'appState'>> {
+  readonly initialAppState?: AppStateStatus;
+}
+
+/**
+ * The one test platform: native capabilities are jest functions each test scripts, and the clock
+ * and timers read the globals at call time, so jest fake timers drive them.
+ */
+export function fakePlatform(options: FakePlatformOptions = {}) {
+  const { initialAppState = ACTIVE, ...overrides } = options;
+  const input = {
+    requestPermission: jest.fn<
+      ReturnType<SpeechInput['requestPermission']>,
+      []
+    >(async () => 'granted'),
+    prepare: jest.fn<ReturnType<SpeechInput['prepare']>, [string]>(
+      async () => 'available',
+    ),
+    install: jest.fn<ReturnType<SpeechInput['install']>, [string]>(
+      async () => 'available',
+    ),
+    listen: jest.fn<
+      ReturnType<SpeechInput['listen']>,
+      Parameters<SpeechInput['listen']>
+    >(async () => {}),
+    cancel: jest.fn(),
+  } satisfies SpeechInput;
+  const output = {
+    prepare: jest.fn<
+      ReturnType<SpeechOutput['prepare']>,
+      Parameters<SpeechOutput['prepare']>
+    >(async voice => voice),
+    speak: jest.fn<
+      ReturnType<SpeechOutput['speak']>,
+      Parameters<SpeechOutput['speak']>
+    >(async () => {}),
+    stop: jest.fn(),
+  } satisfies SpeechOutput;
+  const link = {
+    requestPermission: jest.fn<Promise<boolean>, []>(async () => true),
+    start: jest.fn<
+      ReturnType<AudioLink['start']>,
+      Parameters<AudioLink['start']>
+    >(async () => {}),
+    play: jest.fn<void, [string]>(),
+    clear: jest.fn(),
+    playedMs: jest.fn(() => 0),
+    stop: jest.fn(),
+  } satisfies AudioLink;
+  const model = {
+    availability: jest.fn<ReturnType<LanguageModel['availability']>, []>(
+      () => 'unavailable',
+    ),
+    prewarm: jest.fn<void, [string]>(),
+    respond: jest.fn<
+      ReturnType<LanguageModel['respond']>,
+      Parameters<LanguageModel['respond']>
+    >(),
+    cancel: jest.fn(),
+  } satisfies LanguageModel;
+  const appState = fakeAppState(initialAppState);
+  const network = fakeNetworkMonitor();
+  const transport = fakeAgentTransport();
+  const platform: Platform = {
+    clock: () => Date.now(),
+    timers: {
+      after(delayMs, run) {
+        const timer = setTimeout(run, delayMs);
+        return () => clearTimeout(timer);
+      },
+      every(intervalMs, run) {
+        const timer = setInterval(run, intervalMs);
+        return () => clearInterval(timer);
+      },
+    },
+    speechInput: () => input,
+    speechOutput: () => output,
+    audioLink: () => link,
+    languageModel: () => model,
+    networkMonitor: network.monitor,
+    fetch: jest.fn(async () => {
+      throw new Error(UNSCRIPTED_FETCH);
+    }),
+    streamingRequest: () => {
+      throw new Error(UNSCRIPTED_REQUEST);
+    },
+    socket: transport.connect,
+    random: () => CENTRED_RANDOM,
+    ...overrides,
+    appState: appState.port,
+  };
+  return {
+    platform,
+    input,
+    output,
+    link,
+    model,
+    transport,
+    network,
+    appState,
+    /** Reports a microphone level to the latest listen call. */
+    emitLevel: (level: number) => input.listen.mock.calls.at(-1)?.[4]?.(level),
+    /** Reports a spoken word range to the latest speak call. */
+    emitWord: (location: number, length: number) =>
+      output.speak.mock.calls.at(-1)?.[2]?.(location, length),
+  };
+}

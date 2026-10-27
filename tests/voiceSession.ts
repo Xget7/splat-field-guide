@@ -126,8 +126,3 @@ export function fakeVoiceRuntime(connection: VoiceConnection) {
     },
   };
 }
-
-export const foregroundAppState = {
-  currentState: 'active',
-  addEventListener: () => ({ remove: () => {} }),
-};

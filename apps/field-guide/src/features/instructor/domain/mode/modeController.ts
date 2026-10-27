@@ -13,6 +13,7 @@ import {
   type ModeSources,
   type ModeSuggestion,
 } from './modeTypes';
+import type { Cancel, Clock, Timers } from '../../../../platform/ports';
 
 export const ModeTiming = {
   RECOVERY_MS: 10000,
@@ -28,9 +29,8 @@ export type SuggestionReason =
 export interface ModeControllerOptions {
   readonly emitMode: (status: ModeStatus) => void;
   readonly emitSuggestion: (suggestion: ModeSuggestion | null) => void;
-  readonly now?: () => number;
-  readonly setTimeout?: typeof setTimeout;
-  readonly clearTimeout?: typeof clearTimeout;
+  readonly clock: Clock;
+  readonly timers: Timers;
 }
 export interface ModeController {
   current(): ModeStatus;
@@ -48,9 +48,7 @@ export interface ModeController {
 export function createModeController(
   options: ModeControllerOptions,
 ): ModeController {
-  const now = options.now ?? Date.now;
-  const schedule = options.setTimeout ?? setTimeout;
-  const cancel = options.clearTimeout ?? clearTimeout;
+  const { clock: now, timers } = options;
   let status: ModeStatus = {
     mode: InstructorMode.online,
     cause: ModeCause.startup,
@@ -65,11 +63,11 @@ export function createModeController(
   let suggestion = false;
   let weakSince: number | null = null;
   let goodSince: number | null = null;
-  let suggestionTimer: ReturnType<typeof setTimeout> | null = null;
-  let withdrawalTimer: ReturnType<typeof setTimeout> | null = null;
-  let snoozeTimer: ReturnType<typeof setTimeout> | null = null;
+  let cancelSuggestionWait: Cancel | null = null;
+  let cancelWithdrawalWait: Cancel | null = null;
+  let cancelSnooze: Cancel | null = null;
   let snoozedUntil = 0;
-  let recovery: ReturnType<typeof setTimeout> | null = null;
+  let cancelRecoveryWait: Cancel | null = null;
   let recovered = false;
   let recoveryMs: number = ModeTiming.RECOVERY_MS;
   let recoveredAt: number | null = null;
@@ -101,20 +99,20 @@ export function createModeController(
     );
   }
   function clearSuggestionTimers() {
-    if (suggestionTimer !== null) {
-      cancel(suggestionTimer);
-      suggestionTimer = null;
+    if (cancelSuggestionWait !== null) {
+      cancelSuggestionWait();
+      cancelSuggestionWait = null;
     }
-    if (withdrawalTimer !== null) {
-      cancel(withdrawalTimer);
-      withdrawalTimer = null;
+    if (cancelWithdrawalWait !== null) {
+      cancelWithdrawalWait();
+      cancelWithdrawalWait = null;
     }
   }
   function updateSuggestion() {
     if (quality === NetworkQuality.weak) {
-      if (withdrawalTimer !== null) {
-        cancel(withdrawalTimer);
-        withdrawalTimer = null;
+      if (cancelWithdrawalWait !== null) {
+        cancelWithdrawalWait();
+        cancelWithdrawalWait = null;
       }
       if (suggestion || now() < snoozedUntil) {
         return;
@@ -123,35 +121,35 @@ export function createModeController(
         ModeTiming.SUGGESTION_DELAY_MS - (now() - (weakSince ?? now()));
       if (remaining <= 0) {
         suggest(true);
-      } else if (suggestionTimer === null) {
-        suggestionTimer = schedule(() => {
-          suggestionTimer = null;
+      } else if (cancelSuggestionWait === null) {
+        cancelSuggestionWait = timers.after(remaining, () => {
+          cancelSuggestionWait = null;
           evaluate();
-        }, remaining);
+        });
       }
     } else {
-      if (suggestionTimer !== null) {
-        cancel(suggestionTimer);
-        suggestionTimer = null;
+      if (cancelSuggestionWait !== null) {
+        cancelSuggestionWait();
+        cancelSuggestionWait = null;
       }
-      if (suggestion && withdrawalTimer === null) {
+      if (suggestion && cancelWithdrawalWait === null) {
         const remaining =
           ModeTiming.RECOVERY_MS - (now() - (goodSince ?? now()));
         if (remaining <= 0) {
           suggest(false);
         } else {
-          withdrawalTimer = schedule(() => {
-            withdrawalTimer = null;
+          cancelWithdrawalWait = timers.after(remaining, () => {
+            cancelWithdrawalWait = null;
             evaluate();
-          }, remaining);
+          });
         }
       }
     }
   }
   function cancelRecovery() {
-    if (recovery !== null) {
-      cancel(recovery);
-      recovery = null;
+    if (cancelRecoveryWait !== null) {
+      cancelRecoveryWait();
+      cancelRecoveryWait = null;
     }
     recovered = false;
   }
@@ -199,12 +197,12 @@ export function createModeController(
       begin(InstructorMode.switchingToOnline, ModeCause.recovered);
       return;
     }
-    if (!recovered && recovery === null) {
-      recovery = schedule(() => {
-        recovery = null;
+    if (!recovered && cancelRecoveryWait === null) {
+      cancelRecoveryWait = timers.after(recoveryMs, () => {
+        cancelRecoveryWait = null;
         recovered = true;
         evaluate();
-      }, recoveryMs);
+      });
     }
   }
   return {
@@ -213,9 +211,9 @@ export function createModeController(
       disposed = true;
       cancelRecovery();
       clearSuggestionTimers();
-      if (snoozeTimer !== null) {
-        cancel(snoozeTimer);
-        snoozeTimer = null;
+      if (cancelSnooze !== null) {
+        cancelSnooze();
+        cancelSnooze = null;
       }
     },
     network(next) {
@@ -252,13 +250,13 @@ export function createModeController(
           suggest(false);
           clearSuggestionTimers();
           snoozedUntil = now() + ModeTiming.SUGGESTION_SNOOZE_MS;
-          if (snoozeTimer !== null) {
-            cancel(snoozeTimer);
+          if (cancelSnooze !== null) {
+            cancelSnooze();
           }
-          snoozeTimer = schedule(() => {
-            snoozeTimer = null;
+          cancelSnooze = timers.after(ModeTiming.SUGGESTION_SNOOZE_MS, () => {
+            cancelSnooze = null;
             evaluate();
-          }, ModeTiming.SUGGESTION_SNOOZE_MS);
+          });
           break;
         case ModeRequestType.acceptSuggestion:
           suggest(false);

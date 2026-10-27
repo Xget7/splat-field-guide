@@ -34,7 +34,3 @@ export {
   InstructorRuntimeContext,
   useInstructorRuntime,
 } from './state/InstructorRuntimeContext';
-// Native adapters stay here until platform ports put them behind React-free interfaces.
-export { createInstructorRuntime } from './data/runtime/instructorRuntime';
-export type { InstructorRuntime } from './data/runtime/instructorRuntime';
-export { onDeviceInstructions } from './data/answerers/onDeviceModel';

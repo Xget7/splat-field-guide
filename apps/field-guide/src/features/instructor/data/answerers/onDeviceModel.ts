@@ -1,5 +1,5 @@
-import { languageModel } from 'react-native-on-device';
 import type { Pack } from '../../../pack/pack';
+import type { LanguageModel } from '../../../../platform/ports';
 import { promptFor, PromptNotes, rulesFor } from '../../domain/grounding';
 import type { InstructorModel } from '../../domain/turn/InstructorModel';
 
@@ -12,43 +12,47 @@ export function onDeviceInstructions(pack: Pack): string {
   return rulesFor(pack).join('\n');
 }
 
-export const onDeviceModel: InstructorModel = {
-  isReady() {
-    try {
-      return languageModel().availability() === AVAILABLE;
-    } catch {
-      return false;
-    }
-  },
-  prewarm(pack) {
-    try {
-      const model = languageModel();
-      if (model.availability() === AVAILABLE) {
-        model.prewarm(onDeviceInstructions(pack));
+export function createOnDeviceModel(
+  languageModel: () => LanguageModel,
+): InstructorModel {
+  return {
+    isReady() {
+      try {
+        return languageModel().availability() === AVAILABLE;
+      } catch {
+        return false;
       }
-    } catch {
-      // Fall back when prewarming is unavailable.
-    }
-  },
-  respond({ question, state, pack, history, evidence }, onText) {
-    return languageModel().respond(
-      onDeviceInstructions(pack),
-      promptFor(
-        question,
-        state,
-        pack,
-        history.slice(-ON_DEVICE_HISTORY_TURNS),
-        PromptNotes.subject,
-        evidence,
-      ),
-      onText,
-    );
-  },
-  cancel() {
-    try {
-      languageModel().cancel();
-    } catch {
-      // Cancellation also works when the native module is absent.
-    }
-  },
-};
+    },
+    prewarm(pack) {
+      try {
+        const model = languageModel();
+        if (model.availability() === AVAILABLE) {
+          model.prewarm(onDeviceInstructions(pack));
+        }
+      } catch {
+        // Fall back when prewarming is unavailable.
+      }
+    },
+    respond({ question, state, pack, history, evidence }, onText) {
+      return languageModel().respond(
+        onDeviceInstructions(pack),
+        promptFor(
+          question,
+          state,
+          pack,
+          history.slice(-ON_DEVICE_HISTORY_TURNS),
+          PromptNotes.subject,
+          evidence,
+        ),
+        onText,
+      );
+    },
+    cancel() {
+      try {
+        languageModel().cancel();
+      } catch {
+        // Cancellation also works when the native module is absent.
+      }
+    },
+  };
+}

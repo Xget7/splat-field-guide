@@ -1,18 +1,6 @@
-import {
-  audioLink,
-  networkMonitor,
-  speechInput,
-  speechOutput,
-  type AudioLinkSpec,
-  type NetworkPath,
-} from 'react-native-on-device';
-import { Platform } from 'react-native';
-import {
-  appEvents,
-  type EventBus,
-  AppEvent,
-  type AppEvents,
-} from '../../state/bus';
+import type { EventBus, AppEvents } from '../../state/bus';
+import { AppEvent } from '../../state/bus';
+import type { Cancel, Platform, Timers } from '../../../../platform/ports';
 import {
   NetworkQuality,
   Transport,
@@ -37,21 +25,14 @@ import {
 } from '../../../../platform/connectivity/networkService';
 import { createModeController } from '../../domain/mode/modeController';
 import { runSwitch } from '../../domain/mode/modeSwitcher';
-import { NO_PROXY_REASON, SwitchLabel } from '../../domain/mode/modeCopy';
-import { SpeechVoice } from '../../domain/voice/voiceCopy';
-import {
-  createAgentClient,
-  type AudioPort,
-  type SocketPort,
-} from '../agent/agentClient';
+import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
+import { createAgentClient } from '../agent/agentClient';
 import { createCloudModel } from '../answerers/cloudModel';
-import { onDeviceModel } from '../answerers/onDeviceModel';
+import { createOnDeviceModel } from '../answerers/onDeviceModel';
 import {
   createModelInstructor,
   type ModelInstructor,
 } from '../../domain/turn/modelInstructor';
-import type { InstructorModel } from '../../domain/turn/InstructorModel';
-import { INSTRUCTOR_PROXY_URL } from '../proxy';
 import {
   VoiceStartFailure,
   type VoiceRuntime,
@@ -59,39 +40,22 @@ import {
 } from '../../domain/voice/voiceSession';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import type { Pack } from '../../../pack/pack';
-import {
-  createInstructorForeground,
-  type AppStatePort,
-} from './instructorForeground';
+import { createInstructorForeground } from './instructorForeground';
 import { createInstructorSessions } from './instructorSessions';
 import { createAgentConnection } from '../agent/agentConnection';
 import {
   offlineAnnouncement,
   switchSources,
   switchTasks,
+  type OfflineVoice,
 } from './instructorSwitch';
 
-interface RuntimeDependencies {
-  proxyUrl?: string | null;
-  appEvents?: EventBus<AppEvents>;
-  appState?: AppStatePort;
-  networkMonitor?: () => {
-    start(callback: (path: NetworkPath) => void): void;
-    stop(): void;
-  };
-  speechInput?: typeof speechInput;
-  speechOutput?: typeof speechOutput;
-  audioLink?: () => AudioPort & Pick<AudioLinkSpec, 'requestPermission'>;
-  onDeviceModel?: InstructorModel;
-  fetch?: typeof fetch;
-  Request?: typeof XMLHttpRequest;
-  connect?: (url: string) => SocketPort;
-  now?: () => number;
-  setTimeout?: typeof setTimeout;
-  clearTimeout?: typeof clearTimeout;
-  setInterval?: typeof setInterval;
-  clearInterval?: typeof clearInterval;
-  random?: () => number;
+export interface InstructorRuntimeOptions {
+  readonly platform: Platform;
+  /** A null proxy URL runs with on-device answers and voice only. */
+  readonly proxyUrl: string | null;
+  readonly offlineVoice: OfflineVoice;
+  readonly appEvents: EventBus<AppEvents>;
 }
 /** Waits before reconnecting a conversation that fell back to the device voice. */
 export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
@@ -103,27 +67,40 @@ export interface InstructorRuntime extends VoiceRuntime {
   start(): void;
   stop(): void;
 }
-export function createInstructorRuntime(
-  deps: RuntimeDependencies = {},
-): InstructorRuntime {
-  const bus = deps.appEvents ?? appEvents;
-  const url =
-    deps.proxyUrl === undefined ? INSTRUCTOR_PROXY_URL : deps.proxyUrl;
-  const input = deps.speechInput ?? speechInput;
-  const output = deps.speechOutput ?? speechOutput;
-  const audio = deps.audioLink ?? audioLink;
-  const paths = deps.networkMonitor ?? networkMonitor;
-  const foreground = createInstructorForeground(deps.appState);
-  const offlineVoice =
-    Platform.OS === 'ios'
-      ? { voice: SpeechVoice.kokoro, label: SwitchLabel.kokoro }
-      : { voice: SpeechVoice.system, label: SwitchLabel.systemVoice };
-  const model = deps.onDeviceModel ?? onDeviceModel;
-  const now = deps.now ?? Date.now;
-  const schedule = deps.setTimeout ?? setTimeout;
-  const cancel = deps.clearTimeout ?? clearTimeout;
-  const connection = createAgentConnection({ url, fetchImpl: deps.fetch, now });
-  const switchTimers = new Set<ReturnType<typeof setTimeout>>();
+export function createInstructorRuntime({
+  platform,
+  proxyUrl: url,
+  offlineVoice,
+  appEvents: bus,
+}: InstructorRuntimeOptions): InstructorRuntime {
+  const { clock, timers } = platform;
+  const input = platform.speechInput;
+  const output = platform.speechOutput;
+  const audio = platform.audioLink;
+  const paths = platform.networkMonitor;
+  const foreground = createInstructorForeground(platform.appState);
+  const model = createOnDeviceModel(platform.languageModel);
+  const connection = createAgentConnection({
+    url,
+    fetch: platform.fetch,
+    clock,
+  });
+  // Switch waits are tracked so stop cancels the ones still pending.
+  const switchTimers = new Set<Cancel>();
+  const switchTiming: Timers = {
+    after(delayMs, run) {
+      const cancel = timers.after(delayMs, () => {
+        switchTimers.delete(cancel);
+        run();
+      });
+      switchTimers.add(cancel);
+      return () => {
+        switchTimers.delete(cancel);
+        cancel();
+      };
+    },
+    every: timers.every,
+  };
   const listeners = new Set<() => void>();
   const subscriptions: (() => void)[] = [];
   const pathQuality = createQualityEstimator();
@@ -132,8 +109,8 @@ export function createInstructorRuntime(
   let disposed = false;
   let switchId = 0;
   let idle = true;
-  const agentBackoff = createBackoff(AgentRetry, deps.random);
-  let agentRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  const agentBackoff = createBackoff(AgentRetry, platform.random);
+  let cancelAgentRetryWait: Cancel | null = null;
   let agentRetryDue = false;
   let routeSeen = false;
   let snapshot: VoiceRuntimeState = {
@@ -170,21 +147,19 @@ export function createInstructorRuntime(
     }
   }
   function cancelAgentRetry() {
-    if (agentRetryTimer !== null) {
-      cancel(agentRetryTimer);
-      agentRetryTimer = null;
-    }
+    cancelAgentRetryWait?.();
+    cancelAgentRetryWait = null;
     agentRetryDue = false;
   }
   function scheduleAgentRetry() {
-    if (agentRetryTimer !== null) {
+    if (cancelAgentRetryWait !== null) {
       return;
     }
-    agentRetryTimer = schedule(() => {
-      agentRetryTimer = null;
+    cancelAgentRetryWait = timers.after(agentBackoff.next(), () => {
+      cancelAgentRetryWait = null;
       agentRetryDue = true;
       retryAgent();
-    }, agentBackoff.next());
+    });
   }
   /** Restarts a conversation that fell back to the device voice, so it reconnects to the agent. */
   function retryAgent() {
@@ -210,7 +185,7 @@ export function createInstructorRuntime(
       ? async () => {
           throw new Error(VoiceStartFailure.network);
         }
-      : pingProbe(url, deps.fetch, now);
+      : pingProbe(url, platform);
   async function switchMode(status: ModeStatus) {
     const id = ++switchId;
     const tasks = switchTasks(status.mode, {
@@ -233,7 +208,6 @@ export function createInstructorRuntime(
         }
       },
     });
-    const timers: ReturnType<typeof setTimeout>[] = [];
     const outcome = await runSwitch(
       id,
       tasks,
@@ -242,23 +216,8 @@ export function createInstructorRuntime(
           bus.emit(AppEvent.switchStep, step);
         }
       },
-      {
-        now,
-        delay: ms =>
-          new Promise(resolve => {
-            const timer = schedule(() => {
-              switchTimers.delete(timer);
-              resolve();
-            }, ms);
-            timers.push(timer);
-            switchTimers.add(timer);
-          }),
-      },
+      { clock, timers: switchTiming },
     );
-    timers.forEach(timer => {
-      cancel(timer);
-      switchTimers.delete(timer);
-    });
     if (!started || id !== switchId) {
       return;
     }
@@ -269,9 +228,8 @@ export function createInstructorRuntime(
     controller.switched(target, switchSources(status.mode, outcome, model));
   }
   const controller = createModeController({
-    now,
-    setTimeout: deps.setTimeout,
-    clearTimeout: deps.clearTimeout,
+    clock,
+    timers,
     emitMode: status => bus.emit(AppEvent.mode, status),
     emitSuggestion: value => bus.emit(AppEvent.modeSuggestion, value),
   });
@@ -293,14 +251,10 @@ export function createInstructorRuntime(
     }
   }
   const network = createNetworkService({
-    paths: {
-      start: callback => paths().start(callback),
-      stop: () => paths().stop(),
-    },
+    paths,
     probe,
-    setTimeout: deps.setTimeout,
-    clearTimeout: deps.clearTimeout,
-    random: deps.random,
+    timers,
+    random: platform.random,
     emit(status) {
       bus.emit(AppEvent.network, status);
       controller.network(status);
@@ -328,8 +282,9 @@ export function createInstructorRuntime(
   });
   const cloud = createCloudModel({
     url,
-    Request: deps.Request,
-    now,
+    clock,
+    timers,
+    streamingRequest: platform.streamingRequest,
     isOnline: () => controller.current().mode === InstructorMode.online,
     onFailure: () => network.report({ ok: false }),
   });
@@ -338,6 +293,7 @@ export function createInstructorRuntime(
     input,
     output,
     audio,
+    timers,
     prompt: foreground.prompt,
     offlineVoice: offlineVoice.voice,
     agentAvailable: connection.available,
@@ -354,14 +310,9 @@ export function createInstructorRuntime(
     client: handlers =>
       createAgentClient({
         signedUrl: connection.signedUrl,
-        connect:
-          deps.connect ??
-          (address => new WebSocket(address) as unknown as SocketPort),
+        connect: platform.socket,
         audio: audio(),
-        setTimeout: deps.setTimeout,
-        clearTimeout: deps.clearTimeout,
-        setInterval: deps.setInterval,
-        clearInterval: deps.clearInterval,
+        timers,
         handlers: {
           ...handlers,
           status: value => {
@@ -433,9 +384,7 @@ export function createInstructorRuntime(
             ? AnswerSource.deviceModel
             : AnswerSource.script,
         });
-        paths().start(path =>
-          bus.emit(AppEvent.network, pathQuality.path(path)),
-        );
+        paths.start(path => bus.emit(AppEvent.network, pathQuality.path(path)));
       } else {
         network.setForeground(foreground.isForeground());
         network.start();
@@ -453,10 +402,10 @@ export function createInstructorRuntime(
       connection.clear();
       foreground.stop();
       subscriptions.splice(0).forEach(unsubscribe => unsubscribe());
-      switchTimers.forEach(cancel);
+      [...switchTimers].forEach(cancel => cancel());
       switchTimers.clear();
       if (url === null) {
-        paths().stop();
+        paths.stop();
       } else {
         network.stop();
       }
