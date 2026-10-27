@@ -1,10 +1,8 @@
 # One repository at the pack contract
 
-Status: accepted.
+Status: superseded on 2026-10-27 by the owner's extraction of splat preparation into the separate `splat-tools` workspace.
 
-The pipeline and app share a versioned pack contract, so keep the pipeline, app and native packages in one repository.
-Publication validates packs with the app parser through [validate-pack.cjs](../../scripts/validate-pack.cjs), allowing producer and consumer changes to be verified together.
+The original decision kept the pipeline, app and native packages together so producer and consumer changes could share verification.
+The mobile repository now owns pack consumption and validation through [validate-pack.cjs](../../scripts/validate-pack.cjs); `splat-tools` owns capture, annotation, reconstruction, training and export.
 
-- Contract changes and their checks can land together.
-- Each unit retains its own toolchain and tests.
-- Extracting the pipeline requires a separately maintained consumer contract.
+Both workspaces retain the versioned pack contract and their own checks.

@@ -28,7 +28,7 @@ flowchart TB
 | Requirement | Preparation |
 | --- | --- |
 | Build machine | Apple silicon Mac, Xcode 27 and selected command-line tools |
-| Tools | Node.js 26+, npm, CMake, Python 3.12+, Ruby and Bundler |
+| Tools | Node.js 26+, npm, CMake, Ruby and Bundler |
 | Viewer | iOS/iPadOS 26+ with an A14-class GPU or later |
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |

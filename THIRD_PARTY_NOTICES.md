@@ -109,3 +109,5 @@ Android runtime additions are listed below; platform speech recognition and TTS 
 
 Apple/Android frameworks and system libraries are supplied by their platforms.
 Build-only CMake, GoogleTest, Nitrogen and capture/training tools are outside the shipped inventory.
+
+Capture reconstruction, annotation, training and pack export run in the separate `splat-tools` workspace, which retains the preparation dependencies and their original notices.

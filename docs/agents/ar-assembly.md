@@ -4,7 +4,7 @@ The V8 tour uses the supplied CC BY-NC 4.0 USDZ, independently of the Gol pack.
 Keep its original at `data/ar-assembly/v8-engine/source.usdz` and prepare the final assembled pose from root:
 
 ```sh
-nice -n 19 python3 scripts/prepare_ar_assembly.py --source data/ar-assembly/v8-engine/source.usdz --output data/ar-assembly/v8-engine/engine.usdz --metadata-output data/ar-assembly/v8-engine/preparation.json
+nice -n 19 node scripts/prepare_ar_assembly.cjs --source data/ar-assembly/v8-engine/source.usdz --output data/ar-assembly/v8-engine/engine.usdz --metadata-output data/ar-assembly/v8-engine/preparation.json
 ```
 
 The macOS `usdcat` and `usdzip` tools preserve the hierarchy, geometry/materials and source-animation order while sampling time code 3250.

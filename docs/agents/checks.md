@@ -16,28 +16,24 @@ Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
 `services/voice-agent` previews its agent configuration with `npm run plan`.
 The on-device Swift harnesses compile on macOS 26+ and skip on other hosts.
 
-## Pipeline
+## Mobile pack tooling
 
 From root:
 
 ```sh
-uv run --project pipeline python -m pytest pipeline/tests
-uv run --project pipeline python -m pipeline.pack.preflight
-node --test pipeline/tests/test_mark_page.cjs
-uvx ruff check --select F,E9 pipeline scripts
+nice -n 19 node --test tests/pack-build.test.cjs tests/mobile-asset-tools.test.cjs
 ```
 
-Set `UV_PYTHON=3.12` when the default interpreter lacks wheels for the pinned NumPy version.
-Pipeline tests use self-contained capture fixtures; source-backed export acceptance is in [pack operations](pack-operations.md).
+Capture-stage and training checks run in the separate `splat-tools` workspace.
 
 ## Native engine
 
 The GPU-independent C++/C interface, from root:
 
 ```sh
-cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
-cmake --build packages/react-native-splat/build/tests --parallel 2
-ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
+nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
+nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
+nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
 ```
 
 Add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the configure step to exercise Android hashing on the host.
@@ -45,9 +41,9 @@ Add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the configure step to exercise Android 
 Metal and the shared core on the Mac, from root:
 
 ```sh
-cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/react-native-splat/build/checks --parallel 2
-ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
+nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
+nice -n 19 cmake --build packages/react-native-splat/build/checks --parallel 2
+nice -n 19 ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 ```
 
 ## iOS app
@@ -55,7 +51,7 @@ ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 Build without signing from root, selecting a simulator explicitly when validating a device layout:
 
 ```sh
-xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
+nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
   -scheme FieldGuide -configuration Debug -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath apps/field-guide/ios/build/simulator \
   COMPILATION_CACHE_ENABLE_CACHING=NO CODE_SIGNING_ALLOWED=NO build
@@ -75,3 +71,10 @@ Only the Start navigation can retry once if the first synthetic tap is dropped a
 It waits for the first highlighted marker, which mounts only after native `onReady` reports the first GPU frame, then selects the second step and returns to the first.
 It checks the selected row and the corresponding visible part label, rejects renderer errors and saves `parts-tour-first-step.png` under `.work/maestro`.
 The screenshot is review evidence; this flow does not compare renderer pixels or establish physical performance acceptance.
+
+## Cleanup
+
+Remove temporary build directories, test caches, logs and superseded plans after recording useful measurements and unresolved prerequisites in [the process record](../process.md).
+Keep mobile runtime resources and publication receipts under `data/`; capture inputs, accepted annotations and trained output belong to `splat-tools/data/`.
+Keep release `.xcarchive` files with their debug symbols for shipped-build diagnosis, and preserve raw recordings and pending plans until their work is complete.
+`AGENTS.md` is a relative symlink to `CLAUDE.md`; edit the shared instructions through `CLAUDE.md`.

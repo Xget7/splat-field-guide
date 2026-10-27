@@ -1,14 +1,15 @@
 # Working on Field Guide
 
-Field Guide is a bare React Native app that turns a Gaussian-splat capture of real equipment into an offline maintenance guide with a voice instructor, built from local Nitro packages, a Cloudflare Worker and a Python pack pipeline.
+Field Guide is a bare React Native app that consumes prepared Gaussian-splat packs as offline maintenance guides with a voice instructor, local Nitro packages and a Cloudflare Worker.
 
 ## Before editing
 
 - **Names:** read [CONTEXT.md](CONTEXT.md) before introducing or renaming equipment, guidance, pack or AR concepts.
 - **Ownership:** read [design](docs/specs/field-guide-design.md#ownership) and the relevant [ADR](docs/adr/) before changing an interface, ownership, model order, pack format or platform choice.
 - **Evidence:** read the agent [process record](docs/process.md) before checking capture measurements, native bridge/speech decisions or provisional AR claims.
-- **Pipeline:** read [pipeline/README.md](pipeline/README.md) before touching capture stages, annotations, export or pack preparation.
+- **Preparation:** capture, annotation, reconstruction, training and export belong to the separate `../splat-tools` workspace; read its `README.md` and `operations.md` before changing those stages.
 - **Splat:** read [react-native-splat](packages/react-native-splat/README.md) before changing its view, engine lifecycle or generated interface.
+- **SplatKit ownership:** we own [SplatKit](https://github.com/Xget7/splatkit); implement every SplatKit library change in its repository first, then integrate the upstream change into Field Guide.
 - **Speech/model:** read [react-native-on-device](packages/react-native-on-device/README.md) before changing audio, transcription, generation or speech resources.
 - **Acceptance:** read [app setup](apps/field-guide/README.md), [REQUIREMENTS.md](REQUIREMENTS.md) and [TASKS.md](TASKS.md) before changing acceptance claims.
 
@@ -22,7 +23,7 @@ Publish, deploy, upload or make paid calls only when explicitly requested.
 - **Checks:** read [checks](docs/agents/checks.md) before preparing, installing, linting, testing, running codegen or building the engine or iOS app.
 - **Android:** read [Android](docs/agents/android.md) before a Gradle build, emulator run or Android verification.
 - **Assembly:** read [AR assembly](docs/agents/ar-assembly.md) before preparing or replacing the V8 USDZ.
-- **Pack:** read [pack operations](docs/agents/pack-operations.md) before running capture stages, SAM on Modal, export or packaging.
+- **Pack:** this repository owns pack validation, app bundling and release packaging through `scripts/validate-pack.cjs`, `scripts/prepare.sh` and `scripts/package-pack.sh`; preparation stages run from `../splat-tools`.
 
 Work is done when affected interface tests, lint/types and the relevant build pass, temporary build output is removed and unresolved hardware/source prerequisites are reported.
 Source/simulator checks leave physical acceptance explicitly unchecked.

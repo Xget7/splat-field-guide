@@ -1,8 +1,8 @@
 # Field Guide process for coding agents
 
 Read this before rerunning capture preparation or asserting capture, viewer, speech or AR acceptance.
-Paths under `data/` and `tools/` are ignored author artifacts; missing inputs or receipts block the corresponding verification.
-Use [agent checks](agents/checks.md) for commands, [pipeline/README.md](../pipeline/README.md) for stage contracts and [TASKS.md](../TASKS.md) for open physical acceptance.
+Paths under `data/` are ignored author artifacts; missing inputs or receipts block the corresponding verification.
+Use [agent checks](agents/checks.md) for mobile commands, `splat-tools/operations.md` for external preparation stages and [TASKS.md](../TASKS.md) for open physical acceptance.
 
 ## Capture
 
@@ -31,6 +31,7 @@ Growth reached 2696872 splats by step 16000, with a PLY of about 636 MB.
 The trained artifact is `data/splat/engine_30000.ply`; [training.py](../pipeline/pack/training.py) owns the plan, input/tool identities and execution receipt.
 The current recipe specifies seed 42, a 10M growth ceiling, SH degree 3 and exports every 2000 steps.
 The measured run lacks complete COLMAP/Brush command receipts; the recipe is the explicit configuration for a repeat run.
+The old local Brush download was removed during cleanup; retraining requires a separately supplied executable through `--brush`.
 Physical frame rate, memory, load time and thermal measurements determine whether a smaller tier is needed.
 
 ## Part marking
@@ -41,6 +42,40 @@ There are 43 part/photo keyframes across 30 photographs, with prompts and masks 
 Accepted sets live under `sets/<revision>` and `current.json`, with capture/revision checks protecting replacement and deletion.
 Browser drafts are capture-bound; saved prompts restore without a new prediction.
 The owner must review fuse-box/battery masks and all physical part boundaries.
+
+### Local household annotation preview
+
+On 2026-10-26, the author approved ten household parts across Kitchen / dining and Office, with thirteen distinct initial photographs from the 174-frame LiteReality capture.
+The source audit and part correspondence were recorded in the local part review, which the owner later removed with the accumulated research notes.
+`pipeline.pack.mark_local` validates the approved archive and photograph digests, preserves native JPEG bytes under `data/captures/litereality-20261026/jpg` and writes a capture receipt.
+The shared editor accepts capture-specific parts and locations, English controls and explicit display rotation.
+Its local preview persists prompts in capture/rotation-bound browser storage and exports drafts without accepting masks or invoking a model.
+Saved-mask interface tests cover conversion between rotated preview masks and native layout, restored previews and rejection of another display rotation.
+The full pipeline suite passed 21 tests, the editor suite passed three Node tests and Ruff passed.
+Argent Chromium checks verified location navigation, a drawn box surviving reload, original source filenames, the owner-reported 1200 W heater information and zero model requests.
+Live HTTP checks decoded all thirteen selected previews at 1062 x 1416 pixels.
+Temporary QA prompts were cleared; local review records and the environment-inspector result remain under `data/analysis/litereality-20261026`.
+The preview was left on loopback port 8765 for owner review.
+Live capture-specific Modal inference, accepted household masks, camera adaptation, GS reconstruction, propagation and physical metric/mobile acceptance remain open.
+
+The subsequent household SAM connection uses the private `sfg-sam-house` deployment and `sfg-house-captures` volume.
+Only thirteen selected native photographs and the full capture identity manifest were uploaded, with the engine service and data left separate.
+The first L4 warmup succeeded in 67.23 seconds, but a later request queued for L4 capacity after the short idle window.
+The household worker now prefers L4 with A10G fallback and a ten-minute idle window.
+A real panel prediction returned a nonempty 1062 x 1416 mask, with model score 0.9453125, in 25.59 seconds including startup.
+That score is model confidence, not independently verified segmentation accuracy.
+The same loopback web origin is now connected to live SAM, preserving its capture/rotation-bound browser drafts.
+The author requested a sequential UI with descriptive text removed; the page now shows one part/photo step, Previous/Next, brief controls and status.
+Argent verified a real mask appearing after a box prompt, with `preview=false` and no descriptive paragraphs.
+The QA mask prompt was cleared without accepting a household mask revision.
+The current full suite passes 23 Python tests, and the editor suite passes five Node tests including sequential ordering and accurate Saved state.
+Accepted household annotations, camera adaptation, GS reconstruction, propagation and physical acceptance still require their own evidence.
+The owner subsequently requested individual panel devices, so the approved plan now has fifteen parts and thirty sequential part/photo steps using the same thirteen source photographs.
+Five provisional device identities belong to the electrical panel, with unknown functions and circuits; coupled handles remain within a single device proposal.
+The live API and shared UI were checked against that expanded plan without accepting QA masks.
+The owner then mapped the five panel positions to Main disconnect, Lighting, Outlets, Air conditioning and Hob.
+The annotation plan retains those English names, the same persistent device IDs and four separately identified circuit labels.
+These owner-reported functions do not establish a manufacturer's device classification or the exact individual equipment supplied by each circuit.
 
 ## Mask propagation
 
@@ -147,55 +182,30 @@ Verify current-reference recognition, landmark pixel error, drift, recovery, ill
 
 The supplied `V8_Engine.usdz` is little.bucket's CC BY-NC 4.0 capture, separate from the Gol pack and AR reference.
 [The pinned receipt](../apps/field-guide/assets/ar/v8-engine.json) records the source/prepared SHA-256 identities, 128 named parts and their original animation's visual assembly order.
-[Preparation](../scripts/prepare_ar_assembly.py) samples time code 3250 and retains the original hierarchy, geometry and five textures while baking 331 animated attributes into a fixed pose.
+[Preparation](../scripts/prepare_ar_assembly.cjs) samples time code 3250 and retains the original hierarchy, geometry and five textures while baking 331 animated attributes into a fixed pose.
 The prepared archive is reproducible and 3710456 bytes; its imported RealityKit bounds are about 0.480 x 0.361 x 0.488 m, without establishing the physical engine's dimensions.
-On 2026-10-07 the native RealityKit harness loaded the actual prepared USDZ and passed all 129 forward and 129 reverse assembly states.
-Every assembled part restored its authored transform, all 128 parts retained finite geometry, and preview return, scale and rotation preserved the equipment hierarchy.
-The first glass iteration grouped the source order into 11 contiguous batches with cumulative boundaries 1, 47, 53, 73, 89, 91, 109, 119, 122, 126 and 128.
-The native harness also verifies next-batch opacity across all forward/reverse states, boundary changes without movement, original textures and opacity restoration after complete preview.
-That iteration used ten percent opacity for later batches and 1.35-second translations, pending physical visibility and motion review.
-App/package lint and types, the existing 650 app tests, package checks and Debug simulator/device builds passed.
-A signed Release containing JavaScript and verified V8 bytes passed signature/provision checks and was installed and launched on xgetphone over the local network.
-The updated Release bundles compact native Liquid Glass controls, a bottom next action and the 11-batch tour; app/package lint and types, signature and bundled-byte checks passed before installation and launch on xgetphone.
-Simulator navigation verified the library entry, visible little.bucket credit and the physical-device requirement; an explicit Debug Metro host kept this workspace separate from another app's server.
-The phone was launched without UI automation; physical placement, tracking, visible assembly animation and mechanical correctness remain unchecked in [TASKS.md](../TASKS.md).
+The current tour has 12 steps including the initially installed crankshaft, with cumulative boundaries 1, 9, 49, 73, 74, 89, 91, 109, 119, 122, 126 and 128.
+Large parts remain sequential; authored contiguous piston bolts/nuts, bearing bolts, side bolts, head bolts and valve springs animate as repeated groups.
+Translations take 1.35 seconds, future parts remain hidden, and the settled prefix advances only after every playback controller in a group completes.
+Next during forward assembly completes the current requested step immediately and begins the following step; Next on the final animation completes the tour.
+The UI accepts a skip only for the current command's native assembling phase and rejects another skip until its new request is acknowledged.
+The native state machine reports a settled prefix, command identity and idle, assembling, separating or previewing phase, without a JavaScript assembly timer.
 
-### Sequential assembly
+The crankshaft stays installed when moving backwards or restarting.
+The equipment starts 50 centimetres above the detected surface, with zero-to-two-metre controls in 25-centimetre increments inside the compact glass menu.
+Elevation is independent of uniform scale and survives relocation.
+Complete preview preserves the tour position and restores original transforms, textures and opacity on return.
 
-The tour now groups the same 128 names into 34 steps, separating large parts from their bolts and nuts while the preparation receipt retains the original animation order.
-The native state machine reports a settled prefix, request identity and idle, assembling, separating or previewing phase.
-Matching RealityKit playback completion advances one part at a time; later parts are disabled and the next part appears only after the prior movement finishes.
-The UI has no assembly timer and accepts only the current command's completion before enabling the next action.
-The actual V8 harness passed all forward/reverse prefixes and a rendered macOS RealityKit scene verified sequential playback, reverse playback, complete-preview return and cancellation.
+On 2026-10-07 the actual V8 RealityKit harness passed all 129 forward and 129 reverse prefixes, bootstrap, real grouped playback, partial reverse, grouped cancellation, preview return and interruption into the following step.
+All 128 parts retained finite geometry, and scale and rotation preserved the equipment hierarchy.
 Playback controllers require value equality for matching completion; object-reference identity misses the returned controller wrapper.
 RealityKit retains a stopped Transform binding, so cancellation replaces that component with the stored pose before reporting idle.
 Full-preview cancellation, including cancellation in the same frame it starts, preserves the requested view and actual settled prefix.
-App/package lint and types, the signed Release build, signature verification and bundled-model checks passed for the sequential version.
-A generated React Native header was briefly unavailable during a concurrent simulator build; the subsequent build passed with the generated inputs present.
-The sequential Release was installed and launched on xgetphone over the local network, without phone UI automation.
 
-### Initial component and elevation
-
-The tour starts and restarts at its first completed step, retaining the crankshaft when moving backwards.
-Replacing a native command no longer publishes the previous command's idle snapshot before applying the new target.
-The actual V8 harness verifies one initial idle acknowledgement with the crankshaft already at its authored transform, alongside the existing sequential playback and cancellation checks.
-The tour sets elevation to one metre above the detected plane and provides zero-to-two-metre controls in 25-centimetre increments inside the glass menu.
-Elevation translates the equipment root independently of its uniform scale and is preserved when relocating the engine.
-App/package lint and types and the real RealityKit harness passed for this change.
-The signed Release build, signature verification and bundled V8 byte checks passed, and the elevation version was installed and launched on xgetphone over the local network.
-Physical height, placement and viewing from below remain unchecked without phone UI automation.
-
-### Compact assembly and interruptible Next
-
-The current tour has 12 steps including the initially installed crankshaft and starts 50 centimetres above the detected surface.
-Its cumulative boundaries are 1, 9, 49, 73, 74, 89, 91, 109, 119, 122, 126 and 128.
-Large parts remain sequential; authored contiguous piston bolts/nuts, bearing bolts, side bolts, head bolts and valve springs animate as repeated groups.
-The settled prefix advances only after every playback controller in a group completes.
-Next during forward assembly completes the current requested step immediately and begins the following step, while Next on the final animation completes the tour.
-The UI accepts a skip only for the current command's native assembling phase and rejects another skip until its new request is acknowledged.
-The actual V8 harness passed bootstrap, every static forward/reverse prefix, real grouped playback, partial reverse, grouped cancellation, preview return and interruption into the following step.
 App/package lint and types, the signed Release build, signature verification and bundled V8 byte checks passed for this version.
-The 12-step version was installed and launched on xgetphone over the local network; physical grouped animation, Next interruption and elevation remain unchecked without phone UI automation.
+The 12-step Release was installed and launched on xgetphone over the local network without phone UI automation.
+Simulator navigation verified the library entry, visible little.bucket credit and the physical-device requirement.
+Physical placement, tracking recovery, grouped animation, Next interruption, elevation and mechanical correctness remain unchecked in [TASKS.md](../TASKS.md).
 
 ## Maestro parts-tour smoke, 2026-10-27
 
@@ -214,3 +224,16 @@ Temporary touch instrumentation and diagnostic flows were removed.
 App lint, TypeScript, all 674 Jest tests and flow formatting passed.
 No voice session, instructor question, paid call or upload was made.
 Android execution, phone layouts and physical acceptance were not checked by this flow.
+
+## Splat tooling extraction, 2026-10-27
+
+The owner requested a mobile-only repository and moved Python capture, annotation, reconstruction, training and export into `/Users/xget/Documents/splat-tools`.
+Capture inputs, accepted annotations, external model checkouts and analysis results moved with the preparation pipeline; earlier relative `pipeline/` and preparation `data/` paths in this record describe their locations before extraction.
+Field Guide retains mobile pack validation, bundling and release packaging, while preparation operations and the historical Flux pilot contract now live in the tooling workspace.
+
+All six project Python build helpers were replaced by Node implementations; production build callers and CI now use the Node interfaces.
+Nine focused pack/asset/artifact tests and the additional XCFramework packaging test passed, along with app lint, TypeScript and all 676 Jest tests.
+Both iOS engine slices were rebuilt and the current XCFramework identity verified; the unsigned simulator app build passed against that artifact.
+Read-only checks retained the cached Kokoro digest/license bundle and exact V8 baked-source behavior without replacing the prepared assembly.
+Temporary extraction validation output was removed after checks.
+Android execution and physical acceptance remain unchecked.

@@ -5,20 +5,18 @@ You orbit a Gaussian splat of the machine, tap a part to see what it is, follow 
 The demo guide is the author's 2010 Volkswagen Gol Trend engine bay, and it works offline.
 It is tested on a physical iPhone and the iPad simulator; the Android build runs on the emulator and has not been tested on a physical Android phone or tablet.
 
-
 https://github.com/user-attachments/assets/df2a6cb5-4d6e-41db-90a3-94d02e50936d
-
 
 ## System architecture
 
-A capture becomes a verified pack on the author's Mac; the app bundles the pack and only uses the network for open questions and online voice.
+The separate `splat-tools` workspace reconstructs captures, trains clouds, prepares part labels and exports verified packs.
+This repository consumes those packs in the mobile app and only uses the network for open questions and online voice.
 
 ```mermaid
 flowchart TB
   subgraph Build
     direction LR
-    modal["Modal<br/>SAM 3.1"] -->|"masks"| mac["Mac<br/>COLMAP, Brush"]
-    mac -->|"pack"| github["GitHub<br/>Releases"]
+    tools["splat-tools<br/>Capture, training, export"] -->|"pack"| github["GitHub<br/>Releases"]
   end
   subgraph Device["iPhone, iPad, Android"]
     direction LR
@@ -85,6 +83,12 @@ stateDiagram-v2
 - Every voice session sits behind one `VoiceSession` port, so only the composition root knows which mode runs ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)).
 - The Worker gets a signed, single-use URL from ElevenLabs for each agent session, so no ElevenLabs key ships in the app.
 
+### Spatial assembly
+
+On iOS, the library also opens a separate V8 assembly tour with 128 parts grouped into 12 steps, reverse separation and a complete preview.
+It uses RealityKit placement on a horizontal surface; the supplied model is credited to little.bucket under CC BY-NC 4.0.
+[Preparation](docs/agents/ar-assembly.md) requires the local USDZ; physical placement and animation acceptance remain open in [TASKS.md](TASKS.md).
+
 ## Decisions
 
 Each row links to its [architecture decision record](docs/adr/) where one exists.
@@ -99,8 +103,8 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 | Cloudflare Worker in front of Claude and ElevenLabs | Keeps both keys off devices, picks the Claude models, signs agent sessions and rate limits per IP | Calling the APIs from the app: leaks the keys and ties every model change to an app release. |
 | ElevenLabs agent online, on-device pipeline offline ([0009](docs/adr/0009-elevenlabs-agent-online-pipeline-offline.md)) | Natural turn-taking, barge-in and fast first audio online, with Claude still writing every answer; offline keeps working | OpenAI Realtime: answers must come from Claude. ElevenLabs speech-to-text with our own turn-taking: rebuilds what the agent does. Kokoro online: latency and a second voice. |
 | Offline voice: SpeechAnalyzer and Kokoro on iOS ([0008](docs/adr/0008-cpu-kokoro-with-vendored-english-frontend.md)), system speech on Android | On-device and offline; Kokoro sounds natural and runs in the simulator | AVSpeechSynthesizer alone: robotic, kept as fallback. Core ML Kokoro: crash advisories. Kokoro on Android: another 105 MB. |
-| COLMAP, Brush and SAM 3.1 on Modal ([0007](docs/adr/0007-local-pipeline-with-colmap-and-modal-sam.md)) | Polycam's camera poses were unusable; Brush trains on the Mac GPU; SAM needs CUDA | CUDA-only trainers: no NVIDIA GPU locally. |
-| One repository with two native packages ([0001](docs/adr/0001-one-repository.md)) | The pipeline validates packs with the app's own parser; the viewer and speech packages have unrelated native dependencies | A separate pipeline repository: contract drift. |
+| Separate splat preparation tooling | Capture, annotation, training and export have their own Python/CUDA environment; the mobile repository owns pack consumption and validation | Keeping training dependencies and captured data in the mobile workspace. |
+| Mobile app with two local native packages | The viewer and speech packages have unrelated native dependencies and expose their own typed interfaces | A single native package coupling rendering to speech. |
 
 ## Repository
 
@@ -111,7 +115,6 @@ Each row links to its [architecture decision record](docs/adr/) where one exists
 | [packages/react-native-on-device](packages/react-native-on-device/README.md) | Nitro speech input and output, Apple Foundation Models |
 | [services/instructor-proxy](services/instructor-proxy/README.md) | Cloudflare Worker for Claude |
 | [services/voice-agent](services/voice-agent/README.md) | ElevenLabs instructor configuration, client tools, pronunciation and owner-run sync |
-| [pipeline](pipeline/README.md) | Capture-to-pack stages in Python |
 | [content](content/gol-trend-engine-bay) | Authored parts, procedures, knowledge and the pinned pack manifest |
 | [docs](docs) | Decisions, design, provenance |
 
@@ -133,7 +136,7 @@ Preparation downloads the pack release with `gh` and verifies it, builds or reus
 | Area | State |
 | --- | --- |
 | Testing | iOS on a physical iPhone and the iPad simulator, shipped through TestFlight; Android on the API 36 tablet emulator only |
-| Checks | Tests for the app, both native packages, the C interface, Metal drawing, the pipeline and the proxy, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
+| Checks | Tests for the app, both native packages, the C interface, Metal drawing and the services, plus ESLint boundaries and TypeScript; [CI](.github/workflows/ci.yml) runs the platform-independent set on every push |
 | Offline | Viewer, procedures, commands and scripted answers work in airplane mode |
 | Online voice | A live agent conversation runs on the iPad simulator, from connecting to spoken questions that Claude answers; mode switching and the device fallback are checked there and on the Android emulator |
 | Secrets | The Claude and ElevenLabs keys live only in the Worker, behind a per-IP rate limit; upstream spend limits are set in each provider's console |
@@ -143,4 +146,4 @@ Preparation downloads the pack release with `gh` and verifies it, builds or reus
 
 - [Design and ownership](docs/specs/field-guide-design.md), [vocabulary](CONTEXT.md) and [targets](REQUIREMENTS.md).
 - [Provenance](docs/PROVENANCE.md), [third-party notices](THIRD_PARTY_NOTICES.md) and [MIT license](LICENSE).
-- [Agent instructions](CLAUDE.md) for commands and contribution rules.
+- [Shared agent instructions](CLAUDE.md), also reached through the `AGENTS.md` symlink, for commands and contribution rules.

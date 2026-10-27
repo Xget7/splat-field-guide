@@ -26,9 +26,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          python-version: '3.12'
       - name: Install
         id: install
         run: |
@@ -46,17 +43,14 @@ jobs:
           for package in react-native-splat react-native-on-device; do
             (cd "packages/$package" && npm run lint && npm run typecheck && npm test)
           done
+      - name: Mobile build helpers
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: nice -n 19 node --test tests/pack-build.test.cjs tests/mobile-asset-tools.test.cjs
       - name: Services
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           (cd services/instructor-proxy && npm test && npx tsc --noEmit -p .)
           (cd services/voice-agent && npm test && npm run typecheck)
-      - name: Pipeline
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: |
-          uv run --project pipeline python -m pytest pipeline/tests -q
-          node --test pipeline/tests/test_mark_page.cjs
-          uvx ruff check --select F,E9 pipeline scripts
       # The runner image already has CMake, Make and zlib, so nothing is downloaded from apt.
       # Android ships the portable SHA-256 and iOS uses CommonCrypto; no device uses the OpenSSL path.
       - name: Engine
