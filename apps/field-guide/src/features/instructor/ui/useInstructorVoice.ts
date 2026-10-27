@@ -28,16 +28,10 @@ import {
 } from '../domain/voice/voiceSession';
 import { useVoiceRuntime } from '../state/instructorHooks';
 import { instructorStore } from '../state/instructorStore';
+import { VoiceState } from '../domain/instructorStatus';
 
 export { VoiceHint, VOICE_LOCALE } from '../domain/voice/voiceCopy';
 export type { Utterance } from '../domain/voice/voiceSession';
-export const VoiceState = {
-  idle: 'idle',
-  listening: 'listening',
-  thinking: 'thinking',
-  speaking: 'speaking',
-} as const;
-export type VoiceState = (typeof VoiceState)[keyof typeof VoiceState];
 interface Options {
   pack: Pack;
   enabled: boolean;

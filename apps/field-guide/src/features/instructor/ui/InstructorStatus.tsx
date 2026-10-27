@@ -2,16 +2,12 @@ import { StyleSheet, View } from 'react-native';
 import { ContentFade } from '../../../ui/ContentFade';
 import { Label } from '../../../ui/Label';
 import { Color, Space } from '../../../ui/theme';
+import { isLoading, VoiceState, VoiceStatus } from '../domain/instructorStatus';
 import { isSwitching, InstructorMode } from '../domain/mode/modeTypes';
-import {
-  isLoading,
-  StatusLabel,
-  useAssistantStatus,
-  VoiceStatus,
-} from './AssistantStatus';
+import { useAssistantStatus, useModeView } from '../state/instructorHooks';
 import { LevelMeter } from './LevelMeter';
-import { useModeView } from './useModeView';
-import { VoiceState, type InstructorVoice } from './useInstructorVoice';
+import { StatusLabel } from './StatusLabel';
+import type { InstructorVoice } from './useInstructorVoice';
 
 /** A label that fades in each time its text changes. */
 function FadingLabel({

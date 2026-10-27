@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Space } from '../../../ui/theme';
-import type { VoiceStatus } from './AssistantStatus';
+import type { VoiceStatus } from '../domain/instructorStatus';
 import { Composer, composerStyles } from './Composer';
 import { MuteButton } from './MuteButton';
 import type { InstructorVoice } from './useInstructorVoice';

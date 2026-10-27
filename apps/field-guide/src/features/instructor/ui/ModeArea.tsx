@@ -1,13 +1,32 @@
-import { useModeSuggestion } from '../state/instructorHooks';
-
+import { StyleSheet, Text } from 'react-native';
+import { Color, Type } from '../../../ui/theme';
+import { NoticeTone, type Notice } from '../domain/modeView';
 import { isSwitching, InstructorMode } from '../domain/mode/modeTypes';
 import { SuggestionCopy } from '../domain/mode/modeCopy';
-import { Color } from '../../../ui/theme';
-import { useModeView } from './useModeView';
-import { ModeNotice } from './ModeNotice';
+import { useModeSuggestion, useModeView } from '../state/instructorHooks';
 import { ModeSuggestion } from './ModeSuggestion';
 import { SwitchingCard } from './SwitchingCard';
 import { ModeBanner } from './ModeBanner';
+
+const RULE_COLOR: Readonly<Record<NoticeTone, string>> = {
+  [NoticeTone.plain]: Color.lineStrong,
+  [NoticeTone.caution]: Color.caution,
+};
+
+function ModeNotice({
+  notice,
+  titled = true,
+}: {
+  notice: Notice;
+  titled?: boolean;
+}) {
+  return (
+    <>
+      {titled && <Text style={styles.title}>{notice.title}</Text>}
+      <Text style={styles.detail}>{notice.detail}</Text>
+    </>
+  );
+}
 
 export function ModeArea() {
   const view = useModeView();
@@ -29,7 +48,7 @@ export function ModeArea() {
     : view.notice !== null
     ? {
         contentKey: view.notice.detail,
-        ruleColor: view.notice.ruleColor,
+        ruleColor: RULE_COLOR[view.notice.tone],
         // The header already says Offline.
         content: (
           <ModeNotice
@@ -48,3 +67,8 @@ export function ModeArea() {
     </ModeBanner>
   );
 }
+
+const styles = StyleSheet.create({
+  title: { ...Type.calloutStrong, color: Color.text },
+  detail: { ...Type.footnote, color: Color.secondaryText },
+});

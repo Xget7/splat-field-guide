@@ -13,7 +13,8 @@ import Animated, {
 import { normalizedLevel } from '../domain/voice/speechPresentation';
 import type { InstructorVoice } from './useInstructorVoice';
 import { Motion } from '../../../ui/theme';
-import { isLoading, STATUS_COLOR, type VoiceStatus } from './AssistantStatus';
+import { isLoading, type VoiceStatus } from '../domain/instructorStatus';
+import { statusColorFor } from './StatusLabel';
 
 const Wave = {
   bars: 28,
@@ -118,7 +119,7 @@ export function VoiceWave({
           level={voice.level}
           phase={phase}
           loading={loading}
-          color={STATUS_COLOR[status]}
+          color={statusColorFor(status)}
         />
       ))}
     </View>
