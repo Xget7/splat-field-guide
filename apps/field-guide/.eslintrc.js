@@ -1,9 +1,3 @@
-// The warn rules describe the feature slice layout the next change moves the
-// tree to; they become errors once the tree matches it. Until then the three
-// error rules at the end keep guarding today's layout. ESLint replaces a rule's
-// options when a later override matches the same file, so those error rules
-// come last to win over the warnings rather than be downgraded by them.
-const SLICE_SEVERITY = 'warn';
 const SLICES = ['library', 'guide', 'viewer', 'instructor', 'ar', 'bench'];
 // index.ts stays free of React and native packages so domain code, tsx and Node can load it;
 // views.ts carries the components and hooks that other slices compose.
@@ -22,28 +16,23 @@ const NATIVE = [
 const REACT_STORE = [
   { name: 'zustand', message: 'React stores live in a slice state folder.' },
 ];
-// A relative import of another slice's internals always names that slice; imports inside a slice never do.
+// Every slice file below the entries sits in a layer folder, so a relative import of another
+// slice climbs at least two levels and the slice name follows `../..`. Anchoring on those
+// segments keeps folders and files that only share a slice's name, such as the viewer's
+// ui/instructor folder (reached as ./instructor or ../instructor) or assets/ar, outside the rule.
 const otherSliceInternals = SLICES.flatMap(slice => [
-  `**/${slice}/*`,
-  `**/${slice}/*/**`,
-  ...PUBLIC_ENTRIES.map(entry => `!**/${slice}/${entry}`),
+  `**/../../${slice}/*`,
+  `**/../../${slice}/*/**`,
+  ...PUBLIC_ENTRIES.map(entry => `!**/../../${slice}/${entry}`),
 ]);
 const anySlice = SLICES.flatMap(slice => [`**/${slice}`, `**/${slice}/**`]);
 const composition = ['**/app', '**/app/**'];
 const presentation = ['**/ui', '**/ui/**', '**/views'];
+const compositionGroup = {
+  group: composition,
+  message: 'Slices cannot import app composition.',
+};
 const sliceFiles = `src/features/{${SLICES.join(',')}}`;
-
-// Today's layout, guarded by the error rules until the tree moves.
-const currentComposition = ['**/screens/**', '**/app/**', '**/App'];
-const currentNative = [
-  'react',
-  'react/**',
-  'react-native',
-  'react-native-*',
-  '@react-native/**',
-  '@react-native-*/*',
-  '@react-navigation/**',
-];
 
 module.exports = {
   root: true,
@@ -53,7 +42,7 @@ module.exports = {
       files: [`${sliceFiles}/**/*.{ts,tsx}`],
       rules: {
         'no-restricted-imports': [
-          SLICE_SEVERITY,
+          'error',
           {
             patterns: [
               {
@@ -61,11 +50,15 @@ module.exports = {
                 message:
                   'Import another slice through its index.ts or views.ts.',
               },
-              {
-                group: composition,
-                message: 'Slices cannot import app composition.',
-              },
             ],
+          },
+        ],
+        // Screens still read routes and the catalog context from app, so this warns until
+        // PR6 gives screens callback props; it becomes an error there.
+        '@typescript-eslint/no-restricted-imports': [
+          'warn',
+          {
+            patterns: [compositionGroup],
           },
         ],
       },
@@ -74,7 +67,7 @@ module.exports = {
       files: [`${sliceFiles}/domain/**/*.{ts,tsx}`],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
-          SLICE_SEVERITY,
+          'error',
           {
             paths: REACT_STORE,
             patterns: [
@@ -88,6 +81,9 @@ module.exports = {
                 group: [...presentation, '**/state', '**/state/**'],
                 message: 'Domain rules cannot import presentation or state.',
               },
+              // This override replaces the slice-wide warning for domain files, which already
+              // keep clear of app, so the composition group holds here as an error.
+              compositionGroup,
             ],
           },
         ],
@@ -97,13 +93,15 @@ module.exports = {
       files: [`${sliceFiles}/data/**/*.{ts,tsx}`],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
-          SLICE_SEVERITY,
+          'error',
           {
             patterns: [
               {
                 group: presentation,
                 message: 'Data adapters cannot import presentation.',
               },
+              // Replaces the slice-wide warning for data files, which already keep clear of app.
+              compositionGroup,
             ],
           },
         ],
@@ -113,7 +111,7 @@ module.exports = {
       files: ['src/features/pack/**/*.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
-          SLICE_SEVERITY,
+          'error',
           {
             paths: REACT_STORE,
             patterns: [
@@ -136,76 +134,13 @@ module.exports = {
       files: ['src/ui/**/*.{ts,tsx}', 'src/platform/**/*.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
-          SLICE_SEVERITY,
+          'error',
           {
             patterns: [
               {
                 group: ['**/features', '**/features/**', ...composition],
                 message:
                   'UI primitives and platform ports cannot import slices, pack content or app composition.',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['src/features/{pack,guide}/**/*.{ts,tsx}'],
-      rules: {
-        'no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              {
-                group: [
-                  ...currentNative,
-                  ...currentComposition,
-                  '**/instructor/**',
-                  '**/viewport/**',
-                  '**/ui/**',
-                ],
-                message:
-                  'Pack and guide rules stay independent of React, native capabilities and presentation.',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['src/features/{instructor,viewport}/**/*.{ts,tsx}'],
-      rules: {
-        'no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              {
-                group: currentComposition,
-                message:
-                  'Instructor and viewport cannot import screens or app composition.',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['src/ui/**/*.{ts,tsx}'],
-      rules: {
-        'no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              {
-                group: [
-                  ...currentComposition,
-                  '**/pack/**',
-                  '**/guide/**',
-                  '**/instructor/**',
-                  '**/viewport/**',
-                ],
-                message:
-                  'UI primitives cannot import business code or app composition.',
               },
             ],
           },
