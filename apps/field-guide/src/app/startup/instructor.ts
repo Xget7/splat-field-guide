@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
-import config from '../../instructor.config.json';
+import config from '../../../instructor.config.json';
 import {
   createInstructorRuntime,
   instructorStore,
   OfflineVoices,
   type InstructorRuntime,
-} from '../features/instructor';
-import { createPlatform } from './platform';
+} from '../../features/instructor';
+import { createPlatform } from '../platform';
 
 /**
  * Builds the app's one instructor from the production platform and the proxy configuration,

@@ -5,11 +5,11 @@ import App from '../App';
 import { BENCH_URL } from '../navigation/linking';
 import { bundledPack } from '../../features/pack/bundledPack';
 import { instructorStore } from '../../features/instructor';
-import { createAppInstructor } from '../startup';
+import { createAppInstructor } from '../startup/instructor';
 
 // The real instructor, with its lifecycle observable.
-jest.mock('../startup', () => {
-  const actual = jest.requireActual('../startup');
+jest.mock('../startup/instructor', () => {
+  const actual = jest.requireActual('../startup/instructor');
   return {
     createAppInstructor: jest.fn(() => {
       const runtime = actual.createAppInstructor();

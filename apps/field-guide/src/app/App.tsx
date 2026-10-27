@@ -7,7 +7,7 @@ import { RootNavigator } from './navigation/RootNavigator';
 import { bundledPack } from '../features/pack/bundledPack';
 import { PackErrorScreen } from './startup/PackErrorScreen';
 import { Color } from '../ui/theme';
-import { createAppInstructor } from './startup';
+import { createAppInstructor } from './startup/instructor';
 
 function App() {
   // Created during the first render, so screens below already find it in the store.
