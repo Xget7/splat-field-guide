@@ -10,6 +10,7 @@ import {
   startAt,
 } from '../domain/session';
 import { fixturePack } from '@tests/fixturePack';
+import { TOUR_ID, tourOf } from '../../pack/tour';
 
 const pack = fixturePack();
 
@@ -313,5 +314,31 @@ describe('startAt', () => {
 
   it('opens nothing for a procedure the pack does not have', () => {
     expect(startAt('missing', 1, pack)).toBe(INITIAL_SESSION);
+  });
+});
+
+describe('the parts tour', () => {
+  const tour = tourOf(pack);
+
+  it('runs as a procedure: each step frames and highlights its part and what is inside', () => {
+    let state = reduce(
+      INITIAL_SESSION,
+      { type: SessionEventType.start, procedureId: TOUR_ID },
+      pack,
+    );
+    const seen: string[] = [];
+    for (let i = 0; i < tour.steps.length; i++) {
+      const step = currentStep(state, pack);
+      seen.push(step?.id ?? '');
+      if (step?.id === 'engine') {
+        expect(highlightFor(state, pack)).toEqual([6, 7, 8]);
+        expect(framingFor(state, pack)).toEqual({
+          min: [10, 0, 0],
+          max: [14, 3, 3],
+        });
+      }
+      state = reduce(state, { type: SessionEventType.next }, pack);
+    }
+    expect(seen).toEqual(tour.steps.map(step => step.id));
   });
 });

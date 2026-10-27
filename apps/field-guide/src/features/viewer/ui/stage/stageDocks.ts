@@ -3,7 +3,7 @@ import {
   DOCK_COLLAPSED,
   DOCK_EXPANDED_WIDTH,
 } from '../instructor/AssistantDock';
-import type { Size } from '../viewport/projectedParts';
+import type { Size } from '../../domain/screenGeometry';
 import type { Clearance } from '../../domain/cardPlacement';
 import { TOOLS_HEIGHT } from './ToolDock';
 

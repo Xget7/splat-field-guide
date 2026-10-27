@@ -13,11 +13,8 @@ import { offersArCheck } from '../../ar/data/arCheck';
 import { useCatalog } from '../../../app/context/CatalogContext';
 import type { ProcedureId } from '../../pack/pack';
 import { TOUR_ID } from '../../pack/tour';
-import {
-  LearnMode,
-  Route,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
+import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { LearnMode } from '../domain/learningMode';
 import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
 import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Backdrop, FadingPhoto, Spotlight } from '../../../ui/Gradients';

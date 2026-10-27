@@ -1,8 +1,15 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../../ui/theme';
-import { BOTTOM_BAND_HEIGHT, DRAWER_WIDTH } from './layout';
+import {
+  Color,
+  MIN_TOUCH,
+  Radius,
+  Space,
+  Type,
+  BOTTOM_BAND_HEIGHT,
+} from '../../../../ui/theme';
+import { DRAWER_WIDTH } from './layout';
 
 const CLOSE_LABEL = 'Close panel';
 const CLOSE_HINT = 'Keep the viewer open with more room for the picture';

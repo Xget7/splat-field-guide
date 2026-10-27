@@ -1,4 +1,4 @@
-import type { SwitchStep } from '../../../../platform/connectivity/networkStatus';
+import type { SwitchStep } from './modeTypes';
 
 const NO_STEPS: readonly SwitchStep[] = [];
 

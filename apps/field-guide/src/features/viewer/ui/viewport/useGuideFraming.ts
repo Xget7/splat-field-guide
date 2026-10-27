@@ -13,7 +13,7 @@ import {
   inContext,
   INITIAL_FRAME_SECONDS,
 } from '../../domain/camera';
-import type { Size } from './projectedParts';
+import type { Size } from '../../domain/screenGeometry';
 
 interface FramedInputs {
   view: SplatViewSpec;

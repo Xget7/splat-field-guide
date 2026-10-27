@@ -1,23 +1,22 @@
 import { useSyncExternalStore } from 'react';
-import { appEvents } from './bus';
+import { appEvents, AppEvent, type AppEvents } from './bus';
 import { activeSwitchSteps, mergeSwitchStep } from '../domain/mode/switchSteps';
-import { isSwitching } from '../domain/mode/modeTypes';
 import {
-  AppEvent,
-  AgentState,
+  isSwitching,
   AnswerSource,
   InstructorMode,
   ModeCause,
+  VoiceSource,
+  type ModeStatus,
+  type SwitchStep,
+} from '../domain/mode/modeTypes';
+import {
   NetworkQuality,
   NetworkReason,
   Transport,
-  VoiceSource,
-  type AgentStatus,
-  type AppEvents,
-  type ModeStatus,
   type NetworkStatus,
-  type SwitchStep,
 } from '../../../platform/connectivity/networkStatus';
+import { AgentState, type AgentStatus } from '../domain/agent/agentStatus';
 
 const UNKNOWN_NETWORK: NetworkStatus = {
   quality: NetworkQuality.good,

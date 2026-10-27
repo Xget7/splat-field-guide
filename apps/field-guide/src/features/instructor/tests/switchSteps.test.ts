@@ -3,7 +3,7 @@ import {
   SwitchPiece,
   SwitchStepState,
   type SwitchStep,
-} from '../../../platform/connectivity/networkStatus';
+} from '../domain/mode/modeTypes';
 
 const voice: SwitchStep = {
   switchId: 1,

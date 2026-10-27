@@ -9,11 +9,8 @@ import {
   type ReadyGuide,
 } from '../../pack/catalog';
 import { useCatalog } from '../../../app/context/CatalogContext';
-import {
-  LearnMode,
-  Route,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
+import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { LearnMode } from '../../guide/domain/learningMode';
 import { type Progress } from '../../guide/domain/progress';
 import { loadProgress } from '../../guide/data/progressStorage';
 import { SectionHeader } from '../../../ui/SectionHeader';

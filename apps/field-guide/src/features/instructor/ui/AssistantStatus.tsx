@@ -1,8 +1,5 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import {
-  InstructorMode,
-  VoiceSource,
-} from '../../../platform/connectivity/networkStatus';
+import { InstructorMode, VoiceSource } from '../domain/mode/modeTypes';
 import { useInstructorMode } from '../state/useAppEvent';
 import { ConnectionWord } from '../domain/mode/modeCopy';
 import { VoiceState, type InstructorVoice } from './useInstructorVoice';

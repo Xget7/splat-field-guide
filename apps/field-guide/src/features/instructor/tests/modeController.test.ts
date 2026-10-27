@@ -3,10 +3,10 @@ import {
   ModeTiming,
 } from '../domain/mode/modeController';
 import {
-  ModeRequestType,
   NetworkQuality,
   Transport,
 } from '../../../platform/connectivity/networkStatus';
+import { ModeRequestType } from '../domain/mode/modeTypes';
 
 const network = (quality: NetworkQuality) => ({
   quality,

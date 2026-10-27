@@ -9,7 +9,7 @@ import { sourceFor } from '../../pack/bundledPack';
 import { INITIAL_SESSION } from '../../guide/domain/session';
 import { cameraLimitsInRadians } from '../../viewer/domain/camera';
 import { useGuideFraming } from '../../viewer/ui/viewport/useGuideFraming';
-import type { Size } from '../../viewer/ui/viewport/projectedParts';
+import type { Size } from '../../viewer/domain/screenGeometry';
 import { Color } from '../../../ui/theme';
 
 const NO_FRAME_REQUEST = 0;

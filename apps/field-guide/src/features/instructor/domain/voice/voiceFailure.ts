@@ -1,4 +1,4 @@
-import { ConnectionFailure } from '../../../../platform/connectivity/networkStatus';
+import { ConnectionFailure } from '../agent/agentStatus';
 import { VoiceStartError, VoiceStartFailure } from './voiceSession';
 
 export function voiceFailure(error: unknown): VoiceStartFailure {

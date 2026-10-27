@@ -1,5 +1,5 @@
 import { runSwitch, SwitchTiming } from '../domain/mode/modeSwitcher';
-import { SwitchPiece } from '../../../platform/connectivity/networkStatus';
+import { SwitchPiece } from '../domain/mode/modeTypes';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());

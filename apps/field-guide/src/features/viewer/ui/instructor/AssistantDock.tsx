@@ -27,6 +27,7 @@ import {
   Radius,
   Space,
   Type,
+  BOTTOM_BAND_HEIGHT,
 } from '../../../../ui/theme';
 import {
   EntryKind,
@@ -39,7 +40,7 @@ import {
 } from '../../../instructor/ui/InstructorMotion';
 import { InstructorThread } from './InstructorThread';
 import { ModeArea } from '../../../instructor/ui/ModeArea';
-import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
+
 import { useDockKeyboard } from '../../../../ui/useKeyboardOverlap';
 import {
   StatusLabel,

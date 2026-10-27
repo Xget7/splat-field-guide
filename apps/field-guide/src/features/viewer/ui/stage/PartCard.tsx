@@ -12,12 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import type { Part } from '../../../pack/pack';
-import {
-  boxAt,
-  useProjection,
-  type ScreenBox,
-  type Size,
-} from '../viewport/projectedParts';
+import { boxAt, useProjection } from '../viewport/projectedParts';
+import { type ScreenBox, type Size } from '../../domain/screenGeometry';
 import { Glass, GlassTone } from '../../../../ui/Glass';
 import { Icon, IconName } from '../../../../ui/Icon';
 import {

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { Button, IconButton, IconButtonVariant } from '../../../../ui/Button';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { stepLabel } from '../../../../ui/readout';
+import { stepLabel } from '../../../guide/domain/stepLabel';
 import {
   BUTTON_HEIGHT,
   Color,

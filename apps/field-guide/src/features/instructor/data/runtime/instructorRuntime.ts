@@ -7,20 +7,25 @@ import {
   type NetworkPath,
 } from 'react-native-on-device';
 import { Platform } from 'react-native';
-import { appEvents, type EventBus } from '../../state/bus';
 import {
+  appEvents,
+  type EventBus,
   AppEvent,
-  AgentState,
+  type AppEvents,
+} from '../../state/bus';
+import {
+  NetworkQuality,
+  Transport,
+} from '../../../../platform/connectivity/networkStatus';
+import { AgentState } from '../../domain/agent/agentStatus';
+import {
+  isSwitching,
   AnswerSource,
   InstructorMode,
   ModeCause,
-  NetworkQuality,
-  Transport,
   VoiceSource,
-  type AppEvents,
   type ModeStatus,
-} from '../../../../platform/connectivity/networkStatus';
-import { isSwitching } from '../../domain/mode/modeTypes';
+} from '../../domain/mode/modeTypes';
 import { createQualityEstimator } from '../../../../platform/connectivity/networkQuality';
 import {
   createBackoff,

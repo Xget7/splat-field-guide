@@ -76,6 +76,10 @@ export const MIN_TOUCH = 44;
 export const BUTTON_HEIGHT = 50;
 export const HAIRLINE = 1;
 
+export const MODE_RULE_WIDTH = 2;
+/** The drawer footer, the tool row and the collapsed assistant centre on one band this tall. */
+export const BOTTOM_BAND_HEIGHT = 64;
+
 export const Motion = {
   fast: 120,
   base: 220,

@@ -1,4 +1,30 @@
-import type { AppEvents } from '../../../platform/connectivity/networkStatus';
+import type { NetworkStatus } from '../../../platform/connectivity/networkStatus';
+import type { AgentStatus } from '../domain/agent/agentStatus';
+import type {
+  ModeRequest,
+  ModeStatus,
+  ModeSuggestion,
+  SwitchStep,
+} from '../domain/mode/modeTypes';
+
+export interface AppEvents {
+  network: NetworkStatus;
+  mode: ModeStatus;
+  switchStep: SwitchStep;
+  modeSuggestion: ModeSuggestion | null;
+  agent: AgentStatus;
+  /** User intents from the UI; the mode controller listens. */
+  modeRequest: ModeRequest;
+}
+
+export const AppEvent = {
+  network: 'network',
+  mode: 'mode',
+  switchStep: 'switchStep',
+  modeSuggestion: 'modeSuggestion',
+  agent: 'agent',
+  modeRequest: 'modeRequest',
+} as const;
 
 export interface EventBus<E> {
   emit<K extends keyof E>(type: K, payload: E[K]): void;

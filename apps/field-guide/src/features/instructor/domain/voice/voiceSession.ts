@@ -1,4 +1,4 @@
-import { ConnectionFailure } from '../../../../platform/connectivity/networkStatus';
+import { ConnectionFailure } from '../agent/agentStatus';
 import type { Pack } from '../../../pack/pack';
 import type { SessionEvent, SessionState } from '../../../guide/domain/session';
 import type { PreviousExchange } from '../grounding';

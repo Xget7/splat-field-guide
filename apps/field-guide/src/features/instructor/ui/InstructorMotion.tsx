@@ -22,8 +22,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { IconButton, IconButtonVariant } from '../../../ui/Button';
-import { InstructorMode } from '../../../platform/connectivity/networkStatus';
-import { isSwitching } from '../domain/mode/modeTypes';
+
+import { isSwitching, InstructorMode } from '../domain/mode/modeTypes';
 import { useModeView } from './useModeView';
 import {
   isLoading,

@@ -6,7 +6,7 @@ import {
 import { findProcedure, type Procedure } from '../../pack/pack';
 import type { Progress } from '../../guide/domain/progress';
 import { TOUR_ID } from '../../pack/tour';
-import { stepLabel } from '../../../ui/readout';
+import { stepLabel } from '../../guide/domain/stepLabel';
 
 export interface ContinueRow {
   readonly guide: ReadyGuide;

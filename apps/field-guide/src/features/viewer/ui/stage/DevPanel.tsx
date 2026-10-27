@@ -5,14 +5,18 @@ import {
   useNetwork,
 } from '../../../instructor/state/useAppEvent';
 import {
-  AgentFailure,
-  AgentState,
-  AnswerSource,
-  InstructorMode,
   NetworkQuality,
   Transport,
-  VoiceSource,
 } from '../../../../platform/connectivity/networkStatus';
+import {
+  AgentFailure,
+  AgentState,
+} from '../../../instructor/domain/agent/agentStatus';
+import {
+  AnswerSource,
+  InstructorMode,
+  VoiceSource,
+} from '../../../instructor/domain/mode/modeTypes';
 import { ConnectionWord } from '../../../instructor/domain/mode/modeCopy';
 import type { Pack } from '../../../pack/pack';
 import { Color, Space, Type } from '../../../../ui/theme';

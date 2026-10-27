@@ -1,6 +1,6 @@
 import { useModeSuggestion } from '../state/useAppEvent';
-import { InstructorMode } from '../../../platform/connectivity/networkStatus';
-import { isSwitching } from '../domain/mode/modeTypes';
+
+import { isSwitching, InstructorMode } from '../domain/mode/modeTypes';
 import { SuggestionCopy } from '../domain/mode/modeCopy';
 import { Color } from '../../../ui/theme';
 import { useModeView } from './useModeView';

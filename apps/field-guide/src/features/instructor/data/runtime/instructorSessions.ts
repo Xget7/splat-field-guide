@@ -8,7 +8,7 @@ import {
   InstructorMode,
   VoiceSource,
   type ModeStatus,
-} from '../../../../platform/connectivity/networkStatus';
+} from '../../domain/mode/modeTypes';
 import type { AgentClient } from '../agent/agentClient';
 import {
   createAgentVoiceSession,

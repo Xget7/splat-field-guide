@@ -16,11 +16,9 @@ import {
 } from '../../guide/domain/session';
 import { useInstructorRuntime } from '../../instructor/state/InstructorRuntimeContext';
 import type { InstructorRuntime } from '../../instructor/data/runtime/instructorRuntime';
-import {
-  LearnMode,
-  Route,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
+import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { LearnMode } from '../../guide/domain/learningMode';
+import type { Size } from '../domain/screenGeometry';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Color, Space, Type } from '../../../ui/theme';
@@ -42,7 +40,7 @@ import { PartCard } from './stage/PartCard';
 import { DevPanel } from './stage/DevPanel';
 import { ToolDock } from './stage/ToolDock';
 import { cardClearanceFor, stageDocksFor } from './stage/stageDocks';
-import type { Size } from './viewport/projectedParts';
+
 import { InstructorPanel } from './instructor/InstructorPanel';
 import { ProcedureSheet } from './ProcedureSheet';
 import { SplatViewport } from './viewport/SplatViewport';

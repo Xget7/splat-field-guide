@@ -1,4 +1,4 @@
-import { AgentFailure } from '../../../../platform/connectivity/networkStatus';
+import { AgentFailure } from './agentStatus';
 
 export const CloseCode = {
   normal: 1000,

@@ -1,9 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { appEvents } from '../state/bus';
-import {
-  AppEvent,
-  ModeRequestType,
-} from '../../../platform/connectivity/networkStatus';
+import { appEvents, AppEvent } from '../state/bus';
+import { ModeRequestType } from '../domain/mode/modeTypes';
 import { SuggestionCopy } from '../domain/mode/modeCopy';
 import { Button, ButtonVariant } from '../../../ui/Button';
 import { Color, Space, Type } from '../../../ui/theme';

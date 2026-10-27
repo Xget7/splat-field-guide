@@ -1,16 +1,13 @@
 import { AGENT_METADATA, fakeAgentTransport } from './agentTransport';
 import { Platform } from 'react-native';
-import {
-  AppEvent,
-  VoiceSource,
-  AgentState,
-  ConnectionFailure,
-} from '../../../platform/connectivity/networkStatus';
+import { VoiceSource } from '../domain/mode/modeTypes';
+import { AgentState, ConnectionFailure } from '../domain/agent/agentStatus';
+import type { AppEvents } from '../state/bus';
 import { UtteranceKind, utteranceId } from '../domain/voice/voiceSession';
 import { SpeechVoice, VOICE_LOCALE } from '../domain/voice/voiceCopy';
 import { audioLink, speechInput, speechOutput } from 'react-native-on-device';
-import { createEventBus } from '../state/bus';
-import type { AppEvents } from '../../../platform/connectivity/networkStatus';
+import { createEventBus, AppEvent } from '../state/bus';
+
 import { foregroundAppState, voiceEvents } from '@tests/voiceSession';
 import { SwitchLabel } from '../domain/mode/modeCopy';
 import { fixturePack } from '@tests/fixturePack';

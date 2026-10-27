@@ -10,12 +10,13 @@ import { createInstructorRuntime } from '../data/runtime/instructorRuntime';
 import { fakeAgentTransport } from './agentTransport';
 import { foregroundAppState } from '@tests/voiceSession';
 import { fixturePack } from '@tests/fixturePack';
-import { appEvents, createEventBus } from '../state/bus';
 import {
+  appEvents,
+  createEventBus,
   AppEvent,
-  InstructorMode,
   type AppEvents,
-} from '../../../platform/connectivity/networkStatus';
+} from '../state/bus';
+import { InstructorMode } from '../domain/mode/modeTypes';
 import { INITIAL_SESSION } from '../../guide/domain/session';
 import {
   useInstructorVoice,

@@ -1,8 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 import { Icon, IconName } from './Icon';
-import { Color, Radius, Space, Type } from './theme';
-import { MODE_RULE_WIDTH } from '../features/instructor/ui/ModeBanner';
+import { Color, Radius, Space, Type, MODE_RULE_WIDTH } from './theme';
 
 const ICON_SIZE = 16;
 

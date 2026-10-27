@@ -1,4 +1,4 @@
-import type { ScreenBox, Size } from '../ui/viewport/projectedParts';
+import type { ScreenBox, Size } from './screenGeometry';
 
 /** Room the card leaves clear along each edge of the stage, for its other overlays. */
 export interface Clearance {

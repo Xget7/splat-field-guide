@@ -7,7 +7,7 @@ import { BUTTON_HEIGHT, Color, HAIRLINE, Space, Type } from '../../../ui/theme';
 import { CautionNote } from '../../../ui/CautionNote';
 import type { CardContent } from '../../guide/domain/guideContent';
 import { StepSegments } from './StepSegments';
-import { stepLabel } from '../../../ui/readout';
+import { stepLabel } from '../../guide/domain/stepLabel';
 
 const SWIPE_ACTIVATION_POINTS = 24;
 const SWIPE_DISTANCE_POINTS = 64;

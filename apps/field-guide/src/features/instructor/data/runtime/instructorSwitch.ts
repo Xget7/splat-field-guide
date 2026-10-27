@@ -10,7 +10,7 @@ import {
   VoiceSource,
   type ModeSources,
   type ModeStatus,
-} from '../../../../platform/connectivity/networkStatus';
+} from '../../domain/mode/modeTypes';
 import type { Pack } from '../../../pack/pack';
 import type { InstructorModel } from '../../domain/turn/InstructorModel';
 import type {

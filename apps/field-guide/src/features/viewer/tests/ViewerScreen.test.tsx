@@ -47,11 +47,11 @@ import type { ProcedureId } from '../../pack/pack';
 import { SessionEventType } from '../../guide/domain/session';
 import { TOUR_ID } from '../../pack/tour';
 import {
-  LearnMode,
   Route,
   type RootStackParamList,
   type ScreenProps,
 } from '../../../app/navigation/routes';
+import { LearnMode } from '../../guide/domain/learningMode';
 import { bundledPack } from '../../pack/bundledPack';
 import { continueRowFor } from '../../library/domain/library';
 import { loadProgress } from '../../guide/data/progressStorage';

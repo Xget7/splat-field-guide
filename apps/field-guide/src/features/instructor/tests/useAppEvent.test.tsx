@@ -11,7 +11,7 @@ import {
   SwitchStepState,
   VoiceSource,
   type ModeStatus,
-} from '../../../platform/connectivity/networkStatus';
+} from '../domain/mode/modeTypes';
 
 const ONLINE: ModeStatus = {
   mode: InstructorMode.online,

@@ -7,12 +7,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { PartId } from '../../../pack/pack';
 import { Color, Font, Motion, Radius, Space, Type } from '../../../../ui/theme';
-import {
-  boxAt,
-  type MarkedPart,
-  type ProjectedParts,
-  type Size,
-} from './projectedParts';
+import { boxAt, type MarkedPart, type ProjectedParts } from './projectedParts';
+import { type Size } from '../../domain/screenGeometry';
 
 const THICKNESS = 2;
 const TAG_GAP = Space.xs;

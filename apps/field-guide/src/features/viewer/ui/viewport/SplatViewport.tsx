@@ -50,11 +50,8 @@ import {
 } from '../../../../ui/theme';
 import { cameraLimitsInRadians } from '../../domain/camera';
 import { PartMarkers } from './PartMarkers';
-import {
-  ProjectedPartsContext,
-  useProjectedParts,
-  type Size,
-} from './projectedParts';
+import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
+import { type Size } from '../../domain/screenGeometry';
 import { useGuideFraming } from './useGuideFraming';
 
 const RADIANS_PER_POINT = 0.01;

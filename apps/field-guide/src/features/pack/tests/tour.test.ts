@@ -1,10 +1,3 @@
-import { framingFor, highlightFor } from '../../guide/domain/derive';
-import {
-  currentStep,
-  INITIAL_SESSION,
-  reduce,
-  SessionEventType,
-} from '../../guide/domain/session';
 import { fixturePack } from '@tests/fixturePack';
 import { TOUR_ID, TOUR_TITLE, tourOf } from '../tour';
 
@@ -51,27 +44,5 @@ describe('tourOf', () => {
 
   it('is the first procedure of a parsed pack', () => {
     expect(pack.procedures[0]).toEqual(tour);
-  });
-
-  it('runs as a procedure: each step frames and highlights its part and what is inside', () => {
-    let state = reduce(
-      INITIAL_SESSION,
-      { type: SessionEventType.start, procedureId: TOUR_ID },
-      pack,
-    );
-    const seen: string[] = [];
-    for (let i = 0; i < tour.steps.length; i++) {
-      const step = currentStep(state, pack);
-      seen.push(step?.id ?? '');
-      if (step?.id === 'engine') {
-        expect(highlightFor(state, pack)).toEqual([6, 7, 8]);
-        expect(framingFor(state, pack)).toEqual({
-          min: [10, 0, 0],
-          max: [14, 3, 3],
-        });
-      }
-      state = reduce(state, { type: SessionEventType.next }, pack);
-    }
-    expect(seen).toEqual(tour.steps.map(step => step.id));
   });
 });

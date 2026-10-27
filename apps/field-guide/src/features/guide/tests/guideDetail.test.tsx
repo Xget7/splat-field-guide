@@ -4,11 +4,8 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
 import { CatalogProvider } from '../../../app/context/CatalogContext';
 import { TOUR_ID } from '../../pack/tour';
-import {
-  LearnMode,
-  Route,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
+import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { LearnMode } from '../domain/learningMode';
 import { bundledPack } from '../../pack/bundledPack';
 import { procedureRowsFor } from '../domain/procedureRows';
 import { GuideDetailScreen } from '../ui/GuideDetailScreen';

@@ -4,11 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
 import { CatalogProvider } from '../../../app/context/CatalogContext';
-import {
-  LearnMode,
-  Route,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
+import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { LearnMode } from '../../guide/domain/learningMode';
 import { bundledPack } from '../../pack/bundledPack';
 import { saveProgress } from '../../guide/data/progressStorage';
 import { continueRowFor, factsFor } from '../domain/library';

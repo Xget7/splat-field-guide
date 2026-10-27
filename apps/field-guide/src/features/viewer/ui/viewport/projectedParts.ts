@@ -7,24 +7,12 @@ import {
 import type { SplatViewSpec } from 'react-native-splat';
 import type { Bounds, PartId } from '../../../pack/pack';
 import { Space } from '../../../../ui/theme';
+import type { ScreenBox, Size } from '../../domain/screenGeometry';
 
 export interface MarkedPart {
   readonly id: PartId;
   readonly name: string;
   readonly bounds: Bounds;
-}
-
-export interface Size {
-  readonly width: number;
-  readonly height: number;
-}
-
-/** A part's place on screen, in points from the viewport's top left. */
-export interface ScreenBox {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
 }
 
 const CORNERS_PER_BOX = 8;

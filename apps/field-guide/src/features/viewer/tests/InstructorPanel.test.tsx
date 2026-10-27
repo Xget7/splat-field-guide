@@ -16,7 +16,7 @@ import {
   ModeCause,
   VoiceSource,
   type ModeStatus,
-} from '../../../platform/connectivity/networkStatus';
+} from '../../instructor/domain/mode/modeTypes';
 import { INITIAL_SESSION } from '../../guide/domain/session';
 import {
   VoiceState,

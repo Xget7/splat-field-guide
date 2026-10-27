@@ -4,7 +4,7 @@ import {
   InstructorMode,
   ModeCause,
   VoiceSource,
-} from '../../../platform/connectivity/networkStatus';
+} from '../domain/mode/modeTypes';
 import { ModeNoticeCopy, SwitchTitle } from '../domain/mode/modeCopy';
 import { Color } from '../../../ui/theme';
 

@@ -2,7 +2,7 @@ import {
   SwitchStepState,
   type SwitchPiece,
   type SwitchStep,
-} from '../../../../platform/connectivity/networkStatus';
+} from './modeTypes';
 
 export const SwitchTiming = {
   MIN_SWITCH_MS: 600,

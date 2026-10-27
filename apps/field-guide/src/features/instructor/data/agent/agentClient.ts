@@ -2,7 +2,7 @@ import {
   AgentFailure,
   AgentState,
   type AgentStatus,
-} from '../../../../platform/connectivity/networkStatus';
+} from '../../domain/agent/agentStatus';
 import type { WordRange } from '../../domain/voice/speechPresentation';
 import type { AgentVariables } from '../../domain/agent/agentVariables';
 import {

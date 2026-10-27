@@ -1,16 +1,18 @@
 import {
+  NetworkQuality,
+  type NetworkStatus,
+} from '../../../../platform/connectivity/networkStatus';
+import {
   AnswerSource,
   InstructorMode,
   ModeCause,
   ModeRequestType,
-  NetworkQuality,
   VoiceSource,
   type ModeRequest,
   type ModeStatus,
   type ModeSources,
   type ModeSuggestion,
-  type NetworkStatus,
-} from '../../../../platform/connectivity/networkStatus';
+} from './modeTypes';
 
 export const ModeTiming = {
   RECOVERY_MS: 10000,

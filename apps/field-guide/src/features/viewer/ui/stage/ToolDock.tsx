@@ -18,8 +18,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Glass, GlassTone } from '../../../../ui/Glass';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { Color, Motion, Radius, Space, Type } from '../../../../ui/theme';
-import { BOTTOM_BAND_HEIGHT } from '../shell/layout';
+import {
+  Color,
+  Motion,
+  Radius,
+  Space,
+  Type,
+  BOTTOM_BAND_HEIGHT,
+} from '../../../../ui/theme';
 
 /** The tool row fills the bottom band, so it lines up with the collapsed assistant. */
 export const TOOLS_HEIGHT = BOTTOM_BAND_HEIGHT;
