@@ -28,9 +28,9 @@ fi
 if [ ! -d "$ROOT/apps/field-guide/node_modules/typescript" ]; then
   nice -n 19 npm ci --ignore-scripts --prefix "$ROOT/apps/field-guide"
 fi
-nice -n 19 python3 "$ROOT/scripts/pack_archive.py" ensure --url "$PACK_URL" "$@"
+nice -n 19 node "$ROOT/scripts/pack_archive.cjs" ensure --url "$PACK_URL" "$@"
 nice -n 19 bash "$ROOT/packages/react-native-splat/scripts/build-ios-engine.sh"
-nice -n 19 python3 "$ROOT/apps/field-guide/scripts/fetch-kokoro-models.py"
+nice -n 19 node "$ROOT/apps/field-guide/scripts/fetch-kokoro-models.cjs"
 nice -n 19 npm ci --prefix "$ROOT/apps/field-guide"
 for package in react-native-splat react-native-on-device; do
   nice -n 19 npm ci --prefix "$ROOT/packages/$package"

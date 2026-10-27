@@ -17,7 +17,7 @@ module EngineArtifact
       File.file?(file) && parts[1] != "splatkit-android" && (parts & %w[build tests]).empty? &&
         (SOURCE_EXTENSIONS.include?(File.extname(file)) || File.basename(file) == "CMakeLists.txt")
     end
-    files += %w[build-ios-engine.sh engine-artifact.rb package-ios-engine.py].map { |name| File.join(package, "scripts", name) }
+    files += %w[build-ios-engine.sh engine-artifact.rb package-ios-engine.cjs].map { |name| File.join(package, "scripts", name) }
     digest = Digest::SHA256.new
     files.sort.each do |file|
       digest.update(file.delete_prefix("#{package}/"))

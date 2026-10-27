@@ -15,7 +15,7 @@ else
 fi
 
 "$SRCROOT/../scripts/make_preview_model.sh" "$REFERENCE_ROOT/aligned.cleaned.usdz" "$AR_DEST/turntable.usdz"
-python3 "$SRCROOT/../scripts/copy_ar_assembly.py"
+node "$SRCROOT/../scripts/copy_ar_assembly.cjs"
 
 if [ -f "$REFERENCE_ROOT/engine-bay.referenceobject" ]; then
   cp "$REFERENCE_ROOT/engine-bay.referenceobject" "$AR_DEST/engine-bay.referenceobject"

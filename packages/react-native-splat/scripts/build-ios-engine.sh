@@ -56,7 +56,7 @@ cp "$engine/splatkit-engine/include/splatkit/sfg.h" \
 
 candidate="$build/SplatKitCore.xcframework"
 rm -rf "$candidate"
-python3 "$package/scripts/package-ios-engine.py" "$build" "$candidate"
+node "$package/scripts/package-ios-engine.cjs" "$build" "$candidate"
 [[ "$(ruby "$identity")" == "$fingerprint" ]] || {
   echo "Engine sources changed during the build; run scripts/prepare.sh again" >&2
   exit 1

@@ -11,8 +11,8 @@ platform :ios, IOS_DEPLOYMENT_TARGET
 prepare_react_native_project!
 
 # Verify pinned resources before CocoaPods enumerates them.
-unless system('python3', File.expand_path('../scripts/fetch-kokoro-models.py', __dir__))
-  raise 'Kokoro resources could not be verified; see scripts/fetch-kokoro-models.py'
+unless system('node', File.expand_path('../scripts/fetch-kokoro-models.cjs', __dir__))
+  raise 'Kokoro resources could not be verified; see scripts/fetch-kokoro-models.cjs'
 end
 
 linkage = ENV['USE_FRAMEWORKS']
