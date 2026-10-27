@@ -28,10 +28,6 @@ const otherSliceInternals = SLICES.flatMap(slice => [
 const anySlice = SLICES.flatMap(slice => [`**/${slice}`, `**/${slice}/**`]);
 const composition = ['**/app', '**/app/**'];
 const presentation = ['**/ui', '**/ui/**', '**/views'];
-const compositionGroup = {
-  group: composition,
-  message: 'Slices cannot import app composition.',
-};
 const sliceFiles = `src/features/{${SLICES.join(',')}}`;
 
 module.exports = {
@@ -50,15 +46,12 @@ module.exports = {
                 message:
                   'Import another slice through its index.ts or views.ts.',
               },
+              {
+                group: composition,
+                message:
+                  'Slices cannot import app composition; screens take props and callbacks.',
+              },
             ],
-          },
-        ],
-        // Screens still read routes and the catalog context from app, so this warns until
-        // PR6 gives screens callback props; it becomes an error there.
-        '@typescript-eslint/no-restricted-imports': [
-          'warn',
-          {
-            patterns: [compositionGroup],
           },
         ],
       },
@@ -81,9 +74,6 @@ module.exports = {
                 group: [...presentation, '**/state', '**/state/**'],
                 message: 'Domain rules cannot import presentation or state.',
               },
-              // This override replaces the slice-wide warning for domain files, which already
-              // keep clear of app, so the composition group holds here as an error.
-              compositionGroup,
             ],
           },
         ],
@@ -100,8 +90,6 @@ module.exports = {
                 group: presentation,
                 message: 'Data adapters cannot import presentation.',
               },
-              // Replaces the slice-wide warning for data files, which already keep clear of app.
-              compositionGroup,
             ],
           },
         ],

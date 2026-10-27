@@ -2,9 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
-import { CatalogProvider } from '../../../app/context/CatalogContext';
 import { TOUR_ID } from '../../pack/tour';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { LearnMode } from '../domain/learningMode';
 import { bundledPack } from '../../pack/bundledPack';
 import { procedureRowsFor } from '../domain/procedureRows';
@@ -69,7 +67,8 @@ test('one step is singular and an empty caution is not a safety note', () => {
 
 describe('Guide detail screen', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
-  const navigation = { navigate: jest.fn(), goBack: jest.fn() };
+  const onOpen = jest.fn();
+  const onBack = jest.fn();
   const node = (testID: string) =>
     renderer.root
       .findAllByProps({ testID })
@@ -78,16 +77,16 @@ describe('Guide detail screen', () => {
   const press = async (testID: string) => {
     await act(() => node(testID).props.onPress());
   };
-  const mount = async (guideId = pack.packId) => {
-    const props = {
-      navigation,
-      route: { key: 'detail', name: Route.guide, params: { guideId } },
-    } as unknown as ScreenProps<typeof Route.guide>;
+  const mount = async (guideId = pack.packId, onOpenArCheck?: () => void) => {
     await act(() => {
       renderer = ReactTestRenderer.create(
-        <CatalogProvider catalog={catalog}>
-          <GuideDetailScreen {...props} />
-        </CatalogProvider>,
+        <GuideDetailScreen
+          catalog={catalog}
+          guideId={guideId}
+          onBack={onBack}
+          onOpen={onOpen}
+          onOpenArCheck={onOpenArCheck}
+        />,
       );
     });
   };
@@ -105,7 +104,7 @@ describe('Guide detail screen', () => {
       selected: true,
     });
     await press('procedure-row-check-coolant');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
       procedureId: 'check-coolant',
       stepIndex: 0,
@@ -113,7 +112,7 @@ describe('Guide detail screen', () => {
       voice: false,
     });
     await press('start-tour');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
       procedureId: TOUR_ID,
       stepIndex: 0,
@@ -121,7 +120,7 @@ describe('Guide detail screen', () => {
       voice: false,
     });
     await press('guide-back');
-    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   test('selected mode drives both procedure and Start navigation', async () => {
@@ -134,7 +133,7 @@ describe('Guide detail screen', () => {
       selected: false,
     });
     await press('procedure-row-check-brake-fluid');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
       procedureId: 'check-brake-fluid',
       stepIndex: 0,
@@ -142,7 +141,7 @@ describe('Guide detail screen', () => {
       voice: false,
     });
     await press('start-tour');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
       procedureId: TOUR_ID,
       stepIndex: 0,
@@ -158,8 +157,7 @@ describe('Guide detail screen', () => {
       checked: true,
     });
     await press('start-tour');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(
-      Route.viewer,
+    expect(onOpen).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: LearnMode.instructor, voice: true }),
     );
     await press('mode-self-guided');
@@ -167,20 +165,20 @@ describe('Guide detail screen', () => {
       renderer.root.findAllByProps({ testID: 'voice-assistant' }),
     ).toHaveLength(0);
     await press('start-tour');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(
-      Route.viewer,
+    expect(onOpen).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: LearnMode.selfGuided, voice: false }),
     );
   });
 
-  test('a shared build keeps the physical alignment check hidden', async () => {
+  test('the AR check shows only where the device offers it', async () => {
     await mount();
     expect(renderer.root.findAllByProps({ testID: 'open-ar' })).toHaveLength(0);
-    await press('start-tour');
-    expect(navigation.navigate).toHaveBeenCalledWith(
-      Route.viewer,
-      expect.anything(),
-    );
+    await act(() => renderer.unmount());
+    const onOpenArCheck = jest.fn();
+    await mount(pack.packId, onOpenArCheck);
+    await press('open-ar');
+    expect(onOpenArCheck).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   test('the hero turns the model from the library card', async () => {
@@ -202,8 +200,8 @@ describe('Guide detail screen', () => {
         renderer.root.findAllByProps({ testID: 'start-tour' }),
       ).toHaveLength(0);
       await press('guide-back');
-      expect(navigation.goBack).toHaveBeenCalledTimes(1);
-      expect(navigation.navigate).not.toHaveBeenCalled();
+      expect(onBack).toHaveBeenCalledTimes(1);
+      expect(onOpen).not.toHaveBeenCalled();
     },
   );
 });

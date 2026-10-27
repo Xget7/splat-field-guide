@@ -84,6 +84,10 @@ _Avoid_: progress (the saved continuation position), attempt, run, state
 The saved guide, procedure and step position from which a person can continue.
 _Avoid_: session, completion, history
 
+**Session start**:
+Where a session opens: the guide, procedure and step, the learning mode and whether the instructor speaks.
+_Avoid_: route params, launch options, progress (the saved continuation position)
+
 **Learning mode**:
 The choice of instructor guidance or a self-guided presentation of the procedure.
 _Avoid_: voice mode, difficulty, lesson type

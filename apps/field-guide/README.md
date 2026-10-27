@@ -5,22 +5,23 @@ Its platform/bridge choice is recorded in [ADR 0005](../../docs/adr/0005-bare-re
 
 ## Layers
 
-Screens compose features; features talk to native code only through two local Nitro packages.
-ESLint enforces the arrows: `pack` and `guide` are pure TypeScript, and `ui` holds no business code.
+The app composes the slices: startup builds the platform, the instructor and the progress storage, and one navigation adapter per route maps the route to a screen's props and callbacks.
+Slices reach each other only through their `index.ts` or `views.ts`, and ESLint enforces the arrows: no slice imports `app`, `domain` folders load no React or native package, and `pack`, `platform` and `ui` import no slice.
 
 ```mermaid
 flowchart TB
-  screens["screens and app<br/>navigation, composition"] --> features
-  screens --> ui["ui<br/>presentation primitives"]
+  app["app<br/>startup, navigation adapters"] --> features
   subgraph features["features"]
     direction LR
-    pack["pack<br/>parse, catalog"]
-    guide["guide<br/>session, tour, progress"]
-    instructor["instructor<br/>router, grounding, models, voice, modes, runtime"]
-    viewport["viewport<br/>gestures, framing, markers"]
+    library --> guide
+    library --> ar
+    bench --> viewer
+    viewer --> instructor --> guide --> pack
   end
-  viewport --> splatPkg["react-native-splat"]
-  instructor --> onDevicePkg["react-native-on-device"]
+  features --> platform["platform<br/>ports"]
+  features --> ui["ui<br/>presentation primitives"]
+  features --> splatPkg["react-native-splat"]
+  app --> onDevicePkg["react-native-on-device"]
 ```
 
 ## Setup
@@ -32,7 +33,7 @@ flowchart TB
 | Viewer | iOS/iPadOS 26+ with an A14-class GPU or later |
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
-| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/features/ar/data/arCheck.ts) |
+| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [availability.ts](src/features/ar/domain/availability.ts) |
 | Library model preview | iOS and the local engine-bay capture in `data/ar-reference`; without it the card shows the guide's photo |
 | Spatial assembly | Physical iPhone/iPad, the prepared V8 USDZ and the library's "Assemble a V8 in AR" entry |
 
@@ -65,10 +66,10 @@ Missing transcription/model assets affect offline input and generation; [speech 
 
 ## Configuration and checks
 
-`instructor.config.json` sets `proxyUrl`, the Worker base URL that [app startup](src/app/startup.ts) gives the instructor; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
+`instructor.config.json` sets `proxyUrl`, the Worker base URL that [app startup](src/app/startup/instructor.ts) gives the instructor; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
 The example's `null` runs offline only; deploy your own Worker with the [service README](../../services/instructor-proxy/README.md) and the agent with the [voice agent README](../../services/voice-agent/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
-App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [the agent checks](../../docs/agents/checks.md).
+Each slice keeps its tests in its `tests` folder, and shared fakes and setup live in the root [tests folder](../../tests); commands are in [the agent checks](../../docs/agents/checks.md).
 [Open acceptance](../../TASKS.md) includes physical performance, voice and AR checks.
 
 ## Spatial assembly

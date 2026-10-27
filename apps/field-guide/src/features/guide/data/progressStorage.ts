@@ -1,27 +1,38 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { KeyValueStorage } from '../../../platform/storage';
 import { parseProgress, type Progress } from '../domain/progress';
 
 const PROGRESS_KEY = 'field-guide/progress/v1';
-let pendingWrite = Promise.resolve();
 
-// Completion must stay cleared even when an earlier save is still in flight.
-function writeInOrder(write: () => Promise<void>): Promise<void> {
-  const result = pendingWrite.then(write);
-  pendingWrite = result.catch(() => {});
-  return result;
+/** The saved progress: one record, read and replaced whole. */
+export interface ProgressStorage {
+  load(): Promise<Progress | null>;
+  save(progress: Progress): Promise<void>;
+  clear(): Promise<void>;
 }
 
-export async function loadProgress(): Promise<Progress | null> {
-  await pendingWrite;
-  return parseProgress(await AsyncStorage.getItem(PROGRESS_KEY));
-}
-
-export async function saveProgress(progress: Progress): Promise<void> {
-  await writeInOrder(() =>
-    AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)),
-  );
-}
-
-export async function clearProgress(): Promise<void> {
-  await writeInOrder(() => AsyncStorage.removeItem(PROGRESS_KEY));
+/**
+ * Keeps progress in the storage with its writes in call order, and a load waits for the
+ * writes called before it, so completion stays cleared even when an earlier save is
+ * still in flight.
+ */
+export function createProgressStorage(
+  storage: KeyValueStorage,
+): ProgressStorage {
+  let pendingWrite = Promise.resolve();
+  function writeInOrder(write: () => Promise<void>): Promise<void> {
+    const result = pendingWrite.then(write);
+    pendingWrite = result.catch(() => {});
+    return result;
+  }
+  return {
+    async load() {
+      await pendingWrite;
+      return parseProgress(await storage.getItem(PROGRESS_KEY));
+    },
+    save: progress =>
+      writeInOrder(() =>
+        storage.setItem(PROGRESS_KEY, JSON.stringify(progress)),
+      ),
+    clear: () => writeInOrder(() => storage.removeItem(PROGRESS_KEY)),
+  };
 }

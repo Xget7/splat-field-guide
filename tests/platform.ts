@@ -10,6 +10,7 @@ import type {
   SpeechOutput,
   StreamingRequest,
 } from '../apps/field-guide/src/platform/ports';
+import type { KeyValueStorage } from '../apps/field-guide/src/platform/storage';
 
 const ACTIVE: AppStateStatus = 'active';
 // Backoff jitter stays centred, so timed tests land on exact delays.
@@ -136,6 +137,43 @@ export function fakeStreamingRequests() {
     },
     get count() {
       return requests.length;
+    },
+  };
+}
+
+/**
+ * Key-value storage in memory. Its methods are jest functions a test can script, and
+ * `delayNextWrite` holds the next set or remove until the returned release is called.
+ */
+export function fakeStorage() {
+  const items = new Map<string, string>();
+  let held: Promise<void> | null = null;
+  async function write(apply: () => void) {
+    const wait = held;
+    held = null;
+    await wait;
+    apply();
+  }
+  const storage = {
+    getItem: jest.fn<Promise<string | null>, [string]>(
+      async key => items.get(key) ?? null,
+    ),
+    setItem: jest.fn<Promise<void>, [string, string]>((key, value) =>
+      write(() => items.set(key, value)),
+    ),
+    removeItem: jest.fn<Promise<void>, [string]>(key =>
+      write(() => items.delete(key)),
+    ),
+  } satisfies KeyValueStorage;
+  return {
+    storage,
+    items,
+    delayNextWrite(): () => void {
+      let release!: () => void;
+      held = new Promise(resolve => {
+        release = resolve;
+      });
+      return release;
     },
   };
 }

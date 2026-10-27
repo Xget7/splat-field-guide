@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { callback } from 'react-native-nitro-modules';
 import { SplatView, type SplatViewSpec } from 'react-native-splat';
-import { useCatalog } from '../../../app/context/CatalogContext';
-import { GuideStatus, type ReadyGuide } from '../../pack/catalog';
+import { GuideStatus, type Guide, type ReadyGuide } from '../../pack/catalog';
 import type { Pack } from '../../pack/pack';
 import { sourceFor } from '../../pack/bundledPack';
 import { INITIAL_SESSION } from '../../guide';
@@ -21,8 +20,8 @@ const SWEEP_PERIOD_MS = 20_000;
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
 /** The first ready pack framed whole with no UI over it: the widest view, the heaviest frame. */
-export function BenchScreen() {
-  const guide = useCatalog().find(
+export function BenchScreen({ catalog }: { catalog: readonly Guide[] }) {
+  const guide = catalog.find(
     (entry): entry is ReadyGuide => entry.status === GuideStatus.ready,
   );
   return (

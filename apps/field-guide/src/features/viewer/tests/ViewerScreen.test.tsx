@@ -15,7 +15,6 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   usePanGesture,
   usePinchGesture,
@@ -35,29 +34,28 @@ import {
   type Instructor,
   type VoiceSessionEvents,
 } from '../../instructor';
-import { highlightFor, SessionEventType, LearnMode } from '../../guide';
-import { loadProgress } from '../../guide/views';
+import {
+  highlightFor,
+  SessionEventType,
+  LearnMode,
+  createProgressStorage,
+  type ProgressStorage,
+  type SessionStart,
+} from '../../guide';
 
 import {
   fakeInstructor,
   fakeVoiceSession,
   fakeVoiceRuntime,
 } from '@tests/voiceSession';
-import { fakePlatform } from '@tests/platform';
+import { fakePlatform, fakeStorage } from '@tests/platform';
 
 import { fixturePack } from '@tests/fixturePack';
 import { catalogFor } from '../../pack/catalog';
-import { CatalogProvider } from '../../../app/context/CatalogContext';
 
 import type { ProcedureId } from '../../pack/pack';
 
 import { TOUR_ID } from '../../pack/tour';
-import {
-  Route,
-  type RootStackParamList,
-  type ScreenProps,
-} from '../../../app/navigation/routes';
-
 import { bundledPack } from '../../pack/bundledPack';
 
 import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
@@ -127,7 +125,9 @@ const modelReply = (reply = 'It supplies the starter.') => reply;
 describe('viewer screen', () => {
   let instructor: Instructor;
   let renderer: ReactTestRenderer.ReactTestRenderer;
-  const navigation = { navigate: jest.fn(), goBack: jest.fn() };
+  const onExit = jest.fn();
+  let progress: ProgressStorage;
+  const loadProgress = () => progress.load();
   const native = () =>
     renderer.root.findByType('SplatView' as React.ElementType);
   const node = (testID: string) =>
@@ -150,29 +150,24 @@ describe('viewer screen', () => {
     project: jest.fn<number, [ArrayBuffer, ArrayBuffer]>(() => 0),
   };
   const mount = async (
-    params: Partial<RootStackParamList[typeof Route.viewer]> = {},
+    start: Partial<SessionStart> = {},
     entries = catalog,
   ) => {
-    const props = {
-      navigation,
-      route: {
-        key: 'viewer',
-        name: Route.viewer,
-        params: {
-          guideId: pack.packId,
-          procedureId: TOUR_ID,
-          stepIndex: 0,
-          mode: LearnMode.selfGuided,
-          ...params,
-        },
-      },
-    } as unknown as ScreenProps<typeof Route.viewer>;
     instructorStore.getState().attach(instructor);
     await act(async () => {
       renderer = ReactTestRenderer.create(
-        <CatalogProvider catalog={entries}>
-          <ViewerScreen {...props} />
-        </CatalogProvider>,
+        <ViewerScreen
+          catalog={entries}
+          start={{
+            guideId: pack.packId,
+            procedureId: TOUR_ID,
+            stepIndex: 0,
+            mode: LearnMode.selfGuided,
+            ...start,
+          }}
+          onExit={onExit}
+          progress={progress}
+        />,
       );
     });
   };
@@ -212,7 +207,7 @@ describe('viewer screen', () => {
     jest.mocked(input.prepare).mockReset().mockResolvedValue('available');
     jest.mocked(input.listen).mockReset().mockResolvedValue();
     jest.mocked(output.speak).mockReset().mockResolvedValue();
-    await AsyncStorage.clear();
+    progress = createProgressStorage(fakeStorage().storage);
   });
   afterEach(async () => {
     await act(() => renderer.unmount());
@@ -488,7 +483,7 @@ describe('viewer screen', () => {
       disabled: false,
     });
     await press('step-next');
-    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(onExit).toHaveBeenCalledTimes(1);
     expect(await loadProgress()).toBeNull();
   });
 
@@ -589,7 +584,7 @@ describe('viewer screen', () => {
       await fling(-80);
     }
     expect(debug().getState().stepIndex).toBe(4);
-    expect(navigation.goBack).not.toHaveBeenCalled();
+    expect(onExit).not.toHaveBeenCalled();
     await fling(80);
     expect(debug().getState().stepIndex).toBe(3);
   });
@@ -890,7 +885,7 @@ describe('viewer screen', () => {
       expect(jest.mocked(output.stop).mock.calls.length).toBeGreaterThan(
         stopped,
       );
-      expect(navigation.goBack).toHaveBeenCalledTimes(1);
+      expect(onExit).toHaveBeenCalledTimes(1);
       expect(await loadProgress()).toBeNull();
       await act(async () => speech.resolve());
     });
@@ -1777,6 +1772,6 @@ describe('viewer screen', () => {
       renderer.root.findAllByType('SplatView' as React.ElementType),
     ).toEqual([]);
     await press('viewer-back');
-    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(onExit).toHaveBeenCalledTimes(1);
   });
 });
