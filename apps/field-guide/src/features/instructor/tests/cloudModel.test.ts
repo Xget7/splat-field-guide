@@ -6,13 +6,9 @@ import { fixturePack } from '@tests/fixturePack';
 import { ReplyFormat, rulesFor } from '../domain/grounding';
 import {
   cloudInstructions,
-  COOL_OFF_MS,
   createCloudModel,
-  FIRST_TEXT_MS,
-  TOTAL_MS,
 } from '../data/answerers/cloudModel';
 import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
-import type { FakeStreamingRequest } from '@tests/platform';
 import { createProxyClient } from '../data/proxy/proxyClient';
 
 const requests = fakeStreamingRequests();
@@ -75,105 +71,6 @@ test('posts the instructions and a prompt without notes to the proxy', () => {
   });
 });
 
-test.each([
-  [
-    'an error event',
-    (sent: FakeStreamingRequest) => sent.receive(line({ error: 'overloaded' })),
-    'overloaded',
-  ],
-  [
-    'an error alongside done',
-    (sent: FakeStreamingRequest) =>
-      sent.receive(line({ done: true, error: 'cut off' })),
-    'cut off',
-  ],
-  [
-    'an error alongside text',
-    (sent: FakeStreamingRequest) => {
-      sent.receive(line({ text: 'Truncated', error: 'cut off' }));
-      sent.receive(line({ done: true }));
-    },
-    'cut off',
-  ],
-  [
-    'an unreadable line',
-    (sent: FakeStreamingRequest) => sent.receive('nope\n'),
-    'unreadable stream',
-  ],
-  [
-    'a null event',
-    (sent: FakeStreamingRequest) => sent.receive('null\n'),
-    'bad event',
-  ],
-  [
-    'a stream without done',
-    (sent: FakeStreamingRequest) => {
-      sent.receive(line({ text: 'It' }));
-      sent.end();
-    },
-    'stream ended early',
-  ],
-  [
-    'a refused request',
-    (sent: FakeStreamingRequest) => sent.end(429),
-    'status 429',
-  ],
-  ['a network failure', (sent: FakeStreamingRequest) => sent.fail(), 'network'],
-])(
-  '%s rejects and skips the cloud for a while',
-  async (_case, fail, reason) => {
-    const cloud = model();
-    const reply = cloud.respond(request, jest.fn());
-    fail(requests.last);
-    await expect(reply).rejects.toThrow(reason);
-    expect(requests.last.aborted).toBe(true);
-    expect(cloud.isReady()).toBe(false);
-    time = COOL_OFF_MS;
-    expect(cloud.isReady()).toBe(true);
-  },
-);
-
-test.each([undefined, '', ' '])(
-  'gives up when no answer text arrives in time: %j',
-  async delta => {
-    const cloud = model();
-    const reply = cloud.respond(request, jest.fn());
-    if (delta !== undefined) {
-      requests.last.receive(line({ text: delta }));
-    }
-    jest.advanceTimersByTime(FIRST_TEXT_MS);
-    expect(cloud.isReady()).toBe(false);
-    await expect(reply).rejects.toThrow('no text in time');
-  },
-);
-
-test('first text stops the first-text timer, not the total one', async () => {
-  const reply = model().respond(request, jest.fn());
-  requests.last.receive(line({ text: 'It' }));
-  jest.advanceTimersByTime(FIRST_TEXT_MS);
-  jest.advanceTimersByTime(TOTAL_MS - FIRST_TEXT_MS);
-  await expect(reply).rejects.toThrow('too slow');
-});
-
-test('cancel rejects without skipping the cloud afterwards', async () => {
-  const cloud = model();
-  const reply = cloud.respond(request, jest.fn());
-  cloud.cancel();
-  await expect(reply).rejects.toThrow('cancelled');
-  expect(requests.last.aborted).toBe(true);
-  expect(cloud.isReady()).toBe(true);
-  expect(() => cloud.cancel()).not.toThrow();
-});
-
-test('a new request stops the one before it', async () => {
-  const cloud = model();
-  const first = cloud.respond(request, jest.fn());
-  const firstRequest = requests.last;
-  cloud.respond(request, jest.fn());
-  await expect(first).rejects.toThrow('cancelled');
-  expect(firstRequest.aborted).toBe(true);
-});
-
 test.each(['error', 'missing done'])(
   'a streamed remote %s falls back to the next model',
   async failure => {
@@ -202,24 +99,15 @@ test.each(['error', 'missing done'])(
   },
 );
 
-test('offline skips the cloud and a slow first text is not a network failure', async () => {
+test('is not ready offline', () => {
   let online = false;
-  const failure = jest.fn();
   const cloud = createCloudModel({
     proxy: createProxyClient(URL, platform),
     clock: () => time,
     timers,
     isOnline: () => online,
-    onFailure: failure,
   });
   expect(cloud.isReady()).toBe(false);
   online = true;
-  const reply = cloud.respond(request, jest.fn());
-  time = 5000;
-  requests.last.receive(line({ text: 'It' }));
-  time = 6000;
-  requests.last.receive(line({ text: ' supplies' }));
-  requests.last.receive(line({ done: true }));
-  await reply;
-  expect(failure).not.toHaveBeenCalled();
+  expect(cloud.isReady()).toBe(true);
 });

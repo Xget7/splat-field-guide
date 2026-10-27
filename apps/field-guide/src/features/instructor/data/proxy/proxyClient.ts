@@ -1,5 +1,6 @@
 import { AgentFailure } from '../../domain/agent/agentStatus';
 import type { Cancel, Platform } from '../../../../platform/ports';
+import type { StreamedReply } from '../../domain/turn/replyPolicy';
 import {
   createNdjsonEvents,
   ProxyEventType,
@@ -46,18 +47,12 @@ export interface ProxyAnswerRequest {
   readonly prompt: string;
 }
 
-/** One streamed answer: its full text once done, and a cancel that rejects it. */
-export interface ProxyAnswer {
-  readonly text: Promise<string>;
-  cancel(): void;
-}
-
 export interface ProxyClient {
   /** Streams the answer, reporting the text so far, and rejects with a ProxyFailure. */
   answer(
     request: ProxyAnswerRequest,
     onText: (text: string) => void,
-  ): ProxyAnswer;
+  ): StreamedReply;
   /** A signed agent conversation URL, or a rejection naming quota, auth or network. */
   sessionUrl(): Promise<string>;
   /** The round trip to the Worker in milliseconds; the signal aborts a ping that no longer matters. */
