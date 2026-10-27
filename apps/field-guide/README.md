@@ -65,7 +65,7 @@ Missing transcription/model assets affect offline input and generation; [speech 
 
 ## Configuration and checks
 
-`instructor.config.json` sets `proxyUrl`, the Worker base URL that [proxy.ts](src/features/instructor/data/proxy.ts) reads; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
+`instructor.config.json` sets `proxyUrl`, the Worker base URL that [app startup](src/app/startup.ts) gives the instructor; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
 The example's `null` runs offline only; deploy your own Worker with the [service README](../../services/instructor-proxy/README.md) and the agent with the [voice agent README](../../services/voice-agent/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
 App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [the agent checks](../../docs/agents/checks.md).

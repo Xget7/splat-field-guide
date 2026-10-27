@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,12 +9,13 @@ import { PackErrorScreen } from './startup/PackErrorScreen';
 import { Color } from '../ui/theme';
 import { createAppInstructor } from './startup';
 
-const instructorRuntime = createAppInstructor();
-
 function App() {
+  // Created during the first render, so screens below already find it in the store.
+  const [instructor] = useState(createAppInstructor);
   useEffect(() => {
-    instructorRuntime.start();
-  }, []);
+    instructor.start();
+    return () => instructor.stop();
+  }, [instructor]);
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
