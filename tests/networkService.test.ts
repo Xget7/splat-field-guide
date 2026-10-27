@@ -2,9 +2,10 @@ import {
   createNetworkService,
   pingProbe,
   PROBE_INTERVAL_MS,
-  PROBE_RETRY_MS,
   PROBE_TIMEOUT_MS,
+  ProbeRetry,
 } from '../apps/field-guide/src/features/connectivity/networkService';
+import { GrpcBackoff } from '../apps/field-guide/src/features/connectivity/backoff';
 import type { PathInfo } from '../apps/field-guide/src/features/connectivity/networkQuality';
 import { Transport } from '../apps/field-guide/src/features/events/types';
 
@@ -50,9 +51,10 @@ test('a path probes immediately and publishes only quality or transport changes'
     ['offline', 'none'],
   ]);
 });
-test('an old probe cannot change the offline status of a lost route', async () => {
+test('a lost route aborts the probe in flight and ignores its answer', async () => {
   let changed!: (path: PathInfo) => void;
   let resolve!: (ms: number) => void;
+  let signal!: AbortSignal;
   const emit = jest.fn();
   const service = createNetworkService({
     paths: {
@@ -61,15 +63,18 @@ test('an old probe cannot change the offline status of a lost route', async () =
       },
       stop: () => {},
     },
-    probe: () =>
-      new Promise(done => {
+    probe: probeSignal => {
+      signal = probeSignal;
+      return new Promise(done => {
         resolve = done;
-      }),
+      });
+    },
     emit,
   });
   service.start();
   changed(route);
   changed({ ...route, satisfied: false, transport: Transport.none });
+  expect(signal.aborted).toBe(true);
   resolve(900);
   await flush();
   expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
@@ -95,8 +100,10 @@ test('failed probes retry with backoff in the foreground until the route answers
   service.start();
   changed(route);
   await flush();
-  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS);
-  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS * 2);
+  await jest.advanceTimersByTimeAsync(ProbeRetry.initialMs);
+  await jest.advanceTimersByTimeAsync(
+    ProbeRetry.initialMs * GrpcBackoff.MULTIPLIER,
+  );
   expect(probe).toHaveBeenCalledTimes(3);
   service.setForeground(false);
   await jest.advanceTimersByTimeAsync(PROBE_INTERVAL_MS * 2);
@@ -104,7 +111,7 @@ test('failed probes retry with backoff in the foreground until the route answers
   probe.mockResolvedValue(100);
   service.setForeground(true);
   await flush();
-  await jest.advanceTimersByTimeAsync(PROBE_RETRY_MS);
+  await jest.advanceTimersByTimeAsync(ProbeRetry.initialMs);
   expect(emit.mock.calls.map(([status]) => status.quality)).toEqual([
     'good',
     'weak',

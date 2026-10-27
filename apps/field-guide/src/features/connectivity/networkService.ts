@@ -1,4 +1,5 @@
 import { NetworkQuality, type NetworkStatus } from '../events/types';
+import { createBackoff, type BackoffLimits } from './backoff';
 import {
   createQualityEstimator,
   type PathInfo,
@@ -7,18 +8,23 @@ import {
 
 export const PROBE_INTERVAL_MS = 30000;
 export const PROBE_TIMEOUT_MS = 3000;
-// Retries double from here up to the interval until the connection is good again.
-export const PROBE_RETRY_MS = 1000;
+// Failed probes retry from here up to the interval until the connection is good again.
+export const ProbeRetry: BackoffLimits = {
+  initialMs: 1000,
+  maxMs: PROBE_INTERVAL_MS,
+};
 export interface PathSource {
   start(onChange: (info: PathInfo) => void): void;
   stop(): void;
 }
 export interface NetworkServiceOptions {
   readonly paths: PathSource;
-  readonly probe: () => Promise<number>;
+  /** Resolves with the round trip in milliseconds; the signal aborts a probe whose answer no longer matters. */
+  readonly probe: (signal: AbortSignal) => Promise<number>;
   readonly emit: (status: NetworkStatus) => void;
   readonly setTimeout?: typeof setTimeout;
   readonly clearTimeout?: typeof clearTimeout;
+  readonly random?: () => number;
 }
 export interface NetworkService {
   start(): void;
@@ -29,21 +35,23 @@ export interface NetworkService {
   setForeground(foreground: boolean): void;
   report(trip: RoundTrip): void;
 }
+/**
+ * One probe at a time, rescheduled by a single timer after each answer.
+ * A new route, the background or stop aborts the probe in flight, so its answer is never recorded.
+ */
 export function createNetworkService(
   options: NetworkServiceOptions,
 ): NetworkService {
   const schedule = options.setTimeout ?? setTimeout;
   const cancel = options.clearTimeout ?? clearTimeout;
   const estimator = createQualityEstimator();
+  const backoff = createBackoff(ProbeRetry, options.random);
   let started = false;
   let active = false;
   let foreground = true;
   let satisfied = false;
-  let generation = 0;
-  let probing = false;
-  let probeAgain = false;
-  let retries = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let inFlight: AbortController | null = null;
   let emitted: NetworkStatus | undefined;
   function publish(status: NetworkStatus) {
     if (
@@ -56,65 +64,59 @@ export function createNetworkService(
   }
   const healthy = () =>
     !estimator.failing() && estimator.current().quality === NetworkQuality.good;
+  const canProbe = () => started && satisfied && foreground;
   function record(trip: RoundTrip) {
-    const reached = trip.ok && estimator.failing();
+    const recovered = trip.ok && estimator.failing();
     publish(estimator.sample(trip));
-    if (reached || healthy()) {
-      retries = 0;
+    if (recovered || healthy()) {
+      backoff.reset();
     }
   }
-  /** Schedules the next probe: a backoff retry until the connection is good, then the interval while active. */
-  function plan() {
+  function clearTimer() {
     if (timer !== null) {
       cancel(timer);
       timer = null;
     }
-    if (!started || !satisfied || !foreground || probing) {
+  }
+  function halt() {
+    clearTimer();
+    inFlight?.abort();
+    inFlight = null;
+  }
+  /** A backoff retry until the connection is good, then the interval while the instructor is open. */
+  function scheduleNext() {
+    clearTimer();
+    if (!canProbe() || inFlight !== null) {
       return;
     }
-    const retry = !healthy();
-    const delay = retry
-      ? Math.min(PROBE_RETRY_MS * 2 ** retries, PROBE_INTERVAL_MS)
+    const delay = !healthy()
+      ? backoff.next()
       : active
       ? PROBE_INTERVAL_MS
       : null;
     if (delay !== null) {
-      timer = schedule(() => {
-        timer = null;
-        if (retry) {
-          retries++;
-        }
-        probe();
-      }, delay);
+      timer = schedule(probe, delay);
     }
   }
   async function probe() {
-    if (!started || !satisfied || !foreground) {
+    halt();
+    if (!canProbe()) {
       return;
     }
-    if (probing) {
-      probeAgain = true;
-      return;
-    }
-    probing = true;
-    plan();
-    const currentGeneration = generation;
+    const controller = new AbortController();
+    inFlight = controller;
     let trip: RoundTrip;
     try {
-      trip = { ok: true, ms: await options.probe() };
+      trip = { ok: true, ms: await options.probe(controller.signal) };
     } catch {
       trip = { ok: false };
     }
-    probing = false;
-    if (started && currentGeneration === generation) {
-      record(trip);
+    if (controller.signal.aborted) {
+      return;
     }
-    if (probeAgain) {
-      probeAgain = false;
-      probe();
-    } else {
-      plan();
-    }
+    inFlight = null;
+    record(trip);
+    scheduleNext();
   }
   return {
     start() {
@@ -126,14 +128,13 @@ export function createNetworkService(
         if (!started) {
           return;
         }
-        generation++;
-        retries = 0;
+        backoff.reset();
         satisfied = info.satisfied;
         publish(estimator.path(info));
         if (satisfied) {
           probe();
         } else {
-          plan();
+          halt();
         }
       });
     },
@@ -142,30 +143,28 @@ export function createNetworkService(
         return;
       }
       started = false;
-      generation++;
-      probeAgain = false;
+      halt();
       options.paths.stop();
-      plan();
     },
     setActive(value) {
       active = value;
-      plan();
+      scheduleNext();
     },
     setForeground(value) {
       const returned = value && !foreground;
       foreground = value;
       if (returned) {
-        retries = 0;
+        backoff.reset();
         probe();
-      } else {
-        plan();
+      } else if (!value) {
+        halt();
       }
     },
     report(trip) {
       // Round trips before the first route have nothing to describe.
       if (started && satisfied) {
         record(trip);
-        plan();
+        scheduleNext();
       }
     },
   };
@@ -177,9 +176,11 @@ export function pingProbe(
   baseUrl: string,
   fetchImpl: typeof fetch = fetch,
   now: () => number = Date.now,
-): () => Promise<number> {
-  return async () => {
+): (signal?: AbortSignal) => Promise<number> {
+  return async signal => {
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort);
     const began = now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -202,6 +203,7 @@ export function pingProbe(
       ]);
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
     }
   };
 }

@@ -22,6 +22,7 @@ import {
 } from '../../events/types';
 import { isSwitching } from '../../events/mode';
 import { createQualityEstimator } from '../../connectivity/networkQuality';
+import { createBackoff, type BackoffLimits } from '../../connectivity/backoff';
 import {
   createNetworkService,
   pingProbe,
@@ -82,9 +83,10 @@ interface RuntimeDependencies {
   clearTimeout?: typeof clearTimeout;
   setInterval?: typeof setInterval;
   clearInterval?: typeof clearInterval;
+  random?: () => number;
 }
-/** Waits before reconnecting a conversation that fell back to the device voice; doubles per attempt. */
-export const AgentRetry = { FIRST_MS: 2000, MAX_MS: 60000 } as const;
+/** Waits before reconnecting a conversation that fell back to the device voice. */
+export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
 export interface InstructorRuntime extends VoiceRuntime {
   readonly instructor: ModelInstructor;
   setPack(pack: Pack): void;
@@ -122,7 +124,7 @@ export function createInstructorRuntime(
   let disposed = false;
   let switchId = 0;
   let idle = true;
-  let agentRetryMs: number = AgentRetry.FIRST_MS;
+  const agentBackoff = createBackoff(AgentRetry, deps.random);
   let agentRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let agentRetryDue = false;
   let routeSeen = false;
@@ -170,13 +172,11 @@ export function createInstructorRuntime(
     if (agentRetryTimer !== null) {
       return;
     }
-    const delay = agentRetryMs;
-    agentRetryMs = Math.min(delay * 2, AgentRetry.MAX_MS);
     agentRetryTimer = schedule(() => {
       agentRetryTimer = null;
       agentRetryDue = true;
       retryAgent();
-    }, delay);
+    }, agentBackoff.next());
   }
   /** Restarts a conversation that fell back to the device voice, so it reconnects to the agent. */
   function retryAgent() {
@@ -292,6 +292,7 @@ export function createInstructorRuntime(
     probe,
     setTimeout: deps.setTimeout,
     clearTimeout: deps.clearTimeout,
+    random: deps.random,
     emit(status) {
       bus.emit(AppEvent.network, status);
       controller.network(status);
@@ -311,7 +312,7 @@ export function createInstructorRuntime(
       routeSeen = true;
       if (changed && status.quality === NetworkQuality.good) {
         cancelAgentRetry();
-        agentRetryMs = AgentRetry.FIRST_MS;
+        agentBackoff.reset();
         agentRetryDue = true;
         retryAgent();
       }
@@ -358,7 +359,7 @@ export function createInstructorRuntime(
           status: value => {
             if (value.state === AgentState.connected) {
               cancelAgentRetry();
-              agentRetryMs = AgentRetry.FIRST_MS;
+              agentBackoff.reset();
               controller.voiceStarted(VoiceSource.agent);
             }
             bus.emit(AppEvent.agent, value);

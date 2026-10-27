@@ -24,8 +24,9 @@ import { createInstructorRuntime } from '../apps/field-guide/src/features/instru
 import type { NetworkPath } from 'react-native-on-device';
 import {
   PROBE_INTERVAL_MS,
-  PROBE_RETRY_MS,
+  ProbeRetry,
 } from '../apps/field-guide/src/features/connectivity/networkService';
+import { GrpcBackoff } from '../apps/field-guide/src/features/connectivity/backoff';
 import { ModeTiming } from '../apps/field-guide/src/features/instructor/mode/modeController';
 import { SwitchTiming } from '../apps/field-guide/src/features/instructor/mode/modeSwitcher';
 
@@ -408,13 +409,17 @@ test('a Worker that stops answering goes offline within seconds and back online 
   reachable = false;
   // The interval notices the loss, and two quick retries confirm it.
   await jest.advanceTimersByTimeAsync(
-    PROBE_INTERVAL_MS + PROBE_RETRY_MS * 3 + SwitchTiming.MIN_SWITCH_MS,
+    PROBE_INTERVAL_MS +
+      ProbeRetry.initialMs * (1 + GrpcBackoff.MULTIPLIER) +
+      SwitchTiming.MIN_SWITCH_MS,
   );
   expect(appEvents.latest('mode')?.mode).toBe('offline');
   reachable = true;
   // The next backoff retry and one confirming probe end the outage.
   await jest.advanceTimersByTimeAsync(
-    PROBE_RETRY_MS * 5 + ModeTiming.RECOVERY_MS + SwitchTiming.MIN_SWITCH_MS,
+    ProbeRetry.initialMs * (GrpcBackoff.MULTIPLIER ** 2 + 1) +
+      ModeTiming.RECOVERY_MS +
+      SwitchTiming.MIN_SWITCH_MS,
   );
   expect(appEvents.latest('mode')).toMatchObject({
     mode: 'online',
