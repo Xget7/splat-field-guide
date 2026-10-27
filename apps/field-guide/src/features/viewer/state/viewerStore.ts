@@ -88,6 +88,22 @@ export interface ViewerActions {
 export type ViewerStoreState = ViewerStatus & ViewerActions;
 export type ViewerStore = StoreApi<ViewerStoreState>;
 
+const VIEWER_CLOSED = 'The viewer must be open';
+
+/** The open viewer's display; reading it before the viewer opens is a programming error. */
+export function selectDisplay(state: ViewerStatus): ViewerDisplay {
+  if (state.display === null) {
+    throw new Error(VIEWER_CLOSED);
+  }
+  return state.display;
+}
+export function selectViewer(state: ViewerStatus): ViewerState {
+  if (state.viewer === null) {
+    throw new Error(VIEWER_CLOSED);
+  }
+  return state.viewer;
+}
+
 const INITIAL_LAYOUT: ViewerLayout = {
   instructorOpen: false,
   panelMode: PanelMode.expanded,

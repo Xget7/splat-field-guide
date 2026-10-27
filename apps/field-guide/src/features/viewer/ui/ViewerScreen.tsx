@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -7,19 +7,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { findReadyGuide, type ReadyGuide } from '../../pack/catalog';
 import { useCatalog } from '../../../app/context/CatalogContext';
-import { type Pack, type PartId, type ProcedureId } from '../../pack/pack';
+import { type Pack, type ProcedureId } from '../../pack/pack';
 import {
   currentProcedure,
-  SessionEventType,
   type SessionEvent,
   type SessionState,
   LearnMode,
-  cardPartFor,
-  partTrailFor,
-  stepRowsFor,
 } from '../../guide';
+import { clearProgress, saveProgress } from '../../guide/views';
 import {
   useInstructor,
+  useInstructorVoice,
   FADE_IN,
   FADE_OUT,
   panelLayout,
@@ -28,7 +26,29 @@ import type { Instructor } from '../../instructor';
 
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
 
+import { Capability } from '../domain/capability';
 import type { Size } from '../domain/screenGeometry';
+import {
+  attachProgressAutosave,
+  type ProgressWriter,
+} from '../data/progressAutosave';
+import { selectDisplay, viewerStore } from '../state/viewerStore';
+import {
+  useCanResume,
+  useCard,
+  useCardPart,
+  useDisplayedSession,
+  useExchange,
+  useExploring,
+  useFrameRequest,
+  usePartTrail,
+  useShownText,
+  useStepRows,
+  useThread,
+  useUtterance,
+  useViewerLayout,
+  useVoiceContext,
+} from '../state/viewerHooks';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Color, Space, Type } from '../../../ui/theme';
@@ -39,7 +59,6 @@ import {
 } from './instructor/AssistantDock';
 import { ExploreDrawer } from './shell/ExploreDrawer';
 import { GuideDrawer } from './shell/GuideDrawer';
-import { Capability } from '../domain/capability';
 import { DRAWER_IN, DRAWER_OUT } from './shell/layout';
 import { ViewerRail } from './shell/ViewerRail';
 import { Breadcrumb } from './stage/Breadcrumb';
@@ -56,9 +75,6 @@ import { ViewerTools } from './ViewerTools';
 import { ViewerTopBar } from './ViewerTopBar';
 import { useKeyboardVisible } from '../../../ui/useKeyboardVisible';
 import { useWideLayout } from '../../../ui/useWideLayout';
-import { PanelMode } from '../domain/panelMotion';
-
-import { useViewerSession } from './useViewerSession';
 
 /** Development-only interface for Metro checks of the live viewer. */
 export interface FieldGuideDebug {
@@ -72,6 +88,7 @@ const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
 const BREADCRUMB_HEIGHT = 40;
 const NO_SIZE: Size = { width: 0, height: 0 };
+const PROGRESS: ProgressWriter = { save: saveProgress, clear: clearProgress };
 
 export function ViewerScreen({
   navigation,
@@ -117,69 +134,84 @@ function Viewer({
   onExit,
 }: ViewerProps) {
   const { pack } = guide;
-  const insets = useSafeAreaInsets();
-  const [instructorOpen, setInstructorOpen] = useState(
-    mode === LearnMode.instructor,
+  // Opened during the first render, so the first frame already shows the requested step.
+  useState(() =>
+    viewerStore
+      .getState()
+      .open({ guide, procedureId, stepIndex, mode, instructor }),
   );
+  // Actions never change, so reading them once per render is enough.
+  const actions = viewerStore.getState();
+  const insets = useSafeAreaInsets();
   const {
-    session,
-    exploring,
-    canResume,
-    explore,
-    resumeGuide,
-    finish,
-    frameRequest,
-    card,
-    thread,
-    exchange,
-    voice,
-    ask,
-    dispatch,
-  } = useViewerSession({
-    guide,
-    procedureId,
-    stepIndex,
     instructorOpen,
-    instructor,
+    panelMode,
+    instructorDockExpanded,
+    fullView,
+    labelsOn,
+    pickerVisible,
+  } = useViewerLayout();
+  const session = useDisplayedSession();
+  const exploring = useExploring();
+  const canResume = useCanResume();
+  const card = useCard();
+  const thread = useThread();
+  const exchange = useExchange();
+  const steps = useStepRows();
+  const trail = usePartTrail();
+  const cardPart = useCardPart();
+  const shownText = useShownText();
+  const frameRequest = useFrameRequest();
+  const utterance = useUtterance();
+  const voiceContext = useVoiceContext();
+  const voice = useInstructorVoice({
+    pack,
+    enabled: instructorOpen,
+    utterance,
+    context: voiceContext,
+    runtime: instructor,
+    onTurn: actions.receiveTurn,
+    onAction: actions.applyAgentAction,
+    onIdle: idle => instructor.setIdle(idle),
+    onAsk: actions.ask,
+    onCancel: actions.cancelAnswer,
     startInVoice,
   });
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [fullView, setFullView] = useState(false);
-  const [labelsOn, setLabelsOn] = useState(true);
-  // Recentering frames the step again without asking the instructor to repeat it.
-  const [recenters, setRecenters] = useState(0);
+  const { ask: askVoice, interrupt: interruptVoice, stop: stopVoice } = voice;
+  useEffect(() => {
+    viewerStore.getState().attachVoice({
+      ask: askVoice,
+      interrupt: interruptVoice,
+      stop: stopVoice,
+    });
+  }, [askVoice, interruptVoice, stopVoice]);
+  // Declared after the voice hook, so leaving stops speech before the answer is cancelled.
+  useEffect(() => {
+    const detach = attachProgressAutosave(viewerStore, PROGRESS);
+    return () => {
+      detach();
+      viewerStore.getState().close();
+    };
+  }, []);
   const [loadedMs, setLoadedMs] = useState<number | null>(null);
   const [stage, setStage] = useState<Size>(NO_SIZE);
   const [toolsWidth, setToolsWidth] = useState(0);
   const docks = stageDocksFor(stage.width, toolsWidth);
-  const [assistantExpanded, setAssistantExpanded] = useState(false);
-  const [instructorMode, setInstructorMode] = useState<PanelMode>(
-    PanelMode.expanded,
-  );
   const keyboardVisible = useKeyboardVisible();
   const wide = useWideLayout();
-  const steps = useMemo(() => stepRowsFor(session, pack), [session, pack]);
-  const trail = useMemo(() => partTrailFor(session, pack), [session, pack]);
-  const cardPart = useMemo(() => cardPartFor(session, pack), [session, pack]);
-  const alreadyShown = useMemo(
-    () => [card.title, card.body, card.caution, cardPart?.summary ?? ''],
-    [card, cardPart],
-  );
   const reducedMotion = useReducedMotion();
   const viewportTransition = useMemo(() => panelLayout(), []);
-  const sessionRef = useRef(session);
   // Over the keyboard the home indicator is hidden, so the panel needs no room for it.
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
 
   const animatedResize = (instructorOpen || wide) && !reducedMotion;
   useEffect(() => {
-    sessionRef.current = session;
     if (__DEV__) {
       const target = globalThis as { fieldGuide?: FieldGuideDebug };
       const debug: FieldGuideDebug = {
-        dispatch,
-        ask,
-        getState: () => sessionRef.current,
+        dispatch: viewerStore.getState().dispatch,
+        ask: viewerStore.getState().ask,
+        getState: () => selectDisplay(viewerStore.getState()).session,
         pack,
       };
       target.fieldGuide = debug;
@@ -189,81 +221,21 @@ function Viewer({
         }
       };
     }
-  }, [session, pack, dispatch, ask]);
+  }, [pack]);
 
-  const onBack = useCallback(
-    () => dispatch({ type: SessionEventType.back }),
-    [dispatch],
-  );
-  const onRepeat = useCallback(
-    () => dispatch({ type: SessionEventType.repeat }),
-    [dispatch],
-  );
   const onNext = useCallback(() => {
-    if (!card.last) {
-      dispatch({ type: SessionEventType.next });
-      return;
+    if (viewerStore.getState().next()) {
+      onExit();
     }
-    finish().then(onExit);
-  }, [card.last, dispatch, onExit, finish]);
-  const onGoTo = useCallback(
-    (index: number) =>
-      dispatch({ type: SessionEventType.goTo, stepIndex: index }),
-    [dispatch],
-  );
-  const onSelectPart = useCallback(
-    (partId: PartId | null) =>
-      dispatch({ type: SessionEventType.select, partId }),
-    [dispatch],
-  );
-  const onGuide = useCallback(() => {
-    setFullView(false);
-    if (!exploring) {
-      return;
-    }
-    if (canResume) {
-      resumeGuide();
-    } else {
-      setPickerVisible(true);
-    }
-  }, [exploring, canResume, resumeGuide]);
-  const onExplore = useCallback(() => {
-    setFullView(false);
-    explore();
-  }, [explore]);
-  const capability = exploring ? Capability.explore : Capability.guide;
-  const onCapability = useCallback(
-    (next: Capability) => {
-      if (next === capability) {
-        setFullView(full => !full);
-      } else if (next === Capability.explore) {
-        onExplore();
-      } else {
-        onGuide();
-      }
-    },
-    [capability, onExplore, onGuide],
-  );
-  const onAssistantExpanded = useCallback((expanded: boolean) => {
-    setAssistantExpanded(expanded);
-    if (expanded) {
-      setInstructorOpen(true);
-    }
-  }, []);
+  }, [onExit]);
   const leave = useCallback(() => {
-    voice.stop();
+    stopVoice();
     onExit();
-  }, [voice, onExit]);
+  }, [stopVoice, onExit]);
+  const capability = exploring ? Capability.explore : Capability.guide;
   const procedureTitle =
     currentProcedure(session, pack)?.title ??
     (exploring && canResume ? EXPLORE_TITLE : NO_PROCEDURE_TITLE);
-  const onChooseProcedure = useCallback(
-    (id: ProcedureId) => {
-      dispatch({ type: SessionEventType.start, procedureId: id });
-      setPickerVisible(false);
-    },
-    [dispatch],
-  );
 
   const assistantMaxHeight = Math.max(
     0,
@@ -278,7 +250,7 @@ function Viewer({
     docks,
     insets.top + Space.sm + BREADCRUMB_HEIGHT + Space.sm,
     insets.bottom + Space.lg,
-    assistantExpanded
+    instructorDockExpanded
       ? Math.min(DOCK_EXPANDED_HEIGHT, assistantMaxHeight)
       : null,
   );
@@ -291,14 +263,14 @@ function Viewer({
         <Breadcrumb
           area={guide.area}
           trail={trail}
-          onArea={() => onSelectPart(null)}
-          onPart={onSelectPart}
+          onArea={() => actions.select(null)}
+          onPart={actions.select}
         />
       </View>
       {labelsOn && (
         <PartCard part={cardPart} stage={stage} clear={cardClearance} />
       )}
-      {!(assistantExpanded && docks.toolsCovered) && (
+      {!(instructorDockExpanded && docks.toolsCovered) && (
         <Animated.View
           entering={FADE_IN}
           exiting={FADE_OUT}
@@ -319,10 +291,10 @@ function Viewer({
               fullView={fullView}
               canRepeat={!exploring}
               dev={<DevPanel pack={pack} loadedMs={loadedMs} />}
-              onRecenter={() => setRecenters(count => count + 1)}
-              onToggleLabels={() => setLabelsOn(on => !on)}
-              onRepeat={onRepeat}
-              onToggleFullView={() => setFullView(full => !full)}
+              onRecenter={actions.recenter}
+              onToggleLabels={actions.toggleLabels}
+              onRepeat={actions.repeat}
+              onToggleFullView={actions.toggleFullView}
             />
           </View>
         </Animated.View>
@@ -334,11 +306,11 @@ function Viewer({
         <AssistantDock
           thread={thread}
           exchange={exchange}
-          alreadyShown={alreadyShown}
-          onAsk={ask}
+          alreadyShown={shownText}
+          onAsk={actions.ask}
           voice={voice}
-          expanded={assistantExpanded}
-          onExpandedChange={onAssistantExpanded}
+          expanded={instructorDockExpanded}
+          onExpandedChange={actions.setInstructorDockExpanded}
           collapsedWidth={docks.assistantWidth}
           expandedWidth={docks.assistantExpandedWidth}
           bottomInset={0}
@@ -351,21 +323,21 @@ function Viewer({
     <SplatViewport
       pack={pack}
       session={session}
-      frameRequest={frameRequest + recenters}
+      frameRequest={frameRequest}
       closeUp={session.selectedPart !== null || exchange !== null}
       accessibilityLabel={`${guide.title}, ${guide.area}`}
       resizeTransition={animatedResize ? viewportTransition : undefined}
       markers={labelsOn}
       carded={wide ? cardPart?.id ?? null : null}
-      onSelect={onSelectPart}
+      onSelect={actions.select}
       onLoaded={setLoadedMs}
     >
       {!wide && (
         <View style={styles.toolsTop}>
           <ViewerTools
             exploring={exploring}
-            onGuide={onGuide}
-            onExplore={onExplore}
+            onGuide={actions.resumeGuide}
+            onExplore={actions.explore}
           />
         </View>
       )}
@@ -378,20 +350,20 @@ function Viewer({
       exchange={exchange}
       content={card}
       bottomInset={bottomInset}
-      onAsk={ask}
+      onAsk={actions.ask}
       voice={voice}
-      mode={instructorMode}
-      onModeChange={setInstructorMode}
-      onBack={onBack}
+      mode={panelMode}
+      onModeChange={actions.setPanelMode}
+      onBack={actions.back}
       onNext={onNext}
     />
   ) : (
     <StepPanel
       content={card}
       bottomInset={bottomInset}
-      onBack={onBack}
+      onBack={actions.back}
       onNext={onNext}
-      onRepeat={onRepeat}
+      onRepeat={actions.repeat}
     />
   );
 
@@ -413,7 +385,7 @@ function Viewer({
               capability={capability}
               drawerOpen={!fullView}
               onBack={leave}
-              onCapability={onCapability}
+              onCapability={actions.chooseCapability}
             />
             {!fullView && (
               <Animated.View
@@ -427,22 +399,22 @@ function Viewer({
                     bottomInset={insets.bottom}
                     parts={pack.parts}
                     selected={session.selectedPart}
-                    onSelect={onSelectPart}
-                    onClose={() => setFullView(true)}
+                    onSelect={actions.select}
+                    onClose={actions.closeDrawer}
                   />
                 ) : (
                   <GuideDrawer
                     topInset={insets.top}
                     bottomInset={insets.bottom}
                     procedureTitle={procedureTitle}
-                    onChooseProcedure={() => setPickerVisible(true)}
+                    onChooseProcedure={actions.openPicker}
                     steps={steps}
                     current={session.stepIndex}
-                    onGoTo={onGoTo}
+                    onGoTo={actions.goTo}
                     content={card}
-                    onBack={onBack}
+                    onBack={actions.back}
                     onNext={onNext}
-                    onClose={() => setFullView(true)}
+                    onClose={actions.closeDrawer}
                   />
                 )}
               </Animated.View>
@@ -466,11 +438,8 @@ function Viewer({
             procedureTitle={procedureTitle}
             instructorOpen={instructorOpen}
             onBack={leave}
-            onChooseProcedure={() => setPickerVisible(true)}
-            onToggleInstructor={() => {
-              voice.stop();
-              setInstructorOpen(open => !open);
-            }}
+            onChooseProcedure={actions.openPicker}
+            onToggleInstructor={actions.toggleInstructor}
           />
           {viewportView}
           {panel}
@@ -480,8 +449,8 @@ function Viewer({
         visible={pickerVisible}
         pack={pack}
         current={session.procedureId}
-        onChoose={onChooseProcedure}
-        onClose={() => setPickerVisible(false)}
+        onChoose={actions.chooseProcedure}
+        onClose={actions.closePicker}
       />
     </KeyboardAvoidingView>
   );
