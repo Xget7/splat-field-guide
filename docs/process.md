@@ -196,3 +196,21 @@ The UI accepts a skip only for the current command's native assembling phase and
 The actual V8 harness passed bootstrap, every static forward/reverse prefix, real grouped playback, partial reverse, grouped cancellation, preview return and interruption into the following step.
 App/package lint and types, the signed Release build, signature verification and bundled V8 byte checks passed for this version.
 The 12-step version was installed and launched on xgetphone over the local network; physical grouped animation, Next interruption and elevation remain unchecked without phone UI automation.
+
+## Maestro parts-tour smoke, 2026-10-27
+
+Maestro CLI 2.12.0 ran `.maestro/parts-tour.yaml` twice unchanged on the booted Field Guide iPad simulator, iOS 26.5, at 1024 x 1366 points in portrait.
+Both runs exited successfully using the installed Debug app and an owned Metro on port 8081, with no native rebuild or app source changes.
+The flow starts from cleared local app state, opens the bundled Gol guide, chooses self-guided mode and starts the parts tour.
+It waits for the visible coolant marker after native readiness, rejects loading and renderer-error states, selects the power steering step and returns to the first step.
+Each step action checks both its selected accessibility state and the corresponding visible highlighted label.
+The final screenshots were reviewed with the cloud and coolant label visible; there is no automated pixel comparison.
+The two final artifact directories are `.work/maestro/2026-10-27_004129` and `.work/maestro/2026-10-27_004224`.
+
+On cold launches, the first synthetic Start tap did not reach the button's press callbacks; a subsequent tap opened the tour.
+The underlying cause of that input loss remains unverified.
+The flow permits one retry only for Start navigation; step selections and their label assertions are not retried as a block.
+Temporary touch instrumentation and diagnostic flows were removed.
+App lint, TypeScript, all 674 Jest tests and flow formatting passed.
+No voice session, instructor question, paid call or upload was made.
+Android execution, phone layouts and physical acceptance were not checked by this flow.

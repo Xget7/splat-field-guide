@@ -1,0 +1,70 @@
+appId: dev.splatfieldguide.app
+name: Parts tour highlights the first part
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible:
+      id: guide-card-gol-trend-engine-bay
+    timeout: 30000
+- tapOn:
+    id: guide-card-gol-trend-engine-bay
+- tapOn:
+    id: mode-self-guided
+- assertVisible:
+    id: mode-self-guided
+    selected: true
+# A cold iOS launch can drop the first synthetic tap; retry only this navigation.
+- retry:
+    maxRetries: 1
+    commands:
+      - tapOn:
+          id: start-tour
+      - extendedWaitUntil:
+          visible:
+            id: step-row-0
+          timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: marker-0
+      text: Coolant reservoir, highlighted
+    timeout: 60000
+- assertVisible:
+    id: guide-viewport
+- assertNotVisible:
+    id: splat-loading
+- assertNotVisible:
+    id: splat-error
+
+# The tour opens on step one, so leave it before testing the first row.
+- tapOn:
+    id: step-row-1
+- assertVisible:
+    id: step-row-1
+    selected: true
+- extendedWaitUntil:
+    visible:
+      id: marker-0
+      text: Power steering reservoir, highlighted
+    timeout: 15000
+- tapOn:
+    id: step-row-0
+- assertVisible:
+    id: step-row-0
+    selected: true
+- extendedWaitUntil:
+    visible:
+      id: marker-0
+      text: Coolant reservoir, highlighted
+    timeout: 15000
+- assertNotVisible:
+    id: marker-0
+    text: Power steering reservoir, highlighted
+- assertNotVisible:
+    id: splat-error
+- takeScreenshot: parts-tour-first-step

@@ -5,6 +5,7 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "e2e": "MAESTRO_CLI_NO_ANALYTICS=1 maestro test --test-output-dir ../../.work/maestro ../../.maestro/parts-tour.yaml",
     "lint": "eslint . ../../tests --config .eslintrc.js --resolve-plugins-relative-to . && prettier --check src ../../tests --config .prettierrc.js",
     "start": "react-native start",
     "test": "jest",

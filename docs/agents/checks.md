@@ -63,3 +63,15 @@ xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
 
 Keep DerivedData under `apps/field-guide/ios/build/` with compilation caching disabled, and delete the build directory afterward.
 For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebuild, with `localhost` for a simulator or the Mac's reachable address for a phone.
+
+## Maestro E2E
+
+Install Maestro CLI with `nice -n 19 brew install mobile-dev-inc/tap/maestro`; it requires Java 17 or later.
+Prepare and install the app using the platform workflow above, and start Metro for a Debug build.
+Use a tablet layout at least 700 points wide in portrait, where the guide drawer exposes the step list.
+From `apps/field-guide`, run `nice -n 19 npm run e2e -- --udid <simulator-udid-or-emulator-serial>` against the explicit running target.
+The flow clears that app's local state, opens the bundled guide in self-guided mode and starts the parts tour without enabling voice or asking the instructor.
+Only the Start navigation can retry once if the first synthetic tap is dropped after a cold iOS launch; step selection and label assertions are not retried as a block.
+It waits for the first highlighted marker, which mounts only after native `onReady` reports the first GPU frame, then selects the second step and returns to the first.
+It checks the selected row and the corresponding visible part label, rejects renderer errors and saves `parts-tour-first-step.png` under `.work/maestro`.
+The screenshot is review evidence; this flow does not compare renderer pixels or establish physical performance acceptance.
