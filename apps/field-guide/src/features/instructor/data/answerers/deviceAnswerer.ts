@@ -1,7 +1,7 @@
 import type { Pack } from '../../../pack/pack';
 import type { LanguageModel } from '../../../../platform/ports';
 import { promptFor, PromptNotes, rulesFor } from '../../domain/grounding';
-import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import type { Answerer } from '../../domain/turn/answerer';
 
 const AVAILABLE = 'available';
 // Limit history to leave room in the on-device model's 4096-token window.
@@ -12,9 +12,9 @@ export function onDeviceInstructions(pack: Pack): string {
   return rulesFor(pack).join('\n');
 }
 
-export function createOnDeviceModel(
+export function createDeviceAnswerer(
   languageModel: () => LanguageModel,
-): InstructorModel {
+): Answerer {
   return {
     isReady() {
       try {

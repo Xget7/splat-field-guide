@@ -23,9 +23,10 @@ import { createModeController } from '../../domain/mode/modeController';
 import { runSwitch } from '../../domain/mode/modeSwitcher';
 import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
 import { createAgentClient } from '../agent/agentClient';
-import { createCloudModel } from '../answerers/cloudModel';
-import { createOnDeviceModel } from '../answerers/onDeviceModel';
-import { createModelInstructor } from '../../domain/turn/modelInstructor';
+import { createCloudAnswerer } from '../answerers/cloudAnswerer';
+import { createDeviceAnswerer } from '../answerers/deviceAnswerer';
+import { createTurnRunner } from '../../domain/turn/turnRunner';
+import { createExchangeIds } from '../../domain/turn/exchange';
 import {
   VoiceStartFailure,
   type VoiceRuntimeState,
@@ -66,7 +67,7 @@ export function createInstructorRuntime({
   const audio = platform.audioLink;
   const paths = platform.networkMonitor;
   const foreground = createInstructorForeground(platform.appState);
-  const model = createOnDeviceModel(platform.languageModel);
+  const model = createDeviceAnswerer(platform.languageModel);
   const proxy = url === null ? null : createProxyClient(url, platform);
   const connection = createAgentConnection({ proxy, clock });
   // Switch waits are tracked so stop cancels the ones still pending.
@@ -272,20 +273,22 @@ export function createInstructorRuntime({
       }
     },
   });
-  const cloud = createCloudModel({
+  const cloud = createCloudAnswerer({
     proxy,
     clock,
     timers,
     isOnline: () => controller.current().mode === InstructorMode.online,
     onFailure: () => network.report({ ok: false }),
   });
-  const instructor = createModelInstructor([cloud, model]);
+  const ids = createExchangeIds();
+  const instructor = createTurnRunner([cloud, model], ids);
   const sessions = createInstructorSessions({
     input,
     output,
     audio,
     timers,
     prompt: foreground.prompt,
+    ids,
     offlineVoice: offlineVoice.voice,
     agentAvailable: connection.available,
     foreground: foreground.isForeground,

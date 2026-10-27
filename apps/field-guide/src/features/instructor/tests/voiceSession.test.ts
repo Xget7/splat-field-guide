@@ -8,6 +8,7 @@ import {
   type SessionAgentHandlers,
 } from '../data/voice/agentVoiceSession';
 import { SpeechVoice } from '../domain/voice/voiceCopy';
+import { createExchangeIds } from '../domain/turn/exchange';
 
 const { speechInput, speechOutput, audioLink, timers } =
   fakePlatform().platform;
@@ -35,6 +36,7 @@ const adapters = [
       return {
         session: createAgentVoiceSession({
           pack,
+          ids: createExchangeIds(),
           audio: audioLink,
           client: handlers => {
             conversation = handlers;

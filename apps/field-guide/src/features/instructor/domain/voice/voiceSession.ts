@@ -2,7 +2,7 @@ import { ConnectionFailure } from '../agent/agentStatus';
 import type { Pack } from '../../../pack/pack';
 import type { SessionEvent, SessionState } from '../../../guide';
 import type { PreviousExchange } from '../grounding';
-import type { TurnEvent } from '../turn/turn';
+import type { TurnEvent } from '../turn/exchange';
 import type { SpokenSection, SpokenWord } from './speechPresentation';
 
 export const UtteranceKind = {

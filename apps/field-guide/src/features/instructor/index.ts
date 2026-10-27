@@ -14,14 +14,14 @@ export {
   isRepeatedText,
   shownWordsFor,
 } from './domain/repeatedContent';
-export { createModelInstructor } from './domain/turn/modelInstructor';
+export { createTurnRunner } from './domain/turn/turnRunner';
 export {
+  createExchangeIds,
   ExchangePhase,
-  nextExchangeId,
   sessionForExchange,
   TurnEventType,
-} from './domain/turn/turn';
-export type { Exchange, TurnEvent } from './domain/turn/turn';
+} from './domain/turn/exchange';
+export type { Exchange, ExchangeIds, TurnEvent } from './domain/turn/exchange';
 export { recognitionHintsFor } from './domain/voice/recognitionHints';
 export {
   speechTextFor,
@@ -42,7 +42,7 @@ export type {
   VoiceSession,
   VoiceSessionEvents,
 } from './domain/voice/voiceSession';
-export { onDeviceInstructions } from './data/answerers/onDeviceModel';
+export { onDeviceInstructions } from './data/answerers/deviceAnswerer';
 export { createInstructorRuntime } from './data/runtime/instructorRuntime';
 export type { InstructorRuntimeOptions } from './data/runtime/instructorRuntime';
 export type { InstructorRuntime } from './domain/instructorRuntime';

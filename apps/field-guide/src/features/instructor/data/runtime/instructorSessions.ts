@@ -25,6 +25,7 @@ import type {
   VoicePrompt,
 } from '../../domain/voice/voiceSession';
 import type { Pack } from '../../../pack/pack';
+import type { ExchangeIds } from '../../domain/turn/exchange';
 
 interface SessionDependencies {
   input: () => SpeechInput;
@@ -32,6 +33,7 @@ interface SessionDependencies {
   audio: () => AudioLink;
   timers: Timers;
   prompt: VoicePrompt;
+  ids: ExchangeIds;
   offlineVoice: SpeechVoice;
   client(handlers: SessionAgentHandlers): AgentClient;
   agentAvailable(): boolean;
@@ -104,6 +106,7 @@ export function createInstructorSessions(deps: SessionDependencies) {
         pack: guide,
         audio: deps.audio,
         client: deps.client,
+        ids: deps.ids,
         prompt: deps.prompt,
       });
       const fallback = createFallbackVoiceSession({

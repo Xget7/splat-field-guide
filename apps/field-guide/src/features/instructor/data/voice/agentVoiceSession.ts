@@ -16,10 +16,10 @@ import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
 import {
   ExchangePhase,
-  nextExchangeId,
+  type ExchangeIds,
   TurnEventType,
   type Exchange,
-} from '../../domain/turn/turn';
+} from '../../domain/turn/exchange';
 import { SpokenSection } from '../../domain/voice/speechPresentation';
 import {
   UtteranceKind,
@@ -52,11 +52,14 @@ export function createAgentVoiceSession({
   client: makeClient,
   pack,
   audio,
+  ids,
   prompt = request => request(),
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
   audio: () => AudioLink;
+  /** The thread's id source, shared with the turn runner so ids never collide. */
+  ids: ExchangeIds;
   prompt?: VoicePrompt;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;
@@ -106,7 +109,7 @@ export function createAgentVoiceSession({
     previous = exchange;
     typed = null;
     exchange = {
-      id: nextExchangeId(),
+      id: ids.next(),
       question,
       reply: '',
       caution: '',

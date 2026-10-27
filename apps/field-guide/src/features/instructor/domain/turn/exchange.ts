@@ -56,8 +56,11 @@ export function sessionForExchange(
     : session;
 }
 
-let exchangeId = 0;
-/** Shared by every source of exchanges so ids never collide in the thread. */
-export function nextExchangeId(): number {
-  return ++exchangeId;
+/** Numbers exchanges; one source is shared by everything that adds exchanges to a thread. */
+export interface ExchangeIds {
+  next(): number;
+}
+export function createExchangeIds(): ExchangeIds {
+  let last = 0;
+  return { next: () => ++last };
 }

@@ -1,5 +1,7 @@
 import { bundledPack } from '../../pack/bundledPack';
-import { cloudInstructions } from '../data/answerers/cloudModel';
+import { cloudInstructions } from '../data/answerers/cloudAnswerer';
+import { ReplyFormat, rulesFor } from '../domain/grounding';
+import { fixturePack } from '@tests/fixturePack';
 
 test('the complete cloud instructions remain byte identical', () => {
   if (!bundledPack.ok) {
@@ -108,4 +110,21 @@ test('the complete cloud instructions remain byte identical', () => {
     Check the brake fluid level: Find the white reservoir with the yellow cap near the air box. Wipe dirt off the reservoir and cap with a clean cloth before you look. Read the level through the reservoir wall. It must sit between the MIN and MAX marks. If it is below MIN, have the brakes checked before you drive. Top up only with the brake fluid your owner's manual names. Caution: A sudden drop means a leak and unsafe brakes. Brake fluid damages paint, so wipe any spill at once. Close the cap tight. Keep the brake fluid container sealed.
     Check the power steering fluid level: Find the dark square tank with the yellow-green cap next to the coolant tank. Wipe the tank and cap with a clean cloth before you open it. Read the level against the marks on the tank or the cap, as shown in your owner's manual. If it is low, top up with the fluid your owner's manual names, up to the MAX mark. Caution: Do not use a fluid the manual does not name. Do not overfill. Close the cap tight. Check the tank and hoses for oil leaks."
   `);
+});
+
+test('instructions are strict structured rules followed by every note and guided check', () => {
+  const pack = fixturePack();
+  const instructions = cloudInstructions(pack);
+  expect(
+    instructions.startsWith(rulesFor(pack, ReplyFormat.structured).join('\n')),
+  ).toBe(true);
+  expect(instructions).toContain(
+    'Part: Coolant reservoir (also called coolant tank, expansion tank)',
+  );
+  expect(instructions).toContain(
+    'faults: A battery that keeps going flat needs a charging check.',
+  );
+  expect(instructions).toContain(
+    'Check the coolant level: Step engine-cold Caution: Only with the engine cold. Step locate Step read-level',
+  );
 });

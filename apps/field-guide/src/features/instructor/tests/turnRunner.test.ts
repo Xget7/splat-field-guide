@@ -2,19 +2,25 @@ import { INITIAL_SESSION } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
 import { answerAbout } from '../domain/grounding';
 import { answerFor, NOT_COVERED_REPLY } from '../domain/instructor';
-import { TurnEventType } from '../domain/turn/turn';
-import { createModelInstructor } from '../domain/turn/modelInstructor';
-import { type InstructorModel } from '../domain/turn/InstructorModel';
+import { TurnEventType } from '../domain/turn/exchange';
+import { createTurnRunner } from '../domain/turn/turnRunner';
+import { type Answerer } from '../domain/turn/answerer';
+import { createExchangeIds } from '../domain/turn/exchange';
+import { createCloudAnswerer } from '../data/answerers/cloudAnswerer';
+import { createProxyClient } from '../data/proxy/proxyClient';
+import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
 
-let instructor = createModelInstructor([]);
+const runner = (answerers: readonly Answerer[]) =>
+  createTurnRunner(answerers, createExchangeIds());
+let instructor = runner([]);
 const pack = fixturePack();
 const battery = pack.parts.find(part => part.id === 'battery')!;
 const QUESTION = 'What does the battery do?';
 
-const fakeModel = (
-  respond: InstructorModel['respond'],
+const fakeAnswerer = (
+  respond: Answerer['respond'],
   ready = true,
-): InstructorModel => ({
+): Answerer => ({
   isReady: jest.fn(() => ready),
   prewarm: jest.fn(),
   respond: jest.fn(respond),
@@ -45,9 +51,9 @@ async function ask(
 }
 
 test('the cloud answers first when it can', async () => {
-  const cloud = fakeModel(replies('It starts the engine.'));
-  const local = fakeModel(replies('Local.'));
-  instructor = createModelInstructor([cloud, local]);
+  const cloud = fakeAnswerer(replies('It starts the engine.'));
+  const local = fakeAnswerer(replies('Local.'));
+  instructor = runner([cloud, local]);
   expect(await ask()).toEqual(answerAbout('It starts the engine.', battery));
   expect(local.respond).not.toHaveBeenCalled();
   expect(cloud.respond).toHaveBeenCalledWith(
@@ -63,9 +69,9 @@ test('the cloud answers first when it can', async () => {
 
 test('a failed or empty model hands the same resolved evidence to the next one', async () => {
   for (const first of [fails, replies('  ')]) {
-    const preferred = fakeModel(first);
-    const fallback = fakeModel(replies('It supplies the starter.'));
-    instructor = createModelInstructor([preferred, fallback]);
+    const preferred = fakeAnswerer(first);
+    const fallback = fakeAnswerer(replies('It supplies the starter.'));
+    instructor = runner([preferred, fallback]);
     expect(await ask()).toEqual(
       answerAbout('It supplies the starter.', battery),
     );
@@ -79,21 +85,21 @@ test('a failed or empty model hands the same resolved evidence to the next one',
 });
 
 test('a model that is not ready is skipped', async () => {
-  const cloud = fakeModel(replies('Cloud.'), false);
-  instructor = createModelInstructor([cloud, fakeModel(replies('Local.'))]);
+  const cloud = fakeAnswerer(replies('Cloud.'), false);
+  instructor = runner([cloud, fakeAnswerer(replies('Local.'))]);
   expect((await ask()).reply).toBe('Local.');
   expect(cloud.respond).not.toHaveBeenCalled();
 });
 
 test('the script answers when every model fails', async () => {
-  instructor = createModelInstructor([fakeModel(fails), fakeModel(fails)]);
+  instructor = runner([fakeAnswerer(fails), fakeAnswerer(fails)]);
   expect(await ask()).toEqual(answerFor(QUESTION, INITIAL_SESSION, pack));
 });
 
 test('partials are shaped and carry the subject the answer will highlight', async () => {
   const onPartial = jest.fn();
-  instructor = createModelInstructor([
-    fakeModel(async (_request, onText) => {
+  instructor = runner([
+    fakeAnswerer(async (_request, onText) => {
       onText(' ');
       onText('It **supplies**');
       onText('It holds 9 litres');
@@ -108,16 +114,16 @@ test('partials are shaped and carry the subject the answer will highlight', asyn
 });
 
 test('a guessed number in the final text is never shown', async () => {
-  instructor = createModelInstructor([fakeModel(replies('Use 5W-30.'))]);
+  instructor = runner([fakeAnswerer(replies('Use 5W-30.'))]);
   expect(await ask()).toEqual(answerAbout(NOT_COVERED_REPLY, battery));
 });
 
 test('cancel stops the chain and silences late partials', async () => {
   const onPartial = jest.fn();
   let finish: (text: string) => void = () => {};
-  const local = fakeModel(replies('Local.'));
-  instructor = createModelInstructor([
-    fakeModel((_request, onText) => {
+  const local = fakeAnswerer(replies('Local.'));
+  instructor = runner([
+    fakeAnswerer((_request, onText) => {
       return new Promise<string>((_resolve, reject) => {
         finish = text => {
           onText(text);
@@ -136,8 +142,8 @@ test('cancel stops the chain and silences late partials', async () => {
 });
 
 test('commands stay synchronous and questions with no ready model use the script', async () => {
-  const model = fakeModel(replies('Cloud.'));
-  instructor = createModelInstructor([model]);
+  const model = fakeAnswerer(replies('Cloud.'));
+  instructor = runner([model]);
   const changed = jest.fn();
   const done = instructor.ask(
     { question: 'next', state: INITIAL_SESSION, pack, history: [] },
@@ -148,14 +154,14 @@ test('commands stay synchronous and questions with no ready model use the script
   });
   await done;
   expect(model.respond).not.toHaveBeenCalled();
-  instructor = createModelInstructor([fakeModel(replies('Cloud.'), false)]);
+  instructor = runner([fakeAnswerer(replies('Cloud.'), false)]);
   expect(await ask()).toEqual(answerFor(QUESTION, INITIAL_SESSION, pack));
 });
 
 test('prewarm reaches only ready models and cancel reaches all', () => {
-  const ready = fakeModel(replies(''));
-  const idle = fakeModel(replies(''), false);
-  instructor = createModelInstructor([ready, idle]);
+  const ready = fakeAnswerer(replies(''));
+  const idle = fakeAnswerer(replies(''), false);
+  instructor = runner([ready, idle]);
   instructor.prewarm(pack);
   expect(ready.prewarm).toHaveBeenCalledWith(pack);
   expect(idle.prewarm).not.toHaveBeenCalled();
@@ -167,8 +173,8 @@ test('prewarm reaches only ready models and cancel reaches all', () => {
 test('cancelling one instructor leaves another pending answer active', async () => {
   const onPartial = jest.fn();
   let finish: () => void = () => {};
-  const firstModel = fakeModel(replies('First.'));
-  const secondModel = fakeModel((_request, onText) => {
+  const firstModel = fakeAnswerer(replies('First.'));
+  const secondModel = fakeAnswerer((_request, onText) => {
     return new Promise<string>(resolve => {
       finish = () => {
         onText('It supplies the starter.');
@@ -176,8 +182,8 @@ test('cancelling one instructor leaves another pending answer active', async () 
       };
     });
   });
-  const first = createModelInstructor([firstModel]);
-  const second = createModelInstructor([secondModel]);
+  const first = runner([firstModel]);
+  const second = runner([secondModel]);
   const pending = ask(onPartial, second);
 
   first.cancel();
@@ -195,8 +201,8 @@ test('cancelling one instructor leaves another pending answer active', async () 
 });
 
 test('a battery voltage does not ground a coolant capacity', async () => {
-  instructor = createModelInstructor([
-    fakeModel(replies('Coolant capacity is 12 litres.')),
+  instructor = runner([
+    fakeAnswerer(replies('Coolant capacity is 12 litres.')),
   ]);
   const answer = await ask(
     jest.fn(),
@@ -211,12 +217,12 @@ test('late words from a failed model cannot replace the fallback model in the sa
   let late!: (text: string) => void;
   let nextText!: (text: string) => void;
   let finish!: (text: string) => void;
-  instructor = createModelInstructor([
-    fakeModel((_request, onText) => {
+  instructor = runner([
+    fakeAnswerer((_request, onText) => {
       late = onText;
       return Promise.reject(new Error('failed'));
     }),
-    fakeModel((_request, onText) => {
+    fakeAnswerer((_request, onText) => {
       nextText = onText;
       return new Promise<string>(resolve => {
         finish = resolve;
@@ -240,3 +246,34 @@ test('late words from a failed model cannot replace the fallback model in the sa
     answer: { reply: 'It supplies the starter.' },
   });
 });
+
+test.each(['error', 'missing done'])(
+  'a streamed remote %s falls back to the next answerer',
+  async failure => {
+    const requests = fakeStreamingRequests();
+    const { platform } = fakePlatform({ streamingRequest: requests.create });
+    const cloud = createCloudAnswerer({
+      ...platform,
+      proxy: createProxyClient('https://proxy.example', platform),
+    });
+    const changed = jest.fn();
+    const answered = runner([
+      cloud,
+      fakeAnswerer(replies('It supplies the starter.')),
+    ]).ask(
+      { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
+      changed,
+    );
+    requests.last.receive('{"text":"Provisional reply."}\n');
+    if (failure === 'error') {
+      requests.last.receive('{"error":"cut off"}\n');
+    } else {
+      requests.last.end();
+    }
+    await answered;
+    expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: TurnEventType.answer,
+      answer: { reply: 'It supplies the starter.' },
+    });
+  },
+);

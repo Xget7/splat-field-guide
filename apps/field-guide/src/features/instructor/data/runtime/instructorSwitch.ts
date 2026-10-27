@@ -8,7 +8,7 @@ import {
   type ModeStatus,
 } from '../../domain/mode/modeTypes';
 import type { Pack } from '../../../pack/pack';
-import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import type { Answerer } from '../../domain/turn/answerer';
 import type {
   SwitchOutcome,
   SwitchPieceTask,
@@ -39,7 +39,7 @@ interface SwitchDependencies {
   input: () => SpeechInput;
   output: () => SpeechOutput;
   offlineVoice: OfflineVoice;
-  model: InstructorModel;
+  model: Answerer;
   pack: Pack | null;
   prepareAgent(): Promise<boolean>;
   probe(): Promise<number>;
@@ -100,7 +100,7 @@ export function switchTasks(
 export function switchSources(
   target: InstructorMode,
   outcome: SwitchOutcome,
-  model: InstructorModel,
+  model: Answerer,
 ): ModeSources {
   if (target === InstructorMode.switchingToOffline) {
     return {

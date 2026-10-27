@@ -7,33 +7,39 @@ import {
   isScripted,
   type InstructorAnswer,
 } from '../instructor';
-import type { InstructorModel, ModelRequest } from './InstructorModel';
+import type { Answerer, AnswerRequest } from './answerer';
 import {
   ExchangePhase,
-  nextExchangeId,
+  type ExchangeIds,
   TurnEventType,
   type Exchange,
   type TurnEvent,
-} from './turn';
+} from './exchange';
 
-/** Owns one turn, including routing, fallback and the lifetime of its provisional presentation. */
-export function createModelInstructor(models: readonly InstructorModel[]) {
+/**
+ * Owns one turn, including routing, fallback and the lifetime of its provisional presentation.
+ * Answerers are tried in order, then the script answers; ids come from the thread's one source.
+ */
+export function createTurnRunner(
+  answerers: readonly Answerer[],
+  ids: ExchangeIds,
+) {
   let active: { id: number; changed: (event: TurnEvent) => void } | null = null;
-  const readyModels = () => models.filter(model => model.isReady());
+  const readyAnswerers = () => answerers.filter(answerer => answerer.isReady());
 
   function prewarm(pack: Pack): void {
-    readyModels().forEach(model => model.prewarm(pack));
+    readyAnswerers().forEach(answerer => answerer.prewarm(pack));
   }
 
   function cancel(): void {
     const previous = active;
     active = null;
-    models.forEach(model => model.cancel());
+    answerers.forEach(answerer => answerer.cancel());
     previous?.changed({ type: TurnEventType.cancel });
   }
 
   async function ask(
-    input: Omit<ModelRequest, 'evidence'>,
+    input: Omit<AnswerRequest, 'evidence'>,
     changed: (event: TurnEvent) => void,
   ): Promise<void> {
     const question = input.question.trim();
@@ -44,7 +50,7 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
       cancel();
     }
     const { state, pack, history } = input;
-    const id = nextExchangeId();
+    const id = ids.next();
     active = { id, changed };
     const exchange: Exchange = {
       id,
@@ -80,13 +86,13 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
     }
     const evidence = evidenceFor(question, state, pack);
     const subject = evidence.subject;
-    for (const model of readyModels()) {
+    for (const answerer of readyAnswerers()) {
       if (!current()) {
         return;
       }
       let responding = true;
       try {
-        const text = await model.respond(
+        const text = await answerer.respond(
           { question, state, pack, history, evidence },
           partial => {
             const reply = replyFrom(partial, evidence, true);
@@ -112,12 +118,12 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
           return;
         }
       } catch {
-        // The next model, or the script, answers instead.
+        // The next answerer, or the script, answers instead.
       } finally {
         responding = false;
       }
       if (current()) {
-        // A failed model's provisional words and highlight do not belong to its fallback.
+        // A failed answerer's provisional words and highlight do not belong to its fallback.
         changed({ type: TurnEventType.partial, exchange });
       }
     }
@@ -127,4 +133,4 @@ export function createModelInstructor(models: readonly InstructorModel[]) {
   return { prewarm, ask, cancel };
 }
 
-export type ModelInstructor = ReturnType<typeof createModelInstructor>;
+export type TurnRunner = ReturnType<typeof createTurnRunner>;

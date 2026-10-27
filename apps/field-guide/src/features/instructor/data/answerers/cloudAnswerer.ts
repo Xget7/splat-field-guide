@@ -6,7 +6,7 @@ import {
   rulesFor,
 } from '../../domain/grounding';
 import { packKnowledge } from '../../domain/knowledge';
-import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import type { Answerer } from '../../domain/turn/answerer';
 import type { Clock, Timers } from '../../../../platform/ports';
 import {
   createReplyPolicy,
@@ -25,9 +25,9 @@ export function cloudInstructions(pack: Pack): string {
   ].join('\n');
 }
 
-const NO_PROXY = 'Cloud model: no proxy';
+const NO_PROXY = 'Cloud answerer: no proxy';
 
-export interface CloudModelOptions {
+export interface CloudAnswererOptions {
   readonly proxy: ProxyClient | null;
   readonly isOnline?: () => boolean;
   /** Each failed reply by kind; a cancelled one is not a failure. */
@@ -36,14 +36,14 @@ export interface CloudModelOptions {
   readonly timers: Timers;
 }
 
-/** The proxy retains the API key and streams one JSON object per line. */
-export function createCloudModel({
+/** Answers with Claude through the Worker, waiting on a streamed reply only as the reply policy allows. */
+export function createCloudAnswerer({
   proxy,
   clock,
   timers,
   isOnline = () => true,
   onFailure,
-}: CloudModelOptions): InstructorModel {
+}: CloudAnswererOptions): Answerer {
   const policy = createReplyPolicy({ clock, timers, onFailure });
   return {
     isReady: () => proxy !== null && isOnline() && policy.ready(),

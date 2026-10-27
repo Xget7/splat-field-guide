@@ -25,7 +25,8 @@ import type { SplatViewSpec } from 'react-native-splat';
 import {
   instructorStore,
   createInstructorRuntime,
-  createModelInstructor,
+  createExchangeIds,
+  createTurnRunner,
   OfflineVoices,
   onDeviceInstructions,
   VoiceHint,
@@ -223,8 +224,9 @@ describe('viewer screen', () => {
 
   test('typed questions use active voice, and tool navigation keeps its live exchange without interruption', async () => {
     let heard!: VoiceSessionEvents;
-    const instructor = createModelInstructor([]);
-    const fake = fakeVoiceSession();
+    const ids = createExchangeIds();
+    const instructor = createTurnRunner([], ids);
+    const fake = fakeVoiceSession(ids);
     const session = fake.session;
 
     const lifecycle = fakeVoiceRuntime({ session, questions: fake.questions });

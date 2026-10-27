@@ -1,18 +1,19 @@
 import { fakePlatform } from '@tests/platform';
-import { createModelInstructor } from '../domain/turn/modelInstructor';
+import { createTurnRunner } from '../domain/turn/turnRunner';
+import { createExchangeIds } from '../domain/turn/exchange';
 import { INITIAL_SESSION, startAt } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
 import {
-  createOnDeviceModel,
+  createDeviceAnswerer,
   onDeviceInstructions,
-} from '../data/answerers/onDeviceModel';
+} from '../data/answerers/deviceAnswerer';
 
 const pack = fixturePack();
 const fake = fakePlatform();
 const model = fake.model;
 const languageModel = jest.fn(fake.platform.languageModel);
-const onDeviceModel = createOnDeviceModel(languageModel);
+const deviceAnswerer = createDeviceAnswerer(languageModel);
 const noNativeModule = () => {
   throw new Error('no native module');
 };
@@ -29,24 +30,24 @@ test.each([
   'unavailable',
 ] as const)('is not ready when the model is %s', availability => {
   jest.mocked(model.availability).mockReturnValue(availability);
-  expect(onDeviceModel.isReady()).toBe(false);
+  expect(deviceAnswerer.isReady()).toBe(false);
 });
 
 test('is ready when available, and not when the native module is missing', () => {
   jest.mocked(model.availability).mockReturnValue('available');
-  expect(onDeviceModel.isReady()).toBe(true);
+  expect(deviceAnswerer.isReady()).toBe(true);
   jest.mocked(languageModel).mockImplementationOnce(noNativeModule);
-  expect(onDeviceModel.isReady()).toBe(false);
+  expect(deviceAnswerer.isReady()).toBe(false);
 });
 
 test('prewarms only an available model and tolerates failures', () => {
-  onDeviceModel.prewarm(pack);
+  deviceAnswerer.prewarm(pack);
   expect(model.prewarm).not.toHaveBeenCalled();
   jest.mocked(model.availability).mockReturnValue('available');
-  onDeviceModel.prewarm(pack);
+  deviceAnswerer.prewarm(pack);
   expect(model.prewarm).toHaveBeenCalledWith(onDeviceInstructions(pack));
   jest.mocked(model.prewarm).mockImplementationOnce(noNativeModule);
-  expect(() => onDeviceModel.prewarm(pack)).not.toThrow();
+  expect(() => deviceAnswerer.prewarm(pack)).not.toThrow();
 });
 
 test('asks with the subject notes and passes the streamed text through', async () => {
@@ -64,7 +65,7 @@ test('asks with the subject notes and passes the streamed text through', async (
     pack,
     history: [],
   };
-  await expect(onDeviceModel.respond(request, onText)).resolves.toBe(
+  await expect(deviceAnswerer.respond(request, onText)).resolves.toBe(
     'It supplies the starter.',
   );
   const [instructions, prompt] = jest.mocked(model.respond).mock.calls[0];
@@ -78,10 +79,10 @@ test('asks with the subject notes and passes the streamed text through', async (
 });
 
 test('cancel works without the native module', () => {
-  onDeviceModel.cancel();
+  deviceAnswerer.cancel();
   expect(model.cancel).toHaveBeenCalled();
   jest.mocked(languageModel).mockImplementationOnce(noNativeModule);
-  expect(() => onDeviceModel.cancel()).not.toThrow();
+  expect(() => deviceAnswerer.cancel()).not.toThrow();
 });
 
 test('explaining another procedure supplies its authored steps and cautions without starting it', async () => {
@@ -90,7 +91,7 @@ test('explaining another procedure supplies its authored steps and cautions with
     .mocked(model.respond)
     .mockResolvedValueOnce('Read the coolant level with the engine cold.');
   const changed = jest.fn();
-  await createModelInstructor([onDeviceModel]).ask(
+  await createTurnRunner([deviceAnswerer], createExchangeIds()).ask(
     {
       question: 'How do I check the coolant level?',
       state: startAt('check-brake-fluid', 1, pack),
@@ -125,7 +126,7 @@ test('oversized procedure evidence falls back rather than dropping its caution',
     ),
   };
   const changed = jest.fn();
-  await createModelInstructor([onDeviceModel]).ask(
+  await createTurnRunner([deviceAnswerer], createExchangeIds()).ask(
     {
       question: 'How do I check the coolant level?',
       state: INITIAL_SESSION,
