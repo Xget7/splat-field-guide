@@ -15,7 +15,6 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   usePanGesture,
   usePinchGesture,
@@ -39,16 +38,17 @@ import {
   highlightFor,
   SessionEventType,
   LearnMode,
+  createProgressStorage,
+  type ProgressStorage,
   type SessionStart,
 } from '../../guide';
-import { loadProgress } from '../../guide/views';
 
 import {
   fakeInstructor,
   fakeVoiceSession,
   fakeVoiceRuntime,
 } from '@tests/voiceSession';
-import { fakePlatform } from '@tests/platform';
+import { fakePlatform, fakeStorage } from '@tests/platform';
 
 import { fixturePack } from '@tests/fixturePack';
 import { catalogFor } from '../../pack/catalog';
@@ -126,6 +126,8 @@ describe('viewer screen', () => {
   let instructor: Instructor;
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const onExit = jest.fn();
+  let progress: ProgressStorage;
+  const loadProgress = () => progress.load();
   const native = () =>
     renderer.root.findByType('SplatView' as React.ElementType);
   const node = (testID: string) =>
@@ -164,6 +166,7 @@ describe('viewer screen', () => {
             ...start,
           }}
           onExit={onExit}
+          progress={progress}
         />,
       );
     });
@@ -204,7 +207,7 @@ describe('viewer screen', () => {
     jest.mocked(input.prepare).mockReset().mockResolvedValue('available');
     jest.mocked(input.listen).mockReset().mockResolvedValue();
     jest.mocked(output.speak).mockReset().mockResolvedValue();
-    await AsyncStorage.clear();
+    progress = createProgressStorage(fakeStorage().storage);
   });
   afterEach(async () => {
     await act(() => renderer.unmount());

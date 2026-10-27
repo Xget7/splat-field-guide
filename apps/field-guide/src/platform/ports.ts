@@ -75,6 +75,13 @@ export interface Socket {
   onclose: ((event: { code: number; reason: string }) => void) | null;
 }
 
+/** Keeps small strings across launches, shaped like AsyncStorage. */
+export interface KeyValueStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+
 /** The one app state event the instructor follows. */
 export const AppStateChange = 'change';
 

@@ -21,4 +21,6 @@ export type { CardContent, StepRow } from './domain/guideContent';
 export { LearnMode } from './domain/learningMode';
 export { procedureRowsFor } from './domain/procedureRows';
 export type { Progress } from './domain/progress';
+export { createProgressStorage } from './data/progressStorage';
+export type { ProgressStorage } from './data/progressStorage';
 export { stepLabel } from './domain/stepLabel';

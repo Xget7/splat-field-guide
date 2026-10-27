@@ -1,10 +1,13 @@
 import React from 'react';
 import { NavigationContext } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
-import { LearnMode } from '../../guide';
-import { saveProgress } from '../../guide/views';
+import { fakeStorage } from '@tests/platform';
+import {
+  createProgressStorage,
+  LearnMode,
+  type ProgressStorage,
+} from '../../guide';
 import { bundledPack } from '../../pack/bundledPack';
 
 import { continueRowFor, factsFor } from '../domain/library';
@@ -73,6 +76,10 @@ describe('Library screen', () => {
   const onOpenGuide = jest.fn();
   const onOpen = jest.fn();
   const onOpenAssembly = jest.fn();
+  let device: ReturnType<typeof fakeStorage>;
+  let storage: ProgressStorage;
+  const saveProgress = (saved: Parameters<ProgressStorage['save']>[0]) =>
+    storage.save(saved);
   const node = (testID: string) =>
     renderer.root
       .findAllByProps({ testID })
@@ -91,6 +98,7 @@ describe('Library screen', () => {
         >
           <LibraryScreen
             catalog={catalog}
+            progress={storage}
             onOpenGuide={onOpenGuide}
             onOpen={onOpen}
             onOpenAssembly={offersAssembly ? onOpenAssembly : undefined}
@@ -99,9 +107,10 @@ describe('Library screen', () => {
       );
     });
   };
-  beforeEach(async () => {
+  beforeEach(() => {
     jest.clearAllMocks();
-    await AsyncStorage.clear();
+    device = fakeStorage();
+    storage = createProgressStorage(device.storage);
   });
   afterEach(async () => {
     if (renderer) {
@@ -183,7 +192,7 @@ describe('Library screen', () => {
 
   test('a storage read from the previous focus cannot replace newer progress', async () => {
     let resolve!: (saved: string | null) => void;
-    jest.spyOn(AsyncStorage, 'getItem').mockImplementationOnce(
+    device.storage.getItem.mockImplementationOnce(
       () =>
         new Promise(done => {
           resolve = done;
@@ -203,9 +212,7 @@ describe('Library screen', () => {
   });
 
   test('storage failure leaves the library usable', async () => {
-    jest
-      .spyOn(AsyncStorage, 'getItem')
-      .mockRejectedValueOnce(new Error('unavailable'));
+    device.storage.getItem.mockRejectedValueOnce(new Error('unavailable'));
     await mount();
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),

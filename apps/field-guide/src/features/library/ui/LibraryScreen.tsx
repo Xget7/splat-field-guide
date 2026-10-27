@@ -9,8 +9,12 @@ import {
   type Guide,
   type ReadyGuide,
 } from '../../pack/catalog';
-import { LearnMode, type Progress, type SessionStart } from '../../guide';
-import { loadProgress } from '../../guide/views';
+import {
+  LearnMode,
+  type Progress,
+  type ProgressStorage,
+  type SessionStart,
+} from '../../guide';
 import { AssemblyBanner } from '../../ar/views';
 
 import { SectionHeader } from '../../../ui/SectionHeader';
@@ -36,6 +40,8 @@ function rowsOf<T>(items: readonly T[], columns: number): T[][] {
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
+  /** Read again on every focus, so a session that just closed shows as the continuation. */
+  readonly progress: Pick<ProgressStorage, 'load'>;
   readonly onOpenGuide: (guide: ReadyGuide) => void;
   /** Opens the viewer where the saved progress left off. */
   readonly onOpen: (start: SessionStart) => void;
@@ -45,6 +51,7 @@ export interface LibraryScreenProps {
 
 export function LibraryScreen({
   catalog,
+  progress: storage,
   onOpenGuide,
   onOpen,
   onOpenAssembly,
@@ -59,7 +66,7 @@ export function LibraryScreen({
     useCallback(() => {
       let active = true;
       // A blurred screen must not apply a stale storage read on the next visit.
-      loadProgress().then(
+      storage.load().then(
         saved => {
           if (active) {
             setProgress(saved);
@@ -74,7 +81,7 @@ export function LibraryScreen({
       return () => {
         active = false;
       };
-    }, []),
+    }, [storage]),
   );
 
   const ready = catalog.filter(

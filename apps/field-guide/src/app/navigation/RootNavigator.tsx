@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { catalogFor } from '../../features/pack/catalog';
 import { offersArCheck, offersAssembly } from '../../features/ar';
 import type { Pack } from '../../features/pack/pack';
+import type { ProgressStorage } from '../../features/guide';
 
 import { Color } from '../../ui/theme';
 import { LINKING } from './linking';
@@ -46,16 +47,23 @@ const SCREEN_OPTIONS = {
 // Orbiting drags from anywhere, so the viewer leaves by its back button, not an edge swipe.
 const VIEWER_OPTIONS = { gestureEnabled: false } as const;
 
-export function RootNavigator({ pack }: { pack: Pack }) {
+export function RootNavigator({
+  pack,
+  progress,
+}: {
+  pack: Pack;
+  progress: ProgressStorage;
+}) {
   const context = useMemo<RouteContext>(
     () => ({
       catalog: catalogFor(pack),
+      progress,
       offers: {
         arCheck: offersArCheck(Platform.OS),
         assembly: offersAssembly(Platform.OS),
       },
     }),
-    [pack],
+    [pack, progress],
   );
   const { offers } = context;
   return (

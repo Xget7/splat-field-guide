@@ -5,6 +5,7 @@ import {
   ARScreen,
 } from '../../features/ar/views';
 import { BenchScreen } from '../../features/bench/views';
+import type { ProgressStorage } from '../../features/guide';
 import { GuideDetailScreen } from '../../features/guide/views';
 import { LibraryScreen } from '../../features/library/views';
 import type { Guide } from '../../features/pack/catalog';
@@ -20,6 +21,7 @@ export interface Offers {
 /** What every route adapter reads beside its route and navigation. */
 export interface RouteContext {
   readonly catalog: readonly Guide[];
+  readonly progress: ProgressStorage;
   readonly offers: Offers;
 }
 
@@ -31,11 +33,13 @@ type AdapterProps<R extends Route> = ScreenProps<R> & RouteContext;
 export function LibraryRoute({
   navigation,
   catalog,
+  progress,
   offers,
 }: AdapterProps<typeof Route.library>) {
   return (
     <LibraryScreen
       catalog={catalog}
+      progress={progress}
       onOpenGuide={guide =>
         navigation.navigate(Route.guide, { guideId: guide.id })
       }
@@ -73,10 +77,18 @@ export function ViewerRoute({
   navigation,
   route,
   catalog,
+  progress,
 }: AdapterProps<typeof Route.viewer>) {
   // The viewer's step and leave handlers depend on the exit, so it keeps one identity.
   const exit = useCallback(() => navigation.goBack(), [navigation]);
-  return <ViewerScreen catalog={catalog} start={route.params} onExit={exit} />;
+  return (
+    <ViewerScreen
+      catalog={catalog}
+      start={route.params}
+      onExit={exit}
+      progress={progress}
+    />
+  );
 }
 
 export function ArCheckRoute({

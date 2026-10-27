@@ -1,14 +1,11 @@
-import type { Progress } from '../../guide';
+import type { Progress, ProgressStorage } from '../../guide';
 import { progressTargetFor } from '../domain/viewerState';
 import type { ViewerStore } from '../state/viewerStore';
 
 const PROGRESS_FAILURE = 'Field guide: progress not saved';
 
-/** The saved-progress adapter; it keeps its own writes in order. */
-export interface ProgressWriter {
-  save(progress: Progress): Promise<void>;
-  clear(): Promise<void>;
-}
+/** The part of the progress storage the viewer writes; it keeps its own writes in order. */
+export type ProgressWriter = Pick<ProgressStorage, 'save' | 'clear'>;
 
 const sameTarget = (a: Progress | null, b: Progress | null) =>
   a === b ||

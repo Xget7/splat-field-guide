@@ -18,7 +18,6 @@ import {
   type SessionState,
   LearnMode,
 } from '../../guide';
-import { clearProgress, saveProgress } from '../../guide/views';
 import { useInstructor, useInstructorVoice } from '../../instructor/views';
 import type { Instructor } from '../../instructor';
 
@@ -80,15 +79,21 @@ export interface FieldGuideDebug {
 
 const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
-const PROGRESS: ProgressWriter = { save: saveProgress, clear: clearProgress };
 
 export interface ViewerScreenProps {
   readonly catalog: readonly Guide[];
   readonly start: SessionStart;
   readonly onExit: () => void;
+  /** Receives the continuation while the viewer is open. */
+  readonly progress: ProgressWriter;
 }
 
-export function ViewerScreen({ catalog, start, onExit }: ViewerScreenProps) {
+export function ViewerScreen({
+  catalog,
+  start,
+  onExit,
+  progress,
+}: ViewerScreenProps) {
   const instructor = useInstructor();
   const { guideId, procedureId, stepIndex, mode, voice } = start;
   const guide = findReadyGuide(catalog, guideId);
@@ -104,6 +109,7 @@ export function ViewerScreen({ catalog, start, onExit }: ViewerScreenProps) {
       mode={mode}
       startInVoice={voice === true && mode === LearnMode.instructor}
       onExit={onExit}
+      progress={progress}
     />
   );
 }
@@ -116,6 +122,7 @@ interface ViewerProps {
   mode: LearnMode;
   startInVoice: boolean;
   onExit: () => void;
+  progress: ProgressWriter;
 }
 
 function Viewer({
@@ -126,6 +133,7 @@ function Viewer({
   mode,
   startInVoice,
   onExit,
+  progress,
 }: ViewerProps) {
   const { pack } = guide;
   // Opened during the first render, so the first frame already shows the requested step.
@@ -181,12 +189,12 @@ function Viewer({
   }, [askVoice, interruptVoice, stopVoice]);
   // Declared after the voice hook, so leaving stops speech before the answer is cancelled.
   useEffect(() => {
-    const detach = attachProgressAutosave(viewerStore, PROGRESS);
+    const detach = attachProgressAutosave(viewerStore, progress);
     return () => {
       detach();
       viewerStore.getState().close();
     };
-  }, []);
+  }, [progress]);
   const [loadedMs, setLoadedMs] = useState<number | null>(null);
   const [stage, setStage] = useState<Size>(NO_SIZE);
   const [toolsWidth, setToolsWidth] = useState(0);
