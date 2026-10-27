@@ -15,8 +15,10 @@ import {
   CardKind,
   cardContentFor,
   type CardContent,
+  type Progress,
 } from '../../guide';
 export { ExchangePhase, type Exchange } from '../../instructor';
+import type { GuideId } from '../../pack/catalog';
 import type { Pack, ProcedureId } from '../../pack/pack';
 
 export const MAX_THREAD_ENTRIES = 60;
@@ -129,6 +131,30 @@ export function answeredExchanges(state: ViewerState): Exchange[] {
   return state.exchange?.phase === ExchangePhase.done
     ? [...earlier, state.exchange]
     : earlier;
+}
+
+/**
+ * The continuation to save: exploring keeps the procedure it left, and the first step
+ * needs none because a fresh start already opens it.
+ */
+export function progressTargetFor(
+  state: ViewerState,
+  guideId: GuideId,
+): Progress | null {
+  const session =
+    state.session.procedureId === null ? state.resume : state.session;
+  if (
+    session === null ||
+    session.procedureId === null ||
+    session.stepIndex === 0
+  ) {
+    return null;
+  }
+  return {
+    guideId,
+    procedureId: session.procedureId,
+    stepIndex: session.stepIndex,
+  };
 }
 
 function apply(

@@ -2,10 +2,10 @@ import { Space } from '../../../../ui/theme';
 import {
   DOCK_COLLAPSED,
   DOCK_EXPANDED_WIDTH,
-} from '../instructor/AssistantDock';
+  TOOLS_HEIGHT,
+} from '../shell/layout';
 import type { Size } from '../../domain/screenGeometry';
 import type { Clearance } from '../../domain/cardPlacement';
-import { TOOLS_HEIGHT } from './ToolDock';
 
 // Narrower than this, the collapsed assistant's title crowds its mic button.
 const MIN_COLLAPSED_WIDTH = 240;

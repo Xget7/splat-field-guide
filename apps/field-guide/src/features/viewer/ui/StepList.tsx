@@ -12,11 +12,10 @@ import { Icon, IconName } from '../../../ui/Icon';
 import { CautionNote } from '../../../ui/CautionNote';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
 import type { StepRow } from '../../guide';
+import { ROW_HEIGHT, SCROLL_EVENT_THROTTLE_MS } from './shell/layout';
 
-const ROW_HEIGHT = 48;
 const BADGE_SIZE = 22;
 const CHECK_SIZE = 14;
-const SCROLL_EVENT_THROTTLE_MS = 16;
 const SELECT_HINT = 'Show this step';
 const STEP_LABEL = 'Step';
 const SAFETY_LABEL = 'has a safety note';

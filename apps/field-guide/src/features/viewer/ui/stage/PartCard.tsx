@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
@@ -16,6 +13,7 @@ import { boxAt, useProjection } from '../viewport/projectedParts';
 import { type ScreenBox, type Size } from '../../domain/screenGeometry';
 import { Glass, GlassTone } from '../../../../ui/Glass';
 import { Icon, IconName } from '../../../../ui/Icon';
+import { FADE_IN, FADE_OUT } from '../../../../ui/motion';
 import {
   Color,
   Font,
@@ -42,8 +40,6 @@ const CardCopy = {
   foldHint: 'Hide the part summary',
   unfoldHint: 'Show the part summary',
 } as const;
-const FADE_IN = FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.Never);
-const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(ReduceMotion.Never);
 
 function enter() {
   'worklet';

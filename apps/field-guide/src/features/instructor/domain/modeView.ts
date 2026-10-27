@@ -1,33 +1,43 @@
-import { useInstructorMode } from '../state/instructorHooks';
+import { ModeNoticeCopy, SwitchTitle } from './mode/modeCopy';
 import {
   AnswerSource,
   InstructorMode,
   ModeCause,
   VoiceSource,
-} from '../domain/mode/modeTypes';
-import { ModeNoticeCopy, SwitchTitle } from '../domain/mode/modeCopy';
-import { Color } from '../../../ui/theme';
+  type ModeStatus,
+} from './mode/modeTypes';
+
+/** How a notice's rule reads; presentation picks the colour. */
+export const NoticeTone = { plain: 'plain', caution: 'caution' } as const;
+export type NoticeTone = (typeof NoticeTone)[keyof typeof NoticeTone];
 
 export interface Notice {
   readonly title: string;
   readonly detail: string;
-  readonly ruleColor: string;
+  readonly tone: NoticeTone;
+}
+
+export interface ModeView {
+  readonly mode: InstructorMode;
+  readonly notice: Notice | null;
+  readonly switchTitle: string | null;
+  readonly minimizedStatusText: string | null;
 }
 
 const VOICE_FALLBACK: Notice = {
   title: ModeNoticeCopy.voiceFallbackTitle,
   detail: ModeNoticeCopy.voiceFallback,
-  ruleColor: Color.lineStrong,
+  tone: NoticeTone.plain,
 };
 const OFFLINE_MODEL: Notice = {
   title: ModeNoticeCopy.offlineTitle,
   detail: ModeNoticeCopy.offlineModel,
-  ruleColor: Color.caution,
+  tone: NoticeTone.caution,
 };
 const OFFLINE_SCRIPT: Notice = {
   title: ModeNoticeCopy.offlineTitle,
   detail: ModeNoticeCopy.offlineScript,
-  ruleColor: Color.caution,
+  tone: NoticeTone.caution,
 };
 const NO_NOTICE = { claude: null, deviceModel: null, script: null } as const;
 const ONLINE_DEVICE = {
@@ -76,8 +86,8 @@ const SWITCH_TITLES: Readonly<
   },
 };
 
-export function useModeView() {
-  const status = useInstructorMode();
+/** The notice and switch title the instructor shows for its current mode. */
+export function modeViewFor(status: ModeStatus): ModeView {
   const baseNotice = NOTICES[status.mode][status.voice][status.answers];
   const notice =
     status.mode === InstructorMode.offline && baseNotice !== null

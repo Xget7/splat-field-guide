@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import { MODE_RULE_WIDTH, Space } from '../../../ui/theme';
-import { ContentFade } from './InstructorMotion';
+import { ContentFade } from '../../../ui/ContentFade';
 
 export function ModeBanner({
   ruleColor,

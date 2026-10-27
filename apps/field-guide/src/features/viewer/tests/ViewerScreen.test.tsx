@@ -36,7 +36,6 @@ import {
   type VoiceSessionEvents,
 } from '../../instructor';
 import { highlightFor, SessionEventType, LearnMode } from '../../guide';
-import { continueRowFor } from '../../library';
 import { loadProgress } from '../../guide/views';
 
 import {
@@ -360,7 +359,8 @@ describe('viewer screen', () => {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
       await press('step-row-2');
       await press('viewer-rail-explore');
-      expect(continueRowFor(catalog, await loadProgress())).toMatchObject({
+      expect(await loadProgress()).toMatchObject({
+        procedureId: 'check-coolant',
         stepIndex: 2,
       });
       expect(has('step-list')).toBe(false);

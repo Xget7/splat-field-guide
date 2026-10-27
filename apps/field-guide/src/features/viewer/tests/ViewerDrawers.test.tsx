@@ -4,7 +4,7 @@ import { ScrollView, Text } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { fixturePack } from '@tests/fixturePack';
 import { CardKind } from '../../guide';
-import { Capability } from '../ui/shell/layout';
+import { Capability } from '../domain/capability';
 import { ViewerRail } from '../ui/shell/ViewerRail';
 import { GuideDrawer } from '../ui/shell/GuideDrawer';
 import { ExploreDrawer } from '../ui/shell/ExploreDrawer';

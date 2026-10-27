@@ -1,5 +1,13 @@
 import { useStore } from 'zustand';
 import type { Instructor } from '../domain/instructorHandle';
+import {
+  assistantStatusFor,
+  voiceStatusFor,
+  type AssistantStatus,
+  type VoiceActivity,
+  type VoiceStatus,
+} from '../domain/instructorStatus';
+import { modeViewFor, type ModeView } from '../domain/modeView';
 import { instructorStore, selectSwitchSteps } from './instructorStore';
 
 const MISSING_INSTRUCTOR = 'App must provide the instructor';
@@ -9,6 +17,18 @@ export function useNetwork() {
 }
 export function useInstructorMode() {
   return useStore(instructorStore, state => state.mode);
+}
+export function useModeView(): ModeView {
+  return modeViewFor(useInstructorMode());
+}
+/** What the voice is doing, or null while voice is off. */
+export function useVoiceStatus(voice: VoiceActivity): VoiceStatus | null {
+  const { voice: source } = useInstructorMode();
+  return voice.on ? voiceStatusFor(voice, source) : null;
+}
+export function useAssistantStatus(voice: VoiceActivity): AssistantStatus {
+  const { mode, voice: source } = useInstructorMode();
+  return assistantStatusFor(voice, mode, source);
 }
 export function useModeSuggestion() {
   return useStore(instructorStore, state => state.suggestion);

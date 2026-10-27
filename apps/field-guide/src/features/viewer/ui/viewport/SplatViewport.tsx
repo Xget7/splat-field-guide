@@ -51,7 +51,8 @@ import {
 import { cameraLimitsInRadians } from '../../domain/camera';
 import { PartMarkers } from './PartMarkers';
 import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
-import { type Size } from '../../domain/screenGeometry';
+import { isCurrentPick } from '../../domain/pickInputs';
+import { NO_SIZE } from '../../domain/screenGeometry';
 import { useGuideFraming } from './useGuideFraming';
 
 const RADIANS_PER_POINT = 0.01;
@@ -59,8 +60,6 @@ const PAN_ACTIVATION_POINTS = 8;
 const TAP_MAX_DISTANCE_POINTS = 8;
 const ERROR_ICON = 16;
 const MS_PER_SECOND = 1000;
-
-const NO_SIZE: Size = { width: 0, height: 0 };
 
 interface Props {
   pack: Pack;
@@ -212,21 +211,16 @@ function Viewport({
       if (activeView === null || size.width <= 0 || size.height <= 0) {
         return;
       }
-      const inputs = currentInputs.current;
-      const id = ++generation.current;
+      const asked = {
+        ...currentInputs.current,
+        generation: ++generation.current,
+      };
       const current = () =>
         mounted.current &&
-        generation.current === id &&
-        currentInputs.current.session.procedureId ===
-          inputs.session.procedureId &&
-        currentInputs.current.session.stepIndex === inputs.session.stepIndex &&
-        currentInputs.current.session.selectedPart ===
-          inputs.session.selectedPart &&
-        currentInputs.current.frameRequest === inputs.frameRequest &&
-        currentInputs.current.closeUp === inputs.closeUp &&
-        currentInputs.current.size === inputs.size &&
-        currentInputs.current.pack === inputs.pack &&
-        currentInputs.current.view === inputs.view;
+        isCurrentPick(asked, {
+          ...currentInputs.current,
+          generation: generation.current,
+        });
       try {
         const label = await activeView.pick(x / size.width, y / size.height);
         if (current()) {
