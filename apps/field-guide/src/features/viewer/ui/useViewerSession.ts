@@ -10,7 +10,7 @@ import {
   stepKeyFor,
   UtteranceKind,
   utteranceId,
-  type InstructorRuntime,
+  type Instructor,
   type VoiceContext,
   type Utterance,
 } from '../../instructor';
@@ -35,7 +35,7 @@ interface Options {
   procedureId: ProcedureId;
   stepIndex: number;
   instructorOpen: boolean;
-  runtime: InstructorRuntime;
+  instructor: Instructor;
   startInVoice?: boolean;
 }
 
@@ -45,11 +45,11 @@ export function useViewerSession({
   procedureId,
   stepIndex,
   instructorOpen,
-  runtime,
+  instructor,
   startInVoice,
 }: Options) {
   const { pack } = guide;
-  const { instructor } = runtime;
+  const { turns } = instructor;
   const [state, act] = useReducer(
     (current: ViewerState, action: ViewerAction) =>
       reduceViewer(current, action, pack),
@@ -67,7 +67,7 @@ export function useViewerSession({
   const interruptVoice = useRef<(() => void) | null>(null);
 
   const card = useMemo(() => cardContentFor(session, pack), [session, pack]);
-  const cancelAnswer = useCallback(() => instructor.cancel(), [instructor]);
+  const cancelAnswer = useCallback(() => turns.cancel(), [turns]);
   const dispatch = useCallback(
     (event: SessionEvent) => {
       cancelAnswer();
@@ -103,7 +103,7 @@ export function useViewerSession({
       }
       interruptVoice.current?.();
       const current = stateRef.current;
-      instructor.ask(
+      turns.ask(
         {
           question,
           state: current.session,
@@ -113,7 +113,7 @@ export function useViewerSession({
         event => act({ type: ViewerActionType.turn, event }),
       );
     },
-    [pack, instructor],
+    [pack, turns],
   );
 
   const thinking =
@@ -163,10 +163,10 @@ export function useViewerSession({
     enabled: instructorOpen,
     utterance,
     context,
-    runtime,
+    runtime: instructor,
     onTurn: event => act({ type: ViewerActionType.turn, event }),
     onAction: event => act({ type: ViewerActionType.agent, event }),
-    onIdle: idle => runtime.setIdle(idle),
+    onIdle: idle => instructor.setIdle(idle),
     onAsk: ask,
     onCancel: cancelAnswer,
     startInVoice,
@@ -175,18 +175,18 @@ export function useViewerSession({
   askVoice.current = voice.ask;
 
   useEffect(() => {
-    runtime.setPack(pack);
-  }, [runtime, pack]);
+    instructor.setPack(pack);
+  }, [instructor, pack]);
   useEffect(() => {
-    runtime.setInstructorOpen(instructorOpen);
-    return () => runtime.setInstructorOpen(false);
-  }, [runtime, instructorOpen]);
+    instructor.setInstructorOpen(instructorOpen);
+    return () => instructor.setInstructorOpen(false);
+  }, [instructor, instructorOpen]);
 
   useEffect(() => {
     if (instructorOpen) {
-      instructor.prewarm(pack);
+      turns.prewarm(pack);
     }
-  }, [instructorOpen, pack, instructor]);
+  }, [instructorOpen, pack, turns]);
 
   useEffect(() => () => cancelAnswer(), [cancelAnswer, pack]);
 

@@ -8,7 +8,7 @@ import {
 } from 'react-native-reanimated';
 import type { Pack } from '../../pack/pack';
 import type { SessionEvent } from '../../guide';
-import { type TurnEvent } from '../domain/turn/turn';
+import { type TurnEvent } from '../domain/turn/exchange';
 import { Motion } from '../../../ui/theme';
 import {
   normalizedLevel,

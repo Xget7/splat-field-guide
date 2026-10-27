@@ -6,14 +6,11 @@ import {
   type NetworkStatus,
 } from '../../../platform/connectivity/networkStatus';
 import { AgentState, type AgentStatus } from '../domain/agent/agentStatus';
-import type { InstructorRuntime } from '../domain/instructorRuntime';
+import type { Instructor } from '../domain/instructorHandle';
 import {
-  AnswerSource,
-  InstructorMode,
   isSwitching,
-  ModeCause,
   ModeRequestType,
-  VoiceSource,
+  STARTUP_MODE,
   type ModeStatus,
   type ModeSuggestion,
   type SwitchStep,
@@ -26,14 +23,8 @@ const UNKNOWN_NETWORK: NetworkStatus = {
   transport: Transport.other,
   reason: NetworkReason.unknown,
 };
-const STARTUP_MODE: ModeStatus = {
-  mode: InstructorMode.online,
-  cause: ModeCause.startup,
-  voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
-};
 const IDLE_AGENT: AgentStatus = { state: AgentState.idle, reason: null };
-// Until a runtime reports, a foreground voice may start.
+// Until an instructor reports, a foreground voice may start.
 const READY_VOICE: VoiceRuntimeState = {
   revision: 0,
   canStart: true,
@@ -41,7 +32,7 @@ const READY_VOICE: VoiceRuntimeState = {
   announcement: null,
 };
 
-/** What the instructor last reported, and the runtime screens talk to. */
+/** What the instructor last reported, and the instructor screens talk to. */
 export interface InstructorStatus {
   readonly network: NetworkStatus;
   readonly mode: ModeStatus;
@@ -52,7 +43,7 @@ export interface InstructorStatus {
   /** The latest switch whose mode settled, so its steps stop showing. */
   readonly settledSwitchId: number | null;
   readonly voice: VoiceRuntimeState;
-  readonly runtime: InstructorRuntime | null;
+  readonly instructor: Instructor | null;
 }
 
 export interface InstructorActions {
@@ -64,7 +55,7 @@ export interface InstructorActions {
   voiceChanged(voice: VoiceRuntimeState): void;
   acceptSuggestion(): void;
   dismissSuggestion(): void;
-  attach(runtime: InstructorRuntime): void;
+  attach(instructor: Instructor): void;
   reset(): void;
 }
 
@@ -79,7 +70,7 @@ const INITIAL_STATUS: InstructorStatus = {
   switchSteps: [],
   settledSwitchId: null,
   voice: READY_VOICE,
-  runtime: null,
+  instructor: null,
 };
 
 /** The switch steps to show; the same array while they do not change. */
@@ -105,12 +96,14 @@ export function createInstructorStore(): InstructorStore {
     agentChanged: agent => set({ agent }),
     voiceChanged: voice => set({ voice }),
     acceptSuggestion: () =>
-      get().runtime?.requestMode({ type: ModeRequestType.acceptSuggestion }),
+      get().instructor?.requestMode({ type: ModeRequestType.acceptSuggestion }),
     dismissSuggestion: () =>
-      get().runtime?.requestMode({ type: ModeRequestType.dismissSuggestion }),
-    attach: runtime => {
-      if (get().runtime !== runtime) {
-        set({ runtime });
+      get().instructor?.requestMode({
+        type: ModeRequestType.dismissSuggestion,
+      }),
+    attach: instructor => {
+      if (get().instructor !== instructor) {
+        set({ instructor });
       }
     },
     reset: () => set(INITIAL_STATUS),

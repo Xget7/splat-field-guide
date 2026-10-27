@@ -1,3 +1,4 @@
+import { createExchangeIds } from '../domain/turn/exchange';
 import { fakePlatform } from '@tests/platform';
 import { voiceEvents as events } from '@tests/voiceSession';
 import { SpeechPermission } from '../domain/voice/voiceCopy';
@@ -39,6 +40,7 @@ test.each([false, true])(
     const changed = events();
     const session = createAgentVoiceSession({
       pack,
+      ids: createExchangeIds(),
       client: () => transport,
       audio: () => ({
         ...audioLink(),
@@ -74,6 +76,7 @@ test('streams an exchange and retains a corrected interrupted answer', async () 
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    ids: createExchangeIds(),
     audio: audioLink,
     client: handlers => {
       heard = handlers;
@@ -106,6 +109,7 @@ test('tool navigation is applied without repeating its narration and typed echoe
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    ids: createExchangeIds(),
     audio: audioLink,
     client: handlers => {
       heard = handlers;
@@ -169,6 +173,7 @@ test('a step read after an answer leaves that answer as it was', async () => {
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    ids: createExchangeIds(),
     audio: audioLink,
     client: handlers => {
       heard = handlers;
@@ -204,6 +209,7 @@ test.each([
     const changed = events();
     const session = createAgentVoiceSession({
       pack,
+      ids: createExchangeIds(),
       audio: audioLink,
       client: handlers => {
         heard = handlers;
@@ -244,6 +250,7 @@ test('requests only microphone access before starting agent audio and rejects de
   const makeClient = jest.fn(() => transport);
   const session = createAgentVoiceSession({
     pack,
+    ids: createExchangeIds(),
     client: makeClient,
     audio: audioLink,
   });
@@ -279,6 +286,7 @@ test.each([false, true])(
     const changed = events();
     const session = createAgentVoiceSession({
       pack,
+      ids: createExchangeIds(),
       audio: audioLink,
       client: handlers => {
         heard = handlers;
@@ -318,6 +326,7 @@ test('a correction belongs to the reply it names, never to an earlier answer', a
   const changed = events();
   const session = createAgentVoiceSession({
     pack,
+    ids: createExchangeIds(),
     audio: audioLink,
     client: handlers => {
       heard = handlers;

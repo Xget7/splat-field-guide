@@ -34,6 +34,13 @@ export interface ModeStatus extends ModeSources {
   readonly mode: InstructorMode;
   readonly cause: ModeCause;
 }
+/** The mode before the first network status: online with the agent and Claude. */
+export const STARTUP_MODE: ModeStatus = {
+  mode: InstructorMode.online,
+  cause: ModeCause.startup,
+  voice: VoiceSource.agent,
+  answers: AnswerSource.claude,
+};
 
 export const SwitchPiece = {
   voice: 'voice',

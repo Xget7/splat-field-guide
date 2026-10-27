@@ -2,7 +2,7 @@ import {
   createInstructorStore,
   selectSwitchSteps,
 } from '../state/instructorStore';
-import { fakeInstructorRuntime } from '@tests/voiceSession';
+import { fakeInstructor } from '@tests/voiceSession';
 import {
   AnswerSource,
   InstructorMode,
@@ -64,26 +64,26 @@ test.each([
   { action: 'acceptSuggestion', type: ModeRequestType.acceptSuggestion },
   { action: 'dismissSuggestion', type: ModeRequestType.dismissSuggestion },
 ] as const)(
-  '$action forwards its request to the attached runtime',
+  '$action forwards its request to the attached instructor',
   ({ action, type }) => {
     const store = createInstructorStore();
     expect(() => store.getState()[action]()).not.toThrow();
-    const runtime = fakeInstructorRuntime();
-    store.getState().attach(runtime);
+    const instructor = fakeInstructor();
+    store.getState().attach(instructor);
     store.getState()[action]();
-    expect(runtime.requestMode).toHaveBeenCalledWith({ type });
+    expect(instructor.requestMode).toHaveBeenCalledWith({ type });
   },
 );
 
-test('attaching the same runtime again changes nothing, and reset detaches it', () => {
+test('attaching the same instructor again changes nothing, and reset detaches it', () => {
   const store = createInstructorStore();
-  const runtime = fakeInstructorRuntime();
+  const instructor = fakeInstructor();
   const listener = jest.fn();
   store.subscribe(listener);
-  store.getState().attach(runtime);
-  store.getState().attach(runtime);
+  store.getState().attach(instructor);
+  store.getState().attach(instructor);
   expect(listener).toHaveBeenCalledTimes(1);
-  expect(store.getState().runtime).toBe(runtime);
+  expect(store.getState().instructor).toBe(instructor);
   const initial = createInstructorStore().getState();
   store.getState().modeChanged({ ...ONLINE, mode: InstructorMode.offline });
   store.getState().reset();
@@ -95,6 +95,6 @@ test('attaching the same runtime again changes nothing, and reset detaches it', 
     switchSteps: [],
     settledSwitchId: null,
     voice: initial.voice,
-    runtime: null,
+    instructor: null,
   });
 });

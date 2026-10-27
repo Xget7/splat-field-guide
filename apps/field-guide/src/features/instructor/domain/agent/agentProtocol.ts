@@ -1,6 +1,8 @@
 import type { AgentVariables } from './agentVariables';
 
 export const SystemTool = { endCall: 'end_call' } as const;
+/** Marks a message the app reads aloud itself, which the agent must never answer. */
+export const NARRATE_PREFIX = '[narrate] ';
 
 export interface Alignment {
   readonly chars: readonly string[];

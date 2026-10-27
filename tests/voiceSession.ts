@@ -1,6 +1,6 @@
 import {
+  createExchangeIds,
   ExchangePhase,
-  nextExchangeId,
   TurnEventType,
   type Utterance,
   type VoiceContext,
@@ -9,9 +9,10 @@ import {
   type VoiceSessionEvents,
   type VoiceRuntime,
   type VoiceRuntimeState,
-  createModelInstructor,
+  createTurnRunner,
   instructorStore,
-  type InstructorRuntime,
+  type ExchangeIds,
+  type Instructor,
 } from '../apps/field-guide/src/features/instructor';
 
 export function voiceEvents() {
@@ -29,7 +30,8 @@ export function voiceEvents() {
     ended: jest.fn(),
   };
 }
-export function fakeVoiceSession() {
+/** A voice session of jest functions; pass the turn runner's id source when both add to one thread. */
+export function fakeVoiceSession(ids: ExchangeIds = createExchangeIds()) {
   let events: VoiceSessionEvents;
   let context: VoiceContext;
   let pending: string | null = null;
@@ -76,7 +78,7 @@ export function fakeVoiceSession() {
       events.turn({
         type: TurnEventType.begin,
         exchange: {
-          id: nextExchangeId(),
+          id: ids.next(),
           question: text,
           reply: '',
           caution: '',
@@ -125,12 +127,12 @@ export function fakeVoiceRuntime(connection: VoiceConnection) {
   };
 }
 
-/** An instructor runtime of jest functions that answers nothing, with the given members replaced. */
-export function fakeInstructorRuntime(
-  overrides: Partial<InstructorRuntime> = {},
-): InstructorRuntime {
+/** An instructor of jest functions that answers nothing, with the given members replaced. */
+export function fakeInstructor(
+  overrides: Partial<Instructor> = {},
+): Instructor {
   return {
-    instructor: createModelInstructor([]),
+    turns: createTurnRunner([], createExchangeIds()),
     sessionFor: jest.fn(() => null),
     setPack: jest.fn(),
     setInstructorOpen: jest.fn(),

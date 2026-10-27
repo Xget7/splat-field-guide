@@ -1,7 +1,8 @@
 import type { Pack } from '../../pack/pack';
 import { SessionEventType, CardKind } from '../../guide';
 import {
-  createModelInstructor,
+  createExchangeIds,
+  createTurnRunner,
   ExchangePhase,
   TurnEventType,
 } from '../../instructor';
@@ -31,7 +32,7 @@ const session = (
 ): ViewerAction => ({ type: ViewerActionType.session, event: { type } });
 function ask(state: ViewerState, question: string): ViewerState {
   let next = state;
-  createModelInstructor([]).ask(
+  createTurnRunner([], createExchangeIds()).ask(
     { question, state: state.session, pack, history: [] },
     event => {
       next = reduceViewer(next, { type: ViewerActionType.turn, event }, pack);

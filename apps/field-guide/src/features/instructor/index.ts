@@ -14,14 +14,14 @@ export {
   isRepeatedText,
   shownWordsFor,
 } from './domain/repeatedContent';
-export { createModelInstructor } from './domain/turn/modelInstructor';
+export { createTurnRunner } from './domain/turn/turnRunner';
 export {
+  createExchangeIds,
   ExchangePhase,
-  nextExchangeId,
   sessionForExchange,
   TurnEventType,
-} from './domain/turn/turn';
-export type { Exchange, TurnEvent } from './domain/turn/turn';
+} from './domain/turn/exchange';
+export type { Exchange, ExchangeIds, TurnEvent } from './domain/turn/exchange';
 export { recognitionHintsFor } from './domain/voice/recognitionHints';
 export {
   speechTextFor,
@@ -42,10 +42,9 @@ export type {
   VoiceSession,
   VoiceSessionEvents,
 } from './domain/voice/voiceSession';
-export { onDeviceInstructions } from './data/answerers/onDeviceModel';
-export { createInstructorRuntime } from './data/runtime/instructorRuntime';
-export type { InstructorRuntimeOptions } from './data/runtime/instructorRuntime';
-export type { InstructorRuntime } from './domain/instructorRuntime';
+export { onDeviceInstructions } from './data/answerers/deviceAnswerer';
+export { createInstructor } from './createInstructor';
+export type { Instructor, InstructorOptions } from './createInstructor';
 export {
   createInstructorStore,
   instructorStore,
@@ -56,5 +55,5 @@ export type {
   InstructorStatus,
   InstructorStore,
 } from './state/instructorStore';
-export { OfflineVoices } from './data/runtime/instructorSwitch';
-export type { OfflineVoice } from './data/runtime/instructorSwitch';
+export { OfflineVoices } from './domain/mode/modeSwitching';
+export type { OfflineVoice } from './domain/mode/modeSwitching';

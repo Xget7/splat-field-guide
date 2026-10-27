@@ -26,8 +26,8 @@ export { useInstructorVoice, VoiceState } from './ui/useInstructorVoice';
 export type { InstructorVoice } from './ui/useInstructorVoice';
 export {
   useAgentStatus,
+  useInstructor,
   useInstructorMode,
-  useInstructorRuntime,
   useModeSuggestion,
   useNetwork,
   useSwitchSteps,

@@ -5,7 +5,8 @@ import {
   type SessionState,
 } from '../../../guide';
 import type { PreviousExchange } from '../grounding';
-import { stateSentence } from './agentTools';
+import { HistoryTurns } from '../turn/history';
+import { FIRST_STEP_NUMBER, stateSentence } from './agentTools';
 import { AgentContextCopy, AgentOpening } from './agentCopy';
 
 export { AgentOpening } from './agentCopy';
@@ -17,8 +18,6 @@ export interface AgentVariables {
   readonly opening: string;
 }
 const NONE = 'none';
-const HISTORY_EXCHANGES = 4;
-const FIRST_STEP_NUMBER = 1;
 export function agentVariables(
   state: SessionState,
   pack: Pack,
@@ -50,7 +49,7 @@ export function screenUpdate(state: SessionState, pack: Pack): string {
 }
 export function historyUpdate(history: readonly PreviousExchange[]): string {
   return history
-    .slice(-HISTORY_EXCHANGES)
+    .slice(-HistoryTurns.agent)
     .map(exchange =>
       AgentContextCopy.exchange(exchange.question, exchange.reply),
     )

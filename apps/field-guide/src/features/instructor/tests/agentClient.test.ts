@@ -1,7 +1,6 @@
 import {
   AgentTiming,
   createAgentClient,
-  fetchSignedUrl,
   type AgentClientHandlers,
 } from '../data/agent/agentClient';
 import type { AudioLink, Socket } from '../../../platform/ports';
@@ -230,12 +229,12 @@ test('word ticks finish when audio plays out and do not leak into later replies'
   test.client.stop();
 });
 test.each([
-  [1000, 'quota exceeded', 429, 'voice quota', 'quota'],
-  [1008, '', 503, 'voice auth', 'auth'],
-  [1006, '', 500, 'unavailable', 'network'],
+  [1000, 'quota exceeded', 'quota'],
+  [1008, '', 'auth'],
+  [1006, '', 'network'],
 ] as const)(
-  'a %s failure ends once and the Worker reports the same class',
-  async (code, reason, status, error, failure) => {
+  'a %s failure ends once with its class',
+  async (code, reason, failure) => {
     const test = setup();
     await test.start();
     const close = test.socket.onclose;
@@ -248,10 +247,6 @@ test.each([
       state: 'failed',
       reason: failure,
     });
-    const fetcher = async () => ({ status, json: async () => ({ error }) });
-    await expect(
-      fetchSignedUrl('https://worker', fetcher as unknown as typeof fetch),
-    ).rejects.toThrow(failure);
     if (failure !== 'network') {
       const protocol = setup();
       await protocol.start();
@@ -323,17 +318,6 @@ test('a pending start times out or can be stopped without a late connection', as
   expect(connect).not.toHaveBeenCalled();
   expect(handlers.ended).toHaveBeenCalledTimes(1);
 });
-test('the signed URL request uses the Worker contract', async () => {
-  const fetcher = jest.fn(async () => ({
-    status: 200,
-    json: async () => ({ signedUrl: 'wss://fake' }),
-  })) as unknown as typeof fetch;
-  expect(await fetchSignedUrl('https://worker', fetcher)).toBe('wss://fake');
-  expect(fetcher).toHaveBeenCalledWith('https://worker/v1/voice/session', {
-    method: 'POST',
-  });
-});
-
 test('stopping during connection rejects start and stale callbacks cannot stream', async () => {
   const test = setup();
   const pending = test.client

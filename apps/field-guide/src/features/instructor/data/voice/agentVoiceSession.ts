@@ -11,15 +11,16 @@ import {
   historyUpdate,
   screenUpdate,
 } from '../../domain/agent/agentVariables';
+import { NARRATE_PREFIX } from '../../domain/agent/agentProtocol';
 import { runAgentTool } from '../../domain/agent/agentTools';
 import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
 import {
   ExchangePhase,
-  nextExchangeId,
+  type ExchangeIds,
   TurnEventType,
   type Exchange,
-} from '../../domain/turn/turn';
+} from '../../domain/turn/exchange';
 import { SpokenSection } from '../../domain/voice/speechPresentation';
 import {
   UtteranceKind,
@@ -34,8 +35,6 @@ import {
   type VoicePrompt,
 } from '../../domain/voice/voiceSession';
 
-export const AGENT_HISTORY_TURNS = 4;
-export const NARRATE_PREFIX = '[narrate] ';
 const STEP_EVENTS: ReadonlySet<string> = new Set([
   SessionEventType.start,
   SessionEventType.next,
@@ -52,11 +51,14 @@ export function createAgentVoiceSession({
   client: makeClient,
   pack,
   audio,
+  ids,
   prompt = request => request(),
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
   audio: () => AudioLink;
+  /** The thread's id source, shared with the turn runner so ids never collide. */
+  ids: ExchangeIds;
   prompt?: VoicePrompt;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;
@@ -106,7 +108,7 @@ export function createAgentVoiceSession({
     previous = exchange;
     typed = null;
     exchange = {
-      id: nextExchangeId(),
+      id: ids.next(),
       question,
       reply: '',
       caution: '',
@@ -255,9 +257,7 @@ export function createAgentVoiceSession({
       try {
         await client.start(
           agentVariables(initial.state, pack, initial.history.length > 0),
-          initial.history.length > 0
-            ? [historyUpdate(initial.history.slice(-AGENT_HISTORY_TURNS))]
-            : [],
+          initial.history.length > 0 ? [historyUpdate(initial.history)] : [],
         );
         if (current()) {
           started = true;

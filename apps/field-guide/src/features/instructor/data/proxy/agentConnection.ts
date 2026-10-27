@@ -1,25 +1,28 @@
-import { fetchSignedUrl } from './agentClient';
 import { VoiceStartFailure } from '../../domain/voice/voiceSession';
-import type { Clock, Fetch } from '../../../../platform/ports';
+import type { Clock } from '../../../../platform/ports';
+import type { ProxyClient } from './proxyClient';
 
 export const SIGNED_URL_REUSE_MS = 600000;
+
+/**
+ * The agent's signed URLs: one prepared during a switch is reused by the next conversation while
+ * it is fresh, and quota or auth disables the agent for the run.
+ */
 export function createAgentConnection({
-  url,
-  fetch,
+  proxy,
   clock: now,
 }: {
-  url: string | null;
-  fetch: Fetch;
+  proxy: ProxyClient | null;
   clock: Clock;
 }) {
-  let available = url !== null;
+  let available = proxy !== null;
   let cached: { url: string; at: number } | null = null;
   let generation = 0;
   async function fetchUrl() {
-    if (!available || url === null) {
+    if (!available || proxy === null) {
       throw new Error(VoiceStartFailure.auth);
     }
-    return fetchSignedUrl(url, fetch);
+    return proxy.sessionUrl();
   }
   return {
     available: () => available,

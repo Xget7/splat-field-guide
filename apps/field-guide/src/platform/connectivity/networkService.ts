@@ -1,17 +1,9 @@
 import { NetworkQuality, type NetworkStatus } from './networkStatus';
 import { createBackoff, type BackoffLimits } from './backoff';
 import { createQualityEstimator, type RoundTrip } from './networkQuality';
-import type {
-  Cancel,
-  Clock,
-  Fetch,
-  NetworkMonitor,
-  Random,
-  Timers,
-} from '../ports';
+import type { Cancel, NetworkMonitor, Random, Timers } from '../ports';
 
 export const PROBE_INTERVAL_MS = 30000;
-export const PROBE_TIMEOUT_MS = 3000;
 // Failed probes retry from here up to the interval until the connection is good again.
 export const ProbeRetry: BackoffLimits = {
   initialMs: 1000,
@@ -162,49 +154,5 @@ export function createNetworkService(
         scheduleNext();
       }
     },
-  };
-}
-const PING_PATH = '/v1/ping';
-const HTTP_NO_CONTENT = 204;
-const PROBE_FAILED = 'Network probe failed';
-export function pingProbe(
-  baseUrl: string,
-  ports: {
-    readonly fetch: Fetch;
-    readonly clock: Clock;
-    readonly timers: Timers;
-  },
-): (signal?: AbortSignal) => Promise<number> {
-  const { clock, timers } = ports;
-  return async signal => {
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    signal?.addEventListener('abort', abort);
-    const began = clock();
-    let cancelTimeout: Cancel | undefined;
-    try {
-      return await Promise.race([
-        ports
-          .fetch(`${baseUrl}${PING_PATH}`, {
-            method: 'GET',
-            signal: controller.signal,
-          })
-          .then(response => {
-            if (response.status !== HTTP_NO_CONTENT) {
-              throw new Error(PROBE_FAILED);
-            }
-            return clock() - began;
-          }),
-        new Promise<never>((_, reject) => {
-          cancelTimeout = timers.after(PROBE_TIMEOUT_MS, () => {
-            controller.abort();
-            reject(new Error(PROBE_FAILED));
-          });
-        }),
-      ]);
-    } finally {
-      cancelTimeout?.();
-      signal?.removeEventListener('abort', abort);
-    }
   };
 }

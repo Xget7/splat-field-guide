@@ -1,20 +1,19 @@
 import type { Pack } from '../../../pack/pack';
 import type { LanguageModel } from '../../../../platform/ports';
 import { promptFor, PromptNotes, rulesFor } from '../../domain/grounding';
-import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import type { Answerer } from '../../domain/turn/answerer';
+import { HistoryTurns } from '../../domain/turn/history';
 
 const AVAILABLE = 'available';
-// Limit history to leave room in the on-device model's 4096-token window.
-const ON_DEVICE_HISTORY_TURNS = 1;
 
 /** Keep instructions stable for prewarming and caching; put question-specific evidence in the prompt. */
 export function onDeviceInstructions(pack: Pack): string {
   return rulesFor(pack).join('\n');
 }
 
-export function createOnDeviceModel(
+export function createDeviceAnswerer(
   languageModel: () => LanguageModel,
-): InstructorModel {
+): Answerer {
   return {
     isReady() {
       try {
@@ -40,7 +39,7 @@ export function createOnDeviceModel(
           question,
           state,
           pack,
-          history.slice(-ON_DEVICE_HISTORY_TURNS),
+          history.slice(-HistoryTurns.device),
           PromptNotes.subject,
           evidence,
         ),

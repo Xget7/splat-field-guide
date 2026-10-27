@@ -20,13 +20,11 @@ import {
   closeFailure,
   clientFailure,
   connectionFailure,
-  sessionUrl,
 } from '../../domain/agent/agentFailure';
 import { AgentToolCopy } from '../../domain/agent/agentCopy';
 import type {
   AudioLink,
   Cancel,
-  Fetch,
   Socket,
   Timers,
 } from '../../../../platform/ports';
@@ -522,25 +520,4 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       end(AgentEnd.stopped);
     },
   };
-}
-const VOICE_SESSION_PATH = '/v1/voice/session';
-export async function fetchSignedUrl(
-  baseUrl: string,
-  fetchImpl: Fetch,
-): Promise<string> {
-  let response: Response;
-  let body: unknown;
-  try {
-    response = await fetchImpl(`${baseUrl}${VOICE_SESSION_PATH}`, {
-      method: 'POST',
-    });
-    try {
-      body = await response.json();
-    } catch {
-      body = null;
-    }
-  } catch {
-    throw new Error(AgentFailure.network);
-  }
-  return sessionUrl(response.status, body);
 }

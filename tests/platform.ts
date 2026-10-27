@@ -8,6 +8,7 @@ import type {
   Socket,
   SpeechInput,
   SpeechOutput,
+  StreamingRequest,
 } from '../apps/field-guide/src/platform/ports';
 
 const ACTIVE: AppStateStatus = 'active';
@@ -17,6 +18,7 @@ const UNSCRIPTED_FETCH = 'The fake platform has no scripted fetch';
 const UNSCRIPTED_REQUEST =
   'The fake platform has no scripted streaming request';
 const NOT_MONITORING = 'The network monitor has not started';
+const HTTP_OK = 200;
 
 export const AGENT_METADATA = {
   type: 'conversation_initiation_metadata',
@@ -64,6 +66,77 @@ export function fakeAgentTransport() {
       return sockets.filter(socket => !closed.has(socket)).length;
     },
     sent,
+  };
+}
+
+/** One streaming request the test answers chunk by chunk, recording what was sent. */
+export interface FakeStreamingRequest extends StreamingRequest {
+  readonly method: string;
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body: string;
+  readonly aborted: boolean;
+  /** Appends text to the response with an OK status, as a progress event does. */
+  receive(chunk: string): void;
+  /** Completes the response with a status. */
+  end(status?: number): void;
+  /** Fails the request as the transport does. */
+  fail(): void;
+}
+
+/** Streaming requests the test answers; pass `create` as the platform's streamingRequest. */
+export function fakeStreamingRequests() {
+  const requests: FakeStreamingRequest[] = [];
+  function create(): FakeStreamingRequest {
+    const headers: Record<string, string> = {};
+    const request = {
+      status: 0,
+      responseText: '',
+      method: '',
+      url: '',
+      headers,
+      body: '',
+      aborted: false,
+      onprogress: null as (() => void) | null,
+      onload: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+      open(method: string, url: string) {
+        request.method = method;
+        request.url = url;
+      },
+      setRequestHeader(name: string, value: string) {
+        headers[name] = value;
+      },
+      send(body: string) {
+        request.body = body;
+      },
+      abort() {
+        request.aborted = true;
+      },
+      receive(chunk: string) {
+        request.status = HTTP_OK;
+        request.responseText += chunk;
+        request.onprogress?.();
+      },
+      end(status = HTTP_OK) {
+        request.status = status;
+        request.onload?.();
+      },
+      fail() {
+        request.onerror?.();
+      },
+    };
+    requests.push(request);
+    return request;
+  }
+  return {
+    create,
+    get last() {
+      return requests.at(-1)!;
+    },
+    get count() {
+      return requests.length;
+    },
   };
 }
 
