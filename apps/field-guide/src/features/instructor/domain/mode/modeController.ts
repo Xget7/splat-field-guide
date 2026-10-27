@@ -7,6 +7,7 @@ import {
   InstructorMode,
   ModeCause,
   ModeRequestType,
+  STARTUP_MODE,
   VoiceSource,
   type ModeRequest,
   type ModeStatus,
@@ -49,12 +50,7 @@ export function createModeController(
   options: ModeControllerOptions,
 ): ModeController {
   const { clock: now, timers } = options;
-  let status: ModeStatus = {
-    mode: InstructorMode.online,
-    cause: ModeCause.startup,
-    voice: VoiceSource.agent,
-    answers: AnswerSource.claude,
-  };
+  let status: ModeStatus = STARTUP_MODE;
   let initialized = false;
   let disposed = false;
   let quality: NetworkQuality = NetworkQuality.good;

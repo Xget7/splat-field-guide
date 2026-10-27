@@ -7,14 +7,13 @@ import {
 } from '../../domain/grounding';
 import { packKnowledge } from '../../domain/knowledge';
 import type { Answerer } from '../../domain/turn/answerer';
+import { HistoryTurns } from '../../domain/turn/history';
 import type { Clock, Timers } from '../../../../platform/ports';
 import {
   createReplyPolicy,
   type ReplyFailure,
 } from '../../domain/turn/replyPolicy';
 import type { ProxyClient } from '../proxy/proxyClient';
-
-export const CLOUD_HISTORY_TURNS = 4;
 
 /** Cache the full pack instructions upstream so the model can reason across parts. */
 export function cloudInstructions(pack: Pack): string {
@@ -60,7 +59,7 @@ export function createCloudAnswerer({
           question,
           state,
           pack,
-          history.slice(-CLOUD_HISTORY_TURNS),
+          history.slice(-HistoryTurns.cloud),
           PromptNotes.none,
           evidence,
         ),

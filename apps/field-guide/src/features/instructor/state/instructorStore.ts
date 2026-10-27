@@ -8,12 +8,9 @@ import {
 import { AgentState, type AgentStatus } from '../domain/agent/agentStatus';
 import type { Instructor } from '../domain/instructorHandle';
 import {
-  AnswerSource,
-  InstructorMode,
   isSwitching,
-  ModeCause,
   ModeRequestType,
-  VoiceSource,
+  STARTUP_MODE,
   type ModeStatus,
   type ModeSuggestion,
   type SwitchStep,
@@ -25,12 +22,6 @@ const UNKNOWN_NETWORK: NetworkStatus = {
   quality: NetworkQuality.good,
   transport: Transport.other,
   reason: NetworkReason.unknown,
-};
-const STARTUP_MODE: ModeStatus = {
-  mode: InstructorMode.online,
-  cause: ModeCause.startup,
-  voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
 };
 const IDLE_AGENT: AgentStatus = { state: AgentState.idle, reason: null };
 // Until an instructor reports, a foreground voice may start.

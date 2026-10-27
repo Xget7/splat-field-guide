@@ -11,6 +11,7 @@ import {
   historyUpdate,
   screenUpdate,
 } from '../../domain/agent/agentVariables';
+import { NARRATE_PREFIX } from '../../domain/agent/agentProtocol';
 import { runAgentTool } from '../../domain/agent/agentTools';
 import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
@@ -34,8 +35,6 @@ import {
   type VoicePrompt,
 } from '../../domain/voice/voiceSession';
 
-export const AGENT_HISTORY_TURNS = 4;
-export const NARRATE_PREFIX = '[narrate] ';
 const STEP_EVENTS: ReadonlySet<string> = new Set([
   SessionEventType.start,
   SessionEventType.next,
@@ -258,9 +257,7 @@ export function createAgentVoiceSession({
       try {
         await client.start(
           agentVariables(initial.state, pack, initial.history.length > 0),
-          initial.history.length > 0
-            ? [historyUpdate(initial.history.slice(-AGENT_HISTORY_TURNS))]
-            : [],
+          initial.history.length > 0 ? [historyUpdate(initial.history)] : [],
         );
         if (current()) {
           started = true;

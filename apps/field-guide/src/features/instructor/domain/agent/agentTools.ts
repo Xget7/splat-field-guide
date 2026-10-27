@@ -49,7 +49,8 @@ const ParameterDescription = {
   procedureId: 'The id of the procedure to begin.',
   stepNumber: 'The step number, counting from 1.',
 } as const;
-const FIRST_STEP_NUMBER = 1;
+/** Steps are numbered from one wherever the agent reads or names them. */
+export const FIRST_STEP_NUMBER = 1;
 export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
   return Object.values(AgentTool).map(name => {
     const properties: Record<string, unknown> = {};
