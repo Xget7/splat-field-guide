@@ -96,15 +96,15 @@ export function createModeSwitching(
   let supersede: (() => void) | null = null;
   // Waits are tracked so cancel stops the ones still pending.
   const waits = new Set<Cancel>();
-  function after(delayMs: number, run: () => void) {
-    const cancel = timers.after(delayMs, () => {
-      waits.delete(cancel);
-      run();
+  function after(delayMs: number, elapsed: () => void) {
+    const stopWait = timers.after(delayMs, () => {
+      waits.delete(stopWait);
+      elapsed();
     });
-    waits.add(cancel);
+    waits.add(stopWait);
     return () => {
-      waits.delete(cancel);
-      cancel();
+      waits.delete(stopWait);
+      stopWait();
     };
   }
   function tasksFor(mode: InstructorMode): readonly PieceTask[] {
