@@ -12,7 +12,7 @@ import {
   createTurnRunner,
   instructorStore,
   type ExchangeIds,
-  type InstructorRuntime,
+  type Instructor,
 } from '../apps/field-guide/src/features/instructor';
 
 export function voiceEvents() {
@@ -127,12 +127,12 @@ export function fakeVoiceRuntime(connection: VoiceConnection) {
   };
 }
 
-/** An instructor runtime of jest functions that answers nothing, with the given members replaced. */
-export function fakeInstructorRuntime(
-  overrides: Partial<InstructorRuntime> = {},
-): InstructorRuntime {
+/** An instructor of jest functions that answers nothing, with the given members replaced. */
+export function fakeInstructor(
+  overrides: Partial<Instructor> = {},
+): Instructor {
   return {
-    instructor: createTurnRunner([], createExchangeIds()),
+    turns: createTurnRunner([], createExchangeIds()),
     sessionFor: jest.fn(() => null),
     setPack: jest.fn(),
     setInstructorOpen: jest.fn(),

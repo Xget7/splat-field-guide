@@ -3,7 +3,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { instructorStore } from '../state/instructorStore';
-import { fakeInstructorRuntime } from '@tests/voiceSession';
+import { fakeInstructor } from '@tests/voiceSession';
 import {
   AnswerSource,
   InstructorMode,
@@ -173,7 +173,7 @@ describe('instructor mode area', () => {
   ])('$label requests $request', async ({ label, request }) => {
     const requests: string[] = [];
     instructorStore.getState().attach(
-      fakeInstructorRuntime({
+      fakeInstructor({
         requestMode: intent => requests.push(intent.type),
       }),
     );

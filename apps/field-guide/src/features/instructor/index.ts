@@ -43,9 +43,8 @@ export type {
   VoiceSessionEvents,
 } from './domain/voice/voiceSession';
 export { onDeviceInstructions } from './data/answerers/deviceAnswerer';
-export { createInstructorRuntime } from './data/runtime/instructorRuntime';
-export type { InstructorRuntimeOptions } from './data/runtime/instructorRuntime';
-export type { InstructorRuntime } from './domain/instructorRuntime';
+export { createInstructor } from './createInstructor';
+export type { Instructor, InstructorOptions } from './createInstructor';
 export {
   createInstructorStore,
   instructorStore,

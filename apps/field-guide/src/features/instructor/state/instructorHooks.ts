@@ -1,8 +1,8 @@
 import { useStore } from 'zustand';
-import type { InstructorRuntime } from '../domain/instructorRuntime';
+import type { Instructor } from '../domain/instructorHandle';
 import { instructorStore, selectSwitchSteps } from './instructorStore';
 
-const MISSING_RUNTIME = 'App must provide the instructor runtime';
+const MISSING_INSTRUCTOR = 'App must provide the instructor';
 
 export function useNetwork() {
   return useStore(instructorStore, state => state.network);
@@ -22,10 +22,10 @@ export function useSwitchSteps() {
 export function useVoiceRuntime() {
   return useStore(instructorStore, state => state.voice);
 }
-export function useInstructorRuntime(): InstructorRuntime {
-  const runtime = useStore(instructorStore, state => state.runtime);
-  if (runtime === null) {
-    throw new Error(MISSING_RUNTIME);
+export function useInstructor(): Instructor {
+  const instructor = useStore(instructorStore, state => state.instructor);
+  if (instructor === null) {
+    throw new Error(MISSING_INSTRUCTOR);
   }
-  return runtime;
+  return instructor;
 }

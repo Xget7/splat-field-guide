@@ -24,7 +24,7 @@ import {
 import type { SplatViewSpec } from 'react-native-splat';
 import {
   instructorStore,
-  createInstructorRuntime,
+  createInstructor,
   createExchangeIds,
   createTurnRunner,
   OfflineVoices,
@@ -32,7 +32,7 @@ import {
   VoiceHint,
   VOICE_LOCALE,
   recognitionHintsFor,
-  type InstructorRuntime,
+  type Instructor,
   type VoiceSessionEvents,
 } from '../../instructor';
 import { highlightFor, SessionEventType, LearnMode } from '../../guide';
@@ -40,7 +40,7 @@ import { continueRowFor } from '../../library';
 import { loadProgress } from '../../guide/views';
 
 import {
-  fakeInstructorRuntime,
+  fakeInstructor,
   fakeVoiceSession,
   fakeVoiceRuntime,
 } from '@tests/voiceSession';
@@ -126,7 +126,7 @@ function deferred<T>() {
 const modelReply = (reply = 'It supplies the starter.') => reply;
 
 describe('viewer screen', () => {
-  let runtime: InstructorRuntime;
+  let instructor: Instructor;
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   const native = () =>
@@ -168,7 +168,7 @@ describe('viewer screen', () => {
         },
       },
     } as unknown as ScreenProps<typeof Route.viewer>;
-    instructorStore.getState().attach(runtime);
+    instructorStore.getState().attach(instructor);
     await act(async () => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={entries}>
@@ -195,13 +195,13 @@ describe('viewer screen', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     instructorStore.getState().reset();
-    runtime = createInstructorRuntime({
+    instructor = createInstructor({
       platform: device.platform,
       proxyUrl: null,
       offlineVoice: OfflineVoices.kokoro,
       store: instructorStore,
     });
-    runtime.start();
+    instructor.start();
     view.project.mockReset().mockReturnValue(0);
     jest.mocked(useReducedMotion).mockReturnValue(false);
     jest.mocked(model.availability).mockReturnValue('unavailable');
@@ -217,7 +217,7 @@ describe('viewer screen', () => {
   });
   afterEach(async () => {
     await act(() => renderer.unmount());
-    runtime.stop();
+    instructor.stop();
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
@@ -225,13 +225,13 @@ describe('viewer screen', () => {
   test('typed questions use active voice, and tool navigation keeps its live exchange without interruption', async () => {
     let heard!: VoiceSessionEvents;
     const ids = createExchangeIds();
-    const instructor = createTurnRunner([], ids);
+    const turns = createTurnRunner([], ids);
     const fake = fakeVoiceSession(ids);
     const session = fake.session;
 
     const lifecycle = fakeVoiceRuntime({ session, questions: fake.questions });
-    runtime.stop();
-    runtime = fakeInstructorRuntime({ ...lifecycle.runtime, instructor });
+    instructor.stop();
+    instructor = fakeInstructor({ ...lifecycle.runtime, turns });
     await mount({
       mode: LearnMode.instructor,
       voice: true,

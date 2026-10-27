@@ -12,10 +12,10 @@ jest.mock('../startup/instructor', () => {
   const actual = jest.requireActual('../startup/instructor');
   return {
     createAppInstructor: jest.fn(() => {
-      const runtime = actual.createAppInstructor();
-      jest.spyOn(runtime, 'start');
-      jest.spyOn(runtime, 'stop');
-      return runtime;
+      const instructor = actual.createAppInstructor();
+      jest.spyOn(instructor, 'start');
+      jest.spyOn(instructor, 'stop');
+      return instructor;
     }),
   };
 });
@@ -54,14 +54,14 @@ describe('app', () => {
     });
     await act(() => renderer.update(<App />));
     expect(createAppInstructor).toHaveBeenCalledTimes(1);
-    const runtime = instructorStore.getState().runtime!;
-    expect(runtime).toBe(
+    const instructor = instructorStore.getState().instructor!;
+    expect(instructor).toBe(
       jest.mocked(createAppInstructor).mock.results[0].value,
     );
-    expect(runtime.start).toHaveBeenCalledTimes(1);
-    expect(runtime.stop).not.toHaveBeenCalled();
+    expect(instructor.start).toHaveBeenCalledTimes(1);
+    expect(instructor.stop).not.toHaveBeenCalled();
     await act(() => renderer.unmount());
-    expect(runtime.stop).toHaveBeenCalledTimes(1);
+    expect(instructor.stop).toHaveBeenCalledTimes(1);
   });
 
   test('opens on the library', async () => {

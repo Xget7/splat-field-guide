@@ -46,3 +46,6 @@ export function createInstructorForeground(activity: AppStatePort) {
     },
   };
 }
+export type InstructorForeground = ReturnType<
+  typeof createInstructorForeground
+>;

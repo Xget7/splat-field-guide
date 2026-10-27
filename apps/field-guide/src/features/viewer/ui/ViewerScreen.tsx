@@ -19,12 +19,12 @@ import {
   stepRowsFor,
 } from '../../guide';
 import {
-  useInstructorRuntime,
+  useInstructor,
   FADE_IN,
   FADE_OUT,
   panelLayout,
 } from '../../instructor/views';
-import type { InstructorRuntime } from '../../instructor';
+import type { Instructor } from '../../instructor';
 
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
 
@@ -76,7 +76,7 @@ export function ViewerScreen({
   navigation,
   route,
 }: ScreenProps<typeof Route.viewer>) {
-  const runtime = useInstructorRuntime();
+  const instructor = useInstructor();
   const { guideId, procedureId, stepIndex, mode, voice } = route.params;
   const guide = findReadyGuide(useCatalog(), guideId);
   const exit = useCallback(() => navigation.goBack(), [navigation]);
@@ -85,7 +85,7 @@ export function ViewerScreen({
   }
   return (
     <Viewer
-      runtime={runtime}
+      instructor={instructor}
       guide={guide}
       procedureId={procedureId}
       stepIndex={stepIndex}
@@ -97,7 +97,7 @@ export function ViewerScreen({
 }
 
 interface ViewerProps {
-  runtime: InstructorRuntime;
+  instructor: Instructor;
   guide: ReadyGuide;
   procedureId: ProcedureId;
   stepIndex: number;
@@ -107,7 +107,7 @@ interface ViewerProps {
 }
 
 function Viewer({
-  runtime,
+  instructor,
   guide,
   procedureId,
   stepIndex,
@@ -139,7 +139,7 @@ function Viewer({
     procedureId,
     stepIndex,
     instructorOpen,
-    runtime,
+    instructor,
     startInVoice,
   });
   const [pickerVisible, setPickerVisible] = useState(false);
