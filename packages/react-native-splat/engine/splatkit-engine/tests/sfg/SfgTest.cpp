@@ -27,6 +27,7 @@ using test::solidPairBytes;
 
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
+constexpr float kFieldGuideRenderScale = 0.75f;
 // SHA-256 of solidPairBytes() and labelBytes({kRootPart, 1, 2}), calculated independently with
 // Python hashlib. The tree is written by hand, so its bytes are the same on every platform.
 constexpr char kSolidPairSha256[] =
@@ -79,6 +80,10 @@ class SfgTest : public ::testing::Test {
   std::vector<Event> events;
   int64_t vsync = 0;
 };
+
+TEST_F(SfgTest, DrawsTheSplatsBelowFullResolution) {
+  EXPECT_FLOAT_EQ(renderer->renderScale(), kFieldGuideRenderScale);
+}
 
 TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
   const std::string world = writeFile("pair.lodsplat", pairBytes());

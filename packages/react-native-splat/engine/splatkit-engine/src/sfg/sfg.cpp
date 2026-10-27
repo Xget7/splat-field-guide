@@ -18,6 +18,10 @@ struct sfg_engine {
 namespace splatkit {
 namespace {
 
+// Blending a wide view's splats is bound by the pixels they cover; three quarters of the
+// resolution covers about 44% fewer and the upscaler keeps edges sharp on a Retina screen.
+constexpr float kRenderScale = 0.75f;
+
 sfg_event toC(SplatEngine::Event event) {
   switch (event) {
     case SplatEngine::Event::worldReady:
@@ -48,6 +52,7 @@ sfg_vec3 toC(splat::Vec3 v) {
 
 sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer, SplatEngine::FileLoader loadFile,
                           std::shared_ptr<void> platform) {
+  renderer->setRenderScale(kRenderScale);
   return new sfg_engine{std::move(platform),
                         std::make_unique<SplatEngine>(std::move(renderer), std::move(loadFile))};
 }
