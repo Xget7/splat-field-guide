@@ -16,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Button, IconButton, IconButtonVariant } from '../../../../ui/Button';
+import { IconButton, IconButtonVariant } from '../../../../ui/Button';
 import { Icon, IconName } from '../../../../ui/Icon';
 import { stepLabel, type CardContent } from '../../../guide';
 import {
@@ -40,7 +40,6 @@ import {
 } from '../../../instructor/views';
 import { speechTextFor } from '../../../instructor';
 import {
-  BUTTON_HEIGHT,
   Color,
   HAIRLINE,
   MIN_TOUCH,
@@ -55,6 +54,7 @@ import {
   type Exchange,
   type ThreadEntry,
 } from '../../domain/viewerState';
+import { StepControls, StepControlsSites } from '../StepControls';
 import { InstructorThread } from './InstructorThread';
 
 import {
@@ -219,28 +219,6 @@ export function InstructorPanel({
     // Dismiss the keyboard so the selected part remains visible.
     Keyboard.dismiss();
   }, [draft, onAsk]);
-  const previous = hasStep ? (
-    <IconButton
-      testID="instructor-back"
-      icon={IconName.back}
-      accessibilityLabel="Previous step"
-      size={BUTTON_HEIGHT}
-      disabled={content.backDisabled}
-      onPress={onBack}
-    />
-  ) : null;
-  const next = hasStep ? (
-    <Button
-      testID="instructor-next"
-      label={content.last ? 'Finish' : 'Next'}
-      icon={content.last ? IconName.check : undefined}
-      accessibilityLabel={content.last ? 'Finish procedure' : 'Next step'}
-      disabled={content.nextDisabled}
-      onPress={onNext}
-      style={styles.next}
-    />
-  ) : null;
-
   return (
     <Animated.View
       testID="instructor-panel"
@@ -326,15 +304,12 @@ export function InstructorPanel({
             )}
             {minimized && voice.on && <MuteButton voice={voice} />}
             {minimized && hasStep && (
-              <IconButton
-                testID="instructor-next"
-                icon={content.last ? IconName.check : IconName.next}
-                accessibilityLabel={
-                  content.last ? 'Finish procedure' : 'Next step'
-                }
-                disabled={content.nextDisabled}
-                variant={IconButtonVariant.primary}
-                onPress={onNext}
+              <StepControls
+                site={StepControlsSites.instructor}
+                content={content}
+                onBack={onBack}
+                onNext={onNext}
+                compact
               />
             )}
           </View>
@@ -439,10 +414,12 @@ export function InstructorPanel({
             </View>
           )}
           {hasStep && !voice.on && (
-            <View style={styles.talkRow}>
-              {previous}
-              {next}
-            </View>
+            <StepControls
+              site={StepControlsSites.instructor}
+              content={content}
+              onBack={onBack}
+              onNext={onNext}
+            />
           )}
         </>
       )}
@@ -487,8 +464,6 @@ const styles = StyleSheet.create({
   },
   hint: { ...Type.footnote, color: Color.muted },
   command: { color: Color.text },
-  talkRow: { flexDirection: 'row', gap: Space.sm },
-  next: { flex: 1 },
   voiceButton: {
     height: Composer.button,
     flexDirection: 'row',

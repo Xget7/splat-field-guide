@@ -1,11 +1,12 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
+import { IconButton, IconButtonVariant } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import { BUTTON_HEIGHT, Color, HAIRLINE, Space, Type } from '../../../ui/theme';
 import { CautionNote } from '../../../ui/CautionNote';
 import { type CardContent, stepLabel } from '../../guide';
+import { StepControls, StepControlsSites } from './StepControls';
 import { StepSegments } from './StepSegments';
 
 const SWIPE_ACTIVATION_POINTS = 24;
@@ -94,15 +95,13 @@ export function StepPanel({
           {content.caution !== '' && <CautionNote text={content.caution} />}
         </ScrollView>
         {hasStep && (
-          <View style={styles.buttons}>
-            <IconButton
-              testID="step-back"
-              icon={IconName.back}
-              accessibilityLabel="Previous step"
-              size={BUTTON_HEIGHT}
-              disabled={content.backDisabled}
-              onPress={onBack}
-            />
+          <StepControls
+            site={StepControlsSites.panel}
+            content={content}
+            onBack={onBack}
+            onNext={onNext}
+            style={styles.buttons}
+          >
             <IconButton
               testID="step-repeat"
               icon={IconName.repeat}
@@ -113,15 +112,7 @@ export function StepPanel({
               size={BUTTON_HEIGHT}
               onPress={onRepeat}
             />
-            <Button
-              testID="step-next"
-              label={content.last ? 'Finish' : 'Next'}
-              icon={content.last ? IconName.check : undefined}
-              disabled={content.nextDisabled}
-              onPress={onNext}
-              style={styles.next}
-            />
-          </View>
+          </StepControls>
         )}
       </View>
     </GestureDetector>
@@ -148,6 +139,5 @@ const styles = StyleSheet.create({
   text: { gap: Space.sm, paddingTop: Space.xs },
   title: { ...Type.title, color: Color.text },
   body: { ...Type.body, color: Color.secondaryText },
-  buttons: { flexDirection: 'row', gap: Space.sm, paddingTop: Space.xs },
-  next: { flex: 1 },
+  buttons: { paddingTop: Space.xs },
 });

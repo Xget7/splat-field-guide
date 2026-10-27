@@ -1,27 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Button, IconButton } from '../../../../ui/Button';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { Icon, IconName } from '../../../../ui/Icon';
-import {
-  BUTTON_HEIGHT,
-  Color,
-  MIN_TOUCH,
-  Radius,
-  Space,
-  Type,
-} from '../../../../ui/theme';
+import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../../ui/theme';
 import type { CardContent, StepRow } from '../../../guide';
+import { StepControls, StepControlsSites } from '../StepControls';
 import { StepList } from '../StepList';
 import { Drawer } from './Drawer';
 
 const TITLE = 'Guide';
 const PROCEDURE_LABEL = 'Procedure';
 const CHOOSE_HINT = 'Choose another procedure';
-const BACK_LABEL = 'Previous step';
-const BACK_HINT = 'Return to the previous instruction';
-const NEXT_LABEL = 'Next';
-const NEXT_HINT = 'Continue to the next instruction';
-const FINISH_LABEL = 'Finish';
-const FINISH_HINT = 'Finish this procedure and return to the library';
 const CHEVRON_SIZE = 14;
 
 interface Props {
@@ -59,27 +46,13 @@ export function GuideDrawer({
       bottomInset={bottomInset}
       onClose={onClose}
       footer={
-        <View style={styles.buttons}>
-          <IconButton
-            testID="step-back"
-            icon={IconName.back}
-            accessibilityLabel={BACK_LABEL}
-            accessibilityHint={BACK_HINT}
-            size={BUTTON_HEIGHT}
-            disabled={content.backDisabled}
-            onPress={onBack}
-            style={styles.back}
-          />
-          <Button
-            testID="step-next"
-            label={content.last ? FINISH_LABEL : NEXT_LABEL}
-            accessibilityLabel={content.last ? FINISH_LABEL : NEXT_LABEL}
-            accessibilityHint={content.last ? FINISH_HINT : NEXT_HINT}
-            disabled={content.nextDisabled}
-            onPress={onNext}
-            style={styles.next}
-          />
-        </View>
+        <StepControls
+          site={StepControlsSites.drawer}
+          content={content}
+          onBack={onBack}
+          onNext={onNext}
+          backStyle={styles.back}
+        />
       }
     >
       <Pressable
@@ -118,7 +91,5 @@ const styles = StyleSheet.create({
   },
   procedureTitle: { ...Type.callout, flex: 1, color: Color.text },
   pressed: { backgroundColor: Color.pressed },
-  buttons: { flexDirection: 'row', gap: Space.sm },
   back: { backgroundColor: Color.field },
-  next: { flex: 1 },
 });
