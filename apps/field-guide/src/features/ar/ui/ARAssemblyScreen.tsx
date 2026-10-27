@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Linking,
   Platform,
@@ -11,293 +11,97 @@ import {
 import { LiquidGlassView } from '@sbaiahmed1/react-native-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
-import {
-  ARPlacementView,
-  type ARAssemblyEvent,
-  type ARAssemblyPart,
-  type ARPlacementEvent,
-} from 'react-native-splat';
+import type { ARAssemblyEvent, ARPlacementEvent } from 'react-native-splat';
+import { ARPlacementView } from 'react-native-splat';
 import { offersAssembly } from '../domain/availability';
+import { SizeLimits } from '../domain/assemblySession';
+import {
+  assemblyTourFor,
+  PrimaryAction,
+  TourIcon,
+  type TourMove,
+} from '../domain/assemblyTour';
+import { useAssemblySession } from '../state/assemblyHooks';
 import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';
 import { IconName } from '../../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
 import { ARGlassButton } from './ARGlassButton';
 
-const DEFAULT_SCALE = 1;
-const MIN_SCALE = 0.1;
-const MAX_SCALE = 2;
-const SCALE_FACTOR = 1.25;
-const DEFAULT_ELEVATION = 0.5;
-const MIN_ELEVATION = 0;
-const MAX_ELEVATION = 2;
-const ELEVATION_STEP = 0.25;
 const FOOTER_HEIGHT = 160;
 const BATCHES = V8_CAPTURE.assemblyBatches;
-const INITIAL_ASSEMBLED_COUNT = BATCHES[0].endPartCount;
-const INITIAL_EVENT: ARPlacementEvent = {
-  state: 'loading',
-  message: 'Preparing the engine and camera.',
-  scale: DEFAULT_SCALE,
-  placed: false,
+
+const TOUR_ICON: Record<TourIcon, IconName> = {
+  [TourIcon.next]: IconName.next,
+  [TourIcon.camera]: IconName.camera,
+  [TourIcon.repeat]: IconName.repeat,
+  [TourIcon.frame]: IconName.frame,
+  [TourIcon.check]: IconName.check,
 };
-
-interface Assembly {
-  parts: ARAssemblyPart[];
-  assembledCount: number;
-  phase: ARAssemblyEvent['phase'];
-  requestId: number;
-}
-
-const INITIAL_ASSEMBLY: Assembly = {
-  parts: [],
-  assembledCount: INITIAL_ASSEMBLED_COUNT,
-  phase: 'idle',
-  requestId: 0,
-};
-
-function sameParts(before: ARAssemblyPart[], after: ARAssemblyPart[]) {
-  return (
-    before.length === after.length &&
-    before.every(
-      (part, index) =>
-        part.id === after[index].id && part.label === after[index].label,
-    )
-  );
-}
 
 export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const [event, setEvent] = useState(INITIAL_EVENT);
-  const [assembly, setAssembly] = useState(INITIAL_ASSEMBLY);
-  const assemblyRef = useRef(INITIAL_ASSEMBLY);
-  const partsRef = useRef<ARAssemblyPart[]>([]);
-  const [command, setCommand] = useState({
-    step: INITIAL_ASSEMBLED_COUNT,
-    request: 0,
-    exploded: true,
-  });
-  const commandRef = useRef(command);
-  const [activeBatch, setActiveBatch] = useState<number | null>(null);
-  const exploded = command.exploded;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [animating, setAnimating] = useState(false);
-  const animationInFlight = useRef(false);
-  const [scale, setScale] = useState(DEFAULT_SCALE);
-  const [elevation, setElevation] = useState(DEFAULT_ELEVATION);
-  const [scaleRequest, setScaleRequest] = useState(0);
-  const [placementRequest, setPlacementRequest] = useState(0);
-  const [resetRequest, setResetRequest] = useState(0);
-  const [attempt, setAttempt] = useState(0);
-  const attemptRef = useRef(0);
-  const clearAnimation = useCallback(() => {
-    animationInFlight.current = false;
-    setAnimating(false);
-    setActiveBatch(null);
-  }, []);
-  const issueCommand = (
-    step: number,
-    preview: boolean,
-    batch: number | null,
-    interrupt = false,
-  ) => {
-    // Wait for the current command to start before accepting another skip.
-    if (animationInFlight.current && !interrupt) return;
-    if (
-      interrupt &&
-      (assemblyRef.current.phase !== 'assembling' ||
-        assemblyRef.current.requestId !== commandRef.current.request)
-    )
-      return;
-    animationInFlight.current = true;
-    setAnimating(true);
-    setActiveBatch(batch);
-    const next = {
-      step,
-      request: commandRef.current.request + 1,
-      exploded: preview,
-    };
-    commandRef.current = next;
-    setCommand(next);
-  };
-  const receivePlacement = useCallback((next: ARPlacementEvent) => {
-    setEvent(next);
-    setScale(next.scale);
-  }, []);
-  const receiveAssembly = useCallback(
-    (next: ARAssemblyEvent) => {
-      if (next.requestId !== commandRef.current.request) return;
-      const freshHierarchy = !sameParts(partsRef.current, next.parts);
-      partsRef.current = next.parts;
-      if (
-        next.phase === 'idle' &&
-        (animationInFlight.current || freshHierarchy)
-      ) {
-        const settled = { ...commandRef.current, step: next.assembledCount };
-        commandRef.current = settled;
-        setCommand(settled);
-      }
-      assemblyRef.current = next;
-      setAssembly(next);
-      if (next.phase === 'idle') clearAnimation();
-      else {
-        animationInFlight.current = true;
-        setAnimating(true);
-      }
-    },
-    [clearAnimation],
-  );
+  const session = useAssemblySession(BATCHES);
+  const {
+    event,
+    command,
+    menuOpen,
+    animating,
+    scale,
+    elevation,
+    scaleRequest,
+    placementRequest,
+    resetRequest,
+    attempt,
+    issue,
+    receivePlacement,
+    receiveAssembly,
+  } = session;
+  // Each attempt mounts a new native view, so its callbacks carry the attempt they belong to.
   const onPlacementChanged = useMemo(
-    () =>
-      callback((next: ARPlacementEvent) => {
-        if (attemptRef.current === attempt) receivePlacement(next);
-      }),
+    () => callback((next: ARPlacementEvent) => receivePlacement(attempt, next)),
     [attempt, receivePlacement],
   );
   const onAssemblyChanged = useMemo(
-    () =>
-      callback((next: ARAssemblyEvent) => {
-        if (attemptRef.current === attempt) receiveAssembly(next);
-      }),
+    () => callback((next: ARAssemblyEvent) => receiveAssembly(attempt, next)),
     [attempt, receiveAssembly],
   );
   const supported = offersAssembly(Platform.OS);
-  const state = supported ? event.state : 'unsupported';
-  const placed = supported && event.placed;
-  const batchCount = BATCHES.filter(
-    batch => batch.endPartCount <= assembly.parts.length,
-  ).length;
-  const completedBatches = BATCHES.slice(0, batchCount).filter(
-    batch => batch.endPartCount <= assembly.assembledCount,
-  ).length;
-  const displayedBatch = activeBatch ?? completedBatches;
-  const upcomingBatch = BATCHES[displayedBatch];
-  const complete =
-    batchCount > 0 &&
-    assembly.assembledCount === assembly.parts.length &&
-    !animating;
-  const canAssemble = placed && state === 'placed' && batchCount > 0;
-  const canAnimate = canAssemble && !animating;
-  const canStep = canAnimate && exploded;
-  const canSkip =
-    canAssemble &&
-    exploded &&
-    animating &&
-    assembly.phase === 'assembling' &&
-    assembly.requestId === command.request &&
-    activeBatch !== null;
-  const canResize =
-    !animating && ['ready', 'placed', 'searching'].includes(state);
+  const tour = assemblyTourFor(BATCHES, session, supported);
+  const { state, placed, exploded, primary } = tour;
   const resize = (next: number) => {
-    if (canResize) {
-      setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, next)));
-      setScaleRequest(current => current + 1);
+    if (tour.canResize) {
+      session.resize(next);
     }
-  };
-  const moveBatch = (direction: number) => {
-    if (direction > 0 && canSkip) {
-      const currentBatch = BATCHES.findIndex(
-        batch => batch.endPartCount === commandRef.current.step,
-      );
-      if (currentBatch < 0) return;
-      const nextBatch = Math.min(currentBatch + 1, batchCount - 1);
-      issueCommand(BATCHES[nextBatch].endPartCount, true, nextBatch, true);
-      return;
-    }
-    if (!canStep) return;
-    const prefix = assembly.assembledCount;
-    const previousBoundary =
-      completedBatches === 0 ? 0 : BATCHES[completedBatches - 1].endPartCount;
-    if (direction > 0 && completedBatches < batchCount) {
-      issueCommand(
-        BATCHES[completedBatches].endPartCount,
-        true,
-        completedBatches,
-      );
-    } else if (direction < 0 && prefix > INITIAL_ASSEMBLED_COUNT) {
-      const target =
-        prefix > previousBoundary
-          ? previousBoundary
-          : completedBatches > 1
-          ? BATCHES[completedBatches - 2].endPartCount
-          : INITIAL_ASSEMBLED_COUNT;
-      issueCommand(
-        Math.max(INITIAL_ASSEMBLED_COUNT, target),
-        true,
-        prefix > previousBoundary ? completedBatches : completedBatches - 1,
-      );
-    }
-  };
-  const changePreview = () => {
-    if (canAnimate) issueCommand(assembly.assembledCount, !exploded, null);
-  };
-  const retry = () => {
-    clearAnimation();
-    setEvent(INITIAL_EVENT);
-    partsRef.current = [];
-    setAssembly(INITIAL_ASSEMBLY);
-    assemblyRef.current = INITIAL_ASSEMBLY;
-    const initialCommand = {
-      step: INITIAL_ASSEMBLED_COUNT,
-      request: 0,
-      exploded: true,
-    };
-    commandRef.current = initialCommand;
-    setCommand(initialCommand);
-    setMenuOpen(false);
-    setScale(DEFAULT_SCALE);
-    setElevation(DEFAULT_ELEVATION);
-    setScaleRequest(0);
-    setPlacementRequest(0);
-    setResetRequest(0);
-    attemptRef.current += 1;
-    setAttempt(attemptRef.current);
   };
   const openSettings = () => {
-    Linking.openSettings().catch(() =>
-      setEvent(current => ({
-        ...current,
-        state: 'error',
-        message: 'Enable camera access for Field Guide in Settings.',
-      })),
-    );
+    Linking.openSettings().catch(session.settingsFailed);
   };
-  let primaryLabel = 'Preparing AR';
-  let primaryIcon: IconName = IconName.next;
-  let primaryEnabled = false;
-  let primaryAction = () => {};
-  if (state === 'permission-denied') {
-    primaryLabel = 'Camera settings';
-    primaryIcon = IconName.camera;
-    primaryEnabled = true;
-    primaryAction = openSettings;
-  } else if (state === 'error') {
-    primaryLabel = 'Try again';
-    primaryIcon = IconName.repeat;
-    primaryEnabled = true;
-    primaryAction = retry;
-  } else if (state === 'unsupported') {
-    primaryLabel = 'AR unavailable';
-  } else if (state === 'requesting-permission') {
-    primaryLabel = 'Camera access';
-  } else if (state === 'limited' || state === 'paused') {
-    primaryLabel = state === 'limited' ? 'Restore tracking' : 'AR paused';
-  } else if (!placed && ['searching', 'ready'].includes(state)) {
-    primaryLabel = state === 'ready' ? 'Place engine' : 'Find a flat surface';
-    primaryIcon = IconName.frame;
-    primaryEnabled = state === 'ready';
-    primaryAction = () => setPlacementRequest(current => current + 1);
-  } else if (canAssemble) {
-    primaryLabel = !exploded
-      ? 'Continue tour'
-      : complete
-      ? 'Assembled'
-      : 'Next step';
-    primaryIcon = complete && exploded ? IconName.check : IconName.next;
-    primaryEnabled = canSkip || (canAnimate && (!exploded || !complete));
-    primaryAction = !exploded ? changePreview : () => moveBatch(1);
-  }
-  const showMessage = ['unsupported', 'error', 'limited'].includes(state);
+  // A move the tour does not offer right now leaves the press without effect.
+  const run = (move: TourMove | null) => {
+    if (move) {
+      issue(move);
+    }
+  };
+  const primaryAction = () => {
+    switch (primary.action) {
+      case PrimaryAction.settings:
+        openSettings();
+        break;
+      case PrimaryAction.retry:
+        session.retry();
+        break;
+      case PrimaryAction.place:
+        session.requestPlacement();
+        break;
+      case PrimaryAction.preview:
+        run(tour.preview);
+        break;
+      case PrimaryAction.next:
+        run(tour.next);
+        break;
+    }
+  };
 
   return (
     <View testID="ar-assembly-screen" style={styles.root}>
@@ -335,10 +139,10 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
           icon={menuOpen ? IconName.close : IconName.layers}
           accessibilityLabel={menuOpen ? 'Close controls' : 'Assembly controls'}
           accessibilityState={{ expanded: menuOpen }}
-          onPress={() => setMenuOpen(current => !current)}
+          onPress={session.toggleMenu}
         />
       </View>
-      {!placed && ['searching', 'ready'].includes(state) && (
+      {tour.targeting && (
         <View pointerEvents="none" style={styles.targetArea}>
           <View
             style={[styles.target, state === 'ready' && styles.targetReady]}
@@ -366,21 +170,15 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
             {placed && (
               <>
                 <Text style={styles.menuLabel}>
-                  {animating && activeBatch !== null
-                    ? activeBatch + 1
-                    : completedBatches}{' '}
-                  / {batchCount} steps
+                  {tour.menuStep} / {tour.batchCount} steps
                 </Text>
                 <ARGlassButton
                   testID="ar-assembly-previous"
                   label="Previous step"
                   icon={IconName.back}
                   accessibilityLabel="Separate the previous group of parts"
-                  disabled={
-                    !canStep ||
-                    assembly.assembledCount <= INITIAL_ASSEMBLED_COUNT
-                  }
-                  onPress={() => moveBatch(-1)}
+                  disabled={tour.previous === null}
+                  onPress={() => run(tour.previous)}
                 />
                 <ARGlassButton
                   testID="ar-assembly-preview"
@@ -389,28 +187,20 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                   accessibilityLabel={
                     exploded ? 'Preview assembled engine' : 'Return to the tour'
                   }
-                  disabled={!canAnimate}
-                  onPress={changePreview}
+                  disabled={tour.preview === null}
+                  onPress={() => run(tour.preview)}
                 />
                 <ARGlassButton
                   testID="ar-assembly-restart"
                   label="Restart"
                   icon={IconName.repeat}
                   accessibilityLabel="Restart assembly"
-                  disabled={
-                    !canAnimate ||
-                    (assembly.assembledCount <= INITIAL_ASSEMBLED_COUNT &&
-                      exploded)
-                  }
-                  onPress={() => {
-                    if (canAnimate) {
-                      issueCommand(INITIAL_ASSEMBLED_COUNT, true, null);
-                    }
-                  }}
+                  disabled={!tour.canRestart}
+                  onPress={() => run(tour.restart)}
                 />
               </>
             )}
-            {['searching', 'ready', 'placed'].includes(state) && (
+            {tour.sizing && (
               <>
                 <Text style={styles.menuLabel}>Relative size</Text>
                 <View style={styles.scaleRow}>
@@ -418,8 +208,8 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                     testID="ar-assembly-smaller"
                     label="Smaller"
                     accessibilityLabel="Reduce relative model size"
-                    disabled={!canResize || event.scale <= MIN_SCALE}
-                    onPress={() => resize(event.scale / SCALE_FACTOR)}
+                    disabled={!tour.canShrink}
+                    onPress={() => resize(event.scale / SizeLimits.scaleFactor)}
                     style={styles.scaleButton}
                   />
                   <Text style={styles.scale}>
@@ -429,8 +219,8 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                     testID="ar-assembly-larger"
                     label="Larger"
                     accessibilityLabel="Increase relative model size"
-                    disabled={!canResize || event.scale >= MAX_SCALE}
-                    onPress={() => resize(event.scale * SCALE_FACTOR)}
+                    disabled={!tour.canGrow}
+                    onPress={() => resize(event.scale * SizeLimits.scaleFactor)}
                     style={styles.scaleButton}
                   />
                 </View>
@@ -440,12 +230,8 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                     testID="ar-assembly-lower"
                     label="Lower"
                     accessibilityLabel="Lower the engine by 25 centimeters"
-                    disabled={!canResize || elevation <= MIN_ELEVATION}
-                    onPress={() =>
-                      setElevation(current =>
-                        Math.max(MIN_ELEVATION, current - ELEVATION_STEP),
-                      )
-                    }
+                    disabled={!tour.canLower}
+                    onPress={session.lower}
                     style={styles.scaleButton}
                   />
                   <Text style={styles.scale}>{elevation.toFixed(2)} m</Text>
@@ -453,12 +239,8 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                     testID="ar-assembly-higher"
                     label="Higher"
                     accessibilityLabel="Raise the engine by 25 centimeters"
-                    disabled={!canResize || elevation >= MAX_ELEVATION}
-                    onPress={() =>
-                      setElevation(current =>
-                        Math.min(MAX_ELEVATION, current + ELEVATION_STEP),
-                      )
-                    }
+                    disabled={!tour.canRaise}
+                    onPress={session.raise}
                     style={styles.scaleButton}
                   />
                 </View>
@@ -471,17 +253,7 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
                 icon={IconName.frame}
                 accessibilityLabel="Place the engine on another surface"
                 disabled={animating}
-                onPress={() => {
-                  if (!animationInFlight.current) {
-                    setMenuOpen(false);
-                    setEvent(current => ({
-                      ...current,
-                      state: 'searching',
-                      placed: false,
-                    }));
-                    setResetRequest(current => current + 1);
-                  }
-                }}
+                onPress={session.relocate}
               />
             )}
             <Text style={styles.menuNote}>
@@ -494,16 +266,16 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
         pointerEvents="box-none"
         style={[styles.footer, { bottom: insets.bottom + Space.sm }]}
       >
-        {showMessage && (
+        {tour.showsMessage && (
           <Text numberOfLines={2} style={styles.floatingText}>
             {state === 'unsupported'
               ? 'Use a physical iPhone or iPad.'
               : event.message}
           </Text>
         )}
-        {canAssemble && exploded && !complete && (
+        {tour.inProgress && (
           <Text style={styles.floatingText} numberOfLines={1}>
-            {upcomingBatch?.label}
+            {tour.upcomingLabel}
           </Text>
         )}
         <Text testID="ar-assembly-credit" style={styles.credit}>
@@ -511,22 +283,12 @@ export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
         </Text>
         <ARGlassButton
           testID="ar-assembly-next"
-          label={primaryLabel}
-          detail={
-            canAssemble && exploded && !complete
-              ? `${displayedBatch + 1}/${batchCount}`
-              : undefined
-          }
-          icon={primaryIcon}
-          accessibilityLabel={
-            canSkip
-              ? 'Finish this step and start the next'
-              : canStep && !complete
-              ? `Next step: ${upcomingBatch?.label}`
-              : primaryLabel
-          }
+          label={primary.label}
+          detail={primary.detail}
+          icon={TOUR_ICON[primary.icon]}
+          accessibilityLabel={primary.accessibilityLabel}
           accessibilityState={{ busy: animating }}
-          disabled={!primaryEnabled}
+          disabled={!primary.enabled}
           onPress={primaryAction}
           style={styles.primary}
         />
