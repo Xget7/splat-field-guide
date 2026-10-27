@@ -109,7 +109,7 @@ class VulkanFrameCompute {
   const VulkanContext& ctx_;
   Pipelines pipelines_;
   uint32_t sourceCount_ = 0, capacity_ = 0;
-  SortKeyBits sortKeyBits_ = SortKeyBits::full32;
+  SortKeyBits sortKeyBits_ = RenderPolicy{}.sortDepth;
   uint32_t timestampBits_ = 0;
   float timestampPeriod_ = 0;
   std::unique_ptr<VulkanLodSelection> lod_;

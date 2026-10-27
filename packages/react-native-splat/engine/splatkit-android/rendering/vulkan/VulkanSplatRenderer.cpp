@@ -82,7 +82,7 @@ DeviceCapabilities VulkanSplatRenderer::deviceCapabilities() const {
   policy.fallback.lodErrorPixels = VulkanLodSelection::Quality{}.pixelLimit;
   policy.fallback.alphaThreshold = kQuadMinAlpha;
   policy.fallback.subpixelThreshold = RenderPolicy{}.subpixelThreshold;
-  policy.fallback.sortDepth = SortKeyBits::full32;
+  policy.fallback.sortDepth = RenderPolicy{}.sortDepth;
   policy.fallback.enableFrustumCulling = true;
   // Both paths draw back to front, so nothing stops at a saturated pixel. Front to back
   // needs a half-float accumulation, whose blending cost Adreno 640 more than the early

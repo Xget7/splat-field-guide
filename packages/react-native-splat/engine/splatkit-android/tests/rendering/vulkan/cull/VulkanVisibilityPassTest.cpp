@@ -295,13 +295,14 @@ void testOverflow(const Gpu& gpu, const VulkanVisibilityPass& pass, const Fixtur
 uint32_t expectedDepthKey(float depth, KeyBits bits, VulkanVisibilityPass::KeyOrder order) {
   const auto cam = camera();
   const float nearPlane = cam.proj.at(2, 3) / cam.proj.at(2, 2);
-  const float farPlane = cam.proj.at(2, 3) / (cam.proj.at(2, 2) + 1);
   const bool low16 = bits == KeyBits::low16;
   uint32_t expected = 0;
   std::memcpy(&expected, &depth, 4);
-  if (low16)
-    expected = static_cast<uint32_t>(
-        std::clamp((depth - nearPlane) / (farPlane - nearPlane), 0.0f, 1.0f) * 65535);
+  if (low16) {
+    uint32_t nearBits = 0;
+    std::memcpy(&nearBits, &nearPlane, 4);
+    expected = std::min((expected - nearBits) >> 11, 65535u);
+  }
   if (order == VulkanVisibilityPass::KeyOrder::descending)
     expected = low16 ? 65535 - expected : ~expected;
   return expected;

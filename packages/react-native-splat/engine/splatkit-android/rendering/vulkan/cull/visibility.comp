@@ -79,9 +79,10 @@ bool visible(Splat s, uint index, out uint key, out ProjectedSplat record) {
   if (!finiteFloat(depth) || depth <= 0.0) return false;
   key = floatBitsToUint(depth);
   if ((constants.keyMode & 1u) != 0u) {
-    // Linear camera-depth quantization, not float16. Projection validity checked by main.
-    float normalized = clamp((depth - nearPlane) / (farPlane - nearPlane), 0.0, 1.0);
-    key = uint(normalized * 65535.0);
+    // Float steps above the near plane, 2^11 at a time: at most 2^-12 of the depth, so close
+    // layers keep distinct keys (SplatVisibility.metal). Projection validity checked by main.
+    uint steps = floatBitsToUint(max(depth, nearPlane)) - floatBitsToUint(nearPlane);
+    key = min(steps >> 11u, 65535u);
   }
   if ((constants.keyMode & 2u) != 0u)
     key = (constants.keyMode & 1u) != 0u ? 65535u - key : ~key;
