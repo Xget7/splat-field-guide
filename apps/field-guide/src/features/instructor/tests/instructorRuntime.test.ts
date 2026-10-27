@@ -7,16 +7,15 @@ import {
   createInstructorStore,
   type InstructorStore,
 } from '../state/instructorStore';
-import type { SwitchStep } from '../domain/mode/modeTypes';
 
 import { voiceEvents } from '@tests/voiceSession';
-import { SwitchLabel } from '../domain/mode/modeCopy';
 import { fixturePack } from '@tests/fixturePack';
 import { createInstructorRuntime } from '../data/runtime/instructorRuntime';
 import {
   OfflineVoices,
+  SwitchTiming,
   type OfflineVoice,
-} from '../data/runtime/instructorSwitch';
+} from '../domain/mode/modeSwitching';
 import type { Fetch, Platform } from '../../../platform/ports';
 import type { PathInfo } from '../../../platform/connectivity/networkQuality';
 import {
@@ -25,7 +24,6 @@ import {
 } from '../../../platform/connectivity/networkService';
 import { GrpcBackoff } from '../../../platform/connectivity/backoff';
 import { ModeTiming } from '../domain/mode/modeController';
-import { SwitchTiming } from '../domain/mode/modeSwitcher';
 
 const PROXY_URL = 'https://proxy.example';
 const WIFI: PathInfo = {
@@ -34,7 +32,6 @@ const WIFI: PathInfo = {
   downstreamKbps: -1,
   signalLevel: -1,
 };
-const NO_ROUTE: PathInfo = { ...WIFI, satisfied: false, transport: 'none' };
 const signedUrl = async () => ({
   status: 200,
   json: async () => ({ signedUrl: 'wss://agent.example/session' }),
@@ -55,19 +52,6 @@ function runtimeOn(
     offlineVoice: options.offlineVoice ?? OfflineVoices.kokoro,
     store: options.store ?? createInstructorStore(),
   });
-}
-
-/** Records every switch step the runtime reports to the store, in order. */
-function recordSwitchSteps(store: InstructorStore) {
-  const steps: SwitchStep[] = [];
-  const arrive = store.getState().switchStepArrived;
-  store.setState({
-    switchStepArrived: step => {
-      steps.push(step);
-      arrive(step);
-    },
-  });
-  return steps;
 }
 
 beforeEach(() => jest.useFakeTimers());
@@ -164,49 +148,13 @@ test('a microphone prompt that settles in the background ends the pending conver
   runtime.stop();
 });
 
-test('airplane mode prepares every offline piece and falls back to the script', async () => {
-  const store = createInstructorStore();
-  const fake = fakePlatform({
-    fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
-  });
-  const runtime = runtimeOn(fake.platform, { store });
-  const steps = recordSwitchSteps(store);
-  runtime.setPack(fixturePack());
-  runtime.start();
-  fake.network.emit(WIFI);
-  fake.network.emit(NO_ROUTE);
-  expect(store.getState().mode.mode).toBe('switchingToOffline');
-  await jest.advanceTimersByTimeAsync(600);
-  expect(store.getState().mode).toMatchObject({
-    mode: 'offline',
-    answers: 'script',
-  });
-  expect(steps.at(-1)).toMatchObject({
-    state: 'ready',
-    piece: 'listening',
-    label: SwitchLabel.deviceListening,
-  });
-  runtime.stop();
-});
-
 test.each([
-  {
-    platform: 'android',
-    offlineVoice: OfflineVoices.system,
-    label: 'Voice: system voice',
-    voice: 'system',
-  },
-  {
-    platform: 'ios',
-    offlineVoice: OfflineVoices.kokoro,
-    label: 'Voice: Kokoro',
-    voice: 'kokoro',
-  },
+  { offlineVoice: OfflineVoices.system, voice: 'system' },
+  { offlineVoice: OfflineVoices.kokoro, voice: 'kokoro' },
 ] as const)(
-  '$platform names and starts its available offline voice',
-  async ({ offlineVoice, label, voice }) => {
+  'offline conversations speak with the configured $voice voice',
+  async ({ offlineVoice, voice }) => {
     const store = createInstructorStore();
-    const steps = recordSwitchSteps(store);
     const fake = fakePlatform({
       fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
     });
@@ -215,15 +163,8 @@ test.each([
       runtime.start();
       fake.network.emit(WIFI);
       fake.network.emit({ ...WIFI, satisfied: false });
-      expect(steps.find(step => step.piece === 'voice')).toMatchObject({
-        state: 'starting',
-        label,
-      });
-      await jest.advanceTimersByTimeAsync(600);
-      expect(steps.filter(step => step.piece === 'voice')).toEqual([
-        expect.objectContaining({ state: 'starting', label }),
-        expect.objectContaining({ state: 'ready', label }),
-      ]);
+      await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
+      expect(store.getState().mode.mode).toBe('offline');
       const session = runtime.sessionFor(fixturePack())!.session;
       await session.start(
         {

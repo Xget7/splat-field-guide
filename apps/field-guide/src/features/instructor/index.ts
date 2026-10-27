@@ -56,5 +56,5 @@ export type {
   InstructorStatus,
   InstructorStore,
 } from './state/instructorStore';
-export { OfflineVoices } from './data/runtime/instructorSwitch';
-export type { OfflineVoice } from './data/runtime/instructorSwitch';
+export { OfflineVoices } from './domain/mode/modeSwitching';
+export type { OfflineVoice } from './domain/mode/modeSwitching';

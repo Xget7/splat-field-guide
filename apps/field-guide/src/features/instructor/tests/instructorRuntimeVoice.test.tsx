@@ -2,7 +2,7 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Text, type AppStateStatus } from 'react-native';
 import { createInstructorRuntime } from '../data/runtime/instructorRuntime';
-import { OfflineVoices } from '../data/runtime/instructorSwitch';
+import { OfflineVoices } from '../domain/mode/modeSwitching';
 import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import { instructorStore } from '../state/instructorStore';

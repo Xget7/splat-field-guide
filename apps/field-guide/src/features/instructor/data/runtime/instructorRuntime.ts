@@ -1,5 +1,5 @@
 import type { InstructorStore } from '../../state/instructorStore';
-import type { Cancel, Platform, Timers } from '../../../../platform/ports';
+import type { Platform } from '../../../../platform/ports';
 import {
   NetworkQuality,
   Transport,
@@ -17,7 +17,6 @@ import { createQualityEstimator } from '../../../../platform/connectivity/networ
 import { createNetworkService } from '../../../../platform/connectivity/networkService';
 import { createModeController } from '../../domain/mode/modeController';
 import { createAgentReconnect } from '../../domain/agent/agentReconnect';
-import { runSwitch } from '../../domain/mode/modeSwitcher';
 import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
 import { createAgentClient } from '../agent/agentClient';
 import { createCloudAnswerer } from '../answerers/cloudAnswerer';
@@ -36,11 +35,9 @@ import { createInstructorSessions } from './instructorSessions';
 import { createAgentConnection } from '../proxy/agentConnection';
 import { createProxyClient } from '../proxy/proxyClient';
 import {
-  offlineAnnouncement,
-  switchSources,
-  switchTasks,
+  createModeSwitching,
   type OfflineVoice,
-} from './instructorSwitch';
+} from '../../domain/mode/modeSwitching';
 
 export interface InstructorRuntimeOptions {
   readonly platform: Platform;
@@ -65,27 +62,10 @@ export function createInstructorRuntime({
   const model = createDeviceAnswerer(platform.languageModel);
   const proxy = url === null ? null : createProxyClient(url, platform);
   const connection = createAgentConnection({ proxy, clock });
-  // Switch waits are tracked so stop cancels the ones still pending.
-  const switchTimers = new Set<Cancel>();
-  const switchTiming: Timers = {
-    after(delayMs, run) {
-      const cancel = timers.after(delayMs, () => {
-        switchTimers.delete(cancel);
-        run();
-      });
-      switchTimers.add(cancel);
-      return () => {
-        switchTimers.delete(cancel);
-        cancel();
-      };
-    },
-    every: timers.every,
-  };
   const pathQuality = createQualityEstimator();
   let pack: Pack | null = null;
   let started = false;
   let disposed = false;
-  let switchId = 0;
   let idle = true;
   let snapshot: VoiceRuntimeState = {
     revision: 0,
@@ -101,12 +81,7 @@ export function createInstructorRuntime({
       revision: snapshot.revision + 1,
       canStart,
       foreground: foreground.isForeground(),
-      announcement:
-        switched &&
-        status.mode === InstructorMode.offline &&
-        status.cause === ModeCause.network
-          ? offlineAnnouncement(status, switchId)
-          : null,
+      announcement: switched ? switching.announcementFor(status) : null,
     };
     store.getState().voiceChanged(snapshot);
   }
@@ -149,46 +124,34 @@ export function createInstructorRuntime({
           throw new Error(VoiceStartFailure.network);
         }
       : proxy.ping;
+  const switching = createModeSwitching({
+    clock,
+    timers,
+    input,
+    output,
+    offlineVoice,
+    device: model,
+    pack: () => pack,
+    probe,
+    prepareAgent: async () => {
+      if (!foreground.isForeground() || !connection.available()) {
+        return false;
+      }
+      try {
+        await connection.prepare();
+        return true;
+      } catch (error) {
+        primaryFailure(voiceFailure(error));
+        return false;
+      }
+    },
+    onStep: step => store.getState().switchStepArrived(step),
+  });
   async function switchMode(status: ModeStatus) {
-    const id = ++switchId;
-    const tasks = switchTasks(status.mode, {
-      input,
-      output,
-      offlineVoice,
-      model,
-      pack,
-      probe,
-      prepareAgent: async () => {
-        if (!foreground.isForeground() || !connection.available()) {
-          return false;
-        }
-        try {
-          await connection.prepare();
-          return true;
-        } catch (error) {
-          primaryFailure(voiceFailure(error));
-          return false;
-        }
-      },
-    });
-    const outcome = await runSwitch(
-      id,
-      tasks,
-      step => {
-        if (started && id === switchId) {
-          store.getState().switchStepArrived(step);
-        }
-      },
-      { clock, timers: switchTiming },
-    );
-    if (!started || id !== switchId) {
-      return;
+    const result = await switching.begin(status.mode);
+    if (started && result !== null) {
+      controller.switched(result.mode, result.sources);
     }
-    const target =
-      status.mode === InstructorMode.switchingToOffline
-        ? InstructorMode.offline
-        : InstructorMode.online;
-    controller.switched(target, switchSources(status.mode, outcome, model));
   }
   const controller = createModeController({
     clock,
@@ -357,11 +320,9 @@ export function createInstructorRuntime({
       started = false;
       reconnect.cancel();
       sessions.stop();
-      switchId++;
+      switching.cancel();
       connection.clear();
       foreground.stop();
-      [...switchTimers].forEach(cancel => cancel());
-      switchTimers.clear();
       if (url === null) {
         paths.stop();
       } else {
