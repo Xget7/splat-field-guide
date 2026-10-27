@@ -38,7 +38,7 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 | `src/app` | Startup with the production platform and the instructor, navigation, the catalog context and the pack error screen |
 | `src/features/pack` | Pure pack parsing, catalog and parts tour |
 | `src/features/guide` | Session, progress, highlight and framing rules, the guide detail screen and the native progress adapter |
-| `src/features/instructor` | Command routing, turns, authored grounding, model adapters, voice, mode and voice widgets, the runtime that wires them to speech, network and modes, and the store of its status |
+| `src/features/instructor` | Command routing, turns, authored grounding, the answerers and the Worker proxy client, voice, mode and voice widgets, the composition that wires them to speech, network and modes, and the store of its status |
 | `src/features/viewer` | The viewer screen and its instructor panel, native viewer readiness, gestures, camera conversion, framing and projected markers |
 | `src/features/library`, `ar`, `bench` | The library, the AR screens and check, and the renderer bench |
 | `src/platform`, `src/ui` | The platform ports, network quality and monitoring, then business-free presentation primitives |

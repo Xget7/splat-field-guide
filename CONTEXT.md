@@ -105,6 +105,11 @@ _Avoid_: exchange, session, message
 The guide's written knowledge, procedure steps and cautions relevant to an instructor question.
 _Avoid_: model knowledge, generated facts, retrieval result
 
+**Answerer**:
+A way for the instructor to answer a question from authored evidence, online or on the device.
+Answerers are tried in a fixed order, and the next one answers when the one before cannot.
+_Avoid_: model, model adapter, backend
+
 **Spoken turn**:
 One stretch of speech ending with an acoustic pause and settlement of its recognised words.
 _Avoid_: utterance (spoken output), instructor turn, session
