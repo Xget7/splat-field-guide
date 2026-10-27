@@ -17,38 +17,33 @@ import {
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  languageModel,
-  speechInput,
-  speechOutput,
-} from 'react-native-on-device';
-import {
   usePanGesture,
   usePinchGesture,
   useTapGesture,
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
 import {
+  instructorStore,
+  createInstructorRuntime,
   createModelInstructor,
+  OfflineVoices,
+  onDeviceInstructions,
   VoiceHint,
   VOICE_LOCALE,
   recognitionHintsFor,
+  type InstructorRuntime,
   type VoiceSessionEvents,
 } from '../../instructor';
-import {
-  InstructorRuntimeContext,
-  createInstructorRuntime,
-  type InstructorRuntime,
-  onDeviceInstructions,
-} from '../../instructor/views';
 import { highlightFor, SessionEventType, LearnMode } from '../../guide';
 import { continueRowFor } from '../../library';
 import { loadProgress } from '../../guide/views';
 
 import {
+  fakeInstructorRuntime,
   fakeVoiceSession,
   fakeVoiceRuntime,
-  foregroundAppState,
 } from '@tests/voiceSession';
+import { fakePlatform } from '@tests/platform';
 
 import { fixturePack } from '@tests/fixturePack';
 import { catalogFor } from '../../pack/catalog';
@@ -116,13 +111,8 @@ function emit(callback: unknown, event: object) {
 }
 const procedure = (id: ProcedureId) =>
   pack.procedures.find(item => item.id === id)!;
-const model = languageModel();
-const input = speechInput();
-const output = speechOutput();
-const voiceEvents = jest.requireMock('react-native-on-device') as {
-  emitLevel: (level: number) => void;
-  emitWord: (location: number, length: number) => void;
-};
+const device = fakePlatform();
+const { model, input, output } = device;
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -177,12 +167,11 @@ describe('viewer screen', () => {
         },
       },
     } as unknown as ScreenProps<typeof Route.viewer>;
+    instructorStore.getState().attach(runtime);
     await act(async () => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={entries}>
-          <InstructorRuntimeContext.Provider value={runtime}>
-            <ViewerScreen {...props} />
-          </InstructorRuntimeContext.Provider>
+          <ViewerScreen {...props} />
         </CatalogProvider>,
       );
     });
@@ -204,9 +193,12 @@ describe('viewer screen', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    instructorStore.getState().reset();
     runtime = createInstructorRuntime({
+      platform: device.platform,
       proxyUrl: null,
-      appState: foregroundAppState,
+      offlineVoice: OfflineVoices.kokoro,
+      store: instructorStore,
     });
     runtime.start();
     view.project.mockReset().mockReturnValue(0);
@@ -237,15 +229,7 @@ describe('viewer screen', () => {
 
     const lifecycle = fakeVoiceRuntime({ session, questions: fake.questions });
     runtime.stop();
-    runtime = {
-      ...lifecycle.runtime,
-      instructor,
-      setPack: jest.fn(),
-      setInstructorOpen: jest.fn(),
-      setIdle: jest.fn(),
-      start: jest.fn(),
-      stop: jest.fn(),
-    };
+    runtime = fakeInstructorRuntime({ ...lifecycle.runtime, instructor });
     await mount({
       mode: LearnMode.instructor,
       voice: true,
@@ -1097,17 +1081,17 @@ describe('viewer screen', () => {
       const voice = panel().props.voice;
       expect(has('instructor-voice-bar')).toBe(true);
       expect(has('instructor-input')).toBe(false);
-      await act(async () => voiceEvents.emitLevel(0.8));
+      await act(async () => device.emitLevel(0.8));
       expect(voice.level.value).toBe(0);
       await press('instructor-stop');
-      await act(async () => voiceEvents.emitLevel(0.8));
+      await act(async () => device.emitLevel(0.8));
       expect(panel().props.voice.level.value).toBe(0.8);
       expect(withTiming).toHaveBeenCalledWith(
         0.8,
         expect.objectContaining({ duration: Motion.levelSmoothing }),
       );
       await press('instructor-voice-end');
-      await act(async () => voiceEvents.emitLevel(1));
+      await act(async () => device.emitLevel(1));
       expect(panel().props.voice.level.value).toBe(0);
     });
 
@@ -1120,7 +1104,7 @@ describe('viewer screen', () => {
       await ask('Where is the battery?');
       const reply = pack.parts.find(part => part.id === 'battery')!.summary;
       const location = reply.indexOf('battery');
-      await act(async () => voiceEvents.emitWord(location, 'battery'.length));
+      await act(async () => device.emitWord(location, 'battery'.length));
       expect(withSequence).toHaveBeenCalled();
       expect(withTiming).toHaveBeenCalledWith(
         0.7,
@@ -1169,7 +1153,7 @@ describe('viewer screen', () => {
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await attach();
       await ask('next');
-      await act(async () => voiceEvents.emitWord(0, 3));
+      await act(async () => device.emitWord(0, 3));
       expect(has('instructor-voice-bar')).toBe(true);
       expect(withSequence).toHaveBeenCalled();
       await press('instructor-header');

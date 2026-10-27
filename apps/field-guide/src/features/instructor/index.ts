@@ -42,5 +42,19 @@ export type {
   VoiceSession,
   VoiceSessionEvents,
 } from './domain/voice/voiceSession';
-// Temporary until the instructor store replaces the event bus.
-export { appEvents } from './state/bus';
+export { onDeviceInstructions } from './data/answerers/onDeviceModel';
+export { createInstructorRuntime } from './data/runtime/instructorRuntime';
+export type { InstructorRuntimeOptions } from './data/runtime/instructorRuntime';
+export type { InstructorRuntime } from './domain/instructorRuntime';
+export {
+  createInstructorStore,
+  instructorStore,
+} from './state/instructorStore';
+export type {
+  InstructorActions,
+  InstructorState,
+  InstructorStatus,
+  InstructorStore,
+} from './state/instructorStore';
+export { OfflineVoices } from './data/runtime/instructorSwitch';
+export type { OfflineVoice } from './data/runtime/instructorSwitch';

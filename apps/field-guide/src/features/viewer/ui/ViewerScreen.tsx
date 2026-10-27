@@ -23,8 +23,8 @@ import {
   FADE_IN,
   FADE_OUT,
   panelLayout,
-  type InstructorRuntime,
 } from '../../instructor/views';
+import type { InstructorRuntime } from '../../instructor';
 
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
 

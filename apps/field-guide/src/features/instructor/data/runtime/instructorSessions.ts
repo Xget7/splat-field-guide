@@ -1,9 +1,9 @@
 import type {
-  AudioLinkSpec,
-  SpeechVoice as NativeSpeechVoice,
-  speechInput,
-  speechOutput,
-} from 'react-native-on-device';
+  AudioLink,
+  SpeechInput,
+  SpeechOutput,
+  Timers,
+} from '../../../../platform/ports';
 import {
   InstructorMode,
   VoiceSource,
@@ -27,11 +27,12 @@ import type {
 import type { Pack } from '../../../pack/pack';
 
 interface SessionDependencies {
-  input: typeof speechInput;
-  output: typeof speechOutput;
-  audio: () => Pick<AudioLinkSpec, 'requestPermission'>;
+  input: () => SpeechInput;
+  output: () => SpeechOutput;
+  audio: () => AudioLink;
+  timers: Timers;
   prompt: VoicePrompt;
-  offlineVoice: NativeSpeechVoice;
+  offlineVoice: SpeechVoice;
   client(handlers: SessionAgentHandlers): AgentClient;
   agentAvailable(): boolean;
   foreground(): boolean;
@@ -82,14 +83,13 @@ export function createInstructorSessions(deps: SessionDependencies) {
   }
   return {
     sessionFor(status: ModeStatus, guide: Pack): VoiceConnection {
-      const pipeline = (
-        voice: (typeof SpeechVoice)[keyof typeof SpeechVoice],
-      ): VoiceConnection => ({
+      const pipeline = (voice: SpeechVoice): VoiceConnection => ({
         session: createPipelineVoiceSession({
           voice,
           hints: recognitionHintsFor(guide),
           input: deps.input,
           output: deps.output,
+          timers: deps.timers,
           prompt: deps.prompt,
         }),
         questions: null,

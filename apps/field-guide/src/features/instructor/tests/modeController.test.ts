@@ -7,6 +7,9 @@ import {
   Transport,
 } from '../../../platform/connectivity/networkStatus';
 import { ModeRequestType } from '../domain/mode/modeTypes';
+import { fakePlatform } from '@tests/platform';
+
+const { platform } = fakePlatform();
 
 const network = (quality: NetworkQuality) => ({
   quality,
@@ -18,7 +21,12 @@ afterEach(() => jest.useRealTimers());
 function setup(quality: NetworkQuality = NetworkQuality.good) {
   const emitMode = jest.fn();
   const emitSuggestion = jest.fn();
-  const controller = createModeController({ emitMode, emitSuggestion });
+  const controller = createModeController({
+    emitMode,
+    emitSuggestion,
+    clock: platform.clock,
+    timers: platform.timers,
+  });
   controller.network(network(quality));
   return { controller, emitMode, emitSuggestion };
 }

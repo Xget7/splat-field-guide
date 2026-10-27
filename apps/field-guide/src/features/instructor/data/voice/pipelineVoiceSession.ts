@@ -1,8 +1,9 @@
-import {
-  speechInput,
-  speechOutput,
-  type SpeechVoice as NativeSpeechVoice,
-} from 'react-native-on-device';
+import type {
+  Cancel,
+  SpeechInput,
+  SpeechOutput,
+  Timers,
+} from '../../../../platform/ports';
 import { isUserSpeech, userWordsIn } from '../../domain/voice/echo';
 import { isQuestion, isScripted } from '../../domain/instructor';
 import { routeCommand, RouteKind } from '../../domain/router';
@@ -27,6 +28,7 @@ import {
   SpeechPermission,
   SpeechAvailability,
   VOICE_LOCALE,
+  type SpeechVoice,
 } from '../../domain/voice/voiceCopy';
 export { VOICE_LOCALE } from '../../domain/voice/voiceCopy';
 const BARGE_IN_WORDS = 2;
@@ -35,17 +37,19 @@ const joined = (...parts: string[]) =>
   parts.filter(part => part !== '').join(' ');
 
 interface Options {
-  voice: NativeSpeechVoice;
+  voice: SpeechVoice;
   hints: string[];
-  input?: typeof speechInput;
-  output?: typeof speechOutput;
+  input: () => SpeechInput;
+  output: () => SpeechOutput;
+  timers: Timers;
   prompt?: VoicePrompt;
 }
 export function createPipelineVoiceSession({
   voice,
   hints,
-  input = speechInput,
-  output = speechOutput,
+  input,
+  output,
+  timers,
   prompt = request => request(),
 }: Options): VoiceSession {
   let context: VoiceContext;
@@ -58,12 +62,10 @@ export function createPipelineVoiceSession({
   let saying = '';
   let pending: string | null = null;
   let held = '';
-  let holding: ReturnType<typeof setTimeout> | null = null;
+  let cancelHold: Cancel | null = null;
   function stopHolding() {
-    if (holding !== null) {
-      clearTimeout(holding);
-      holding = null;
-    }
+    cancelHold?.();
+    cancelHold = null;
   }
   function quiet() {
     saying = '';
@@ -127,11 +129,11 @@ export function createPipelineVoiceSession({
     };
     const hold = () => {
       stopHolding();
-      holding = setTimeout(() => {
+      cancelHold = timers.after(UNFINISHED_HOLD_MS, () => {
         if (open()) {
           ask(held);
         }
-      }, UNFINISHED_HOLD_MS);
+      });
     };
     await input()
       .listen(

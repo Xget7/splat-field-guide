@@ -101,7 +101,5 @@ export interface VoiceRuntimeState {
   readonly announcement: Utterance | null;
 }
 export interface VoiceRuntime {
-  voiceSnapshot(): VoiceRuntimeState;
-  subscribeVoice(listener: () => void): () => void;
   sessionFor(pack: Pack): VoiceConnection | null;
 }

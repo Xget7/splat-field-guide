@@ -1,4 +1,4 @@
-import { speechInput } from 'react-native-on-device';
+import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import { voiceEvents } from '@tests/voiceSession';
 import { INITIAL_SESSION } from '../../guide';
@@ -9,6 +9,10 @@ import {
 } from '../data/voice/agentVoiceSession';
 import { SpeechVoice } from '../domain/voice/voiceCopy';
 
+const { speechInput, speechOutput, audioLink, timers } =
+  fakePlatform().platform;
+const ports = { input: speechInput, output: speechOutput, timers };
+
 const pack = fixturePack();
 const context = { pack, state: INITIAL_SESSION, history: [], thinking: false };
 const adapters = [
@@ -16,6 +20,7 @@ const adapters = [
     name: 'pipeline',
     create: () => ({
       session: createPipelineVoiceSession({
+        ...ports,
         voice: SpeechVoice.system,
         hints: [],
       }),
@@ -30,6 +35,7 @@ const adapters = [
       return {
         session: createAgentVoiceSession({
           pack,
+          audio: audioLink,
           client: handlers => {
             conversation = handlers;
             return {

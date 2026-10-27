@@ -4,6 +4,21 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
 import { BENCH_URL } from '../navigation/linking';
 import { bundledPack } from '../../features/pack/bundledPack';
+import { instructorStore } from '../../features/instructor';
+import { createAppInstructor } from '../startup/instructor';
+
+// The real instructor, with its lifecycle observable.
+jest.mock('../startup/instructor', () => {
+  const actual = jest.requireActual('../startup/instructor');
+  return {
+    createAppInstructor: jest.fn(() => {
+      const runtime = actual.createAppInstructor();
+      jest.spyOn(runtime, 'start');
+      jest.spyOn(runtime, 'stop');
+      return runtime;
+    }),
+  };
+});
 
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
@@ -27,8 +42,26 @@ jest.mock('react-native-gesture-handler', () => ({
 
 describe('app', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
+  beforeEach(() => instructorStore.getState().reset());
   afterEach(async () => {
+    await act(() => renderer?.unmount());
+  });
+
+  test('creates one instructor on first render, starts it and stops it on unmount', async () => {
+    jest.mocked(createAppInstructor).mockClear();
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    await act(() => renderer.update(<App />));
+    expect(createAppInstructor).toHaveBeenCalledTimes(1);
+    const runtime = instructorStore.getState().runtime!;
+    expect(runtime).toBe(
+      jest.mocked(createAppInstructor).mock.results[0].value,
+    );
+    expect(runtime.start).toHaveBeenCalledTimes(1);
+    expect(runtime.stop).not.toHaveBeenCalled();
     await act(() => renderer.unmount());
+    expect(runtime.stop).toHaveBeenCalledTimes(1);
   });
 
   test('opens on the library', async () => {

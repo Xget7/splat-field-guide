@@ -3,9 +3,11 @@ import {
   createAgentClient,
   fetchSignedUrl,
   type AgentClientHandlers,
-  type AudioPort,
-  type SocketPort,
 } from '../data/agent/agentClient';
+import type { AudioLink, Socket } from '../../../platform/ports';
+import { fakePlatform } from '@tests/platform';
+
+const { timers } = fakePlatform().platform;
 
 const variables = {
   procedure: 'none',
@@ -19,7 +21,7 @@ const Rate = { input: 16000, output: 24000 } as const;
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 function setup() {
-  const socket: SocketPort = {
+  const socket: Socket = {
     send: jest.fn(),
     close: jest.fn(),
     onopen: null,
@@ -29,7 +31,8 @@ function setup() {
   };
   let input!: (value: string) => void;
   let stopped!: (reason: string) => void;
-  const audio: AudioPort = {
+  const audio: AudioLink = {
+    requestPermission: jest.fn(async () => true),
     start: jest.fn(async (_in, _out, onInput, _level, onStopped) => {
       input = onInput;
       stopped = onStopped;
@@ -58,6 +61,7 @@ function setup() {
     connect: () => socket,
     audio,
     handlers,
+    timers,
   });
   const receive = (message: unknown) =>
     socket.onmessage?.({ data: JSON.stringify(message) });
@@ -309,6 +313,7 @@ test('a pending start times out or can be stopped without a late connection', as
     connect,
     audio: setup().audio,
     handlers,
+    timers,
   });
   const rejected = client.start(variables, []).catch(error => error.message);
   jest.advanceTimersByTime(AgentTiming.CONNECT_TIMEOUT_MS);

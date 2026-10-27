@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelAnimation,
   ReduceMotion,
@@ -32,6 +26,8 @@ import {
   type VoiceRuntime,
   type VoiceSessionEvents,
 } from '../domain/voice/voiceSession';
+import { useVoiceRuntime } from '../state/instructorHooks';
+import { instructorStore } from '../state/instructorStore';
 
 export { VoiceHint, VOICE_LOCALE } from '../domain/voice/voiceCopy';
 export type { Utterance } from '../domain/voice/voiceSession';
@@ -63,11 +59,7 @@ export function useInstructorVoice(options: Options) {
     runtime,
     startInVoice = false,
   } = options;
-  const lifecycle = useSyncExternalStore(
-    runtime.subscribeVoice,
-    runtime.voiceSnapshot,
-    runtime.voiceSnapshot,
-  );
+  const lifecycle = useVoiceRuntime();
   const [on, setOn] = useState(startInVoice);
   const [muted, setMuted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -281,7 +273,7 @@ export function useInstructorVoice(options: Options) {
       if (
         enabledVoice.current &&
         latest.current.enabled &&
-        latest.current.runtime.voiceSnapshot().foreground
+        instructorStore.getState().voice.foreground
       ) {
         pending.current = question ?? pending.current;
       } else {

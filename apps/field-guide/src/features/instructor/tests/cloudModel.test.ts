@@ -11,7 +11,9 @@ import {
   FIRST_TEXT_MS,
   TOTAL_MS,
 } from '../data/answerers/cloudModel';
+import { fakePlatform } from '@tests/platform';
 
+const { timers } = fakePlatform().platform;
 const pack = fixturePack();
 const URL = 'https://proxy.example';
 const request = {
@@ -65,8 +67,9 @@ let time = 0;
 const model = (url: string | null = URL) =>
   createCloudModel({
     url,
-    now: () => time,
-    Request: FakeRequest as unknown as typeof XMLHttpRequest,
+    clock: () => time,
+    timers,
+    streamingRequest: () => new FakeRequest(),
   });
 const line = (event: object) => `${JSON.stringify(event)}\n`;
 
@@ -247,10 +250,11 @@ test('offline skips the cloud and a slow first text is not a network failure', a
   const failure = jest.fn();
   const cloud = createCloudModel({
     url: URL,
-    now: () => time,
+    clock: () => time,
+    timers,
     isOnline: () => online,
     onFailure: failure,
-    Request: FakeRequest as unknown as typeof XMLHttpRequest,
+    streamingRequest: () => new FakeRequest(),
   });
   expect(cloud.isReady()).toBe(false);
   online = true;

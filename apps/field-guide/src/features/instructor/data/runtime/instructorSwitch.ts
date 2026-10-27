@@ -1,8 +1,4 @@
-import type {
-  speechInput,
-  speechOutput,
-  SpeechVoice as NativeSpeechVoice,
-} from 'react-native-on-device';
+import type { SpeechInput, SpeechOutput } from '../../../../platform/ports';
 import {
   AnswerSource,
   InstructorMode,
@@ -18,17 +14,31 @@ import type {
   SwitchPieceTask,
 } from '../../domain/mode/modeSwitcher';
 import { ModeAnnouncement, SwitchLabel } from '../../domain/mode/modeCopy';
-import { SpeechAvailability, VOICE_LOCALE } from '../../domain/voice/voiceCopy';
+import {
+  SpeechAvailability,
+  SpeechVoice,
+  VOICE_LOCALE,
+} from '../../domain/voice/voiceCopy';
 import {
   UtteranceKind,
   utteranceId,
   type Utterance,
 } from '../../domain/voice/voiceSession';
 
+/** The device voice offline mode speaks with, and the switch step that names it. */
+export interface OfflineVoice {
+  readonly voice: SpeechVoice;
+  readonly label: string;
+}
+/** Kokoro runs only on iOS; other platforms speak offline with the system voice. */
+export const OfflineVoices = {
+  kokoro: { voice: SpeechVoice.kokoro, label: SwitchLabel.kokoro },
+  system: { voice: SpeechVoice.system, label: SwitchLabel.systemVoice },
+} as const satisfies Record<string, OfflineVoice>;
 interface SwitchDependencies {
-  input: typeof speechInput;
-  output: typeof speechOutput;
-  offlineVoice: { voice: NativeSpeechVoice; label: string };
+  input: () => SpeechInput;
+  output: () => SpeechOutput;
+  offlineVoice: OfflineVoice;
   model: InstructorModel;
   pack: Pack | null;
   prepareAgent(): Promise<boolean>;

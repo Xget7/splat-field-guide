@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import {
-  appEvents,
+  instructorStore,
   AnswerSource,
   InstructorMode,
   ModeCause,
@@ -153,7 +153,9 @@ const INTERRUPTED_EXCHANGE: Exchange = {
 describe('instructor panel modes', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const mode = async (status: Partial<ModeStatus>) => {
-    await act(() => appEvents.emit('mode', { ...ONLINE, ...status }));
+    await act(() =>
+      instructorStore.getState().modeChanged({ ...ONLINE, ...status }),
+    );
   };
   const mount = async (props: React.ComponentProps<typeof Panel> = {}) => {
     await act(() => {
@@ -166,8 +168,7 @@ describe('instructor panel modes', () => {
       .some(node => node.props.children === text);
   beforeEach(async () => {
     jest.mocked(useReducedMotion).mockReturnValue(false);
-    await mode({});
-    await act(() => appEvents.emit('modeSuggestion', null));
+    instructorStore.getState().reset();
   });
   afterEach(async () => {
     await act(() => renderer?.unmount());

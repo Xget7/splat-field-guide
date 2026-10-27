@@ -16,12 +16,15 @@ import {
   VoiceStartFailure,
 } from '../domain/voice/voiceSession';
 import { VoiceHint } from '../domain/voice/voiceCopy';
+import { instructorStore } from '../state/instructorStore';
 const context = {
   pack: fixturePack(),
   state: INITIAL_SESSION,
   history: [],
   thinking: false,
 };
+
+beforeEach(() => instructorStore.getState().reset());
 
 function harness(
   runtime: ReturnType<typeof fakeVoiceRuntime>['runtime'],

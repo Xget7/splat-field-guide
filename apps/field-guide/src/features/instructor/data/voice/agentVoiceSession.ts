@@ -1,4 +1,4 @@
-import { audioLink, type AudioLinkSpec } from 'react-native-on-device';
+import type { AudioLink } from '../../../../platform/ports';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import type { Pack } from '../../../pack/pack';
 import {
@@ -51,12 +51,12 @@ export type SessionAgentHandlers = Omit<
 export function createAgentVoiceSession({
   client: makeClient,
   pack,
-  audio = audioLink,
+  audio,
   prompt = request => request(),
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
-  audio?: () => Pick<AudioLinkSpec, 'requestPermission'>;
+  audio: () => AudioLink;
   prompt?: VoicePrompt;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;

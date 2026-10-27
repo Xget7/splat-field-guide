@@ -3,6 +3,7 @@ import {
   type SwitchPiece,
   type SwitchStep,
 } from './modeTypes';
+import type { Cancel, Clock, Timers } from '../../../../platform/ports';
 
 export const SwitchTiming = {
   MIN_SWITCH_MS: 600,
@@ -19,12 +20,10 @@ export async function runSwitch(
   switchId: number,
   tasks: readonly SwitchPieceTask[],
   emit: (step: SwitchStep) => void,
-  timing?: { now: () => number; delay: (ms: number) => Promise<void> },
+  ports: { readonly clock: Clock; readonly timers: Timers },
 ): Promise<SwitchOutcome> {
-  const now = timing?.now ?? Date.now;
-  const delay =
-    timing?.delay ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
-  const began = now();
+  const { clock, timers } = ports;
+  const began = clock();
   const outcome: Partial<Record<SwitchPiece, boolean>> = {};
   tasks.forEach(task =>
     emit({
@@ -36,15 +35,12 @@ export async function runSwitch(
   );
   await Promise.all(
     tasks.map(async task => {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const timeout = timing
-        ? timing.delay(SwitchTiming.PIECE_TIMEOUT_MS).then(() => false)
-        : new Promise<boolean>(resolve => {
-            timer = setTimeout(
-              () => resolve(false),
-              SwitchTiming.PIECE_TIMEOUT_MS,
-            );
-          });
+      let cancelTimeout: Cancel | undefined;
+      const timeout = new Promise<boolean>(resolve => {
+        cancelTimeout = timers.after(SwitchTiming.PIECE_TIMEOUT_MS, () =>
+          resolve(false),
+        );
+      });
       let ready = false;
       try {
         ready = await Promise.race([
@@ -54,7 +50,7 @@ export async function runSwitch(
       } catch {
         ready = false;
       } finally {
-        clearTimeout(timer);
+        cancelTimeout?.();
       }
       outcome[task.piece] = ready;
       emit({
@@ -65,9 +61,9 @@ export async function runSwitch(
       });
     }),
   );
-  const remaining = SwitchTiming.MIN_SWITCH_MS - (now() - began);
+  const remaining = SwitchTiming.MIN_SWITCH_MS - (clock() - began);
   if (remaining > 0) {
-    await delay(remaining);
+    await new Promise<void>(resolve => timers.after(remaining, resolve));
   }
   return outcome;
 }

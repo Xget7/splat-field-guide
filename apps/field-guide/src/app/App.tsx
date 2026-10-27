@@ -1,8 +1,4 @@
-import { useEffect } from 'react';
-import {
-  InstructorRuntimeContext,
-  createInstructorRuntime,
-} from '../features/instructor/views';
+import { useEffect, useState } from 'react';
 
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,26 +7,26 @@ import { RootNavigator } from './navigation/RootNavigator';
 import { bundledPack } from '../features/pack/bundledPack';
 import { PackErrorScreen } from './startup/PackErrorScreen';
 import { Color } from '../ui/theme';
-
-const instructorRuntime = createInstructorRuntime();
+import { createAppInstructor } from './startup/instructor';
 
 function App() {
+  // Created during the first render, so screens below already find it in the store.
+  const [instructor] = useState(createAppInstructor);
   useEffect(() => {
-    instructorRuntime.start();
-  }, []);
+    instructor.start();
+    return () => instructor.stop();
+  }, [instructor]);
   return (
-    <InstructorRuntimeContext.Provider value={instructorRuntime}>
-      <GestureHandlerRootView style={styles.root}>
-        <SafeAreaProvider>
-          <StatusBar barStyle="light-content" />
-          {bundledPack.ok ? (
-            <RootNavigator pack={bundledPack.pack} />
-          ) : (
-            <PackErrorScreen message={bundledPack.error.message} />
-          )}
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </InstructorRuntimeContext.Provider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" />
+        {bundledPack.ok ? (
+          <RootNavigator pack={bundledPack.pack} />
+        ) : (
+          <PackErrorScreen message={bundledPack.error.message} />
+        )}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

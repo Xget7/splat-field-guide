@@ -1,8 +1,5 @@
 /* eslint-env jest */
 
-// Backoff jitter stays centred so timed tests are exact; the backoff test injects its own randomness.
-Math.random = () => 0.5;
-
 jest.mock('@react-native-async-storage/async-storage', () => {
   const store = new Map();
   return {

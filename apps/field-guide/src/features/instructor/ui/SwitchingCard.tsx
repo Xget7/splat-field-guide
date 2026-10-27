@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useSwitchSteps } from '../state/useAppEvent';
+import { useSwitchSteps } from '../state/instructorHooks';
 import { SwitchStepState } from '../domain/mode/modeTypes';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, Space, Type } from '../../../ui/theme';
