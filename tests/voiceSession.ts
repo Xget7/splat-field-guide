@@ -9,6 +9,9 @@ import {
   type VoiceSessionEvents,
   type VoiceRuntime,
   type VoiceRuntimeState,
+  createModelInstructor,
+  instructorStore,
+  type InstructorRuntime,
 } from '../apps/field-guide/src/features/instructor';
 
 export function voiceEvents() {
@@ -100,29 +103,41 @@ export function fakeVoiceSession() {
     },
   };
 }
+/**
+ * A voice runtime that hands out one connection; `change` reports new voice state through the
+ * app-wide store, as the real runtime does.
+ */
 export function fakeVoiceRuntime(connection: VoiceConnection) {
   let current = connection;
-  let snapshot: VoiceRuntimeState = {
-    revision: 0,
-    canStart: true,
-    foreground: true,
-    announcement: null,
-  };
-  const listeners = new Set<() => void>();
   const runtime: VoiceRuntime = {
-    voiceSnapshot: () => snapshot,
-    subscribeVoice(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    sessionFor: () => (snapshot.canStart ? current : null),
+    sessionFor: () =>
+      instructorStore.getState().voice.canStart ? current : null,
   };
   return {
     runtime,
     change(next: Partial<VoiceRuntimeState>, replacement = current) {
       current = replacement;
-      snapshot = { ...snapshot, ...next, revision: snapshot.revision + 1 };
-      listeners.forEach(listener => listener());
+      const voice = instructorStore.getState().voice;
+      instructorStore
+        .getState()
+        .voiceChanged({ ...voice, ...next, revision: voice.revision + 1 });
     },
+  };
+}
+
+/** An instructor runtime of jest functions that answers nothing, with the given members replaced. */
+export function fakeInstructorRuntime(
+  overrides: Partial<InstructorRuntime> = {},
+): InstructorRuntime {
+  return {
+    instructor: createModelInstructor([]),
+    sessionFor: jest.fn(() => null),
+    setPack: jest.fn(),
+    setInstructorOpen: jest.fn(),
+    setIdle: jest.fn(),
+    requestMode: jest.fn(),
+    start: jest.fn(),
+    stop: jest.fn(),
+    ...overrides,
   };
 }

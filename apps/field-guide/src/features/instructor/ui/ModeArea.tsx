@@ -1,4 +1,4 @@
-import { useModeSuggestion } from '../state/useAppEvent';
+import { useModeSuggestion } from '../state/instructorHooks';
 
 import { isSwitching, InstructorMode } from '../domain/mode/modeTypes';
 import { SuggestionCopy } from '../domain/mode/modeCopy';

@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { InstructorRuntimeContext } from '../features/instructor/views';
 
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,18 +16,16 @@ function App() {
     instructorRuntime.start();
   }, []);
   return (
-    <InstructorRuntimeContext.Provider value={instructorRuntime}>
-      <GestureHandlerRootView style={styles.root}>
-        <SafeAreaProvider>
-          <StatusBar barStyle="light-content" />
-          {bundledPack.ok ? (
-            <RootNavigator pack={bundledPack.pack} />
-          ) : (
-            <PackErrorScreen message={bundledPack.error.message} />
-          )}
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </InstructorRuntimeContext.Provider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" />
+        {bundledPack.ok ? (
+          <RootNavigator pack={bundledPack.pack} />
+        ) : (
+          <PackErrorScreen message={bundledPack.error.message} />
+        )}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

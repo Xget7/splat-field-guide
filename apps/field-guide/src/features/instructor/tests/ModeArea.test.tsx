@@ -2,7 +2,8 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-import { appEvents } from '../state/bus';
+import { instructorStore } from '../state/instructorStore';
+import { fakeInstructorRuntime } from '@tests/voiceSession';
 import {
   AnswerSource,
   InstructorMode,
@@ -35,7 +36,9 @@ describe('instructor mode area', () => {
       .findAllByType(Text)
       .some(node => node.props.children === text);
   const mode = async (status: Partial<ModeStatus>) => {
-    await act(() => appEvents.emit('mode', { ...ONLINE, ...status }));
+    await act(() =>
+      instructorStore.getState().modeChanged({ ...ONLINE, ...status }),
+    );
   };
   const step = async (
     piece: SwitchPiece,
@@ -44,12 +47,14 @@ describe('instructor mode area', () => {
     id = switchId,
   ) => {
     await act(() =>
-      appEvents.emit('switchStep', { switchId: id, piece, state, label }),
+      instructorStore
+        .getState()
+        .switchStepArrived({ switchId: id, piece, state, label }),
     );
   };
   const suggest = async () => {
     await act(() =>
-      appEvents.emit('modeSuggestion', {
+      instructorStore.getState().suggestionChanged({
         mode: InstructorMode.offline,
         reason: 'weak signal',
       }),
@@ -86,8 +91,7 @@ describe('instructor mode area', () => {
   beforeEach(async () => {
     switchId += SWITCH_ID_INCREMENT;
     jest.mocked(useReducedMotion).mockReturnValue(false);
-    await mode({});
-    await act(() => appEvents.emit('modeSuggestion', null));
+    instructorStore.getState().reset();
   });
   afterEach(async () => {
     await act(() => renderer?.unmount());
@@ -168,17 +172,15 @@ describe('instructor mode area', () => {
     { label: 'Keep online', request: 'dismissSuggestion' },
   ])('$label requests $request', async ({ label, request }) => {
     const requests: string[] = [];
-    const unsubscribe = appEvents.on('modeRequest', intent =>
-      requests.push(intent.type),
+    instructorStore.getState().attach(
+      fakeInstructorRuntime({
+        requestMode: intent => requests.push(intent.type),
+      }),
     );
-    try {
-      await mount();
-      await suggest();
-      await act(() => button(label).props.onPress());
-      expect(requests).toEqual([request]);
-    } finally {
-      unsubscribe();
-    }
+    await mount();
+    await suggest();
+    await act(() => button(label).props.onPress());
+    expect(requests).toEqual([request]);
   });
 
   test('weak signal suggestions stay hidden offline', async () => {

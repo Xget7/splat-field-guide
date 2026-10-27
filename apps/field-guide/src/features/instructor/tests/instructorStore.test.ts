@@ -2,7 +2,7 @@ import {
   createInstructorStore,
   selectSwitchSteps,
 } from '../state/instructorStore';
-import type { InstructorRuntime } from '../domain/instructorRuntime';
+import { fakeInstructorRuntime } from '@tests/voiceSession';
 import {
   AnswerSource,
   InstructorMode,
@@ -27,21 +27,6 @@ const KOKORO_STEP = {
   state: SwitchStepState.starting,
   label: 'Voice: Kokoro',
 };
-
-function fakeRuntime(): InstructorRuntime {
-  return {
-    instructor: {} as InstructorRuntime['instructor'],
-    setPack: jest.fn(),
-    setInstructorOpen: jest.fn(),
-    setIdle: jest.fn(),
-    sessionFor: jest.fn(() => null),
-    voiceSnapshot: jest.fn(),
-    subscribeVoice: jest.fn(),
-    start: jest.fn(),
-    stop: jest.fn(),
-    requestMode: jest.fn(),
-  };
-}
 
 test('settled source updates preserve progress that arrives before the switching mode', () => {
   const store = createInstructorStore();
@@ -83,7 +68,7 @@ test.each([
   ({ action, type }) => {
     const store = createInstructorStore();
     expect(() => store.getState()[action]()).not.toThrow();
-    const runtime = fakeRuntime();
+    const runtime = fakeInstructorRuntime();
     store.getState().attach(runtime);
     store.getState()[action]();
     expect(runtime.requestMode).toHaveBeenCalledWith({ type });
@@ -92,7 +77,7 @@ test.each([
 
 test('attaching the same runtime again changes nothing, and reset detaches it', () => {
   const store = createInstructorStore();
-  const runtime = fakeRuntime();
+  const runtime = fakeInstructorRuntime();
   const listener = jest.fn();
   store.subscribe(listener);
   store.getState().attach(runtime);

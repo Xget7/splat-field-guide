@@ -58,5 +58,3 @@ export type {
 } from './state/instructorStore';
 export { OfflineVoices } from './data/runtime/instructorSwitch';
 export type { OfflineVoice } from './data/runtime/instructorSwitch';
-// Temporary until the instructor store replaces the event bus.
-export { appEvents } from './state/bus';

@@ -24,13 +24,12 @@ export { VoiceTint } from './ui/VoiceTint';
 export { VoiceWave } from './ui/VoiceWave';
 export { useInstructorVoice, VoiceState } from './ui/useInstructorVoice';
 export type { InstructorVoice } from './ui/useInstructorVoice';
-// Temporary until the instructor store replaces the event hooks and the runtime context.
 export {
   useAgentStatus,
   useInstructorMode,
-  useNetwork,
-} from './state/useAppEvent';
-export {
-  InstructorRuntimeContext,
   useInstructorRuntime,
-} from './state/InstructorRuntimeContext';
+  useModeSuggestion,
+  useNetwork,
+  useSwitchSteps,
+  useVoiceRuntime,
+} from './state/instructorHooks';

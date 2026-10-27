@@ -1,5 +1,4 @@
-import type { EventBus, AppEvents } from '../../state/bus';
-import { AppEvent } from '../../state/bus';
+import type { InstructorStore } from '../../state/instructorStore';
 import type { Cancel, Platform, Timers } from '../../../../platform/ports';
 import {
   NetworkQuality,
@@ -52,7 +51,8 @@ export interface InstructorRuntimeOptions {
   /** A null proxy URL runs with on-device answers and voice only. */
   readonly proxyUrl: string | null;
   readonly offlineVoice: OfflineVoice;
-  readonly appEvents: EventBus<AppEvents>;
+  /** Receives every status the runtime reports. */
+  readonly store: InstructorStore;
 }
 /** Waits before reconnecting a conversation that fell back to the device voice. */
 export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
@@ -60,7 +60,7 @@ export function createInstructorRuntime({
   platform,
   proxyUrl: url,
   offlineVoice,
-  appEvents: bus,
+  store,
 }: InstructorRuntimeOptions): InstructorRuntime {
   const { clock, timers } = platform;
   const input = platform.speechInput;
@@ -90,8 +90,6 @@ export function createInstructorRuntime({
     },
     every: timers.every,
   };
-  const listeners = new Set<() => void>();
-  const subscriptions: (() => void)[] = [];
   const pathQuality = createQualityEstimator();
   let pack: Pack | null = null;
   let started = false;
@@ -108,6 +106,8 @@ export function createInstructorRuntime({
     foreground: foreground.isForeground(),
     announcement: null,
   };
+  // Screens read voice state from the store, so it starts from this runtime's foreground.
+  store.getState().voiceChanged(snapshot);
   function publishVoice(status: ModeStatus, switched = false) {
     const canStart = foreground.isForeground() && !isSwitching(status.mode);
     snapshot = {
@@ -121,7 +121,7 @@ export function createInstructorRuntime({
           ? offlineAnnouncement(status, switchId)
           : null,
     };
-    listeners.forEach(listener => listener());
+    store.getState().voiceChanged(snapshot);
   }
   function primaryFailure(failure: VoiceStartFailure) {
     if (
@@ -130,7 +130,9 @@ export function createInstructorRuntime({
     ) {
       connection.disable();
       controller.agentAvailable(false);
-      bus.emit(AppEvent.agent, { state: AgentState.failed, reason: failure });
+      store
+        .getState()
+        .agentChanged({ state: AgentState.failed, reason: failure });
     } else if (failure === VoiceStartFailure.network) {
       network.report({ ok: false });
     }
@@ -202,7 +204,7 @@ export function createInstructorRuntime({
       tasks,
       step => {
         if (started && id === switchId) {
-          bus.emit(AppEvent.switchStep, step);
+          store.getState().switchStepArrived(step);
         }
       },
       { clock, timers: switchTiming },
@@ -219,11 +221,17 @@ export function createInstructorRuntime({
   const controller = createModeController({
     clock,
     timers,
-    emitMode: status => bus.emit(AppEvent.mode, status),
-    emitSuggestion: value => bus.emit(AppEvent.modeSuggestion, value),
+    emitMode: status => {
+      store.getState().modeChanged(status);
+      if (started) {
+        followMode(status);
+      }
+    },
+    emitSuggestion: value => store.getState().suggestionChanged(value),
   });
   let previousMode = controller.current().mode;
-  function modeChanged(status: ModeStatus) {
+  /** Stops voice for a switch, runs it and republishes the voice state once modes change. */
+  function followMode(status: ModeStatus) {
     if (status.mode === previousMode) {
       return;
     }
@@ -245,7 +253,7 @@ export function createInstructorRuntime({
     timers,
     random: platform.random,
     emit(status) {
-      bus.emit(AppEvent.network, status);
+      store.getState().networkChanged(status);
       controller.network(status);
       if (
         controller.current().mode === InstructorMode.offline &&
@@ -295,7 +303,7 @@ export function createInstructorRuntime({
       }
     },
     networkOffline: () =>
-      bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
+      store.getState().network.quality === NetworkQuality.offline,
     client: handlers =>
       createAgentClient({
         signedUrl: connection.signedUrl,
@@ -310,7 +318,7 @@ export function createInstructorRuntime({
               agentBackoff.reset();
               controller.voiceStarted(VoiceSource.agent);
             }
-            bus.emit(AppEvent.agent, value);
+            store.getState().agentChanged(value);
           },
           roundTrip: ms => network.report({ ok: true, ms }),
         },
@@ -318,11 +326,6 @@ export function createInstructorRuntime({
   });
   return {
     instructor,
-    voiceSnapshot: () => snapshot,
-    subscribeVoice(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
     sessionFor(guide) {
       if (!snapshot.canStart || disposed) {
         return null;
@@ -350,10 +353,6 @@ export function createInstructorRuntime({
         return;
       }
       started = true;
-      subscriptions.push(
-        bus.on(AppEvent.mode, modeChanged),
-        bus.on(AppEvent.modeRequest, request => controller.request(request)),
-      );
       foreground.start(active => {
         if (!active) {
           cancelAgentRetry();
@@ -378,7 +377,9 @@ export function createInstructorRuntime({
             ? AnswerSource.deviceModel
             : AnswerSource.script,
         });
-        paths.start(path => bus.emit(AppEvent.network, pathQuality.path(path)));
+        paths.start(path =>
+          store.getState().networkChanged(pathQuality.path(path)),
+        );
       } else {
         network.setForeground(foreground.isForeground());
         network.start();
@@ -395,7 +396,6 @@ export function createInstructorRuntime({
       switchId++;
       connection.clear();
       foreground.stop();
-      subscriptions.splice(0).forEach(unsubscribe => unsubscribe());
       [...switchTimers].forEach(cancel => cancel());
       switchTimers.clear();
       if (url === null) {

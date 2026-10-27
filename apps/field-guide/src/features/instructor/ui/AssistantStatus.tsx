@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { InstructorMode, VoiceSource } from '../domain/mode/modeTypes';
-import { useInstructorMode } from '../state/useAppEvent';
+import { useInstructorMode } from '../state/instructorHooks';
 import { ConnectionWord } from '../domain/mode/modeCopy';
 import { VoiceState, type InstructorVoice } from './useInstructorVoice';
 import { Label } from '../../../ui/Label';

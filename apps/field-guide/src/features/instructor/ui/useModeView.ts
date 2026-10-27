@@ -1,4 +1,4 @@
-import { useInstructorMode } from '../state/useAppEvent';
+import { useInstructorMode } from '../state/instructorHooks';
 import {
   AnswerSource,
   InstructorMode,

@@ -5,13 +5,7 @@ import { createInstructorRuntime } from '../data/runtime/instructorRuntime';
 import { OfflineVoices } from '../data/runtime/instructorSwitch';
 import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
-import {
-  appEvents,
-  createEventBus,
-  AppEvent,
-  type AppEvents,
-  type EventBus,
-} from '../state/bus';
+import { instructorStore } from '../state/instructorStore';
 import type { Fetch, Platform } from '../../../platform/ports';
 import type { PathInfo } from '../../../platform/connectivity/networkQuality';
 import { InstructorMode } from '../domain/mode/modeTypes';
@@ -44,15 +38,20 @@ const signedUrl = async () => ({
 const signedUrlOrPing = async (address: unknown) =>
   String(address).endsWith('/v1/voice/session') ? signedUrl() : { status: 204 };
 
-/** Builds the proxied runtime over a fake platform, speaking offline with Kokoro as on iOS. */
-function runtimeOn(platform: Platform, bus: EventBus<AppEvents>) {
+/**
+ * Builds the proxied runtime over a fake platform, speaking offline with Kokoro as on iOS. It
+ * reports to the app-wide store, which the mode area and the voice hook read.
+ */
+function runtimeOn(platform: Platform) {
   return createInstructorRuntime({
     platform,
     proxyUrl: PROXY_URL,
     offlineVoice: OfflineVoices.kokoro,
-    appEvents: bus,
+    store: instructorStore,
   });
 }
+
+beforeEach(() => instructorStore.getState().reset());
 
 test.each([
   'signed URL network failure',
@@ -81,7 +80,7 @@ test.each([
     });
     const fake = fakePlatform({ fetch: fetchImpl as unknown as Fetch });
     const { transport } = fake;
-    const runtime = runtimeOn(fake.platform, appEvents);
+    const runtime = runtimeOn(fake.platform);
     let renderer!: Renderer.ReactTestRenderer;
     const text = () =>
       renderer.root.findAllByType(Text).map(node => node.props.children);
@@ -120,7 +119,7 @@ test.each([
         expect.any(Function),
         SpeechVoice.system,
       );
-      expect(appEvents.latest(AppEvent.mode)).toMatchObject({
+      expect(instructorStore.getState().mode).toMatchObject({
         mode: 'online',
         voice: 'device',
       });
@@ -138,7 +137,7 @@ test.each([
         transport.ready();
         await started;
       });
-      expect(appEvents.latest(AppEvent.mode)?.voice).toBe('agent');
+      expect(instructorStore.getState().mode.voice).toBe('agent');
       expect(next.questions).not.toBeNull();
       expect(renderer.toJSON()).toBeNull();
       next.session.stop();
@@ -178,12 +177,11 @@ function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
 
 test('an offline switch never installs speech assets, but the next Voice tap may open the model prompt', async () => {
   jest.useFakeTimers();
-  const bus = createEventBus<AppEvents>();
   const fake = fakePlatform({
     fetch: jest.fn(signedUrl) as unknown as Fetch,
   });
   const { transport, input } = fake;
-  const runtime = runtimeOn(fake.platform, bus);
+  const runtime = runtimeOn(fake.platform);
   const h = harness(runtime);
   let renderer!: Renderer.ReactTestRenderer;
   try {
@@ -199,13 +197,12 @@ test('an offline switch never installs speech assets, but the next Voice tap may
     });
     expect(h.voice.open).toBe(true);
     input.prepare.mockResolvedValue('unavailable');
-    await act(async () =>
-      bus.emit(AppEvent.modeRequest, { type: 'acceptSuggestion' }),
-    );
+    instructorStore.getState().attach(runtime);
+    await act(async () => instructorStore.getState().acceptSuggestion());
     await act(async () => {
       await jest.advanceTimersByTimeAsync(600);
     });
-    expect(bus.latest(AppEvent.mode)?.mode).toBe('offline');
+    expect(instructorStore.getState().mode.mode).toBe('offline');
     expect(input.install).not.toHaveBeenCalled();
     expect(h.voice.on).toBe(false);
     expect(h.voice.hint).toBe(
@@ -213,7 +210,7 @@ test('an offline switch never installs speech assets, but the next Voice tap may
     );
     input.install.mockImplementationOnce(async () => {
       fake.appState.change('background');
-      expect(runtime.voiceSnapshot().foreground).toBe(true);
+      expect(instructorStore.getState().voice.foreground).toBe(true);
       fake.appState.change('active');
       return 'available';
     });
@@ -238,7 +235,7 @@ test.each<AppStateStatus>(['active', 'inactive'])(
     });
     const { transport } = fake;
     const changeState = fake.appState.change;
-    const runtime = runtimeOn(fake.platform, createEventBus<AppEvents>());
+    const runtime = runtimeOn(fake.platform);
     runtime.start();
     const h = harness(runtime);
     let renderer!: Renderer.ReactTestRenderer;
@@ -283,12 +280,11 @@ test.each<AppStateStatus>(['active', 'inactive'])(
 
 test('a socket failure before the offline event carries the waiting question through device startup and the switch', async () => {
   jest.useFakeTimers();
-  const bus = createEventBus<AppEvents>();
   const fake = fakePlatform({
     fetch: jest.fn(signedUrlOrPing) as unknown as Fetch,
   });
   const { transport } = fake;
-  const runtime = runtimeOn(fake.platform, bus);
+  const runtime = runtimeOn(fake.platform);
   runtime.setPack(context.pack);
   runtime.start();
   fake.network.emit(WIFI);
@@ -315,13 +311,13 @@ test('a socket failure before the offline event carries the waiting question thr
   expect(questions).toEqual(['Why check the battery?']);
   expect(h.voice.open).toBe(true);
   await act(async () => fake.network.emit({ ...WIFI, satisfied: false }));
-  expect(bus.latest(AppEvent.mode)?.mode).toBe(
+  expect(instructorStore.getState().mode.mode).toBe(
     InstructorMode.switchingToOffline,
   );
   await act(async () => {
     await jest.advanceTimersByTimeAsync(600);
   });
-  expect(bus.latest(AppEvent.mode)?.mode).toBe(InstructorMode.offline);
+  expect(instructorStore.getState().mode.mode).toBe(InstructorMode.offline);
   expect(questions).toEqual([
     'Why check the battery?',
     'Why check the battery?',
@@ -341,12 +337,11 @@ test('a socket failure before the offline event carries the waiting question thr
 
 test('a conversation that fell back to the device voice reconnects to the agent on a new route', async () => {
   jest.useFakeTimers();
-  const bus = createEventBus<AppEvents>();
   const fake = fakePlatform({
     fetch: jest.fn(signedUrlOrPing) as unknown as Fetch,
   });
   const { transport } = fake;
-  const runtime = runtimeOn(fake.platform, bus);
+  const runtime = runtimeOn(fake.platform);
   runtime.setPack(context.pack);
   runtime.start();
   fake.network.emit(WIFI);
@@ -365,7 +360,7 @@ test('a conversation that fell back to the device voice reconnects to the agent 
     transport.current.onerror?.();
     await jest.advanceTimersByTimeAsync(0);
   });
-  expect(bus.latest(AppEvent.mode)?.voice).toBe('device');
+  expect(instructorStore.getState().mode.voice).toBe('device');
   const connections = transport.connections;
   await act(async () => {
     fake.network.emit({ ...WIFI, transport: 'cellular' });
@@ -373,7 +368,7 @@ test('a conversation that fell back to the device voice reconnects to the agent 
   });
   expect(transport.connections).toBe(connections + 1);
   await act(async () => transport.ready());
-  expect(bus.latest(AppEvent.mode)).toMatchObject({
+  expect(instructorStore.getState().mode).toMatchObject({
     mode: InstructorMode.online,
     voice: 'agent',
   });

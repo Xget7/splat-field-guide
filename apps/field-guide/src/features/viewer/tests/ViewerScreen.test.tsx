@@ -23,7 +23,7 @@ import {
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
 import {
-  appEvents,
+  instructorStore,
   createInstructorRuntime,
   createModelInstructor,
   OfflineVoices,
@@ -34,12 +34,15 @@ import {
   type InstructorRuntime,
   type VoiceSessionEvents,
 } from '../../instructor';
-import { InstructorRuntimeContext } from '../../instructor/views';
 import { highlightFor, SessionEventType, LearnMode } from '../../guide';
 import { continueRowFor } from '../../library';
 import { loadProgress } from '../../guide/views';
 
-import { fakeVoiceSession, fakeVoiceRuntime } from '@tests/voiceSession';
+import {
+  fakeInstructorRuntime,
+  fakeVoiceSession,
+  fakeVoiceRuntime,
+} from '@tests/voiceSession';
 import { fakePlatform } from '@tests/platform';
 
 import { fixturePack } from '@tests/fixturePack';
@@ -164,12 +167,11 @@ describe('viewer screen', () => {
         },
       },
     } as unknown as ScreenProps<typeof Route.viewer>;
+    instructorStore.getState().attach(runtime);
     await act(async () => {
       renderer = ReactTestRenderer.create(
         <CatalogProvider catalog={entries}>
-          <InstructorRuntimeContext.Provider value={runtime}>
-            <ViewerScreen {...props} />
-          </InstructorRuntimeContext.Provider>
+          <ViewerScreen {...props} />
         </CatalogProvider>,
       );
     });
@@ -191,11 +193,12 @@ describe('viewer screen', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    instructorStore.getState().reset();
     runtime = createInstructorRuntime({
       platform: device.platform,
       proxyUrl: null,
       offlineVoice: OfflineVoices.kokoro,
-      appEvents,
+      store: instructorStore,
     });
     runtime.start();
     view.project.mockReset().mockReturnValue(0);
@@ -226,16 +229,7 @@ describe('viewer screen', () => {
 
     const lifecycle = fakeVoiceRuntime({ session, questions: fake.questions });
     runtime.stop();
-    runtime = {
-      ...lifecycle.runtime,
-      instructor,
-      setPack: jest.fn(),
-      setInstructorOpen: jest.fn(),
-      setIdle: jest.fn(),
-      requestMode: jest.fn(),
-      start: jest.fn(),
-      stop: jest.fn(),
-    };
+    runtime = fakeInstructorRuntime({ ...lifecycle.runtime, instructor });
     await mount({
       mode: LearnMode.instructor,
       voice: true,
