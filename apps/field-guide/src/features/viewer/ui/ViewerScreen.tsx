@@ -39,7 +39,8 @@ import {
 } from './instructor/AssistantDock';
 import { ExploreDrawer } from './shell/ExploreDrawer';
 import { GuideDrawer } from './shell/GuideDrawer';
-import { Capability, DRAWER_IN, DRAWER_OUT } from './shell/layout';
+import { Capability } from '../domain/capability';
+import { DRAWER_IN, DRAWER_OUT } from './shell/layout';
 import { ViewerRail } from './shell/ViewerRail';
 import { Breadcrumb } from './stage/Breadcrumb';
 import { PartCard } from './stage/PartCard';

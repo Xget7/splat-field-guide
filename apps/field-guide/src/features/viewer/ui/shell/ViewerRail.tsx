@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon, IconName } from '../../../../ui/Icon';
 import { Color, MIN_TOUCH, Radius, Space } from '../../../../ui/theme';
-import { Capability, RAIL_WIDTH } from './layout';
+import { Capability } from '../../domain/capability';
+import { RAIL_WIDTH } from './layout';
 
 const BACK_LABEL = 'Back to guides';
 const BACK_HINT = 'Return to the library';

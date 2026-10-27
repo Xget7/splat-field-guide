@@ -5,12 +5,6 @@ import { Motion } from '../../../../ui/theme';
 export const RAIL_WIDTH = 64;
 export const DRAWER_WIDTH = 320;
 
-export const Capability = {
-  guide: 'guide',
-  explore: 'explore',
-} as const;
-export type Capability = (typeof Capability)[keyof typeof Capability];
-
 export const DRAWER_IN = SlideInLeft.springify()
   .mass(Motion.spring.mass)
   .damping(Motion.spring.damping)
