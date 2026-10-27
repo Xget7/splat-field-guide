@@ -8,6 +8,7 @@ export {
   startAt,
 } from './domain/session';
 export type { SessionEvent, SessionState } from './domain/session';
+export type { SessionStart } from './domain/sessionStart';
 export { framingFor, highlightFor } from './domain/derive';
 export {
   cardContentFor,

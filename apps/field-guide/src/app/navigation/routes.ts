@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { LearnMode } from '../../features/guide';
+import type { SessionStart } from '../../features/guide';
 
 export const Route = {
   library: 'Library',
@@ -19,13 +19,7 @@ export type RootStackParamList = {
   [Route.placement]: { guideId: string };
   [Route.assembly]: undefined;
   [Route.bench]: undefined;
-  [Route.viewer]: {
-    guideId: string;
-    procedureId: string;
-    stepIndex: number;
-    mode: LearnMode;
-    voice?: boolean;
-  };
+  [Route.viewer]: SessionStart;
 };
 
 export type ScreenProps<R extends Route> = NativeStackScreenProps<
