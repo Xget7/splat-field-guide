@@ -22,11 +22,11 @@ The exported SPZ cloud and per-splat labels stay in the pack directory as build 
 
 ## Session rules
 
-[session.ts](../../apps/field-guide/src/features/guide/session.ts) holds procedure ID, zero-based step position and an optional selected part.
+[session.ts](../../apps/field-guide/src/features/guide/domain/session.ts) holds procedure ID, zero-based step position and an optional selected part.
 Start resets position and selection; next/back move within procedure bounds and clear selection when position changes.
 Repeat clears a selection override; invalid events preserve the state.
 Selecting a part overrides step emphasis, and selecting empty space clears selection.
-[derive.ts](../../apps/field-guide/src/features/guide/derive.ts) expands selected or step parts through their children for highlight and framing.
+[derive.ts](../../apps/field-guide/src/features/guide/domain/derive.ts) expands selected or step parts through their children for highlight and framing.
 With no procedure or selection, framing uses the bounds of all parts.
 Stop and Finish clear saved continuation; Explore preserves it, with ordered native storage writes preventing a delayed save from restoring cleared progress.
 Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor-fallback.md); provisional streams do not commit session actions.
@@ -35,17 +35,20 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 
 | Unit | Owns |
 | --- | --- |
-| `src/App.tsx`, `src/app` | Startup, navigation, shared contexts and the native progress adapter |
-| `src/features/pack`, `src/features/guide` | Pure pack parsing/catalog and session, tour, progress, highlight and framing rules |
-| `src/features/instructor` | Command routing, turns, authored grounding, model adapters, voice and the runtime that wires them to speech, network and modes |
-| `src/features/viewport` | Native viewer readiness, gestures, camera conversion, framing and projected markers |
-| `src/screens`, `src/ui` | Screen composition and view models, then business-free presentation primitives |
+| `src/app` | Startup, navigation, the catalog context and the pack error screen |
+| `src/features/pack` | Pure pack parsing, catalog and parts tour |
+| `src/features/guide` | Session, progress, highlight and framing rules, the guide detail screen and the native progress adapter |
+| `src/features/instructor` | Command routing, turns, authored grounding, model adapters, voice, mode and voice widgets, and the runtime that wires them to speech, network and modes |
+| `src/features/viewer` | The viewer screen and its instructor panel, native viewer readiness, gestures, camera conversion, framing and projected markers |
+| `src/features/library`, `ar`, `bench` | The library, the AR screens and check, and the renderer bench |
+| `src/platform`, `src/ui` | Network quality and monitoring, then business-free presentation primitives |
 | `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views, iOS spatial placement/assembly and provisional AR alignment |
 | `react-native-on-device` | Platform speech, iOS Apple generation/Kokoro and audio coordination |
 | `instructor-proxy` | Cloud request policy and stream translation |
 | `splat-tools`, separate workspace | Capture, annotation, reconstruction, training and pack export |
 
-Screens compose the lower units; pack/guide remain free of React and native imports, and UI imports no business code.
+A slice splits into `domain`, `data`, `state`, `ui` and `tests` folders as it needs them and is reached only through its `index.ts`, free of React and native imports, or its `views.ts`.
+Dependencies run from viewer to instructor to guide to pack; pack, platform and UI import no slice, and domain code loads no React or native package.
 The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; it stays hidden unless `AR_CHECK_ENABLED` is set, and physical alignment and semantic camera masks remain open.
 
 ## Spatial assembly

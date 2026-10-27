@@ -32,7 +32,7 @@ flowchart TB
 | Viewer | iOS/iPadOS 26+ with an A14-class GPU or later |
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
-| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/app/navigation/arCheck.ts) |
+| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/features/ar/data/arCheck.ts) |
 | Library model preview | iOS and the local engine-bay capture in `data/ar-reference`; without it the card shows the guide's photo |
 | Spatial assembly | Physical iPhone/iPad, the prepared V8 USDZ and the library's "Assemble a V8 in AR" entry |
 
@@ -65,7 +65,7 @@ Missing transcription/model assets affect offline input and generation; [speech 
 
 ## Configuration and checks
 
-`instructor.config.json` sets `proxyUrl`, the Worker base URL that [proxy.ts](src/features/instructor/proxy.ts) reads; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
+`instructor.config.json` sets `proxyUrl`, the Worker base URL that [proxy.ts](src/features/instructor/data/proxy.ts) reads; preparation copies it from [the example](instructor.config.example.json), and git ignores it.
 The example's `null` runs offline only; deploy your own Worker with the [service README](../../services/instructor-proxy/README.md) and the agent with the [voice agent README](../../services/voice-agent/README.md).
 The iPad uses a side-by-side viewer at 700+ points; the iPhone viewer stays portrait.
 App tests, shared fakes and setup live in the root [tests folder](../../tests); commands are in [the agent checks](../../docs/agents/checks.md).

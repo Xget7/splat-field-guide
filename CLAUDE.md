@@ -33,8 +33,8 @@ Source/simulator checks leave physical acceptance explicitly unchecked.
 - Design deep modules with small interfaces; callers and tests cross the same seam.
 - Apply the deletion test: a useful module keeps complexity from spreading into its callers.
 - Two adapters justify a seam; one is hypothetical.
-- Import implementations directly; app ESLint enforces dependency directions.
-- Put app tests and shared fakes/setup in the root `tests` folder; other units keep their own test folders.
+- Import another app slice through its `index.ts` or `views.ts` and everything else directly; app ESLint enforces dependency directions.
+- Put app tests in their slice's `tests` folder and shared fakes/setup in the root `tests` folder, imported as `@tests/*`; other units keep their own test folders.
 - Reproduce bugs red first with a failing screen, module-interface or C-interface test, then fix and rerun it.
 - Extend essential behaviour tests and remove implementation-only tests once interface coverage replaces them.
 - Comments explain why in plain sentences.
