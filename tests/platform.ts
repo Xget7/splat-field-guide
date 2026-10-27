@@ -1,14 +1,17 @@
 import type { AppStateStatus } from 'react-native';
 import type { PathInfo } from '../apps/field-guide/src/platform/connectivity/networkQuality';
-import type {
-  AppStatePort,
-  AudioLink,
-  LanguageModel,
-  Platform,
-  Socket,
-  SpeechInput,
-  SpeechOutput,
-  StreamingRequest,
+import { createChunkChannel } from '../apps/field-guide/src/platform/chunkChannel';
+import {
+  ABORT_ERROR_NAME,
+  ABORT_EVENT,
+  type AppStatePort,
+  type AudioLink,
+  type LanguageModel,
+  type Platform,
+  type Socket,
+  type SpeechInput,
+  type SpeechOutput,
+  type StreamText,
 } from '../apps/field-guide/src/platform/ports';
 import type { KeyValueStorage } from '../apps/field-guide/src/platform/storage';
 
@@ -16,8 +19,9 @@ const ACTIVE: AppStateStatus = 'active';
 // Backoff jitter stays centred, so timed tests land on exact delays.
 const CENTRED_RANDOM = 0.5;
 const UNSCRIPTED_FETCH = 'The fake platform has no scripted fetch';
-const UNSCRIPTED_REQUEST =
-  'The fake platform has no scripted streaming request';
+const UNSCRIPTED_STREAM = 'The fake platform has no scripted text stream';
+const TRANSPORT_FAILED = 'The fake transport failed';
+const ABORTED = 'The fake request was aborted';
 const NOT_MONITORING = 'The network monitor has not started';
 const HTTP_OK = 200;
 
@@ -70,73 +74,62 @@ export function fakeAgentTransport() {
   };
 }
 
-/** One streaming request the test answers chunk by chunk, recording what was sent. */
-export interface FakeStreamingRequest extends StreamingRequest {
+/** One streamed request the test answers chunk by chunk, recording what was sent. */
+export interface FakeTextStream {
   readonly method: string;
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: string;
   readonly aborted: boolean;
-  /** Appends text to the response with an OK status, as a progress event does. */
+  /** Opens the response with an OK status if it is not open yet, then delivers the text. */
   receive(chunk: string): void;
-  /** Completes the response with a status. */
+  /** Opens the response with a status if it is not open yet, then completes it. */
   end(status?: number): void;
-  /** Fails the request as the transport does. */
+  /** Fails the request before its headers, or the open response mid-stream, as the transport does. */
   fail(): void;
 }
 
-/** Streaming requests the test answers; pass `create` as the platform's streamingRequest. */
-export function fakeStreamingRequests() {
-  const requests: FakeStreamingRequest[] = [];
-  function create(): FakeStreamingRequest {
-    const headers: Record<string, string> = {};
-    const request = {
-      status: 0,
-      responseText: '',
-      method: '',
-      url: '',
-      headers,
-      body: '',
-      aborted: false,
-      onprogress: null as (() => void) | null,
-      onload: null as (() => void) | null,
-      onerror: null as (() => void) | null,
-      open(method: string, url: string) {
-        request.method = method;
-        request.url = url;
-      },
-      setRequestHeader(name: string, value: string) {
-        headers[name] = value;
-      },
-      send(body: string) {
-        request.body = body;
-      },
-      abort() {
-        request.aborted = true;
-      },
-      receive(chunk: string) {
-        request.status = HTTP_OK;
-        request.responseText += chunk;
-        request.onprogress?.();
-      },
-      end(status = HTTP_OK) {
-        request.status = status;
-        request.onload?.();
-      },
-      fail() {
-        request.onerror?.();
-      },
-    };
-    requests.push(request);
-    return request;
-  }
+/** Text streams the test answers; pass `streamText` as the platform's streamText. */
+export function fakeTextStreams() {
+  const streams: FakeTextStream[] = [];
+  const streamText: StreamText = ({ signal, ...request }) =>
+    new Promise((resolve, reject) => {
+      const channel = createChunkChannel();
+      let opened = false;
+      const open = (status: number) => {
+        if (!opened) {
+          opened = true;
+          resolve({ status, chunks: channel.chunks });
+        }
+      };
+      const fail = (error: Error) =>
+        opened ? channel.fail(error) : reject(error);
+      const stream = {
+        ...request,
+        aborted: false,
+        receive(chunk: string) {
+          open(HTTP_OK);
+          channel.push(chunk);
+        },
+        end(status = HTTP_OK) {
+          open(status);
+          channel.end();
+        },
+        fail: () => fail(new Error(TRANSPORT_FAILED)),
+      };
+      signal?.addEventListener(ABORT_EVENT, () => {
+        stream.aborted = true;
+        fail(Object.assign(new Error(ABORTED), { name: ABORT_ERROR_NAME }));
+      });
+      streams.push(stream);
+    });
   return {
-    create,
+    streamText,
     get last() {
-      return requests.at(-1)!;
+      return streams.at(-1)!;
     },
     get count() {
-      return requests.length;
+      return streams.length;
     },
   };
 }
@@ -307,8 +300,8 @@ export function fakePlatform(options: FakePlatformOptions = {}) {
     fetch: jest.fn(async () => {
       throw new Error(UNSCRIPTED_FETCH);
     }),
-    streamingRequest: () => {
-      throw new Error(UNSCRIPTED_REQUEST);
+    streamText: async () => {
+      throw new Error(UNSCRIPTED_STREAM);
     },
     socket: transport.connect,
     random: () => CENTRED_RANDOM,

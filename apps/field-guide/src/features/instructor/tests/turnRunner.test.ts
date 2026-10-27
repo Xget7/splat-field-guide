@@ -8,7 +8,7 @@ import { type Answerer } from '../domain/turn/answerer';
 import { createExchangeIds } from '../domain/turn/exchange';
 import { createCloudAnswerer } from '../data/answerers/cloudAnswerer';
 import { createProxyClient } from '../data/proxy/proxyClient';
-import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
+import { fakePlatform, fakeTextStreams } from '@tests/platform';
 
 const runner = (answerers: readonly Answerer[]) =>
   createTurnRunner(answerers, createExchangeIds());
@@ -250,8 +250,8 @@ test('late words from a failed model cannot replace the fallback model in the sa
 test.each(['error', 'missing done'])(
   'a streamed remote %s falls back to the next answerer',
   async failure => {
-    const requests = fakeStreamingRequests();
-    const { platform } = fakePlatform({ streamingRequest: requests.create });
+    const requests = fakeTextStreams();
+    const { platform } = fakePlatform({ streamText: requests.streamText });
     const cloud = createCloudAnswerer({
       ...platform,
       proxy: createProxyClient('https://proxy.example', platform),

@@ -5,13 +5,13 @@ import {
   cloudInstructions,
   createCloudAnswerer,
 } from '../data/answerers/cloudAnswerer';
-import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
+import { fakePlatform, fakeTextStreams } from '@tests/platform';
 import { createProxyClient } from '../data/proxy/proxyClient';
 import { ProxyPath } from '../data/proxy/proxyContract';
 import { ReplyTiming } from '../domain/turn/replyPolicy';
 
-const requests = fakeStreamingRequests();
-const { platform } = fakePlatform({ streamingRequest: requests.create });
+const requests = fakeTextStreams();
+const { platform } = fakePlatform({ streamText: requests.streamText });
 const pack = fixturePack();
 const URL = 'https://proxy.example';
 const request = {

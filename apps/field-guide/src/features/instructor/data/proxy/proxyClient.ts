@@ -1,5 +1,9 @@
 import { AgentFailure } from '../../domain/agent/agentStatus';
-import type { Cancel, Platform } from '../../../../platform/ports';
+import {
+  ABORT_EVENT,
+  type Cancel,
+  type Platform,
+} from '../../../../platform/ports';
 import type { StreamedReply } from '../../domain/turn/replyPolicy';
 import {
   createNdjsonEvents,
@@ -59,10 +63,7 @@ export interface ProxyClient {
   ping(signal?: AbortSignal): Promise<number>;
 }
 
-type ProxyPorts = Pick<
-  Platform,
-  'fetch' | 'clock' | 'timers' | 'streamingRequest'
->;
+type ProxyPorts = Pick<Platform, 'fetch' | 'clock' | 'timers' | 'streamText'>;
 
 /** Maps the voice session response to its URL or the failure the agent reports. */
 function signedUrlFrom(status: number, body: unknown): string {
@@ -101,10 +102,7 @@ export function createProxyClient(
   const { clock, timers } = ports;
   return {
     answer({ system, prompt }, onText) {
-      const request = ports.streamingRequest();
-      const events = createNdjsonEvents();
-      let text = '';
-      let read = 0;
+      const controller = new AbortController();
       let settled = false;
       let resolve!: (text: string) => void;
       let reject!: (failure: ProxyFailure) => void;
@@ -115,46 +113,48 @@ export function createProxyClient(
       const fail = (kind: ProxyFailureKind, message: string) => {
         if (!settled) {
           settled = true;
-          request.abort();
+          controller.abort();
           reject(proxyFailure(kind, message));
         }
       };
-      const receive = () => {
-        if (settled || request.status !== ProxyStatus.ok) {
+      const consume = async () => {
+        const { status, chunks } = await ports.streamText({
+          url: `${baseUrl}${ProxyPath.answer}`,
+          method: POST,
+          headers: { [CONTENT_TYPE_HEADER]: JSON_CONTENT_TYPE },
+          body: JSON.stringify({ system, prompt }),
+          signal: controller.signal,
+        });
+        if (status !== ProxyStatus.ok) {
+          fail(ProxyFailureKind.status, FailureMessage.status(status));
           return;
         }
-        const body = request.responseText;
-        const chunk = body.slice(read);
-        read = body.length;
-        for (const event of events.feed(chunk)) {
-          if (settled) {
-            return;
-          }
-          if (event.type === ProxyEventType.text) {
-            text += event.text;
-            onText(text);
-          } else if (event.type === ProxyEventType.done) {
-            settled = true;
-            resolve(text);
-          } else {
-            fail(event.kind, event.message);
+        const events = createNdjsonEvents();
+        let text = '';
+        for await (const chunk of chunks) {
+          for (const event of events.feed(chunk)) {
+            if (settled) {
+              return;
+            }
+            if (event.type === ProxyEventType.text) {
+              text += event.text;
+              onText(text);
+            } else if (event.type === ProxyEventType.done) {
+              settled = true;
+              resolve(text);
+              return;
+            } else {
+              fail(event.kind, event.message);
+              return;
+            }
           }
         }
-      };
-      request.onprogress = receive;
-      request.onload = () => {
-        if (request.status !== ProxyStatus.ok) {
-          fail(ProxyFailureKind.status, FailureMessage.status(request.status));
-          return;
-        }
-        receive();
         fail(ProxyFailureKind.endedEarly, FailureMessage.endedEarly);
       };
-      request.onerror = () =>
-        fail(ProxyFailureKind.network, FailureMessage.network);
-      request.open(POST, `${baseUrl}${ProxyPath.answer}`);
-      request.setRequestHeader(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE);
-      request.send(JSON.stringify({ system, prompt }));
+      // A cancel has already settled the answer, so the abort it causes changes nothing here.
+      consume().catch(() =>
+        fail(ProxyFailureKind.network, FailureMessage.network),
+      );
       return {
         text: answered,
         cancel: () =>
@@ -181,7 +181,7 @@ export function createProxyClient(
     async ping(signal) {
       const controller = new AbortController();
       const abort = () => controller.abort();
-      signal?.addEventListener('abort', abort);
+      signal?.addEventListener(ABORT_EVENT, abort);
       const began = clock();
       let cancelTimeout: Cancel | undefined;
       try {
@@ -206,7 +206,7 @@ export function createProxyClient(
         ]);
       } finally {
         cancelTimeout?.();
-        signal?.removeEventListener('abort', abort);
+        signal?.removeEventListener(ABORT_EVENT, abort);
       }
     },
   };

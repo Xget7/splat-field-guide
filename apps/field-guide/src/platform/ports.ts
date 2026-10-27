@@ -52,19 +52,6 @@ export interface NetworkMonitor {
   stop(): void;
 }
 
-/** One streaming POST whose response text grows as it arrives, shaped like XMLHttpRequest. */
-export interface StreamingRequest {
-  readonly status: number;
-  readonly responseText: string;
-  onprogress: (() => void) | null;
-  onload: (() => void) | null;
-  onerror: (() => void) | null;
-  open(method: string, url: string): void;
-  setRequestHeader(name: string, value: string): void;
-  send(body: string): void;
-  abort(): void;
-}
-
 /** The event an AbortSignal fires when its controller aborts. */
 export const ABORT_EVENT = 'abort';
 
@@ -132,7 +119,7 @@ export interface Platform {
   readonly languageModel: () => LanguageModel;
   readonly networkMonitor: NetworkMonitor;
   readonly fetch: Fetch;
-  readonly streamingRequest: () => StreamingRequest;
+  readonly streamText: StreamText;
   readonly socket: (url: string) => Socket;
   readonly random: Random;
   readonly appState: AppStatePort;

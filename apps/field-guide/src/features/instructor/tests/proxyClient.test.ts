@@ -1,5 +1,5 @@
-import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
-import type { FakeStreamingRequest } from '@tests/platform';
+import { fakePlatform, fakeTextStreams } from '@tests/platform';
+import type { FakeTextStream } from '@tests/platform';
 import type { Fetch, Platform } from '../../../platform/ports';
 import {
   createProxyClient,
@@ -12,9 +12,9 @@ const QUESTION = { system: 'Rules.', prompt: 'Question: What is it?' };
 const line = (event: object) => `${JSON.stringify(event)}\n`;
 
 function proxyWith(ports: Partial<Platform> = {}) {
-  const requests = fakeStreamingRequests();
+  const requests = fakeTextStreams();
   const { platform } = fakePlatform({
-    streamingRequest: requests.create,
+    streamText: requests.streamText,
     ...ports,
   });
   return { proxy: createProxyClient(URL, platform), requests };
@@ -52,20 +52,20 @@ test('reports the text so far and resolves the full text on done', async () => {
 test.each([
   [
     'an error event',
-    (sent: FakeStreamingRequest) => sent.receive(line({ error: 'overloaded' })),
+    (sent: FakeTextStream) => sent.receive(line({ error: 'overloaded' })),
     ProxyFailureKind.remoteError,
     'overloaded',
   ],
   [
     'an error alongside done',
-    (sent: FakeStreamingRequest) =>
+    (sent: FakeTextStream) =>
       sent.receive(line({ done: true, error: 'cut off' })),
     ProxyFailureKind.remoteError,
     'cut off',
   ],
   [
     'an error alongside text',
-    (sent: FakeStreamingRequest) => {
+    (sent: FakeTextStream) => {
       sent.receive(line({ text: 'Truncated', error: 'cut off' }));
       sent.receive(line({ done: true }));
     },
@@ -74,19 +74,19 @@ test.each([
   ],
   [
     'an unreadable line',
-    (sent: FakeStreamingRequest) => sent.receive('nope\n'),
+    (sent: FakeTextStream) => sent.receive('nope\n'),
     ProxyFailureKind.unreadable,
     'unreadable stream',
   ],
   [
     'a null event',
-    (sent: FakeStreamingRequest) => sent.receive('null\n'),
+    (sent: FakeTextStream) => sent.receive('null\n'),
     ProxyFailureKind.badEvent,
     'bad event',
   ],
   [
     'a stream without done',
-    (sent: FakeStreamingRequest) => {
+    (sent: FakeTextStream) => {
       sent.receive(line({ text: 'It' }));
       sent.end();
     },
@@ -95,19 +95,28 @@ test.each([
   ],
   [
     'a refused request',
-    (sent: FakeStreamingRequest) => sent.end(429),
+    (sent: FakeTextStream) => sent.end(429),
     ProxyFailureKind.status,
     'status 429',
   ],
   [
     'a network failure',
-    (sent: FakeStreamingRequest) => sent.fail(),
+    (sent: FakeTextStream) => sent.fail(),
+    ProxyFailureKind.network,
+    'network',
+  ],
+  [
+    'a network failure mid-stream',
+    (sent: FakeTextStream) => {
+      sent.receive(line({ text: 'It' }));
+      sent.fail();
+    },
     ProxyFailureKind.network,
     'network',
   ],
   [
     'a cancel',
-    (_sent: FakeStreamingRequest, cancel: () => void) => cancel(),
+    (_sent: FakeTextStream, cancel: () => void) => cancel(),
     ProxyFailureKind.cancelled,
     'cancelled',
   ],
