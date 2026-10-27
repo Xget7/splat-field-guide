@@ -28,9 +28,11 @@ add_library(splat_core STATIC
   src/filtering/Compaction.cpp
   src/filtering/Haze.cpp
   src/filtering/Sparse.cpp
+  src/formats/FrameTransform.cpp
   src/formats/PartLabels.cpp
   src/formats/SplatDecoder.cpp
   src/formats/SpzDecoder.cpp
+  src/formats/SpzFrame.cpp
   src/io/MappedFile.cpp
   src/loading/Sha256.cpp
   src/loading/SplatWorldLoader.cpp

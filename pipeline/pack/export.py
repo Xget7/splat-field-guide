@@ -489,7 +489,7 @@ def build_tier(out: pathlib.Path, tool: pathlib.Path) -> dict:
     than the cloud's splats; a merged node takes the part that carries most of its opacity.
     """
     from pipeline.pack import export_checks
-    print(run_tool([tool, out / CLOUD_PATH, out / WORLD_PATH, "--frame", LOD_FRAME, "--sh", LOD_SH_DEGREE,
+    print(run_tool([tool, out / CLOUD_PATH, out / WORLD_PATH, "--source-frame", LOD_FRAME, "--sh", LOD_SH_DEGREE,
                     "--labels", out / SPLAT_LABELS_PATH, out / LABELS_PATH]).strip())
     header = export_checks.read_lodsplat_header(out / WORLD_PATH)
     return {"id": TIER, "splatCount": header["leafCount"], "nodeCount": header["nodeCount"],

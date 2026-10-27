@@ -1,6 +1,7 @@
 add_executable(splat_core_tests
   filtering/HazeTest.cpp
   filtering/SparseTest.cpp
+  formats/FrameTransformTest.cpp
   formats/PartLabelsTest.cpp
   formats/SplatDecoderTest.cpp
   formats/SpzDecoderTest.cpp
@@ -18,7 +19,9 @@ add_executable(splat_core_tests
 target_link_libraries(splat_core_tests PRIVATE splat_core ZLIB::ZLIB GTest::gtest_main)
 target_include_directories(splat_core_tests PRIVATE
   $<TARGET_PROPERTY:spz,INTERFACE_INCLUDE_DIRECTORIES>)
+# spz's structs change with its extensions, so its headers need its definitions as well.
 target_compile_definitions(splat_core_tests PRIVATE
+  $<TARGET_PROPERTY:spz,INTERFACE_COMPILE_DEFINITIONS>
   SPLAT_FIXTURES_DIR="${SPLAT_FIXTURES_DIR}"
 )
 if(SPLAT_CORE_PORTABLE_SHA256)

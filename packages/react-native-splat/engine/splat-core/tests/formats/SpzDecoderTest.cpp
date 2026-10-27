@@ -12,6 +12,7 @@
 #include <zlib.h>
 
 #include "load-spz.h"
+#include "splat/formats/SpzFrame.h"
 
 namespace splat {
 namespace {
@@ -20,7 +21,8 @@ float logit(float p) {
   return std::log(p / (1 - p));
 }
 
-// The RDF fixture requires the decoder to flip Y and Z.
+// One splat with a known pose, written through the reference encoder untagged, so it reads as
+// SPZ's default frame unless the caller declares another.
 spz::GaussianCloud oneSplatCloud() {
   spz::GaussianCloud cloud;
   cloud.numPoints = 1;
@@ -91,8 +93,8 @@ TEST(SpzDecoder, DecodesVersion4Containers) {
   const SplatCloud& cloud = result.value();
   ASSERT_EQ(cloud.count(), 1u);
   EXPECT_NEAR(cloud.positions[0], 1.0f, 1e-3f);
-  EXPECT_NEAR(cloud.positions[1], -2.0f, 1e-3f);
-  EXPECT_NEAR(cloud.positions[2], -3.0f, 1e-3f);
+  EXPECT_NEAR(cloud.positions[1], 2.0f, 1e-3f);
+  EXPECT_NEAR(cloud.positions[2], 3.0f, 1e-3f);
   EXPECT_NEAR(cloud.alphas[0], 0.75f, 1e-2f);
 }
 
@@ -104,9 +106,9 @@ TEST(SpzDecoder, RejectsTruncatedContainer) {
   EXPECT_EQ(result.error().code, ErrorCode::corrupt);
 }
 
-TEST(SpzDecoder, DecodesAndConvertsWorldLabsFrameToInternal) {
+TEST(SpzDecoder, DecodesAndConvertsADeclaredRdfFrameToInternal) {
   auto bytes = encodeOneSplat();
-  auto result = decodeSpz(bytes.data(), bytes.size());
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRdf});
   ASSERT_TRUE(result.ok()) << result.error().message;
   const SplatCloud& cloud = result.value();
 
@@ -139,7 +141,7 @@ TEST(SpzDecoder, DecodesAndConvertsWorldLabsFrameToInternal) {
 
 TEST(SpzDecoder, RubSourceFrameLeavesPositionsUntouched) {
   auto bytes = encodeOneSplat();
-  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::rub});
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRub});
   ASSERT_TRUE(result.ok());
   EXPECT_FLOAT_EQ(result.value().positions[1], 2.0f);
   EXPECT_FLOAT_EQ(result.value().positions[2], 3.0f);
@@ -179,7 +181,7 @@ TEST(SpzDecoder, RotatedSplatProducesOffDiagonalCovariance) {
   std::vector<std::uint8_t> bytes;
   ASSERT_TRUE(spz::saveSpz(cloud, pack, &bytes));
 
-  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::rub});
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRub});
   ASSERT_TRUE(result.ok());
   const auto& cov = result.value().covariances;
   // A long axis rotated 45 degrees in XY: xx == yy and xy is large and positive.
@@ -212,7 +214,7 @@ TEST(SpzDecoder, AccumulatesBoundsAcrossSplats) {
   std::vector<std::uint8_t> bytes;
   ASSERT_TRUE(spz::saveSpz(cloud, pack, &bytes));
 
-  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::rub});
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRub});
   ASSERT_TRUE(result.ok());
   const Bounds& b = result.value().bounds;
   EXPECT_FLOAT_EQ(b.min[0], -4.0f);
@@ -238,7 +240,7 @@ TEST(SpzDecoder, PassesHigherOrderShThrough) {
   std::vector<std::uint8_t> bytes;
   ASSERT_TRUE(spz::saveSpz(cloud, pack, &bytes));
 
-  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::rub});
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRub});
   ASSERT_TRUE(result.ok()) << result.error().message;
   EXPECT_EQ(result.value().shDegree, 1);
   ASSERT_EQ(result.value().sh.size(), 9u);
@@ -271,6 +273,36 @@ TEST(SpzDecoder, TruncatesHigherOrderShBeforeMaterializingTheCloud) {
   EXPECT_TRUE(result.value().sh.empty());
 }
 
+std::vector<std::uint8_t> encodeOneSplatTagged(CoordinateFrame frame, std::uint32_t version) {
+  spz::GaussianCloud cloud = oneSplatCloud();
+  EXPECT_TRUE(convertFrame(cloud, frame, frame));  // keeps the values, adds the tag
+  spz::PackOptions pack;
+  pack.version = version;
+  std::vector<std::uint8_t> bytes;
+  EXPECT_TRUE(spz::saveSpz(cloud, pack, &bytes));
+  return bytes;
+}
+
+TEST(SpzDecoder, ReadsTheFrameAFileDeclares) {
+  for (const std::uint32_t version : {2u, 4u}) {
+    SCOPED_TRACE(version);
+    auto bytes = encodeOneSplatTagged(CoordinateFrame::kRdf, version);
+    auto result = decodeSpz(bytes.data(), bytes.size());
+    ASSERT_TRUE(result.ok()) << result.error().message;
+    EXPECT_FLOAT_EQ(result.value().positions[0], 1.0f);
+    EXPECT_FLOAT_EQ(result.value().positions[1], -2.0f);
+    EXPECT_FLOAT_EQ(result.value().positions[2], -3.0f);
+  }
+}
+
+TEST(SpzDecoder, ASourceFrameOverridesTheDeclaredOne) {
+  auto bytes = encodeOneSplatTagged(CoordinateFrame::kRdf, 4);
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::parse("ruf")});
+  ASSERT_TRUE(result.ok()) << result.error().message;
+  EXPECT_FLOAT_EQ(result.value().positions[1], 2.0f);
+  EXPECT_FLOAT_EQ(result.value().positions[2], -3.0f);
+}
+
 // Set SPLAT_FIXTURES_DIR to a folder containing kitchen_500k.spz to enable this integration test.
 TEST(SpzDecoder, DecodesWorldLabsKitchen) {
   const char* dir = std::getenv("SPLAT_FIXTURES_DIR");
@@ -282,7 +314,8 @@ TEST(SpzDecoder, DecodesWorldLabsKitchen) {
   std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)),
                                   std::istreambuf_iterator<char>());
 
-  auto result = decodeSpz(bytes.data(), bytes.size());
+  // World Labs writes rdf without tagging it.
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRdf});
   ASSERT_TRUE(result.ok()) << result.error().message;
   const SplatCloud& cloud = result.value();
   EXPECT_EQ(cloud.count(), 500000u);
@@ -309,7 +342,7 @@ TEST(SpzDecoder, KeepsHigherOrderShInTheInternalFrame) {
   std::vector<std::uint8_t> bytes;
   ASSERT_TRUE(spz::saveSpz(cloud, pack, &bytes));
 
-  auto result = decodeSpz(bytes.data(), bytes.size());
+  auto result = decodeSpz(bytes.data(), bytes.size(), {CoordinateFrame::kRdf});
   ASSERT_TRUE(result.ok()) << result.error().message;
   const SplatCloud& out = result.value();
   EXPECT_EQ(out.shDegree, 1);

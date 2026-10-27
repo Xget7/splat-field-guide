@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "splat/core/CoordinateFrame.h"
 #include "splat/filtering/Haze.h"
 #include "splat/filtering/Sparse.h"
 #include "splat/formats/PartLabels.h"
@@ -54,8 +55,8 @@ splat::Result<splat::Ok> writeNodeLabels(const splat::LodTree& tree, const std::
 int run(int argc, char** argv) {
   if (argc < 3) {
     std::fprintf(stderr,
-                 "usage: splat_lod_build input.spz output.lodsplat [--depth 1..%u] [--sh 0..3]"
-                 " [--frame rdf|rub] [--labels in.bin out.bin]\n",
+                 "usage: splat_lod_build input.spz output.lodsplat [--depth 1..%u] [--sh 0..3]\n"
+                 "         [--source-frame F] [--labels in.bin out.bin]\n",
                  splat::kMaxOctreeDepth);
     return 2;
   }
@@ -66,11 +67,9 @@ int run(int argc, char** argv) {
     const std::string key(argv[i]);
     if (i + 1 >= argc) return 2;
     const std::string text(argv[i + 1]);
-    // Field Guide: a pack's cloud is written in RUB, where World Labs exports are RDF.
-    if (key == "--frame") {
-      if (text != "rdf" && text != "rub") return 2;
-      decode.sourceFrame =
-          text == "rub" ? splat::CoordinateFrame::rub : splat::CoordinateFrame::rdf;
+    if (key == "--source-frame") {
+      decode.sourceFrame = splat::CoordinateFrame::parse(text);
+      if (!decode.sourceFrame) return 2;
       continue;
     }
     if (key == "--labels") {
