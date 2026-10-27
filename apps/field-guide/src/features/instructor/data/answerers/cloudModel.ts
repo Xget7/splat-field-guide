@@ -7,7 +7,6 @@ import {
 } from '../../domain/grounding';
 import { packKnowledge } from '../../domain/knowledge';
 import type { InstructorModel } from '../../domain/turn/InstructorModel';
-import { INSTRUCTOR_PROXY_URL } from '../proxy';
 
 // Fall back to on-device generation if the cloud takes too long to begin answering.
 export const FIRST_TEXT_MS = 6000;
@@ -180,5 +179,3 @@ export function createCloudModel({
     },
   };
 }
-
-export const cloudModel = createCloudModel({ url: INSTRUCTOR_PROXY_URL });
