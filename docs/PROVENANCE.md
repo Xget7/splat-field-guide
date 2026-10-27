@@ -7,8 +7,8 @@ Shipped dependency terms and full license texts are indexed in [third-party noti
 
 | Material | Source identity |
 | --- | --- |
-| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `9a1fd04af6a544bc3c0ffd225682f1e94dff8afb`, with LOD tree building, `.lodsplat` loading and GPU LOD selection; [retained license](../packages/react-native-splat/engine/LICENSE) |
-| SplatKit Vulkan/Nitro Android | [Xget7/splatkit revision 9a1fd04](https://github.com/Xget7/splatkit/tree/9a1fd04af6a544bc3c0ffd225682f1e94dff8afb), imported surface, buffers, GPU LOD selection, visibility, radix sorting and rendering with a Field Guide Kotlin/JNI binding; MIT under the retained SplatKit license |
+| SplatKit C++/Metal | [Xget7/splatkit](https://github.com/Xget7/splatkit), import revision `3e800ff4883f7ddc0c0e7cb331401fc72f63c782`, with LOD tree building, `.lodsplat` loading and GPU LOD selection; [retained license](../packages/react-native-splat/engine/LICENSE) |
+| SplatKit Vulkan/Nitro Android | [Xget7/splatkit revision 3e800ff](https://github.com/Xget7/splatkit/tree/3e800ff4883f7ddc0c0e7cb331401fc72f63c782), imported surface, buffers, GPU LOD selection, visibility, radix sorting and rendering with a Field Guide Kotlin/JNI binding; MIT under the retained SplatKit license |
 | vk-bootstrap | [v1.4.307](https://github.com/charles-lunarg/vk-bootstrap/tree/v1.4.307), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/vk-bootstrap.txt) |
 | Vulkan Memory Allocator | [v3.2.1](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/tree/v3.2.1), MIT; [retained license](../packages/react-native-splat/engine/splatkit-android/licenses/VulkanMemoryAllocator.txt) |
 | PicoSHA2 | [revision 161cb3f](https://github.com/okdshin/PicoSHA2/tree/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29), standalone Android SHA-256 header; [MIT license](../packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE) |

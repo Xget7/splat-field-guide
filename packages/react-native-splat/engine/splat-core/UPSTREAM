@@ -1,13 +1,13 @@
-SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+SplatKit source: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
 Origin: https://github.com/Xget7/splatkit, packages/splat-core
 License: MIT, ../LICENSE
 Imported folders: core, math and io, headers and sources.
-Imported files: formats/SplatCloud.h, formats/SplatDecoder, formats/SpzDecoder, loading/LoadCost.h, lod/LodTree, lod/LodFile, src/lod/LodSelection.cpp and tools/splat_lod_build.cpp, whose CMake target tools/CMakeLists.txt copies.
-Imported tests: tests/math/CovarianceTest.cpp, tests/math/SymmetricEigenTest.cpp, tests/formats/SplatDecoderTest.cpp and tests/lod/LodTreeTest.cpp.
-Left out: diagnostics, tiles, navigation, sorting, loading/LoadCost.cpp and SplatWorldLoader, the GLB decoder and encoder, formats/TriangleMesh.h, the other tools, the other tests, CMake, README.md and third_party/splat-transform-LICENSE.txt.
+Imported files: formats/SplatCloud.h, formats/SplatDecoder, formats/SpzDecoder, formats/FrameTransform, formats/SpzFrame, loading/LoadCost.h, lod/LodTree, lod/LodFile, src/lod/LodSelection.cpp and tools/splat_lod_build.cpp, whose CMake target tools/CMakeLists.txt copies.
+Imported tests: tests/math/CovarianceTest.cpp, tests/math/SymmetricEigenTest.cpp, tests/formats/SplatDecoderTest.cpp, tests/formats/SpzDecoderTest.cpp, tests/formats/FrameTransformTest.cpp and tests/lod/LodTreeTest.cpp.
+Left out: diagnostics, tiles, navigation, sorting, loading/LoadCost.cpp and SplatWorldLoader, the GLB decoder and encoder, formats/TriangleMesh.h, the other tools with tools/CloudEdit.h, the other tests, CMake, README.md and third_party/splat-transform-LICENSE.txt.
 Field Guide keeps its own filtering, used by tools/splat_lod_build, formats/PartLabels, loading/SplatWorldLoader with Sha256, which loads a pack's .lodsplat tree and node labels, and vendor/picosha2.
 Field Guide patches:
 - include/splat/formats/SplatCloud.h: the labels field, one part label per splat or empty.
 - include/splat/core/Result.h: the labelsMismatch error code, appended after upstream's codes.
 - include/splat/lod/LodTree.h and src/lod/LodTree.cpp: buildLodTree gives a labelled cloud one label per node, in node order, a merged node taking the part whose leaves hold the most opacity.
-- tools/splat_lod_build.cpp: --frame for a pack's RUB cloud, and --labels, which reads the cloud's labels, removes haze and sparse floaters before the build and writes the node labels.
+- tools/splat_lod_build.cpp: --labels, which reads the cloud's labels, removes haze and sparse floaters before the build and writes the node labels.

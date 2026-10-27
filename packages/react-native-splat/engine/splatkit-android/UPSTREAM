@@ -1,4 +1,4 @@
-SplatKit source: 9a1fd04af6a544bc3c0ffd225682f1e94dff8afb
+SplatKit source: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-android
 License: MIT, ../LICENSE
 Imported folders: src/main/cpp/rendering/vulkan as rendering/vulkan, with cull, device, frame, layout, presentation, raster, selection, sort and world.
