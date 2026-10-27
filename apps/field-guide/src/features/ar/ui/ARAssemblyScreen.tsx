@@ -19,7 +19,6 @@ import {
 } from 'react-native-splat';
 import { offersAssembly } from '../domain/availability';
 import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { IconName } from '../../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
 import { ARGlassButton } from './ARGlassButton';
@@ -66,9 +65,7 @@ function sameParts(before: ARAssemblyPart[], after: ARAssemblyPart[]) {
   );
 }
 
-export function ARAssemblyScreen({
-  navigation,
-}: ScreenProps<typeof Route.assembly>) {
+export function ARAssemblyScreen({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [event, setEvent] = useState(INITIAL_EVENT);
@@ -331,7 +328,7 @@ export function ARAssemblyScreen({
           testID="ar-assembly-back"
           icon={IconName.back}
           accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
         />
         <ARGlassButton
           testID="ar-assembly-controls"

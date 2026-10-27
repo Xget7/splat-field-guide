@@ -4,6 +4,7 @@ import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Spotlight, SvgFill } from '../../../ui/Gradients';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
+import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';
 
 const Art = {
   height: 220,
@@ -17,17 +18,15 @@ const Art = {
   captionWidth: 420,
 } as const;
 
+const TITLE = 'Assemble a V8 in AR';
+const CAPTION =
+  'Place a V8 engine in your space and bring its pieces together, step by step.';
+
+/** The library's entry to the V8 assembly tour, with its model turning beside the copy. */
 export function AssemblyBanner({
-  title,
-  caption,
-  model,
   wide,
   onPress,
 }: {
-  title: string;
-  caption: string;
-  /** The USDZ model that turns beside the copy. */
-  model: string;
   wide: boolean;
   onPress: () => void;
 }) {
@@ -35,8 +34,8 @@ export function AssemblyBanner({
     <Pressable
       testID="open-ar-assembly"
       accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityHint={caption}
+      accessibilityLabel={TITLE}
+      accessibilityHint={CAPTION}
       onPress={onPress}
       style={({ pressed }) => [
         styles.banner,
@@ -45,8 +44,8 @@ export function AssemblyBanner({
       ]}
     >
       <View style={[styles.copy, wide && styles.copyWide]}>
-        <Text style={wide ? styles.titleWide : styles.title}>{title}</Text>
-        <Text style={styles.caption}>{caption}</Text>
+        <Text style={wide ? styles.titleWide : styles.title}>{TITLE}</Text>
+        <Text style={styles.caption}>{CAPTION}</Text>
         <View style={styles.go}>
           <Text style={styles.goText}>Start</Text>
           <Icon name={IconName.next} size={Art.goIcon} color={Color.text} />
@@ -71,7 +70,7 @@ export function AssemblyBanner({
             />
           )}
         </SvgFill>
-        <ModelPreview path={model} turn={Turns.spin} />
+        <ModelPreview path={V8_CAPTURE.modelPath} turn={Turns.spin} />
       </View>
     </Pressable>
   );

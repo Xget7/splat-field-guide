@@ -2,8 +2,6 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Linking } from 'react-native';
 import { catalogFor } from '../../pack/catalog';
-import { CatalogProvider } from '../../../app/context/CatalogContext';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { bundledPack } from '../../pack/bundledPack';
 import { ARScreen } from '../ui/ARScreen';
 
@@ -41,19 +39,13 @@ describe('AR alignment screen', () => {
 
   beforeEach(async () => {
     goBack.mockClear();
-    const props = {
-      navigation: { goBack },
-      route: {
-        key: 'ar-test',
-        name: Route.ar,
-        params: { guideId: 'gol-trend-engine-bay' },
-      },
-    } as unknown as ScreenProps<typeof Route.ar>;
     await act(() => {
       renderer = ReactTestRenderer.create(
-        <CatalogProvider catalog={catalog}>
-          <ARScreen {...props} />
-        </CatalogProvider>,
+        <ARScreen
+          catalog={catalog}
+          guideId="gol-trend-engine-bay"
+          onBack={goBack}
+        />,
       );
     });
   });

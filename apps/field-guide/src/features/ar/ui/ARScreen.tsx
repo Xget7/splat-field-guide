@@ -3,9 +3,7 @@ import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
 import { ARGuideView } from 'react-native-splat';
-import { findReadyGuide } from '../../pack/catalog';
-import { useCatalog } from '../../../app/context/CatalogContext';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { findReadyGuide, type Guide, type GuideId } from '../../pack/catalog';
 import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
@@ -20,8 +18,14 @@ import {
 
 const AR_RESOURCE_BASE = 'ar/gol-trend-engine-bay/';
 
-export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
-  const guide = findReadyGuide(useCatalog(), route.params.guideId);
+export interface ARScreenProps {
+  readonly catalog: readonly Guide[];
+  readonly guideId: GuideId;
+  readonly onBack: () => void;
+}
+
+export function ARScreen({ catalog, guideId, onBack }: ARScreenProps) {
+  const guide = findReadyGuide(catalog, guideId);
   const insets = useSafeAreaInsets();
   const [event, setEvent] = useState<TrackingEvent>(INITIAL_EVENT);
   const [attempt, setAttempt] = useState(0);
@@ -87,7 +91,7 @@ export function ARScreen({ navigation, route }: ScreenProps<typeof Route.ar>) {
           icon={IconName.back}
           variant={IconButtonVariant.overlay}
           accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
         />
         <View style={styles.heading}>
           <Text style={styles.mode}>AR / ENGINE ALIGNMENT</Text>

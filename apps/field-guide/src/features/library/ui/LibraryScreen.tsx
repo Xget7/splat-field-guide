@@ -1,16 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GuideStatus,
   type ComingSoonGuide,
+  type Guide,
   type ReadyGuide,
 } from '../../pack/catalog';
-import { useCatalog } from '../../../app/context/CatalogContext';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
-import { LearnMode, type Progress } from '../../guide';
+import { LearnMode, type Progress, type SessionStart } from '../../guide';
 import { loadProgress } from '../../guide/views';
 import { AssemblyBanner } from '../../ar/views';
 
@@ -22,7 +21,6 @@ import { continueRowFor } from '../domain/library';
 
 import { ContinueCard, ReadyCard, SoonCard } from './GuideCards';
 import { useWideLayout } from '../../../ui/useWideLayout';
-import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';
 
 const Layout = {
   columns: 2,
@@ -36,10 +34,21 @@ function rowsOf<T>(items: readonly T[], columns: number): T[][] {
   );
 }
 
+export interface LibraryScreenProps {
+  readonly catalog: readonly Guide[];
+  readonly onOpenGuide: (guide: ReadyGuide) => void;
+  /** Opens the viewer where the saved progress left off. */
+  readonly onOpen: (start: SessionStart) => void;
+  /** Present only where the device offers the assembly tour. */
+  readonly onOpenAssembly?: () => void;
+}
+
 export function LibraryScreen({
-  navigation,
-}: ScreenProps<typeof Route.library>) {
-  const catalog = useCatalog();
+  catalog,
+  onOpenGuide,
+  onOpen,
+  onOpenAssembly,
+}: LibraryScreenProps) {
   const insets = useSafeAreaInsets();
   const wide = useWideLayout();
   const columns = wide ? Layout.wideColumns : Layout.columns;
@@ -77,8 +86,9 @@ export function LibraryScreen({
   );
   const continuation = continueRowFor(catalog, progress);
   const continueGuide = () => {
+    // Continuing reopens the step on its own, without the instructor.
     if (continuation) {
-      navigation.navigate(Route.viewer, {
+      onOpen({
         guideId: continuation.guide.id,
         procedureId: continuation.procedure.id,
         stepIndex: continuation.stepIndex,
@@ -129,23 +139,15 @@ export function LibraryScreen({
                 key={guide.id}
                 guide={guide}
                 wide={wide}
-                onPress={() =>
-                  navigation.navigate(Route.guide, { guideId: guide.id })
-                }
+                onPress={() => onOpenGuide(guide)}
               />
             ))}
           </View>
         )}
-        {Platform.OS === 'ios' && (
+        {onOpenAssembly && (
           <View style={styles.section}>
             <SectionHeader title="Spatial assembly" />
-            <AssemblyBanner
-              title="Assemble a V8 in AR"
-              caption="Place a V8 engine in your space and bring its pieces together, step by step."
-              model={V8_CAPTURE.modelPath}
-              wide={wide}
-              onPress={() => navigation.navigate(Route.assembly)}
-            />
+            <AssemblyBanner wide={wide} onPress={onOpenAssembly} />
           </View>
         )}
         {soon.length > 0 && (

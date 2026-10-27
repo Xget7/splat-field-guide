@@ -3,9 +3,7 @@ import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callback } from 'react-native-nitro-modules';
 import { ARPlacementView, type ARPlacementEvent } from 'react-native-splat';
-import { findReadyGuide } from '../../pack/catalog';
-import { useCatalog } from '../../../app/context/CatalogContext';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
+import { findReadyGuide, type Guide, type GuideId } from '../../pack/catalog';
 import {
   Button,
   ButtonVariant,
@@ -39,11 +37,18 @@ const STATUS: Record<ARPlacementEvent['state'], string> = {
   error: 'AR unavailable',
 };
 
+export interface ARPlacementScreenProps {
+  readonly catalog: readonly Guide[];
+  readonly guideId: GuideId;
+  readonly onBack: () => void;
+}
+
 export function ARPlacementScreen({
-  navigation,
-  route,
-}: ScreenProps<typeof Route.placement>) {
-  const guide = findReadyGuide(useCatalog(), route.params.guideId);
+  catalog,
+  guideId,
+  onBack,
+}: ARPlacementScreenProps) {
+  const guide = findReadyGuide(catalog, guideId);
   const insets = useSafeAreaInsets();
   const [event, setEvent] = useState(INITIAL_EVENT);
   const [scale, setScale] = useState(DEFAULT_SCALE);
@@ -97,7 +102,7 @@ export function ARPlacementScreen({
           icon={IconName.back}
           variant={IconButtonVariant.overlay}
           accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
         />
         <View style={styles.heading}>
           <Text style={styles.mode}>AR / YOUR SPACE</Text>

@@ -8,20 +8,20 @@ import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { catalogFor } from '../../features/pack/catalog';
 import { offersArCheck, offersAssembly } from '../../features/ar';
-import {
-  ARScreen,
-  ARPlacementScreen,
-  ARAssemblyScreen,
-} from '../../features/ar/views';
-import { GuideDetailScreen } from '../../features/guide/views';
-import { LibraryScreen } from '../../features/library/views';
-import { ViewerScreen } from '../../features/viewer/views';
-import { BenchScreen } from '../../features/bench/views';
-import { CatalogProvider } from '../context/CatalogContext';
 import type { Pack } from '../../features/pack/pack';
 
 import { Color } from '../../ui/theme';
 import { LINKING } from './linking';
+import {
+  ArCheckRoute,
+  AssemblyRoute,
+  BenchRoute,
+  GuideRoute,
+  LibraryRoute,
+  PlacementRoute,
+  ViewerRoute,
+  type RouteContext,
+} from './routeScreens';
 import { Route, type RootStackParamList } from './routes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -47,46 +47,49 @@ const SCREEN_OPTIONS = {
 const VIEWER_OPTIONS = { gestureEnabled: false } as const;
 
 export function RootNavigator({ pack }: { pack: Pack }) {
-  const catalog = useMemo(() => catalogFor(pack), [pack]);
+  const context = useMemo<RouteContext>(
+    () => ({
+      catalog: catalogFor(pack),
+      offers: {
+        arCheck: offersArCheck(Platform.OS),
+        assembly: offersAssembly(Platform.OS),
+      },
+    }),
+    [pack],
+  );
+  const { offers } = context;
   return (
-    <CatalogProvider catalog={catalog}>
-      <NavigationContainer theme={NAVIGATION_THEME} linking={LINKING}>
-        <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
-          <Stack.Screen name={Route.library} component={LibraryScreen} />
-          <Stack.Screen name={Route.guide} component={GuideDetailScreen} />
-          <Stack.Screen
-            name={Route.viewer}
-            component={ViewerScreen}
-            options={VIEWER_OPTIONS}
-          />
-          {offersArCheck(Platform.OS) && (
-            <Stack.Screen
-              name={Route.ar}
-              component={ARScreen}
-              options={VIEWER_OPTIONS}
-            />
-          )}
-          {offersAssembly(Platform.OS) && (
-            <Stack.Screen
-              name={Route.placement}
-              component={ARPlacementScreen}
-              options={VIEWER_OPTIONS}
-            />
-          )}
-          {offersAssembly(Platform.OS) && (
-            <Stack.Screen
-              name={Route.assembly}
-              component={ARAssemblyScreen}
-              options={VIEWER_OPTIONS}
-            />
-          )}
-          <Stack.Screen
-            name={Route.bench}
-            component={BenchScreen}
-            options={VIEWER_OPTIONS}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </CatalogProvider>
+    <NavigationContainer theme={NAVIGATION_THEME} linking={LINKING}>
+      <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
+        <Stack.Screen name={Route.library}>
+          {props => <LibraryRoute {...props} {...context} />}
+        </Stack.Screen>
+        <Stack.Screen name={Route.guide}>
+          {props => <GuideRoute {...props} {...context} />}
+        </Stack.Screen>
+        <Stack.Screen name={Route.viewer} options={VIEWER_OPTIONS}>
+          {props => <ViewerRoute {...props} {...context} />}
+        </Stack.Screen>
+        {offers.arCheck && (
+          <Stack.Screen name={Route.ar} options={VIEWER_OPTIONS}>
+            {props => <ArCheckRoute {...props} {...context} />}
+          </Stack.Screen>
+        )}
+        {/* Nothing opens placement yet; it shares the assembly's native view and platform. */}
+        {offers.assembly && (
+          <Stack.Screen name={Route.placement} options={VIEWER_OPTIONS}>
+            {props => <PlacementRoute {...props} {...context} />}
+          </Stack.Screen>
+        )}
+        {offers.assembly && (
+          <Stack.Screen name={Route.assembly} options={VIEWER_OPTIONS}>
+            {props => <AssemblyRoute {...props} {...context} />}
+          </Stack.Screen>
+        )}
+        <Stack.Screen name={Route.bench} options={VIEWER_OPTIONS}>
+          {props => <BenchRoute {...props} {...context} />}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -9,13 +8,16 @@ import {
 } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CATEGORY_TITLE, findReadyGuide } from '../../pack/catalog';
-import { offersArCheck } from '../../ar';
-import { useCatalog } from '../../../app/context/CatalogContext';
+import {
+  CATEGORY_TITLE,
+  findReadyGuide,
+  type Guide,
+  type GuideId,
+} from '../../pack/catalog';
 import type { ProcedureId } from '../../pack/pack';
 import { TOUR_ID } from '../../pack/tour';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { LearnMode } from '../domain/learningMode';
+import type { SessionStart } from '../domain/sessionStart';
 import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
 import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Backdrop, FadingPhoto, Spotlight } from '../../../ui/Gradients';
@@ -59,11 +61,24 @@ const VOICE_CAPTION =
   'Reads each step aloud and listens. Talk over it to cut in.';
 const BAR_HEIGHT = Space.md + BUTTON_HEIGHT + Space.sm;
 
+export interface GuideDetailScreenProps {
+  readonly catalog: readonly Guide[];
+  readonly guideId: GuideId;
+  readonly onBack: () => void;
+  /** Opens the viewer on the first step of a procedure. */
+  readonly onOpen: (start: SessionStart) => void;
+  /** Present only where the device offers the AR check. */
+  readonly onOpenArCheck?: () => void;
+}
+
 export function GuideDetailScreen({
-  navigation,
-  route,
-}: ScreenProps<typeof Route.guide>) {
-  const guide = findReadyGuide(useCatalog(), route.params.guideId);
+  catalog,
+  guideId,
+  onBack,
+  onOpen,
+  onOpenArCheck,
+}: GuideDetailScreenProps) {
+  const guide = findReadyGuide(catalog, guideId);
   const insets = useSafeAreaInsets();
   const wide = useWideLayout();
   const window = useWindowDimensions();
@@ -83,7 +98,7 @@ export function GuideDetailScreen({
       icon={IconName.back}
       variant={IconButtonVariant.overlay}
       accessibilityLabel="Back"
-      onPress={() => navigation.goBack()}
+      onPress={onBack}
       style={{ ...styles.back, top: insets.top + Space.sm }}
     />
   );
@@ -106,8 +121,9 @@ export function GuideDetailScreen({
   }
 
   const checks = checkRowsFor(guide.pack);
+  // Voice belongs to the instructor, so a self-guided start never opens it.
   const openProcedure = (procedureId: ProcedureId) =>
-    navigation.navigate(Route.viewer, {
+    onOpen({
       guideId: guide.id,
       procedureId,
       stepIndex: 0,
@@ -188,14 +204,14 @@ export function GuideDetailScreen({
         <SectionHeader title="Procedures" />
         <ProcedureList rows={checks} onChoose={openProcedure} />
       </View>
-      {offersArCheck(Platform.OS) && (
+      {onOpenArCheck && (
         <View style={styles.section}>
           <SectionHeader title="Augmented reality" />
           <Pressable
             testID="open-ar"
             accessibilityRole="button"
             accessibilityLabel={AR_TITLE}
-            onPress={() => navigation.navigate(Route.ar, { guideId: guide.id })}
+            onPress={onOpenArCheck}
             style={({ pressed }) => [styles.arRow, pressed && styles.pressed]}
           >
             <Icon

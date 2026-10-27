@@ -3,8 +3,6 @@ import { NavigationContext } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
-import { CatalogProvider } from '../../../app/context/CatalogContext';
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { LearnMode } from '../../guide';
 import { saveProgress } from '../../guide/views';
 import { bundledPack } from '../../pack/bundledPack';
@@ -62,9 +60,8 @@ test('a guide counts its parts and authored procedures, leaving out the tour', (
 describe('Library screen', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const listeners = new Map<string, () => void>();
+  // Only the focus events reach the screen; it opens everything through its callbacks.
   const navigation = {
-    navigate: jest.fn(),
-    goBack: jest.fn(),
     isFocused: () => true,
     addListener: jest.fn((event: string, listener: () => void) => {
       listeners.set(event, listener);
@@ -73,10 +70,9 @@ describe('Library screen', () => {
       };
     }),
   };
-  const props = {
-    navigation,
-    route: { key: 'library', name: Route.library, params: undefined },
-  } as unknown as ScreenProps<typeof Route.library>;
+  const onOpenGuide = jest.fn();
+  const onOpen = jest.fn();
+  const onOpenAssembly = jest.fn();
   const node = (testID: string) =>
     renderer.root
       .findAllByProps({ testID })
@@ -85,14 +81,21 @@ describe('Library screen', () => {
   const press = async (testID: string) => {
     await act(() => node(testID).props.onPress());
   };
-  const mount = async () => {
+  const mount = async (offersAssembly = true) => {
     await act(() => {
       renderer = ReactTestRenderer.create(
-        <CatalogProvider catalog={catalog}>
-          <NavigationContext.Provider value={props.navigation}>
-            <LibraryScreen {...props} />
-          </NavigationContext.Provider>
-        </CatalogProvider>,
+        <NavigationContext.Provider
+          value={
+            navigation as unknown as React.ContextType<typeof NavigationContext>
+          }
+        >
+          <LibraryScreen
+            catalog={catalog}
+            onOpenGuide={onOpenGuide}
+            onOpen={onOpen}
+            onOpenAssembly={offersAssembly ? onOpenAssembly : undefined}
+          />
+        </NavigationContext.Provider>,
       );
     });
   };
@@ -109,17 +112,22 @@ describe('Library screen', () => {
   test('ready card opens its guide and coming soon cards are informational', async () => {
     await mount();
     await press(`guide-card-${pack.packId}`);
-    expect(navigation.navigate).toHaveBeenCalledWith(Route.guide, {
-      guideId: pack.packId,
-    });
+    expect(onOpenGuide).toHaveBeenCalledWith(guide);
     expect(node(`soon-card-${catalog[1].id}`).props.accessibilityLabel).toBe(
       'Tactical truck, Engine bay, coming soon',
     );
     expect(node(`soon-card-${catalog[1].id}`).props.onPress).toBeUndefined();
     await press('open-ar-assembly');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.assembly);
+    expect(onOpenAssembly).toHaveBeenCalledTimes(1);
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
+    ).toHaveLength(0);
+  });
+
+  test('the spatial assembly entry shows only where the device offers it', async () => {
+    await mount(false);
+    expect(
+      renderer.root.findAllByProps({ testID: 'open-ar-assembly' }),
     ).toHaveLength(0);
   });
 
@@ -152,8 +160,8 @@ describe('Library screen', () => {
         .at(-1)!
         .props.onPress(),
     );
-    expect(navigation.navigate).toHaveBeenCalledTimes(2);
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    expect(onOpen).toHaveBeenLastCalledWith({
       ...progress,
       mode: LearnMode.selfGuided,
     });
@@ -188,7 +196,7 @@ describe('Library screen', () => {
     await act(() => listeners.get('focus')?.());
     await act(() => resolve(JSON.stringify(progress)));
     await press('library-continue');
-    expect(navigation.navigate).toHaveBeenLastCalledWith(Route.viewer, {
+    expect(onOpen).toHaveBeenLastCalledWith({
       ...newer,
       mode: LearnMode.selfGuided,
     });
@@ -203,8 +211,6 @@ describe('Library screen', () => {
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);
     await press(`guide-card-${pack.packId}`);
-    expect(navigation.navigate).toHaveBeenCalledWith(Route.guide, {
-      guideId: pack.packId,
-    });
+    expect(onOpenGuide).toHaveBeenCalledWith(guide);
   });
 });

@@ -5,20 +5,22 @@ import Animated, {
   LayoutAnimationConfig,
   useReducedMotion,
 } from 'react-native-reanimated';
-import { findReadyGuide, type ReadyGuide } from '../../pack/catalog';
-import { useCatalog } from '../../../app/context/CatalogContext';
+import {
+  findReadyGuide,
+  type Guide,
+  type ReadyGuide,
+} from '../../pack/catalog';
 import { type Pack, type ProcedureId } from '../../pack/pack';
 import {
   currentProcedure,
   type SessionEvent,
+  type SessionStart,
   type SessionState,
   LearnMode,
 } from '../../guide';
 import { clearProgress, saveProgress } from '../../guide/views';
 import { useInstructor, useInstructorVoice } from '../../instructor/views';
 import type { Instructor } from '../../instructor';
-
-import { Route, type ScreenProps } from '../../../app/navigation/routes';
 
 import { Capability } from '../domain/capability';
 import { NO_SIZE, type Size } from '../domain/screenGeometry';
@@ -80,16 +82,18 @@ const NO_PROCEDURE_TITLE = 'Choose procedure';
 const EXPLORE_TITLE = 'Explore';
 const PROGRESS: ProgressWriter = { save: saveProgress, clear: clearProgress };
 
-export function ViewerScreen({
-  navigation,
-  route,
-}: ScreenProps<typeof Route.viewer>) {
+export interface ViewerScreenProps {
+  readonly catalog: readonly Guide[];
+  readonly start: SessionStart;
+  readonly onExit: () => void;
+}
+
+export function ViewerScreen({ catalog, start, onExit }: ViewerScreenProps) {
   const instructor = useInstructor();
-  const { guideId, procedureId, stepIndex, mode, voice } = route.params;
-  const guide = findReadyGuide(useCatalog(), guideId);
-  const exit = useCallback(() => navigation.goBack(), [navigation]);
+  const { guideId, procedureId, stepIndex, mode, voice } = start;
+  const guide = findReadyGuide(catalog, guideId);
   if (guide === undefined) {
-    return <MissingGuide onBack={exit} />;
+    return <MissingGuide onBack={onExit} />;
   }
   return (
     <Viewer
@@ -99,7 +103,7 @@ export function ViewerScreen({
       stepIndex={stepIndex}
       mode={mode}
       startInVoice={voice === true && mode === LearnMode.instructor}
-      onExit={exit}
+      onExit={onExit}
     />
   );
 }
