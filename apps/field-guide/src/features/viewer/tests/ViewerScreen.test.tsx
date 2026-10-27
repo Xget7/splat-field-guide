@@ -32,6 +32,7 @@ import {
   VoiceHint,
   VOICE_LOCALE,
   recognitionHintsFor,
+  type VoiceSessionEvents,
 } from '../../instructor';
 import {
   InstructorRuntimeContext,
@@ -39,7 +40,6 @@ import {
   type InstructorRuntime,
   onDeviceInstructions,
 } from '../../instructor/views';
-import type { VoiceSessionEvents } from '../../instructor';
 import { highlightFor, SessionEventType, LearnMode } from '../../guide';
 import { continueRowFor } from '../../library';
 import { loadProgress } from '../../guide/views';

@@ -7,9 +7,8 @@ import { GuideStatus, type ReadyGuide } from '../../pack/catalog';
 import type { Pack } from '../../pack/pack';
 import { sourceFor } from '../../pack/bundledPack';
 import { INITIAL_SESSION } from '../../guide';
-import { cameraLimitsInRadians } from '../../viewer';
+import { cameraLimitsInRadians, type Size } from '../../viewer';
 import { useGuideFraming } from '../../viewer/views';
-import type { Size } from '../../viewer';
 
 import { Color } from '../../../ui/theme';
 

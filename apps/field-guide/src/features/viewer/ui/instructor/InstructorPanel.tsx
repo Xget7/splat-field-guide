@@ -18,8 +18,7 @@ import {
 } from 'react-native';
 import { Button, IconButton, IconButtonVariant } from '../../../../ui/Button';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { stepLabel } from '../../../guide';
-import type { CardContent } from '../../../guide';
+import { stepLabel, type CardContent } from '../../../guide';
 import {
   ModeArea,
   Composer,

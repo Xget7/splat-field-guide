@@ -13,8 +13,10 @@ import {
   type VoiceContext,
   type Utterance,
 } from '../../instructor';
-import type { InstructorRuntime } from '../../instructor/views';
-import { useInstructorVoice } from '../../instructor/views';
+import {
+  type InstructorRuntime,
+  useInstructorVoice,
+} from '../../instructor/views';
 import { clearProgress, saveProgress } from '../../guide/views';
 import type { ReadyGuide } from '../../pack/catalog';
 

@@ -5,8 +5,7 @@ import { IconName } from '../../../ui/Icon';
 import { Label } from '../../../ui/Label';
 import { BUTTON_HEIGHT, Color, HAIRLINE, Space, Type } from '../../../ui/theme';
 import { CautionNote } from '../../../ui/CautionNote';
-import type { CardContent } from '../../guide';
-import { stepLabel } from '../../guide';
+import { type CardContent, stepLabel } from '../../guide';
 import { StepSegments } from './StepSegments';
 
 const SWIPE_ACTIVATION_POINTS = 24;

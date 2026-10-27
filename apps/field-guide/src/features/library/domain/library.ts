@@ -4,8 +4,7 @@ import {
   type ReadyGuide,
 } from '../../pack/catalog';
 import { findProcedure, type Procedure } from '../../pack/pack';
-import type { Progress } from '../../guide';
-import { stepLabel } from '../../guide';
+import { type Progress, stepLabel } from '../../guide';
 import { TOUR_ID } from '../../pack/tour';
 
 export interface ContinueRow {
