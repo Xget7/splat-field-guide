@@ -3,6 +3,7 @@
   "compilerOptions": {
     "paths": {
       "react-native": ["./node_modules/react-native/types_generated/index.d.ts"],
+      "@tests/*": ["../../tests/*"],
       "*": ["./node_modules/@types/*", "./node_modules/*"]
     },
     "typeRoots": ["./node_modules/@types"],
