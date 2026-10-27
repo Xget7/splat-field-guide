@@ -17,6 +17,7 @@ import {
   type ARAssemblyPart,
   type ARPlacementEvent,
 } from 'react-native-splat';
+import { offersAssembly } from '../domain/availability';
 import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { IconName } from '../../../ui/Icon';
@@ -163,7 +164,7 @@ export function ARAssemblyScreen({
       }),
     [attempt, receiveAssembly],
   );
-  const supported = Platform.OS === 'ios';
+  const supported = offersAssembly(Platform.OS);
   const state = supported ? event.state : 'unsupported';
   const placed = supported && event.placed;
   const batchCount = BATCHES.filter(

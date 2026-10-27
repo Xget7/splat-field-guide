@@ -32,7 +32,7 @@ flowchart TB
 | Viewer | iOS/iPadOS 26+ with an A14-class GPU or later |
 | Voice input | Microphone/speech permission and downloaded system transcription assets |
 | Offline questions | Eligible Apple Intelligence hardware, enabled settings and a ready English model |
-| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [arCheck.ts](src/features/ar/data/arCheck.ts) |
+| Provisional AR | Physical iPhone on iOS 27, the separately prepared reference and `AR_CHECK_ENABLED` in [availability.ts](src/features/ar/domain/availability.ts) |
 | Library model preview | iOS and the local engine-bay capture in `data/ar-reference`; without it the card shows the guide's photo |
 | Spatial assembly | Physical iPhone/iPad, the prepared V8 USDZ and the library's "Assemble a V8 in AR" entry |
 

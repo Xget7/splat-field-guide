@@ -7,8 +7,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { catalogFor } from '../../features/pack/catalog';
+import { offersArCheck, offersAssembly } from '../../features/ar';
 import {
-  offersArCheck,
   ARScreen,
   ARPlacementScreen,
   ARAssemblyScreen,
@@ -59,21 +59,21 @@ export function RootNavigator({ pack }: { pack: Pack }) {
             component={ViewerScreen}
             options={VIEWER_OPTIONS}
           />
-          {offersArCheck() && (
+          {offersArCheck(Platform.OS) && (
             <Stack.Screen
               name={Route.ar}
               component={ARScreen}
               options={VIEWER_OPTIONS}
             />
           )}
-          {Platform.OS === 'ios' && (
+          {offersAssembly(Platform.OS) && (
             <Stack.Screen
               name={Route.placement}
               component={ARPlacementScreen}
               options={VIEWER_OPTIONS}
             />
           )}
-          {Platform.OS === 'ios' && (
+          {offersAssembly(Platform.OS) && (
             <Stack.Screen
               name={Route.assembly}
               component={ARAssemblyScreen}
