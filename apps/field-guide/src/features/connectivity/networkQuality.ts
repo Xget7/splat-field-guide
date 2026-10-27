@@ -43,12 +43,107 @@ const Reason = {
   confirming: 'confirming recovery',
   recovered: 'probes recovered',
 } as const;
-const MEDIAN_DIVISOR = 2;
 /** Successful round trips since the latest failure. */
 function successStreak(trips: readonly RoundTrip[]) {
   const failure = [...trips].reverse().findIndex(trip => !trip.ok);
   return failure === -1 ? trips.length : failure;
 }
+
+function medianLatency(trips: readonly RoundTrip[]): number | null {
+  const times = trips
+    .flatMap(trip => (trip.ok ? [trip.ms] : []))
+    .sort((a, b) => a - b);
+  if (times.length === 0) {
+    return null;
+  }
+  const middle = Math.floor(times.length / 2);
+  if (times.length % 2 === 0) {
+    return (times[middle - 1] + times[middle]) / 2;
+  }
+  return times[middle];
+}
+
+type QualityDecision = Pick<NetworkStatus, 'quality' | 'reason'>;
+
+function classifyQuality(
+  path: PathInfo,
+  trips: readonly RoundTrip[],
+  previous: NetworkQuality,
+): QualityDecision {
+  const outage =
+    trips.length >= QualityRule.OFFLINE_FAILURES_IN_ROW &&
+    trips.slice(-QualityRule.OFFLINE_FAILURES_IN_ROW).every(trip => !trip.ok);
+  const recovering = previous === NetworkQuality.offline && trips.length > 0;
+  const median = medianLatency(trips);
+  const failures = trips.filter(trip => !trip.ok).length;
+  const bandwidthKnown = path.downstreamKbps >= 0;
+  const signalKnown = path.signalLevel >= 0;
+  const bandwidthRecovering =
+    bandwidthKnown && path.downstreamKbps <= QualityRule.GOOD_KBPS;
+  const signalRecovering =
+    signalKnown &&
+    path.signalLevel <=
+      QualityRule.WEAK_SIGNAL_LEVEL + QualityRule.SIGNAL_RECOVERY_MARGIN;
+
+  // The first matching rule wins; outages and degradation take priority over recovery.
+  const rules: { when: boolean; then: QualityDecision }[] = [
+    {
+      when: !path.satisfied,
+      then: { quality: NetworkQuality.offline, reason: Reason.route },
+    },
+    {
+      when: outage,
+      then: { quality: NetworkQuality.offline, reason: Reason.offline },
+    },
+    {
+      when: recovering && successStreak(trips) < QualityRule.RECOVERY_PROBES,
+      then: { quality: NetworkQuality.offline, reason: Reason.confirming },
+    },
+    {
+      when: median !== null && median > QualityRule.WEAK_RTT_MS,
+      then: { quality: NetworkQuality.weak, reason: Reason.latency },
+    },
+    {
+      when: failures >= QualityRule.WEAK_FAILURES,
+      then: { quality: NetworkQuality.weak, reason: Reason.failures },
+    },
+    {
+      when: bandwidthKnown && path.downstreamKbps < QualityRule.WEAK_KBPS,
+      then: { quality: NetworkQuality.weak, reason: Reason.bandwidth },
+    },
+    {
+      when: signalKnown && path.signalLevel <= QualityRule.WEAK_SIGNAL_LEVEL,
+      then: { quality: NetworkQuality.weak, reason: Reason.signal },
+    },
+    {
+      when:
+        previous === NetworkQuality.weak &&
+        (bandwidthRecovering || signalRecovering),
+      then: { quality: NetworkQuality.weak, reason: Reason.held },
+    },
+    {
+      when: trips.length === 0,
+      then: { quality: NetworkQuality.good, reason: Reason.initial },
+    },
+    {
+      when:
+        median !== null && median < QualityRule.GOOD_RTT_MS && failures === 0,
+      then: { quality: NetworkQuality.good, reason: Reason.good },
+    },
+    {
+      // A recovered route in the middle latency band can carry the online voice.
+      when: recovering,
+      then: { quality: NetworkQuality.good, reason: Reason.recovered },
+    },
+  ];
+  return (
+    rules.find(rule => rule.when)?.then ?? {
+      quality: previous,
+      reason: Reason.held,
+    }
+  );
+}
+
 export function createQualityEstimator(): QualityEstimator {
   let path: PathInfo = {
     satisfied: true,
@@ -62,82 +157,21 @@ export function createQualityEstimator(): QualityEstimator {
     transport: path.transport,
     reason: Reason.unknown,
   };
-  function estimate(): NetworkStatus {
-    const outage =
-      trips.length >= QualityRule.OFFLINE_FAILURES_IN_ROW &&
-      trips.slice(-QualityRule.OFFLINE_FAILURES_IN_ROW).every(trip => !trip.ok);
-    const recovering =
-      path.satisfied &&
-      !outage &&
-      status.quality === NetworkQuality.offline &&
-      trips.length > 0;
+  function updateStatus(): NetworkStatus {
     const streak = successStreak(trips);
-    if (recovering && streak >= QualityRule.RECOVERY_PROBES) {
+    if (!path.satisfied) {
+      trips = [];
+    } else if (
+      status.quality === NetworkQuality.offline &&
+      streak >= QualityRule.RECOVERY_PROBES
+    ) {
       // The outage is over, and its failures no longer describe the route.
       trips = trips.slice(-streak);
     }
-    const successful = trips
-      .flatMap(trip => (trip.ok ? [trip.ms] : []))
-      .sort((a, b) => a - b);
-    const middle = Math.floor(successful.length / MEDIAN_DIVISOR);
-    const median =
-      successful.length === 0
-        ? null
-        : successful.length % MEDIAN_DIVISOR === 0
-        ? (successful[middle - 1] + successful[middle]) / MEDIAN_DIVISOR
-        : successful[middle];
-    const failures = trips.filter(trip => !trip.ok).length;
-    let quality = status.quality;
-    let reason: string = Reason.held;
-    if (!path.satisfied) {
-      trips = [];
-      quality = NetworkQuality.offline;
-      reason = Reason.route;
-    } else if (outage) {
-      quality = NetworkQuality.offline;
-      reason = Reason.offline;
-    } else if (recovering && streak < QualityRule.RECOVERY_PROBES) {
-      quality = NetworkQuality.offline;
-      reason = Reason.confirming;
-    } else if (median !== null && median > QualityRule.WEAK_RTT_MS) {
-      quality = NetworkQuality.weak;
-      reason = Reason.latency;
-    } else if (failures >= QualityRule.WEAK_FAILURES) {
-      quality = NetworkQuality.weak;
-      reason = Reason.failures;
-    } else if (
-      path.downstreamKbps >= 0 &&
-      path.downstreamKbps < QualityRule.WEAK_KBPS
-    ) {
-      quality = NetworkQuality.weak;
-      reason = Reason.bandwidth;
-    } else if (
-      path.signalLevel >= 0 &&
-      path.signalLevel <= QualityRule.WEAK_SIGNAL_LEVEL
-    ) {
-      quality = NetworkQuality.weak;
-      reason = Reason.signal;
-    } else if (
-      status.quality === NetworkQuality.weak &&
-      ((path.downstreamKbps >= 0 &&
-        path.downstreamKbps <= QualityRule.GOOD_KBPS) ||
-        (path.signalLevel >= 0 &&
-          path.signalLevel <=
-            QualityRule.WEAK_SIGNAL_LEVEL + QualityRule.SIGNAL_RECOVERY_MARGIN))
-    ) {
-      quality = NetworkQuality.weak;
-    } else if (
-      trips.length === 0 ||
-      (median !== null && median < QualityRule.GOOD_RTT_MS && failures === 0)
-    ) {
-      quality = NetworkQuality.good;
-      reason = trips.length === 0 ? Reason.initial : Reason.good;
-    } else if (recovering) {
-      // A recovered route in the middle latency band can carry the online voice.
-      quality = NetworkQuality.good;
-      reason = Reason.recovered;
-    }
-    status = { quality, transport: path.transport, reason };
+    status = {
+      ...classifyQuality(path, trips, status.quality),
+      transport: path.transport,
+    };
     return status;
   }
   return {
@@ -147,11 +181,11 @@ export function createQualityEstimator(): QualityEstimator {
         trips = [];
       }
       path = info;
-      return estimate();
+      return updateStatus();
     },
     sample(trip) {
       trips = [...trips, trip].slice(-QualityRule.WINDOW);
-      return estimate();
+      return updateStatus();
     },
     current: () => status,
     failing: () => trips.at(-1)?.ok === false,
