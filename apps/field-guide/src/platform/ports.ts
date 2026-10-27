@@ -65,6 +65,38 @@ export interface StreamingRequest {
   abort(): void;
 }
 
+/** The event an AbortSignal fires when its controller aborts. */
+export const ABORT_EVENT = 'abort';
+
+/** The error name a stream rejects with once its request's signal aborts. */
+export const ABORT_ERROR_NAME = 'AbortError';
+
+/** One request whose response text is wanted as it arrives. */
+export interface StreamRequest {
+  readonly url: string;
+  readonly method: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body: string;
+  /** Aborting it stops the transfer and rejects the stream with an error named ABORT_ERROR_NAME. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * A response whose status is known before its text. The chunks arrive in order and wait until read;
+ * iteration ends after the last chunk once the response completes, and rejects when the transport
+ * fails mid-stream or the request's signal aborts.
+ */
+export interface TextStream {
+  readonly status: number;
+  readonly chunks: AsyncIterable<string>;
+}
+
+/**
+ * Sends a request and resolves once the response headers arrive. It rejects when the network fails
+ * before that, or with an error named ABORT_ERROR_NAME when the signal aborts first.
+ */
+export type StreamText = (request: StreamRequest) => Promise<TextStream>;
+
 /** One open conversation socket, shaped like WebSocket. */
 export interface Socket {
   send(data: string): void;
