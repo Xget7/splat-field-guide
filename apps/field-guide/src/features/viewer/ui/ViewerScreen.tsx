@@ -15,11 +15,7 @@ import {
   LearnMode,
 } from '../../guide';
 import { clearProgress, saveProgress } from '../../guide/views';
-import {
-  useInstructor,
-  useInstructorVoice,
-  panelLayout,
-} from '../../instructor/views';
+import { useInstructor, useInstructorVoice } from '../../instructor/views';
 import type { Instructor } from '../../instructor';
 
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
@@ -49,7 +45,7 @@ import {
 } from '../state/viewerHooks';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
-import { FADE_IN, FADE_OUT_FAST } from '../../../ui/motion';
+import { FADE_IN, FADE_OUT_FAST, panelLayout } from '../../../ui/motion';
 import { Color, Space, Type } from '../../../ui/theme';
 
 import { AssistantDock } from './instructor/AssistantDock';

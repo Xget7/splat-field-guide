@@ -2,9 +2,9 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-import { ContentFade } from '../ui/InstructorMotion';
+import { ContentFade } from '../ContentFade';
 
-describe('instructor content fade', () => {
+describe('content fade', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const content = (status: string) => (
     <ContentFade contentKey={status}>

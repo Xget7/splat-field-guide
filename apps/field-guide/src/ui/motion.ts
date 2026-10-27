@@ -1,4 +1,9 @@
-import { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
+import {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  ReduceMotion,
+} from 'react-native-reanimated';
 import { Motion } from './theme';
 
 // Fades move nothing, so they stay on with reduced motion.
@@ -12,3 +17,13 @@ export const FADE_OUT = FadeOut.duration(Motion.base).reduceMotion(
 export const FADE_OUT_FAST = FadeOut.duration(Motion.fast).reduceMotion(
   ReduceMotion.Never,
 );
+
+/** The spring a panel resizes and moves with, shared by the panels and the picture beside them. */
+export function panelLayout() {
+  return LinearTransition.springify()
+    .mass(Motion.spring.mass)
+    .damping(Motion.spring.damping)
+    .stiffness(Motion.spring.stiffness)
+    .overshootClamping(Number(Motion.spring.overshootClamping));
+}
+export const PANEL_LAYOUT = panelLayout();

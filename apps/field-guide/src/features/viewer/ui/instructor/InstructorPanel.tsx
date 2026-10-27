@@ -22,9 +22,7 @@ import { stepLabel, type CardContent } from '../../../guide';
 import {
   ModeArea,
   Composer,
-  ContentFade,
   composerStyles,
-  PANEL_LAYOUT,
   InstructorScan,
   InstructorStatus,
   ReplyText,
@@ -37,7 +35,8 @@ import {
   type InstructorVoice,
 } from '../../../instructor/views';
 import { speechTextFor } from '../../../instructor';
-import { FADE_IN, FADE_OUT_FAST } from '../../../../ui/motion';
+import { ContentFade } from '../../../../ui/ContentFade';
+import { FADE_IN, FADE_OUT_FAST, PANEL_LAYOUT } from '../../../../ui/motion';
 import {
   Color,
   HAIRLINE,

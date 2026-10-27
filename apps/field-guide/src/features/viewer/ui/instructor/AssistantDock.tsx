@@ -18,7 +18,6 @@ import {
   VoiceState,
   type InstructorVoice,
   LevelMeter,
-  PANEL_LAYOUT,
   ModeArea,
   StatusLabel,
   useAssistantStatus,
@@ -28,6 +27,7 @@ import {
   VoiceWave,
 } from '../../../instructor/views';
 import { Glass, GlassTone } from '../../../../ui/Glass';
+import { PANEL_LAYOUT } from '../../../../ui/motion';
 import { Icon, IconName } from '../../../../ui/Icon';
 import {
   Color,

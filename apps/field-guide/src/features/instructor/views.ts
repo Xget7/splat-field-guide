@@ -1,16 +1,10 @@
-export {
-  Composer,
-  composerStyles,
-  ContentFade,
-  InstructorScan,
-  InstructorStatus,
-  LevelMeter,
-  MuteButton,
-  PANEL_LAYOUT,
-  panelLayout,
-  ReplyText,
-  VoiceBar,
-} from './ui/InstructorMotion';
+export { Composer, composerStyles } from './ui/Composer';
+export { InstructorScan } from './ui/InstructorScan';
+export { InstructorStatus } from './ui/InstructorStatus';
+export { LevelMeter } from './ui/LevelMeter';
+export { MuteButton } from './ui/MuteButton';
+export { ReplyText } from './ui/ReplyText';
+export { VoiceBar } from './ui/VoiceBar';
 export {
   StatusLabel,
   useAssistantStatus,
