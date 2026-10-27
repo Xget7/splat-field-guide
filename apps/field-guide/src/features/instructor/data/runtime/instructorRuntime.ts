@@ -14,12 +14,9 @@ import {
   type ModeStatus,
 } from '../../domain/mode/modeTypes';
 import { createQualityEstimator } from '../../../../platform/connectivity/networkQuality';
-import {
-  createBackoff,
-  type BackoffLimits,
-} from '../../../../platform/connectivity/backoff';
 import { createNetworkService } from '../../../../platform/connectivity/networkService';
 import { createModeController } from '../../domain/mode/modeController';
+import { createAgentReconnect } from '../../domain/agent/agentReconnect';
 import { runSwitch } from '../../domain/mode/modeSwitcher';
 import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
 import { createAgentClient } from '../agent/agentClient';
@@ -53,8 +50,6 @@ export interface InstructorRuntimeOptions {
   /** Receives every status the runtime reports. */
   readonly store: InstructorStore;
 }
-/** Waits before reconnecting a conversation that fell back to the device voice. */
-export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
 export function createInstructorRuntime({
   platform,
   proxyUrl: url,
@@ -92,10 +87,6 @@ export function createInstructorRuntime({
   let disposed = false;
   let switchId = 0;
   let idle = true;
-  const agentBackoff = createBackoff(AgentRetry, platform.random);
-  let cancelAgentRetryWait: Cancel | null = null;
-  let agentRetryDue = false;
-  let routeSeen = false;
   let snapshot: VoiceRuntimeState = {
     revision: 0,
     canStart: foreground.isForeground(),
@@ -133,40 +124,25 @@ export function createInstructorRuntime({
       network.report({ ok: false });
     }
   }
-  function cancelAgentRetry() {
-    cancelAgentRetryWait?.();
-    cancelAgentRetryWait = null;
-    agentRetryDue = false;
-  }
-  function scheduleAgentRetry() {
-    if (cancelAgentRetryWait !== null) {
-      return;
-    }
-    cancelAgentRetryWait = timers.after(agentBackoff.next(), () => {
-      cancelAgentRetryWait = null;
-      agentRetryDue = true;
-      retryAgent();
-    });
-  }
-  /** Restarts a conversation that fell back to the device voice, so it reconnects to the agent. */
-  function retryAgent() {
-    if (!agentRetryDue || !idle) {
-      return;
-    }
-    agentRetryDue = false;
-    const status = controller.current();
-    if (
-      !started ||
-      !foreground.isForeground() ||
-      status.mode !== InstructorMode.online ||
-      status.voice !== VoiceSource.device ||
-      !connection.available()
-    ) {
-      return;
-    }
-    controller.agentAvailable(true);
-    publishVoice(controller.current());
-  }
+  const reconnect = createAgentReconnect({
+    timers,
+    random: platform.random,
+    canReconnect: () => {
+      const status = controller.current();
+      return (
+        started &&
+        foreground.isForeground() &&
+        status.mode === InstructorMode.online &&
+        status.voice === VoiceSource.device &&
+        connection.available()
+      );
+    },
+    // Restarts the conversation, so it reconnects to the agent.
+    reconnect: () => {
+      controller.agentAvailable(true);
+      publishVoice(controller.current());
+    },
+  });
   const probe =
     proxy === null
       ? async () => {
@@ -234,7 +210,7 @@ export function createInstructorRuntime({
     const switched = isSwitching(previousMode);
     previousMode = status.mode;
     if (isSwitching(status.mode)) {
-      cancelAgentRetry();
+      reconnect.cancel();
       sessions.stop();
       connection.clear();
     }
@@ -262,15 +238,7 @@ export function createInstructorRuntime({
             : AnswerSource.script,
         });
       }
-      // Each later status is a change, so a good one is a new or recovered route.
-      const changed = routeSeen;
-      routeSeen = true;
-      if (changed && status.quality === NetworkQuality.good) {
-        cancelAgentRetry();
-        agentBackoff.reset();
-        agentRetryDue = true;
-        retryAgent();
-      }
+      reconnect.networkChanged(status.quality);
     },
   });
   const cloud = createCloudAnswerer({
@@ -296,7 +264,7 @@ export function createInstructorRuntime({
     onVoiceStarted: voice => {
       controller.voiceStarted(voice);
       if (voice === VoiceSource.device) {
-        scheduleAgentRetry();
+        reconnect.fellBack();
       }
     },
     networkOffline: () =>
@@ -311,8 +279,7 @@ export function createInstructorRuntime({
           ...handlers,
           status: value => {
             if (value.state === AgentState.connected) {
-              cancelAgentRetry();
-              agentBackoff.reset();
+              reconnect.connected();
               controller.voiceStarted(VoiceSource.agent);
             }
             store.getState().agentChanged(value);
@@ -338,7 +305,7 @@ export function createInstructorRuntime({
     setIdle(value) {
       idle = value;
       controller.setIdle(value && foreground.isForeground());
-      retryAgent();
+      reconnect.setIdle(value);
     },
     requestMode(request) {
       if (started) {
@@ -352,7 +319,7 @@ export function createInstructorRuntime({
       started = true;
       foreground.start(active => {
         if (!active) {
-          cancelAgentRetry();
+          reconnect.cancel();
           sessions.stop();
           connection.clear();
           instructor.cancel();
@@ -388,7 +355,7 @@ export function createInstructorRuntime({
       }
       disposed = true;
       started = false;
-      cancelAgentRetry();
+      reconnect.cancel();
       sessions.stop();
       switchId++;
       connection.clear();
