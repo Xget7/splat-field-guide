@@ -320,7 +320,7 @@ test('a Worker that stops answering goes offline within seconds and back online 
 
 test('quota keeps later conversations on device for the run and offline questions skip cloud requests', async () => {
   const store = createInstructorStore();
-  const streamingRequest = jest.fn();
+  const streamText = jest.fn();
   const fetchImpl = jest.fn(async (address: unknown) =>
     String(address).endsWith(ProxyPath.voiceSession)
       ? { status: 429, json: async () => ({ error: 'voice quota' }) }
@@ -328,7 +328,7 @@ test('quota keeps later conversations on device for the run and offline question
   );
   const fake = fakePlatform({
     fetch: fetchImpl as unknown as Fetch,
-    streamingRequest,
+    streamText,
   });
   const instructor = instructorOn(fake.platform, { store });
   const pack = fixturePack();
@@ -367,7 +367,7 @@ test('quota keeps later conversations on device for the run and offline question
     },
     jest.fn(),
   );
-  expect(streamingRequest).not.toHaveBeenCalled();
+  expect(streamText).not.toHaveBeenCalled();
   fake.network.emit(WIFI);
   await jest.advanceTimersByTimeAsync(10600);
   expect(store.getState().mode).toMatchObject({
@@ -476,27 +476,13 @@ test('slow Claude first tokens on a good connection neither weaken the network n
   const QUESTIONS = 3;
   const SUGGESTION_WAIT_MS = 6000;
   const store = createInstructorStore();
-  class SlowRequest {
-    status = 200;
-    responseText = '';
-    onprogress: (() => void) | null = null;
-    onload: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-    open() {}
-    setRequestHeader() {}
-    abort() {}
-    send() {
-      setTimeout(() => {
-        this.responseText =
-          '{"text":"It supplies the starter."}\n{"done":true}\n';
-        this.onprogress?.();
-        this.onload?.();
-      }, FIRST_TOKEN_MS);
-    }
-  }
+  const slowStream = async function* () {
+    await new Promise<void>(resolve => setTimeout(resolve, FIRST_TOKEN_MS));
+    yield '{"text":"It supplies the starter."}\n{"done":true}\n';
+  };
   const fake = fakePlatform({
     fetch: (async () => ({ status: 204 })) as unknown as Fetch,
-    streamingRequest: () => new SlowRequest(),
+    streamText: async () => ({ status: 200, chunks: slowStream() }),
   });
   const instructor = instructorOn(fake.platform, { store });
   const pack = fixturePack();

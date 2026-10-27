@@ -6,7 +6,8 @@ import {
   speechInput,
   speechOutput,
 } from 'react-native-on-device';
-import type { Platform, Socket, StreamingRequest } from '../platform/ports';
+import type { Platform, Socket } from '../platform/ports';
+import { streamTextOverXhr } from './xhrTextStream';
 
 /** The production ports: React Native, the on-device native modules and the JavaScript globals. */
 export function createPlatform(): Platform {
@@ -32,9 +33,9 @@ export function createPlatform(): Platform {
       stop: () => networkMonitor().stop(),
     },
     fetch: (input, init) => fetch(input, init),
-    // Looked up per request: the global only exists where React Native installs it. Both casts
-    // narrow the DOM types to the members the ports use, whose handlers ignore the event.
-    streamingRequest: () => new XMLHttpRequest() as unknown as StreamingRequest,
+    streamText: streamTextOverXhr,
+    // Looked up per socket: the global only exists where React Native installs it. The cast
+    // narrows the DOM type to the members the port uses, whose handlers ignore the event.
     socket: url => new WebSocket(url) as unknown as Socket,
     random: () => Math.random(),
     appState: {
