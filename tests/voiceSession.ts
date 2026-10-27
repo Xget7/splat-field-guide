@@ -2,16 +2,14 @@ import {
   ExchangePhase,
   nextExchangeId,
   TurnEventType,
-} from '../apps/field-guide/src/features/instructor/turn';
-import type {
-  Utterance,
-  VoiceContext,
-  VoiceConnection,
-  VoiceSession,
-  VoiceSessionEvents,
-  VoiceRuntime,
-  VoiceRuntimeState,
-} from '../apps/field-guide/src/features/instructor/voice/voiceSession';
+  type Utterance,
+  type VoiceContext,
+  type VoiceConnection,
+  type VoiceSession,
+  type VoiceSessionEvents,
+  type VoiceRuntime,
+  type VoiceRuntimeState,
+} from '../apps/field-guide/src/features/instructor';
 
 export function voiceEvents() {
   return {

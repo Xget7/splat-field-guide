@@ -1,0 +1,467 @@
+import {
+  audioLink,
+  networkMonitor,
+  speechInput,
+  speechOutput,
+  type AudioLinkSpec,
+  type NetworkPath,
+} from 'react-native-on-device';
+import { Platform } from 'react-native';
+import {
+  appEvents,
+  type EventBus,
+  AppEvent,
+  type AppEvents,
+} from '../../state/bus';
+import {
+  NetworkQuality,
+  Transport,
+} from '../../../../platform/connectivity/networkStatus';
+import { AgentState } from '../../domain/agent/agentStatus';
+import {
+  isSwitching,
+  AnswerSource,
+  InstructorMode,
+  ModeCause,
+  VoiceSource,
+  type ModeStatus,
+} from '../../domain/mode/modeTypes';
+import { createQualityEstimator } from '../../../../platform/connectivity/networkQuality';
+import {
+  createBackoff,
+  type BackoffLimits,
+} from '../../../../platform/connectivity/backoff';
+import {
+  createNetworkService,
+  pingProbe,
+} from '../../../../platform/connectivity/networkService';
+import { createModeController } from '../../domain/mode/modeController';
+import { runSwitch } from '../../domain/mode/modeSwitcher';
+import { NO_PROXY_REASON, SwitchLabel } from '../../domain/mode/modeCopy';
+import { SpeechVoice } from '../../domain/voice/voiceCopy';
+import {
+  createAgentClient,
+  type AudioPort,
+  type SocketPort,
+} from '../agent/agentClient';
+import { createCloudModel } from '../answerers/cloudModel';
+import { onDeviceModel } from '../answerers/onDeviceModel';
+import {
+  createModelInstructor,
+  type ModelInstructor,
+} from '../../domain/turn/modelInstructor';
+import type { InstructorModel } from '../../domain/turn/InstructorModel';
+import { INSTRUCTOR_PROXY_URL } from '../proxy';
+import {
+  VoiceStartFailure,
+  type VoiceRuntime,
+  type VoiceRuntimeState,
+} from '../../domain/voice/voiceSession';
+import { voiceFailure } from '../../domain/voice/voiceFailure';
+import type { Pack } from '../../../pack/pack';
+import {
+  createInstructorForeground,
+  type AppStatePort,
+} from './instructorForeground';
+import { createInstructorSessions } from './instructorSessions';
+import { createAgentConnection } from '../agent/agentConnection';
+import {
+  offlineAnnouncement,
+  switchSources,
+  switchTasks,
+} from './instructorSwitch';
+
+interface RuntimeDependencies {
+  proxyUrl?: string | null;
+  appEvents?: EventBus<AppEvents>;
+  appState?: AppStatePort;
+  networkMonitor?: () => {
+    start(callback: (path: NetworkPath) => void): void;
+    stop(): void;
+  };
+  speechInput?: typeof speechInput;
+  speechOutput?: typeof speechOutput;
+  audioLink?: () => AudioPort & Pick<AudioLinkSpec, 'requestPermission'>;
+  onDeviceModel?: InstructorModel;
+  fetch?: typeof fetch;
+  Request?: typeof XMLHttpRequest;
+  connect?: (url: string) => SocketPort;
+  now?: () => number;
+  setTimeout?: typeof setTimeout;
+  clearTimeout?: typeof clearTimeout;
+  setInterval?: typeof setInterval;
+  clearInterval?: typeof clearInterval;
+  random?: () => number;
+}
+/** Waits before reconnecting a conversation that fell back to the device voice. */
+export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
+export interface InstructorRuntime extends VoiceRuntime {
+  readonly instructor: ModelInstructor;
+  setPack(pack: Pack): void;
+  setInstructorOpen(open: boolean): void;
+  setIdle(idle: boolean): void;
+  start(): void;
+  stop(): void;
+}
+export function createInstructorRuntime(
+  deps: RuntimeDependencies = {},
+): InstructorRuntime {
+  const bus = deps.appEvents ?? appEvents;
+  const url =
+    deps.proxyUrl === undefined ? INSTRUCTOR_PROXY_URL : deps.proxyUrl;
+  const input = deps.speechInput ?? speechInput;
+  const output = deps.speechOutput ?? speechOutput;
+  const audio = deps.audioLink ?? audioLink;
+  const paths = deps.networkMonitor ?? networkMonitor;
+  const foreground = createInstructorForeground(deps.appState);
+  const offlineVoice =
+    Platform.OS === 'ios'
+      ? { voice: SpeechVoice.kokoro, label: SwitchLabel.kokoro }
+      : { voice: SpeechVoice.system, label: SwitchLabel.systemVoice };
+  const model = deps.onDeviceModel ?? onDeviceModel;
+  const now = deps.now ?? Date.now;
+  const schedule = deps.setTimeout ?? setTimeout;
+  const cancel = deps.clearTimeout ?? clearTimeout;
+  const connection = createAgentConnection({ url, fetchImpl: deps.fetch, now });
+  const switchTimers = new Set<ReturnType<typeof setTimeout>>();
+  const listeners = new Set<() => void>();
+  const subscriptions: (() => void)[] = [];
+  const pathQuality = createQualityEstimator();
+  let pack: Pack | null = null;
+  let started = false;
+  let disposed = false;
+  let switchId = 0;
+  let idle = true;
+  const agentBackoff = createBackoff(AgentRetry, deps.random);
+  let agentRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let agentRetryDue = false;
+  let routeSeen = false;
+  let snapshot: VoiceRuntimeState = {
+    revision: 0,
+    canStart: foreground.isForeground(),
+    foreground: foreground.isForeground(),
+    announcement: null,
+  };
+  function publishVoice(status: ModeStatus, switched = false) {
+    const canStart = foreground.isForeground() && !isSwitching(status.mode);
+    snapshot = {
+      revision: snapshot.revision + 1,
+      canStart,
+      foreground: foreground.isForeground(),
+      announcement:
+        switched &&
+        status.mode === InstructorMode.offline &&
+        status.cause === ModeCause.network
+          ? offlineAnnouncement(status, switchId)
+          : null,
+    };
+    listeners.forEach(listener => listener());
+  }
+  function primaryFailure(failure: VoiceStartFailure) {
+    if (
+      failure === VoiceStartFailure.quota ||
+      failure === VoiceStartFailure.auth
+    ) {
+      connection.disable();
+      controller.agentAvailable(false);
+      bus.emit(AppEvent.agent, { state: AgentState.failed, reason: failure });
+    } else if (failure === VoiceStartFailure.network) {
+      network.report({ ok: false });
+    }
+  }
+  function cancelAgentRetry() {
+    if (agentRetryTimer !== null) {
+      cancel(agentRetryTimer);
+      agentRetryTimer = null;
+    }
+    agentRetryDue = false;
+  }
+  function scheduleAgentRetry() {
+    if (agentRetryTimer !== null) {
+      return;
+    }
+    agentRetryTimer = schedule(() => {
+      agentRetryTimer = null;
+      agentRetryDue = true;
+      retryAgent();
+    }, agentBackoff.next());
+  }
+  /** Restarts a conversation that fell back to the device voice, so it reconnects to the agent. */
+  function retryAgent() {
+    if (!agentRetryDue || !idle) {
+      return;
+    }
+    agentRetryDue = false;
+    const status = controller.current();
+    if (
+      !started ||
+      !foreground.isForeground() ||
+      status.mode !== InstructorMode.online ||
+      status.voice !== VoiceSource.device ||
+      !connection.available()
+    ) {
+      return;
+    }
+    controller.agentAvailable(true);
+    publishVoice(controller.current());
+  }
+  const probe =
+    url === null
+      ? async () => {
+          throw new Error(VoiceStartFailure.network);
+        }
+      : pingProbe(url, deps.fetch, now);
+  async function switchMode(status: ModeStatus) {
+    const id = ++switchId;
+    const tasks = switchTasks(status.mode, {
+      input,
+      output,
+      offlineVoice,
+      model,
+      pack,
+      probe,
+      prepareAgent: async () => {
+        if (!foreground.isForeground() || !connection.available()) {
+          return false;
+        }
+        try {
+          await connection.prepare();
+          return true;
+        } catch (error) {
+          primaryFailure(voiceFailure(error));
+          return false;
+        }
+      },
+    });
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const outcome = await runSwitch(
+      id,
+      tasks,
+      step => {
+        if (started && id === switchId) {
+          bus.emit(AppEvent.switchStep, step);
+        }
+      },
+      {
+        now,
+        delay: ms =>
+          new Promise(resolve => {
+            const timer = schedule(() => {
+              switchTimers.delete(timer);
+              resolve();
+            }, ms);
+            timers.push(timer);
+            switchTimers.add(timer);
+          }),
+      },
+    );
+    timers.forEach(timer => {
+      cancel(timer);
+      switchTimers.delete(timer);
+    });
+    if (!started || id !== switchId) {
+      return;
+    }
+    const target =
+      status.mode === InstructorMode.switchingToOffline
+        ? InstructorMode.offline
+        : InstructorMode.online;
+    controller.switched(target, switchSources(status.mode, outcome, model));
+  }
+  const controller = createModeController({
+    now,
+    setTimeout: deps.setTimeout,
+    clearTimeout: deps.clearTimeout,
+    emitMode: status => bus.emit(AppEvent.mode, status),
+    emitSuggestion: value => bus.emit(AppEvent.modeSuggestion, value),
+  });
+  let previousMode = controller.current().mode;
+  function modeChanged(status: ModeStatus) {
+    if (status.mode === previousMode) {
+      return;
+    }
+    const switched = isSwitching(previousMode);
+    previousMode = status.mode;
+    if (isSwitching(status.mode)) {
+      cancelAgentRetry();
+      sessions.stop();
+      connection.clear();
+    }
+    publishVoice(status, switched);
+    if (isSwitching(status.mode)) {
+      switchMode(status);
+    }
+  }
+  const network = createNetworkService({
+    paths: {
+      start: callback => paths().start(callback),
+      stop: () => paths().stop(),
+    },
+    probe,
+    setTimeout: deps.setTimeout,
+    clearTimeout: deps.clearTimeout,
+    random: deps.random,
+    emit(status) {
+      bus.emit(AppEvent.network, status);
+      controller.network(status);
+      if (
+        controller.current().mode === InstructorMode.offline &&
+        controller.current().cause === ModeCause.startup
+      ) {
+        controller.switched(InstructorMode.offline, {
+          voice: VoiceSource.device,
+          answers: model.isReady()
+            ? AnswerSource.deviceModel
+            : AnswerSource.script,
+        });
+      }
+      // Each later status is a change, so a good one is a new or recovered route.
+      const changed = routeSeen;
+      routeSeen = true;
+      if (changed && status.quality === NetworkQuality.good) {
+        cancelAgentRetry();
+        agentBackoff.reset();
+        agentRetryDue = true;
+        retryAgent();
+      }
+    },
+  });
+  const cloud = createCloudModel({
+    url,
+    Request: deps.Request,
+    now,
+    isOnline: () => controller.current().mode === InstructorMode.online,
+    onFailure: () => network.report({ ok: false }),
+  });
+  const instructor = createModelInstructor([cloud, model]);
+  const sessions = createInstructorSessions({
+    input,
+    output,
+    audio,
+    prompt: foreground.prompt,
+    offlineVoice: offlineVoice.voice,
+    agentAvailable: connection.available,
+    foreground: foreground.isForeground,
+    onPrimaryFailure: primaryFailure,
+    onVoiceStarted: voice => {
+      controller.voiceStarted(voice);
+      if (voice === VoiceSource.device) {
+        scheduleAgentRetry();
+      }
+    },
+    networkOffline: () =>
+      bus.latest(AppEvent.network)?.quality === NetworkQuality.offline,
+    client: handlers =>
+      createAgentClient({
+        signedUrl: connection.signedUrl,
+        connect:
+          deps.connect ??
+          (address => new WebSocket(address) as unknown as SocketPort),
+        audio: audio(),
+        setTimeout: deps.setTimeout,
+        clearTimeout: deps.clearTimeout,
+        setInterval: deps.setInterval,
+        clearInterval: deps.clearInterval,
+        handlers: {
+          ...handlers,
+          status: value => {
+            if (value.state === AgentState.connected) {
+              cancelAgentRetry();
+              agentBackoff.reset();
+              controller.voiceStarted(VoiceSource.agent);
+            }
+            bus.emit(AppEvent.agent, value);
+          },
+          roundTrip: ms => network.report({ ok: true, ms }),
+        },
+      }),
+  });
+  return {
+    instructor,
+    voiceSnapshot: () => snapshot,
+    subscribeVoice(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    sessionFor(guide) {
+      if (!snapshot.canStart || disposed) {
+        return null;
+      }
+      return sessions.sessionFor(controller.current(), guide);
+    },
+    setPack(value) {
+      pack = value;
+    },
+    setInstructorOpen(open) {
+      network.setActive(open);
+    },
+    setIdle(value) {
+      idle = value;
+      controller.setIdle(value && foreground.isForeground());
+      retryAgent();
+    },
+    start() {
+      if (started || disposed) {
+        return;
+      }
+      started = true;
+      subscriptions.push(
+        bus.on(AppEvent.mode, modeChanged),
+        bus.on(AppEvent.modeRequest, request => controller.request(request)),
+      );
+      foreground.start(active => {
+        if (!active) {
+          cancelAgentRetry();
+          sessions.stop();
+          connection.clear();
+          instructor.cancel();
+        }
+        network.setForeground(active);
+        controller.setIdle(idle && active);
+        publishVoice(controller.current());
+      });
+      controller.agentAvailable(connection.available());
+      if (url === null) {
+        controller.network({
+          quality: NetworkQuality.offline,
+          transport: Transport.none,
+          reason: NO_PROXY_REASON,
+        });
+        controller.switched(InstructorMode.offline, {
+          voice: VoiceSource.device,
+          answers: model.isReady()
+            ? AnswerSource.deviceModel
+            : AnswerSource.script,
+        });
+        paths().start(path =>
+          bus.emit(AppEvent.network, pathQuality.path(path)),
+        );
+      } else {
+        network.setForeground(foreground.isForeground());
+        network.start();
+      }
+    },
+    stop() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      started = false;
+      cancelAgentRetry();
+      sessions.stop();
+      switchId++;
+      connection.clear();
+      foreground.stop();
+      subscriptions.splice(0).forEach(unsubscribe => unsubscribe());
+      switchTimers.forEach(cancel);
+      switchTimers.clear();
+      if (url === null) {
+        paths().stop();
+      } else {
+        network.stop();
+      }
+      controller.dispose();
+      instructor.cancel();
+    },
+  };
+}

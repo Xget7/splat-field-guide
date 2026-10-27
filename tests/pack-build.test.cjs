@@ -25,7 +25,7 @@ function fixture(t) {
     'scripts/package-pack.sh',
     'apps/field-guide/src/features/pack/pack.ts',
     'apps/field-guide/src/features/pack/parsePack.ts',
-    'apps/field-guide/src/features/guide/tour.ts',
+    'apps/field-guide/src/features/pack/tour.ts',
   ])
     put(name, fs.readFileSync(path.join(ROOT, name)));
   fs.mkdirSync(path.join(root, 'apps/field-guide/node_modules'), {

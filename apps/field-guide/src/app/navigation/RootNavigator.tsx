@@ -7,16 +7,19 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { catalogFor } from '../../features/pack/catalog';
-import { offersArCheck } from './arCheck';
+import {
+  offersArCheck,
+  ARScreen,
+  ARPlacementScreen,
+  ARAssemblyScreen,
+} from '../../features/ar/views';
+import { GuideDetailScreen } from '../../features/guide/views';
+import { LibraryScreen } from '../../features/library/views';
+import { ViewerScreen } from '../../features/viewer/views';
+import { BenchScreen } from '../../features/bench/views';
 import { CatalogProvider } from '../context/CatalogContext';
 import type { Pack } from '../../features/pack/pack';
-import { GuideDetailScreen } from '../../screens/guide-detail/GuideDetailScreen';
-import { LibraryScreen } from '../../screens/library/LibraryScreen';
-import { ViewerScreen } from '../../screens/viewer/ViewerScreen';
-import { ARScreen } from '../../screens/ar/ARScreen';
-import { ARPlacementScreen } from '../../screens/ar/ARPlacementScreen';
-import { ARAssemblyScreen } from '../../screens/ar/ARAssemblyScreen';
-import { BenchScreen } from '../../screens/bench/BenchScreen';
+
 import { Color } from '../../ui/theme';
 import { LINKING } from './linking';
 import { Route, type RootStackParamList } from './routes';

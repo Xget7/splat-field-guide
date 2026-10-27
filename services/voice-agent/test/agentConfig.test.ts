@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { agentVariables } from '../../../apps/field-guide/src/features/instructor/agent/agentVariables.ts';
-import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/session.ts';
+import { agentVariables } from '../../../apps/field-guide/src/features/instructor/domain/agent/agentVariables.ts';
+import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/domain/session.ts';
 import {
   buildAgentConfig, LLM_BASE_PATH, LLM, MODEL_ID, CHAT_COMPLETIONS_API_TYPE,
   END_CALL_TOOL, TTS_MODEL_ID, TEXT_NORMALISATION_TYPE, INPUT_AUDIO_FORMAT, OUTPUT_AUDIO_FORMAT,

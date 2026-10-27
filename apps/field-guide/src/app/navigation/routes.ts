@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { LearnMode } from '../../features/guide';
 
 export const Route = {
   library: 'Library',
@@ -10,12 +11,6 @@ export const Route = {
   bench: 'Bench',
 } as const;
 export type Route = (typeof Route)[keyof typeof Route];
-
-export const LearnMode = {
-  instructor: 'instructor',
-  selfGuided: 'selfGuided',
-} as const;
-export type LearnMode = (typeof LearnMode)[keyof typeof LearnMode];
 
 export type RootStackParamList = {
   [Route.library]: undefined;
