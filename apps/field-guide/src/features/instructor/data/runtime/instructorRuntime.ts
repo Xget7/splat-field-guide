@@ -29,17 +29,14 @@ import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
 import { createAgentClient } from '../agent/agentClient';
 import { createCloudModel } from '../answerers/cloudModel';
 import { createOnDeviceModel } from '../answerers/onDeviceModel';
-import {
-  createModelInstructor,
-  type ModelInstructor,
-} from '../../domain/turn/modelInstructor';
+import { createModelInstructor } from '../../domain/turn/modelInstructor';
 import {
   VoiceStartFailure,
-  type VoiceRuntime,
   type VoiceRuntimeState,
 } from '../../domain/voice/voiceSession';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import type { Pack } from '../../../pack/pack';
+import type { InstructorRuntime } from '../../domain/instructorRuntime';
 import { createInstructorForeground } from './instructorForeground';
 import { createInstructorSessions } from './instructorSessions';
 import { createAgentConnection } from '../agent/agentConnection';
@@ -59,14 +56,6 @@ export interface InstructorRuntimeOptions {
 }
 /** Waits before reconnecting a conversation that fell back to the device voice. */
 export const AgentRetry: BackoffLimits = { initialMs: 2000, maxMs: 60000 };
-export interface InstructorRuntime extends VoiceRuntime {
-  readonly instructor: ModelInstructor;
-  setPack(pack: Pack): void;
-  setInstructorOpen(open: boolean): void;
-  setIdle(idle: boolean): void;
-  start(): void;
-  stop(): void;
-}
 export function createInstructorRuntime({
   platform,
   proxyUrl: url,
@@ -350,6 +339,11 @@ export function createInstructorRuntime({
       idle = value;
       controller.setIdle(value && foreground.isForeground());
       retryAgent();
+    },
+    requestMode(request) {
+      if (started) {
+        controller.request(request);
+      }
     },
     start() {
       if (started || disposed) {

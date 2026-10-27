@@ -232,6 +232,7 @@ describe('viewer screen', () => {
       setPack: jest.fn(),
       setInstructorOpen: jest.fn(),
       setIdle: jest.fn(),
+      requestMode: jest.fn(),
       start: jest.fn(),
       stop: jest.fn(),
     };

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { InstructorRuntime } from '../data/runtime/instructorRuntime';
+import type { InstructorRuntime } from '../domain/instructorRuntime';
 
 export const InstructorRuntimeContext = createContext<InstructorRuntime | null>(
   null,
