@@ -3,7 +3,7 @@ import { voiceEvents as events } from '@tests/voiceSession';
 import { SpeechPermission } from '../domain/voice/voiceCopy';
 import { VoiceStartFailure } from '../domain/voice/voiceSession';
 import { fixturePack } from '@tests/fixturePack';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import {
   createAgentVoiceSession,
   type SessionAgentHandlers,

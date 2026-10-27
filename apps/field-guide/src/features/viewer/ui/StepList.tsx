@@ -11,7 +11,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { Icon, IconName } from '../../../ui/Icon';
 import { CautionNote } from '../../../ui/CautionNote';
 import { Color, Radius, Space, Type } from '../../../ui/theme';
-import type { StepRow } from '../../guide/domain/guideContent';
+import type { StepRow } from '../../guide';
 
 const ROW_HEIGHT = 48;
 const BADGE_SIZE = 22;

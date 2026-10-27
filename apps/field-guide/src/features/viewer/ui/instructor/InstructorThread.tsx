@@ -40,13 +40,13 @@ import {
 } from '../../domain/viewerState';
 import { CautionNote } from '../../../../ui/CautionNote';
 import { InstructorAnswer } from './InstructorAnswer';
-import { FADE_IN, ReplyText } from '../../../instructor/ui/InstructorMotion';
+import { FADE_IN, ReplyText } from '../../../instructor/views';
 import {
   assistantBlocks,
   isRepeatedText,
   shownWordsFor,
-} from '../../../instructor/domain/repeatedContent';
-import { parseAnswer } from '../../../instructor/domain/answerFormat';
+  parseAnswer,
+} from '../../../instructor';
 
 // Follow new words only near the end so reading older entries is not interrupted.
 const FOLLOW_SLOP = Space.xl;

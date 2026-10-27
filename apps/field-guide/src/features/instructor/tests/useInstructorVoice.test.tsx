@@ -2,7 +2,7 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { fixturePack } from '@tests/fixturePack';
 import { fakeVoiceRuntime, fakeVoiceSession } from '@tests/voiceSession';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { ModeAnnouncement } from '../domain/mode/modeCopy';
 import {
   useInstructorVoice,

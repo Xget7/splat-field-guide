@@ -10,7 +10,6 @@ import { bundledPack } from '../../pack/bundledPack';
 import { procedureRowsFor } from '../domain/procedureRows';
 import { GuideDetailScreen } from '../ui/GuideDetailScreen';
 
-jest.mock('react-native-splat', () => ({ ModelView: 'ModelView' }));
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));

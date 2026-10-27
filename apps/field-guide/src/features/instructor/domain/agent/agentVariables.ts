@@ -3,7 +3,7 @@ import {
   currentProcedure,
   currentStep,
   type SessionState,
-} from '../../../guide/domain/session';
+} from '../../../guide';
 import type { PreviousExchange } from '../grounding';
 import { stateSentence } from './agentTools';
 import { AgentContextCopy, AgentOpening } from './agentCopy';

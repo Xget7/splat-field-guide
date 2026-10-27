@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { LearnMode } from '../../features/guide/domain/learningMode';
+import type { LearnMode } from '../../features/guide';
 
 export const Route = {
   library: 'Library',

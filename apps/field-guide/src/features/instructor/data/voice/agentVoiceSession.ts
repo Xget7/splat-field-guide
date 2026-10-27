@@ -12,7 +12,7 @@ import {
   screenUpdate,
 } from '../../domain/agent/agentVariables';
 import { runAgentTool } from '../../domain/agent/agentTools';
-import { SessionEventType } from '../../../guide/domain/session';
+import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
 import {
   ExchangePhase,

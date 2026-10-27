@@ -14,7 +14,7 @@ import {
   SessionEventType,
   type SessionEvent,
   type SessionState,
-} from '../../guide/domain/session';
+} from '../../guide';
 import { normalize, routeCommand, RouteKind } from './router';
 import { contentWordsOf, isAsked } from './utterance';
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { SplatViewSpec, ViewDirection } from 'react-native-splat';
-import { framingFor } from '../../../guide/domain/derive';
+import { framingFor } from '../../../guide';
+import type { SessionState } from '../../../guide';
 import type { Bounds, Pack } from '../../../pack/pack';
-import type { SessionState } from '../../../guide/domain/session';
+
 import {
   boundsForView,
   CLOSE_UP_SCALE,

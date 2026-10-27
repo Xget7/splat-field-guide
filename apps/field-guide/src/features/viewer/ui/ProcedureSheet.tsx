@@ -12,8 +12,8 @@ import {
 } from 'react-native-safe-area-context';
 import type { Pack, ProcedureId } from '../../pack/pack';
 import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
-import { procedureRowsFor } from '../../guide/domain/procedureRows';
-import { ProcedureList } from '../../guide/ui/ProcedureList';
+import { procedureRowsFor } from '../../guide';
+import { ProcedureList } from '../../guide/views';
 
 interface Props {
   visible: boolean;

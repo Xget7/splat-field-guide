@@ -4,12 +4,13 @@ import {
   AnswerKind,
   parseAnswer,
   type AnswerBlock,
-} from '../../../instructor/domain/answerFormat';
-import { InterruptedLabel } from '../../../instructor/domain/mode/modeCopy';
+  InterruptedLabel,
+  assistantBlocks,
+} from '../../../instructor';
+import { ReplyText } from '../../../instructor/views';
+
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../../ui/theme';
 import { useAnswerReveal } from './useAnswerReveal';
-import { ReplyText } from '../../../instructor/ui/InstructorMotion';
-import { assistantBlocks } from '../../../instructor/domain/repeatedContent';
 
 const BULLET_SIZE = 4;
 

@@ -9,22 +9,20 @@ import {
   type KeyboardEvent,
 } from 'react-native';
 import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
-import { appEvents } from '../../instructor/state/bus';
 import {
+  appEvents,
   AnswerSource,
   InstructorMode,
   ModeCause,
   VoiceSource,
   type ModeStatus,
-} from '../../instructor/domain/mode/modeTypes';
-import { INITIAL_SESSION } from '../../guide/domain/session';
-import {
-  VoiceState,
-  type InstructorVoice,
-} from '../../instructor/ui/useInstructorVoice';
-import { SpokenSection } from '../../instructor/domain/voice/speechPresentation';
+  SpokenSection,
+} from '../../instructor';
+import { INITIAL_SESSION, cardContentFor } from '../../guide';
+import { VoiceState, type InstructorVoice } from '../../instructor/views';
+
 import { fixturePack } from '@tests/fixturePack';
-import { cardContentFor } from '../../guide/domain/guideContent';
+
 import { EntryKind, ExchangePhase, type Exchange } from '../domain/viewerState';
 import { InstructorPanel } from '../ui/instructor/InstructorPanel';
 import { PanelMode } from '../domain/panelMotion';

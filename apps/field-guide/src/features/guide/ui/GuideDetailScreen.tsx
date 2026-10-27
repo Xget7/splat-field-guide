@@ -9,7 +9,7 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CATEGORY_TITLE, findReadyGuide } from '../../pack/catalog';
-import { offersArCheck } from '../../ar/data/arCheck';
+import { offersArCheck } from '../../ar/views';
 import { useCatalog } from '../../../app/context/CatalogContext';
 import type { ProcedureId } from '../../pack/pack';
 import { TOUR_ID } from '../../pack/tour';

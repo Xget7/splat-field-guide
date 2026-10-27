@@ -1,4 +1,4 @@
-import { SessionEvent, SessionEventType } from '../../guide/domain/session';
+import { SessionEvent, SessionEventType } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
 import { normalize, routeCommand, RouteKind } from '../domain/router';
 

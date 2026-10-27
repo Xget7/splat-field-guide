@@ -10,15 +10,16 @@ import {
 } from '../../pack/catalog';
 import { useCatalog } from '../../../app/context/CatalogContext';
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
-import { LearnMode } from '../../guide/domain/learningMode';
-import { type Progress } from '../../guide/domain/progress';
-import { loadProgress } from '../../guide/data/progressStorage';
+import { LearnMode, type Progress } from '../../guide';
+import { loadProgress } from '../../guide/views';
+import { AssemblyBanner } from '../../ar/views';
+
 import { SectionHeader } from '../../../ui/SectionHeader';
 import { Backdrop } from '../../../ui/Gradients';
 import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
 import { Color, Space, Type } from '../../../ui/theme';
 import { continueRowFor } from '../domain/library';
-import { AssemblyBanner } from '../../ar/ui/AssemblyBanner';
+
 import { ContinueCard, ReadyCard, SoonCard } from './GuideCards';
 import { useWideLayout } from '../../../ui/useWideLayout';
 import V8_CAPTURE from '../../../../assets/ar/v8-engine.json';

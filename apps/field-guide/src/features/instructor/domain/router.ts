@@ -1,5 +1,5 @@
 import { Pack, Part, Procedure } from '../../pack/pack';
-import { SessionEvent, SessionEventType } from '../../guide/domain/session';
+import { SessionEvent, SessionEventType } from '../../guide';
 
 export const RouteKind = {
   command: 'command',

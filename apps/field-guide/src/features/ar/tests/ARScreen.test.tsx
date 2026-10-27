@@ -7,7 +7,6 @@ import { Route, type ScreenProps } from '../../../app/navigation/routes';
 import { bundledPack } from '../../pack/bundledPack';
 import { ARScreen } from '../ui/ARScreen';
 
-jest.mock('react-native-splat', () => ({ ARGuideView: 'ARGuideView' }));
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));

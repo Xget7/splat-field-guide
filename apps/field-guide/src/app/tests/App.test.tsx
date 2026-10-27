@@ -5,10 +5,6 @@ import App from '../App';
 import { BENCH_URL } from '../navigation/linking';
 import { bundledPack } from '../../features/pack/bundledPack';
 
-jest.mock('react-native-splat', () => ({
-  SplatView: 'SplatView',
-  ModelView: 'ModelView',
-}));
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));

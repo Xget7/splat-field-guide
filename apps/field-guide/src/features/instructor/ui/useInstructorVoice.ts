@@ -13,7 +13,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import type { Pack } from '../../pack/pack';
-import type { SessionEvent } from '../../guide/domain/session';
+import type { SessionEvent } from '../../guide';
 import { type TurnEvent } from '../domain/turn/turn';
 import { Motion } from '../../../ui/theme';
 import {

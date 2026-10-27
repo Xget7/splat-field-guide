@@ -1,6 +1,6 @@
 import { speechInput, speechOutput } from 'react-native-on-device';
 import { fixturePack } from '@tests/fixturePack';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { createPipelineVoiceSession } from '../data/voice/pipelineVoiceSession';
 import { voiceEvents } from '@tests/voiceSession';
 

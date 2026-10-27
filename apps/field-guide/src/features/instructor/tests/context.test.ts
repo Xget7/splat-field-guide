@@ -1,5 +1,5 @@
 import { NoteTopic } from '../../pack/pack';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
 import { pointsAtScreen, subjectOf, topicsFor } from '../domain/context';
 

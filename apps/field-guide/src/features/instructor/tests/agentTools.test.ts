@@ -1,10 +1,6 @@
 import { stepKeyFor } from '../domain/voice/voiceSession';
 import { bundledPack } from '../../pack/bundledPack';
-import {
-  INITIAL_SESSION,
-  reduce,
-  SessionEventType,
-} from '../../guide/domain/session';
+import { INITIAL_SESSION, reduce, SessionEventType } from '../../guide';
 import {
   AgentTool,
   agentToolSpecs,

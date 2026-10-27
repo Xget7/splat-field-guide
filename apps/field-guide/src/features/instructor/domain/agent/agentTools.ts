@@ -7,7 +7,7 @@ import {
   SessionEventType,
   type SessionEvent,
   type SessionState,
-} from '../../../guide/domain/session';
+} from '../../../guide';
 
 export const AgentTool = {
   showPart: 'show_part',

@@ -1,8 +1,5 @@
 import type { Pack, Part } from '../../pack/pack';
-import {
-  SessionEventType,
-  type SessionState,
-} from '../../guide/domain/session';
+import { SessionEventType, type SessionState } from '../../guide';
 import { TOUR_ID } from '../../pack/tour';
 import {
   evidenceFor,

@@ -1,12 +1,12 @@
 import type { Pack } from '../../pack/pack';
-import { SessionEventType } from '../../guide/domain/session';
-import { bundledPack } from '../../pack/bundledPack';
-import { createModelInstructor } from '../../instructor/domain/turn/modelInstructor';
+import { SessionEventType, CardKind } from '../../guide';
 import {
+  createModelInstructor,
   ExchangePhase,
   TurnEventType,
-} from '../../instructor/domain/turn/turn';
-import { CardKind } from '../../guide/domain/guideContent';
+} from '../../instructor';
+import { bundledPack } from '../../pack/bundledPack';
+
 import {
   answeredExchanges,
   EntryKind,

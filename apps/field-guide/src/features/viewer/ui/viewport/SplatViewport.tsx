@@ -33,8 +33,8 @@ import Animated, {
   useReducedMotion,
   type LinearTransition,
 } from 'react-native-reanimated';
-import { highlightFor } from '../../../guide/domain/derive';
-import { currentStep, type SessionState } from '../../../guide/domain/session';
+import { highlightFor, currentStep, type SessionState } from '../../../guide';
+
 import { packFacts } from '../../../pack/catalog';
 import type { Pack, PartId } from '../../../pack/pack';
 import { sourceFor } from '../../../pack/bundledPack';

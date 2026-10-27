@@ -1,5 +1,5 @@
 import type { Pack } from '../../../pack/pack';
-import type { SessionState } from '../../../guide/domain/session';
+import type { SessionState } from '../../../guide';
 import type { AuthoredEvidence } from '../context';
 import type { PreviousExchange } from '../grounding';
 

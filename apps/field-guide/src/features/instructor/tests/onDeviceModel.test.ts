@@ -1,6 +1,6 @@
 import { languageModel } from 'react-native-on-device';
 import { createModelInstructor } from '../domain/turn/modelInstructor';
-import { INITIAL_SESSION, startAt } from '../../guide/domain/session';
+import { INITIAL_SESSION, startAt } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
 import {

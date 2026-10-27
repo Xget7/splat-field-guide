@@ -93,6 +93,14 @@ jest.mock(
   },
 );
 
+// The splat views render as host components, so screens mount without the native engine.
+jest.mock('react-native-splat', () => ({
+  SplatView: 'SplatView',
+  ModelView: 'ModelView',
+  ARGuideView: 'ARGuideView',
+  ARPlacementView: 'ARPlacementView',
+}));
+
 // Native capabilities are opt-in so each test controls readiness and callbacks.
 jest.mock('react-native-on-device', () => {
   const model = {

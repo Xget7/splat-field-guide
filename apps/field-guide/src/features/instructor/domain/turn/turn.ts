@@ -1,9 +1,5 @@
 import type { Pack, PartId } from '../../../pack/pack';
-import {
-  reduce,
-  SessionEventType,
-  type SessionState,
-} from '../../../guide/domain/session';
+import { reduce, SessionEventType, type SessionState } from '../../../guide';
 import type { InstructorAnswer } from '../instructor';
 
 export const ExchangePhase = {

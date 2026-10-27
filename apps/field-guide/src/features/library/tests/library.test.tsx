@@ -5,13 +5,13 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
 import { CatalogProvider } from '../../../app/context/CatalogContext';
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
-import { LearnMode } from '../../guide/domain/learningMode';
+import { LearnMode } from '../../guide';
+import { saveProgress } from '../../guide/views';
 import { bundledPack } from '../../pack/bundledPack';
-import { saveProgress } from '../../guide/data/progressStorage';
+
 import { continueRowFor, factsFor } from '../domain/library';
 import { LibraryScreen } from '../ui/LibraryScreen';
 
-jest.mock('react-native-splat', () => ({ ModelView: 'ModelView' }));
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));

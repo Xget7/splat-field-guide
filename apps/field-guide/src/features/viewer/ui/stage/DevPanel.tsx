@@ -3,21 +3,20 @@ import {
   useAgentStatus,
   useInstructorMode,
   useNetwork,
-} from '../../../instructor/state/useAppEvent';
+} from '../../../instructor/views';
+import {
+  AgentFailure,
+  AgentState,
+  AnswerSource,
+  InstructorMode,
+  VoiceSource,
+  ConnectionWord,
+} from '../../../instructor';
 import {
   NetworkQuality,
   Transport,
 } from '../../../../platform/connectivity/networkStatus';
-import {
-  AgentFailure,
-  AgentState,
-} from '../../../instructor/domain/agent/agentStatus';
-import {
-  AnswerSource,
-  InstructorMode,
-  VoiceSource,
-} from '../../../instructor/domain/mode/modeTypes';
-import { ConnectionWord } from '../../../instructor/domain/mode/modeCopy';
+
 import type { Pack } from '../../../pack/pack';
 import { Color, Space, Type } from '../../../../ui/theme';
 

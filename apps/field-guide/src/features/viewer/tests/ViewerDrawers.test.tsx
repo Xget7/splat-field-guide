@@ -3,7 +3,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { ScrollView, Text } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { fixturePack } from '@tests/fixturePack';
-import { CardKind } from '../../guide/domain/guideContent';
+import { CardKind } from '../../guide';
 import { Capability } from '../ui/shell/layout';
 import { ViewerRail } from '../ui/shell/ViewerRail';
 import { GuideDrawer } from '../ui/shell/GuideDrawer';

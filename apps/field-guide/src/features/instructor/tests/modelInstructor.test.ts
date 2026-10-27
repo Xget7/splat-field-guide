@@ -1,4 +1,4 @@
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
 import { answerAbout } from '../domain/grounding';
 import { answerFor, NOT_COVERED_REPLY } from '../domain/instructor';

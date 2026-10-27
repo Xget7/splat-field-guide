@@ -17,7 +17,7 @@ import {
   type AppEvents,
 } from '../state/bus';
 import { InstructorMode } from '../domain/mode/modeTypes';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import {
   useInstructorVoice,
   type InstructorVoice,

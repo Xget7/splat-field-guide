@@ -6,11 +6,7 @@ import {
   type Procedure,
   type Step,
 } from '../../pack/pack';
-import {
-  currentProcedure,
-  currentStep,
-  type SessionState,
-} from '../../guide/domain/session';
+import { currentProcedure, currentStep, type SessionState } from '../../guide';
 import { focusPart, namedPart, procedureForQuestion } from './instructor';
 
 /** Reserve room for at most two notes plus instructions, history and an answer in 4096 tokens. */

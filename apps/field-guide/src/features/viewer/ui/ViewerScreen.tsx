@@ -13,20 +13,26 @@ import {
   SessionEventType,
   type SessionEvent,
   type SessionState,
-} from '../../guide/domain/session';
-import { useInstructorRuntime } from '../../instructor/state/InstructorRuntimeContext';
-import type { InstructorRuntime } from '../../instructor/data/runtime/instructorRuntime';
+  LearnMode,
+  cardPartFor,
+  partTrailFor,
+  stepRowsFor,
+} from '../../guide';
+import {
+  useInstructorRuntime,
+  FADE_IN,
+  FADE_OUT,
+  panelLayout,
+} from '../../instructor/views';
+import type { InstructorRuntime } from '../../instructor/views';
+
 import { Route, type ScreenProps } from '../../../app/navigation/routes';
-import { LearnMode } from '../../guide/domain/learningMode';
+
 import type { Size } from '../domain/screenGeometry';
 import { IconButton } from '../../../ui/Button';
 import { IconName } from '../../../ui/Icon';
 import { Color, Space, Type } from '../../../ui/theme';
-import {
-  cardPartFor,
-  partTrailFor,
-  stepRowsFor,
-} from '../../guide/domain/guideContent';
+
 import {
   AssistantDock,
   DOCK_EXPANDED_HEIGHT,
@@ -50,11 +56,7 @@ import { ViewerTopBar } from './ViewerTopBar';
 import { useKeyboardVisible } from '../../../ui/useKeyboardVisible';
 import { useWideLayout } from '../../../ui/useWideLayout';
 import { PanelMode } from '../domain/panelMotion';
-import {
-  FADE_IN,
-  FADE_OUT,
-  panelLayout,
-} from '../../instructor/ui/InstructorMotion';
+
 import { useViewerSession } from './useViewerSession';
 
 /** Development-only interface for Metro checks of the live viewer. */

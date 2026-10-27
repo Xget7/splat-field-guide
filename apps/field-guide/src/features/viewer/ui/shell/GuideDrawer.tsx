@@ -9,7 +9,7 @@ import {
   Space,
   Type,
 } from '../../../../ui/theme';
-import type { CardContent, StepRow } from '../../../guide/domain/guideContent';
+import type { CardContent, StepRow } from '../../../guide';
 import { StepList } from '../StepList';
 import { Drawer } from './Drawer';
 

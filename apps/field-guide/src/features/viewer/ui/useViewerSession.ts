@@ -3,22 +3,21 @@ import type { ProcedureId } from '../../pack/pack';
 import {
   SessionEventType,
   type SessionEvent,
-} from '../../guide/domain/session';
-import type { ReadyGuide } from '../../pack/catalog';
-import { sessionForExchange } from '../../instructor/domain/turn/turn';
-import type { InstructorRuntime } from '../../instructor/data/runtime/instructorRuntime';
-import { stepKeyFor } from '../../instructor/domain/voice/voiceSession';
+  cardContentFor,
+} from '../../guide';
 import {
+  sessionForExchange,
+  stepKeyFor,
   UtteranceKind,
   utteranceId,
   type VoiceContext,
-} from '../../instructor/domain/voice/voiceSession';
-import {
-  useInstructorVoice,
   type Utterance,
-} from '../../instructor/ui/useInstructorVoice';
-import { clearProgress, saveProgress } from '../../guide/data/progressStorage';
-import { cardContentFor } from '../../guide/domain/guideContent';
+} from '../../instructor';
+import type { InstructorRuntime } from '../../instructor/views';
+import { useInstructorVoice } from '../../instructor/views';
+import { clearProgress, saveProgress } from '../../guide/views';
+import type { ReadyGuide } from '../../pack/catalog';
+
 import {
   answeredExchanges,
   initialViewerState,

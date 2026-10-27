@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
-import { InstructorRuntimeContext } from '../features/instructor/state/InstructorRuntimeContext';
-import { createInstructorRuntime } from '../features/instructor/data/runtime/instructorRuntime';
+import {
+  InstructorRuntimeContext,
+  createInstructorRuntime,
+} from '../features/instructor/views';
+
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

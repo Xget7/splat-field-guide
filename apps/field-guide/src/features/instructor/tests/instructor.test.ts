@@ -4,7 +4,7 @@ import {
   SessionEventType,
   startAt,
   type SessionState,
-} from '../../guide/domain/session';
+} from '../../guide';
 import { TOUR_ID } from '../../pack/tour';
 import { bundledPack } from '../../pack/bundledPack';
 import {

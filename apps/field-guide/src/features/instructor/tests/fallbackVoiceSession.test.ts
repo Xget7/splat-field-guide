@@ -1,7 +1,7 @@
 import { speechInput, speechOutput } from 'react-native-on-device';
 import { fixturePack } from '@tests/fixturePack';
 import { fakeVoiceSession, voiceEvents } from '@tests/voiceSession';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { createFallbackVoiceSession } from '../data/voice/fallbackVoiceSession';
 import { createPipelineVoiceSession } from '../data/voice/pipelineVoiceSession';
 import { SpeechVoice, VOICE_LOCALE } from '../domain/voice/voiceCopy';

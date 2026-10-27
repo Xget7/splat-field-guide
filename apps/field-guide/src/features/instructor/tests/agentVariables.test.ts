@@ -1,5 +1,5 @@
 import { bundledPack } from '../../pack/bundledPack';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import {
   agentVariables,
   historyUpdate,

@@ -1,6 +1,6 @@
 import { createModelInstructor } from '../domain/turn/modelInstructor';
 import type { InstructorModel } from '../domain/turn/InstructorModel';
-import { INITIAL_SESSION } from '../../guide/domain/session';
+import { INITIAL_SESSION } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
 import { ReplyFormat, rulesFor } from '../domain/grounding';

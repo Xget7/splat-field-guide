@@ -27,44 +27,49 @@ import {
   useTapGesture,
 } from 'react-native-gesture-handler';
 import type { SplatViewSpec } from 'react-native-splat';
-import { createModelInstructor } from '../../instructor/domain/turn/modelInstructor';
-import { InstructorRuntimeContext } from '../../instructor/state/InstructorRuntimeContext';
+import {
+  createModelInstructor,
+  VoiceHint,
+  VOICE_LOCALE,
+  recognitionHintsFor,
+} from '../../instructor';
+import {
+  InstructorRuntimeContext,
+  createInstructorRuntime,
+  type InstructorRuntime,
+  onDeviceInstructions,
+} from '../../instructor/views';
+import type { VoiceSessionEvents } from '../../instructor';
+import { highlightFor, SessionEventType, LearnMode } from '../../guide';
+import { continueRowFor } from '../../library';
+import { loadProgress } from '../../guide/views';
+
 import {
   fakeVoiceSession,
   fakeVoiceRuntime,
   foregroundAppState,
 } from '@tests/voiceSession';
-import type { VoiceSessionEvents } from '../../instructor/domain/voice/voiceSession';
-import {
-  createInstructorRuntime,
-  type InstructorRuntime,
-} from '../../instructor/data/runtime/instructorRuntime';
+
 import { fixturePack } from '@tests/fixturePack';
 import { catalogFor } from '../../pack/catalog';
 import { CatalogProvider } from '../../../app/context/CatalogContext';
-import { highlightFor } from '../../guide/domain/derive';
+
 import type { ProcedureId } from '../../pack/pack';
-import { SessionEventType } from '../../guide/domain/session';
+
 import { TOUR_ID } from '../../pack/tour';
 import {
   Route,
   type RootStackParamList,
   type ScreenProps,
 } from '../../../app/navigation/routes';
-import { LearnMode } from '../../guide/domain/learningMode';
+
 import { bundledPack } from '../../pack/bundledPack';
-import { continueRowFor } from '../../library/domain/library';
-import { loadProgress } from '../../guide/data/progressStorage';
+
 import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
-import { onDeviceInstructions } from '../../instructor/data/answerers/onDeviceModel';
+
 import { Motion } from '../../../ui/theme';
 import { InstructorPanel } from '../ui/instructor/InstructorPanel';
 import { PanelMode, PanelPan } from '../domain/panelMotion';
-import {
-  VoiceHint,
-  VOICE_LOCALE,
-} from '../../instructor/ui/useInstructorVoice';
-import { recognitionHintsFor } from '../../instructor/domain/voice/recognitionHints';
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
@@ -83,7 +88,6 @@ jest.mock('react-native-gesture-handler', () => ({
 jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));
-jest.mock('react-native-splat', () => ({ SplatView: 'SplatView' }));
 jest.mock('react-native-safe-area-context', () => {
   const mock = require('react-native-safe-area-context/jest/mock').default;
   return {

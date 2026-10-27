@@ -1,5 +1,10 @@
-import { stepKeyFor } from '../../instructor/domain/voice/voiceSession';
-import type { Pack, ProcedureId } from '../../pack/pack';
+import {
+  stepKeyFor,
+  ExchangePhase,
+  TurnEventType,
+  type Exchange,
+  type TurnEvent,
+} from '../../instructor';
 import {
   INITIAL_SESSION,
   reduce,
@@ -7,23 +12,12 @@ import {
   startAt,
   type SessionEvent,
   type SessionState,
-} from '../../guide/domain/session';
-import {
-  ExchangePhase,
-  TurnEventType,
-  type Exchange,
-  type TurnEvent,
-} from '../../instructor/domain/turn/turn';
-import {
   CardKind,
   cardContentFor,
   type CardContent,
-} from '../../guide/domain/guideContent';
-
-export {
-  ExchangePhase,
-  type Exchange,
-} from '../../instructor/domain/turn/turn';
+} from '../../guide';
+export { ExchangePhase, type Exchange } from '../../instructor';
+import type { Pack, ProcedureId } from '../../pack/pack';
 
 export const MAX_THREAD_ENTRIES = 60;
 

@@ -18,27 +18,10 @@ import {
 } from 'react-native';
 import { Button, IconButton, IconButtonVariant } from '../../../../ui/Button';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { stepLabel } from '../../../guide/domain/stepLabel';
+import { stepLabel } from '../../../guide';
+import type { CardContent } from '../../../guide';
 import {
-  BUTTON_HEIGHT,
-  Color,
-  HAIRLINE,
-  MIN_TOUCH,
-  Motion,
-  Radius,
-  Space,
-  Type,
-} from '../../../../ui/theme';
-import type { CardContent } from '../../../guide/domain/guideContent';
-import {
-  EntryKind,
-  type Exchange,
-  type ThreadEntry,
-} from '../../domain/viewerState';
-import { InstructorThread } from './InstructorThread';
-import { ModeArea } from '../../../instructor/ui/ModeArea';
-import { speechTextFor } from '../../../instructor/domain/voice/speechPresentation';
-import {
+  ModeArea,
   Composer,
   ContentFade,
   composerStyles,
@@ -50,7 +33,31 @@ import {
   ReplyText,
   MuteButton,
   VoiceBar,
-} from '../../../instructor/ui/InstructorMotion';
+  useVoiceStatus,
+  VoiceStatus,
+  VoiceTint,
+  VoiceState,
+  type InstructorVoice,
+} from '../../../instructor/views';
+import { speechTextFor } from '../../../instructor';
+import {
+  BUTTON_HEIGHT,
+  Color,
+  HAIRLINE,
+  MIN_TOUCH,
+  Motion,
+  Radius,
+  Space,
+  Type,
+} from '../../../../ui/theme';
+
+import {
+  EntryKind,
+  type Exchange,
+  type ThreadEntry,
+} from '../../domain/viewerState';
+import { InstructorThread } from './InstructorThread';
+
 import {
   PanelMode,
   PanelPan,
@@ -58,15 +65,6 @@ import {
   panelOffset,
   togglePanel,
 } from '../../domain/panelMotion';
-import {
-  useVoiceStatus,
-  VoiceStatus,
-} from '../../../instructor/ui/AssistantStatus';
-import { VoiceTint } from '../../../instructor/ui/VoiceTint';
-import {
-  VoiceState,
-  type InstructorVoice,
-} from '../../../instructor/ui/useInstructorVoice';
 
 // Cap the conversation height to keep the splat visible above it.
 const CHAT_SHARE = '50%';

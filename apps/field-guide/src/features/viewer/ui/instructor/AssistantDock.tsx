@@ -17,7 +17,16 @@ import Animated, {
 import {
   VoiceState,
   type InstructorVoice,
-} from '../../../instructor/ui/useInstructorVoice';
+  LevelMeter,
+  PANEL_LAYOUT,
+  ModeArea,
+  StatusLabel,
+  useAssistantStatus,
+  useVoiceStatus,
+  VoiceStatus,
+  VoiceTint,
+  VoiceWave,
+} from '../../../instructor/views';
 import { Glass, GlassTone } from '../../../../ui/Glass';
 import { Icon, IconName } from '../../../../ui/Icon';
 import {
@@ -34,22 +43,10 @@ import {
   type Exchange,
   type ThreadEntry,
 } from '../../domain/viewerState';
-import {
-  LevelMeter,
-  PANEL_LAYOUT,
-} from '../../../instructor/ui/InstructorMotion';
+
 import { InstructorThread } from './InstructorThread';
-import { ModeArea } from '../../../instructor/ui/ModeArea';
 
 import { useDockKeyboard } from '../../../../ui/useKeyboardOverlap';
-import {
-  StatusLabel,
-  useAssistantStatus,
-  useVoiceStatus,
-  VoiceStatus,
-} from '../../../instructor/ui/AssistantStatus';
-import { VoiceTint } from '../../../instructor/ui/VoiceTint';
-import { VoiceWave } from '../../../instructor/ui/VoiceWave';
 
 export const DOCK_COLLAPSED = {
   width: 320,

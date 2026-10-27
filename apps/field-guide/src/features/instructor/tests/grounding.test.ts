@@ -1,8 +1,4 @@
-import {
-  SessionEventType,
-  INITIAL_SESSION,
-  startAt,
-} from '../../guide/domain/session';
+import { SessionEventType, INITIAL_SESSION, startAt } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
 import { TOUR_ID } from '../../pack/tour';
