@@ -90,6 +90,30 @@ class SplatEngineTest : public ::testing::Test {
   int64_t vsync = 0;
 };
 
+TEST(FakeRendererTest, KeepsDrawRangesIndependentOfTheCaller) {
+  FakeRenderer renderer;
+  std::array<SplatRenderer::Range, 2> ranges{{{2, 3}, {8, 5}}};
+  const auto submitted = ranges;
+  SplatRenderer::Frame frame;
+  frame.orderSource = SplatRenderer::OrderSource::gpu;
+  frame.ranges = ranges.data();
+  frame.rangeCount = static_cast<uint32_t>(ranges.size());
+
+  ASSERT_TRUE(renderer.draw(frame));
+  ranges = {};
+
+  ASSERT_EQ(renderer.last.rangeCount, submitted.size());
+  ASSERT_NE(renderer.last.ranges, nullptr);
+  for (std::size_t i = 0; i < submitted.size(); ++i) {
+    EXPECT_EQ(renderer.last.ranges[i].offset, submitted[i].offset);
+    EXPECT_EQ(renderer.last.ranges[i].count, submitted[i].count);
+  }
+
+  ASSERT_TRUE(renderer.draw({}));
+  EXPECT_EQ(renderer.last.rangeCount, 0u);
+  EXPECT_EQ(renderer.last.ranges, nullptr);
+}
+
 TEST_F(SplatEngineTest, DrawsOnlyWhenSomethingVisibleChanged) {
   load(pairBytes());
   EXPECT_TRUE(tick());

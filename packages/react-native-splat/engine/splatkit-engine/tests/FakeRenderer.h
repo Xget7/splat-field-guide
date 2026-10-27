@@ -45,6 +45,12 @@ class FakeRenderer final : public SplatRenderer {
   bool sortsOnGpu() const override { return gpuSort; }
   bool draw(const Frame& frame) override {
     last = frame;
+    // Draw ranges are borrowed only for this call; assertions read the captured frame later.
+    ranges_.clear();
+    if (frame.rangeCount != 0) {
+      ranges_.assign(frame.ranges, frame.ranges + frame.rangeCount);
+    }
+    last.ranges = ranges_.empty() ? nullptr : ranges_.data();
     ++frames;
     return true;
   }
@@ -78,6 +84,7 @@ class FakeRenderer final : public SplatRenderer {
   float scale_ = 1;
   bool linear_ = false;
   uint64_t completed_ = 0;
+  std::vector<Range> ranges_;
   std::optional<GpuWorldInfo> world_;
   std::string description_ = "fake";
 };

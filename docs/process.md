@@ -237,3 +237,12 @@ Both iOS engine slices were rebuilt and the current XCFramework identity verifie
 Read-only checks retained the cached Kokoro digest/license bundle and exact V8 baked-source behavior without replacing the prepared assembly.
 Temporary extraction validation output was removed after checks.
 Android execution and physical acceptance remain unchecked.
+
+## Captured renderer range lifetime, 2026-10-27
+
+CI failed `SplatEngineTest.DrawsTheWholeWorldAsOneRangeTheGpuSorts` because `FakeRenderer` retained a pointer to the render call's local `worldRange` after that call returned.
+AddressSanitizer reproduced the original test's `stack-use-after-return`, identifying `worldRange` in `SplatEngine::step`.
+A deterministic regression also failed before the fix by overwriting a still-live caller buffer after `draw`, without relying on stack reuse or timing.
+The test renderer now copies submitted ranges into its own storage and clears the captured pointer for an empty frame.
+The complete portable-hashing C++ suite passed with AddressSanitizer and forced stack-use-after-return detection: 176 tests passed, with the existing external World Labs kitchen fixture test skipped.
+Temporary sanitizer build output was removed after validation.
