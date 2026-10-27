@@ -5,7 +5,9 @@ import SplatKitCore
 /// Methods accept any thread, queue commands in order, and serialize load reservations with engine
 /// publication and upload.
 final class SplatRenderLoop {
-  private static let frameRates = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
+  /// ProMotion would draw up to 120 frames a second; capping at 60 halves the GPU work and battery
+  /// drain for a view that holds still most of the time.
+  private static let frameRates = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
   private static let nanosPerSecond = 1e9
 
   /// One decode at a time across every view: each holds a whole cloud in memory.

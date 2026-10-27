@@ -34,10 +34,15 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
   private var choreographer: Choreographer? = null
   private var loaded: SplatSource? = null
   private var loadStarted = 0L
+  private var lastFrameNanos = 0L
   private val frameCallback = object : Choreographer.FrameCallback {
     override fun doFrame(frameTimeNanos: Long) {
       scheduled = false
-      if (!dropped && active && texture.isAttachedToWindow && SplatEngine.draw(engine, frameTimeNanos)) wake()
+      if (dropped || !active || !texture.isAttachedToWindow) return
+      // Vsync runs at 90 or 120 Hz on some panels; skipping early ticks holds the GPU to 60 frames a second.
+      if (frameTimeNanos - lastFrameNanos < MIN_FRAME_NANOS) { wake(); return }
+      lastFrameNanos = frameTimeNanos
+      if (SplatEngine.draw(engine, frameTimeNanos)) wake()
     }
   }
 
@@ -192,5 +197,8 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     private const val VULKAN_INITIALIZATION_FAILED = "Vulkan initialization failed"
     private const val PACK_LOADING_FAILED = "Pack loading failed"
     private const val MAX_SPLAT_COUNT = 4294967295.0
+    private const val MAX_FRAMES_PER_SECOND = 60
+    // Two milliseconds under the 60 Hz period, so vsync jitter on a 60 Hz panel never skips a frame.
+    private const val MIN_FRAME_NANOS = 1_000_000_000L / MAX_FRAMES_PER_SECOND - 2_000_000L
   }
 }
