@@ -18,10 +18,7 @@ import {
   createBackoff,
   type BackoffLimits,
 } from '../../../../platform/connectivity/backoff';
-import {
-  createNetworkService,
-  pingProbe,
-} from '../../../../platform/connectivity/networkService';
+import { createNetworkService } from '../../../../platform/connectivity/networkService';
 import { createModeController } from '../../domain/mode/modeController';
 import { runSwitch } from '../../domain/mode/modeSwitcher';
 import { NO_PROXY_REASON } from '../../domain/mode/modeCopy';
@@ -38,7 +35,8 @@ import type { Pack } from '../../../pack/pack';
 import type { InstructorRuntime } from '../../domain/instructorRuntime';
 import { createInstructorForeground } from './instructorForeground';
 import { createInstructorSessions } from './instructorSessions';
-import { createAgentConnection } from '../agent/agentConnection';
+import { createAgentConnection } from '../proxy/agentConnection';
+import { createProxyClient } from '../proxy/proxyClient';
 import {
   offlineAnnouncement,
   switchSources,
@@ -69,11 +67,8 @@ export function createInstructorRuntime({
   const paths = platform.networkMonitor;
   const foreground = createInstructorForeground(platform.appState);
   const model = createOnDeviceModel(platform.languageModel);
-  const connection = createAgentConnection({
-    url,
-    fetch: platform.fetch,
-    clock,
-  });
+  const proxy = url === null ? null : createProxyClient(url, platform);
+  const connection = createAgentConnection({ proxy, clock });
   // Switch waits are tracked so stop cancels the ones still pending.
   const switchTimers = new Set<Cancel>();
   const switchTiming: Timers = {
@@ -172,11 +167,11 @@ export function createInstructorRuntime({
     publishVoice(controller.current());
   }
   const probe =
-    url === null
+    proxy === null
       ? async () => {
           throw new Error(VoiceStartFailure.network);
         }
-      : pingProbe(url, platform);
+      : proxy.ping;
   async function switchMode(status: ModeStatus) {
     const id = ++switchId;
     const tasks = switchTasks(status.mode, {
@@ -278,10 +273,9 @@ export function createInstructorRuntime({
     },
   });
   const cloud = createCloudModel({
-    url,
+    proxy,
     clock,
     timers,
-    streamingRequest: platform.streamingRequest,
     isOnline: () => controller.current().mode === InstructorMode.online,
     onFailure: () => network.report({ ok: false }),
   });

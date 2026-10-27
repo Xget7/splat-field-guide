@@ -11,9 +11,13 @@ import {
   FIRST_TEXT_MS,
   TOTAL_MS,
 } from '../data/answerers/cloudModel';
-import { fakePlatform } from '@tests/platform';
+import { fakePlatform, fakeStreamingRequests } from '@tests/platform';
+import type { FakeStreamingRequest } from '@tests/platform';
+import { createProxyClient } from '../data/proxy/proxyClient';
 
-const { timers } = fakePlatform().platform;
+const requests = fakeStreamingRequests();
+const { platform } = fakePlatform({ streamingRequest: requests.create });
+const { timers } = platform;
 const pack = fixturePack();
 const URL = 'https://proxy.example';
 const request = {
@@ -24,52 +28,12 @@ const request = {
   history: [],
 };
 
-class FakeRequest {
-  static last: FakeRequest;
-  status = 0;
-  responseText = '';
-  method = '';
-  url = '';
-  headers: Record<string, string> = {};
-  body = '';
-  aborted = false;
-  onprogress: (() => void) | null = null;
-  onload: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  constructor() {
-    FakeRequest.last = this;
-  }
-  open(method: string, url: string) {
-    this.method = method;
-    this.url = url;
-  }
-  setRequestHeader(name: string, value: string) {
-    this.headers[name] = value;
-  }
-  send(body: string) {
-    this.body = body;
-  }
-  abort() {
-    this.aborted = true;
-  }
-  receive(chunk: string) {
-    this.status = 200;
-    this.responseText += chunk;
-    this.onprogress?.();
-  }
-  end(status = 200) {
-    this.status = status;
-    this.onload?.();
-  }
-}
-
 let time = 0;
 const model = (url: string | null = URL) =>
   createCloudModel({
-    url,
+    proxy: url === null ? null : createProxyClient(url, platform),
     clock: () => time,
     timers,
-    streamingRequest: () => new FakeRequest(),
   });
 const line = (event: object) => `${JSON.stringify(event)}\n`;
 
@@ -102,7 +66,7 @@ test('is not ready without a proxy', () => {
 
 test('posts the instructions and a prompt without notes to the proxy', () => {
   model().respond(request, jest.fn());
-  const sent = FakeRequest.last;
+  const sent = requests.last;
   expect([sent.method, sent.url]).toEqual(['POST', `${URL}/v1/answer`]);
   expect(sent.headers['Content-Type']).toBe('application/json');
   expect(JSON.parse(sent.body)).toEqual({
@@ -111,36 +75,21 @@ test('posts the instructions and a prompt without notes to the proxy', () => {
   });
 });
 
-test('streams text across chunk boundaries and resolves on done', async () => {
-  const onText = jest.fn();
-  const reply = model().respond(request, onText);
-  const sent = FakeRequest.last;
-  sent.receive('{"text":"It sup');
-  expect(onText).not.toHaveBeenCalled();
-  sent.receive('plies"}\n\n{"text":" the starter."}\n');
-  sent.receive(line({ done: true }));
-  sent.end();
-  await expect(reply).resolves.toBe('It supplies the starter.');
-  expect(onText.mock.calls).toEqual([
-    ['It supplies'],
-    ['It supplies the starter.'],
-  ]);
-});
-
 test.each([
   [
     'an error event',
-    (sent: FakeRequest) => sent.receive(line({ error: 'overloaded' })),
+    (sent: FakeStreamingRequest) => sent.receive(line({ error: 'overloaded' })),
     'overloaded',
   ],
   [
     'an error alongside done',
-    (sent: FakeRequest) => sent.receive(line({ done: true, error: 'cut off' })),
+    (sent: FakeStreamingRequest) =>
+      sent.receive(line({ done: true, error: 'cut off' })),
     'cut off',
   ],
   [
     'an error alongside text',
-    (sent: FakeRequest) => {
+    (sent: FakeStreamingRequest) => {
       sent.receive(line({ text: 'Truncated', error: 'cut off' }));
       sent.receive(line({ done: true }));
     },
@@ -148,28 +97,36 @@ test.each([
   ],
   [
     'an unreadable line',
-    (sent: FakeRequest) => sent.receive('nope\n'),
+    (sent: FakeStreamingRequest) => sent.receive('nope\n'),
     'unreadable stream',
   ],
-  ['a null event', (sent: FakeRequest) => sent.receive('null\n'), 'bad event'],
+  [
+    'a null event',
+    (sent: FakeStreamingRequest) => sent.receive('null\n'),
+    'bad event',
+  ],
   [
     'a stream without done',
-    (sent: FakeRequest) => {
+    (sent: FakeStreamingRequest) => {
       sent.receive(line({ text: 'It' }));
       sent.end();
     },
     'stream ended early',
   ],
-  ['a refused request', (sent: FakeRequest) => sent.end(429), 'status 429'],
-  ['a network failure', (sent: FakeRequest) => sent.onerror?.(), 'network'],
+  [
+    'a refused request',
+    (sent: FakeStreamingRequest) => sent.end(429),
+    'status 429',
+  ],
+  ['a network failure', (sent: FakeStreamingRequest) => sent.fail(), 'network'],
 ])(
   '%s rejects and skips the cloud for a while',
   async (_case, fail, reason) => {
     const cloud = model();
     const reply = cloud.respond(request, jest.fn());
-    fail(FakeRequest.last);
+    fail(requests.last);
     await expect(reply).rejects.toThrow(reason);
-    expect(FakeRequest.last.aborted).toBe(true);
+    expect(requests.last.aborted).toBe(true);
     expect(cloud.isReady()).toBe(false);
     time = COOL_OFF_MS;
     expect(cloud.isReady()).toBe(true);
@@ -182,7 +139,7 @@ test.each([undefined, '', ' '])(
     const cloud = model();
     const reply = cloud.respond(request, jest.fn());
     if (delta !== undefined) {
-      FakeRequest.last.receive(line({ text: delta }));
+      requests.last.receive(line({ text: delta }));
     }
     jest.advanceTimersByTime(FIRST_TEXT_MS);
     expect(cloud.isReady()).toBe(false);
@@ -192,7 +149,7 @@ test.each([undefined, '', ' '])(
 
 test('first text stops the first-text timer, not the total one', async () => {
   const reply = model().respond(request, jest.fn());
-  FakeRequest.last.receive(line({ text: 'It' }));
+  requests.last.receive(line({ text: 'It' }));
   jest.advanceTimersByTime(FIRST_TEXT_MS);
   jest.advanceTimersByTime(TOTAL_MS - FIRST_TEXT_MS);
   await expect(reply).rejects.toThrow('too slow');
@@ -203,7 +160,7 @@ test('cancel rejects without skipping the cloud afterwards', async () => {
   const reply = cloud.respond(request, jest.fn());
   cloud.cancel();
   await expect(reply).rejects.toThrow('cancelled');
-  expect(FakeRequest.last.aborted).toBe(true);
+  expect(requests.last.aborted).toBe(true);
   expect(cloud.isReady()).toBe(true);
   expect(() => cloud.cancel()).not.toThrow();
 });
@@ -211,7 +168,7 @@ test('cancel rejects without skipping the cloud afterwards', async () => {
 test('a new request stops the one before it', async () => {
   const cloud = model();
   const first = cloud.respond(request, jest.fn());
-  const firstRequest = FakeRequest.last;
+  const firstRequest = requests.last;
   cloud.respond(request, jest.fn());
   await expect(first).rejects.toThrow('cancelled');
   expect(firstRequest.aborted).toBe(true);
@@ -231,11 +188,11 @@ test.each(['error', 'missing done'])(
       request,
       changed,
     );
-    FakeRequest.last.receive(line({ text: 'Provisional reply.' }));
+    requests.last.receive(line({ text: 'Provisional reply.' }));
     if (failure === 'error') {
-      FakeRequest.last.receive(line({ error: 'cut off' }));
+      requests.last.receive(line({ error: 'cut off' }));
     } else {
-      FakeRequest.last.end();
+      requests.last.end();
     }
     await answered;
     expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -249,21 +206,20 @@ test('offline skips the cloud and a slow first text is not a network failure', a
   let online = false;
   const failure = jest.fn();
   const cloud = createCloudModel({
-    url: URL,
+    proxy: createProxyClient(URL, platform),
     clock: () => time,
     timers,
     isOnline: () => online,
     onFailure: failure,
-    streamingRequest: () => new FakeRequest(),
   });
   expect(cloud.isReady()).toBe(false);
   online = true;
   const reply = cloud.respond(request, jest.fn());
   time = 5000;
-  FakeRequest.last.receive(line({ text: 'It' }));
+  requests.last.receive(line({ text: 'It' }));
   time = 6000;
-  FakeRequest.last.receive(line({ text: ' supplies' }));
-  FakeRequest.last.receive(line({ done: true }));
+  requests.last.receive(line({ text: ' supplies' }));
+  requests.last.receive(line({ done: true }));
   await reply;
   expect(failure).not.toHaveBeenCalled();
 });

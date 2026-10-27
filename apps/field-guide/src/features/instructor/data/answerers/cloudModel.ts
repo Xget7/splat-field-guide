@@ -7,12 +7,8 @@ import {
 } from '../../domain/grounding';
 import { packKnowledge } from '../../domain/knowledge';
 import type { InstructorModel } from '../../domain/turn/InstructorModel';
-import type {
-  Cancel,
-  Clock,
-  StreamingRequest,
-  Timers,
-} from '../../../../platform/ports';
+import type { Cancel, Clock, Timers } from '../../../../platform/ports';
+import type { ProxyClient } from '../proxy/proxyClient';
 
 // Fall back to on-device generation if the cloud takes too long to begin answering.
 export const FIRST_TEXT_MS = 6000;
@@ -30,58 +26,44 @@ export function cloudInstructions(pack: Pack): string {
   ].join('\n');
 }
 
-const ANSWER_PATH = '/v1/answer';
-const CONTENT_TYPE_HEADER = 'Content-Type';
-const JSON_CONTENT_TYPE = 'application/json';
-const HTTP_OK = 200;
 const Failure = {
-  unreadable: 'unreadable stream',
-  badEvent: 'bad event',
-  incomplete: 'stream ended early',
-  network: 'network',
   firstText: 'no text in time',
   total: 'too slow',
   cancelled: 'cancelled',
+  noProxy: 'no proxy',
 } as const;
 
-interface ProxyEvent {
-  readonly text?: unknown;
-  readonly done?: unknown;
-  readonly error?: unknown;
-}
-
 export interface CloudModelOptions {
-  readonly url: string | null;
+  readonly proxy: ProxyClient | null;
   readonly isOnline?: () => boolean;
   readonly onFailure?: () => void;
   readonly clock: Clock;
   readonly timers: Timers;
-  readonly streamingRequest: () => StreamingRequest;
 }
 
 /** The proxy retains the API key and streams one JSON object per line. */
 export function createCloudModel({
-  url,
+  proxy,
   clock: now,
   timers,
   isOnline = () => true,
   onFailure,
-  streamingRequest,
 }: CloudModelOptions): InstructorModel {
   let offlineUntil = 0;
   let stopCurrent: (() => void) | null = null;
 
   return {
-    isReady: () => url !== null && isOnline() && now() >= offlineUntil,
+    isReady: () => proxy !== null && isOnline() && now() >= offlineUntil,
     prewarm() {
       // The first question sends the upstream cache hint; nothing to load here.
     },
     respond({ question, state, pack, history, evidence }, onText) {
       stopCurrent?.();
       return new Promise<string>((resolve, reject) => {
-        const xhr = streamingRequest();
-        let text = '';
-        let consumed = 0;
+        if (proxy === null) {
+          reject(new Error(`Cloud model: ${Failure.noProxy}`));
+          return;
+        }
         let finished = false;
         const deadlines: Cancel[] = [];
         const settle = () => {
@@ -89,80 +71,8 @@ export function createCloudModel({
           deadlines.forEach(cancel => cancel());
           stopCurrent = null;
         };
-        const fail = (reason: string, coolOff = true) => {
-          if (finished) {
-            return;
-          }
-          settle();
-          if (coolOff) {
-            onFailure?.();
-            offlineUntil = now() + COOL_OFF_MS;
-          }
-          xhr.abort();
-          reject(new Error(`Cloud model: ${reason}`));
-        };
-        const read = () => {
-          if (finished || xhr.status !== HTTP_OK) {
-            return;
-          }
-          const body = xhr.responseText;
-          let end = body.indexOf('\n', consumed);
-          while (end !== -1 && !finished) {
-            const line = body.slice(consumed, end).trim();
-            consumed = end + 1;
-            end = body.indexOf('\n', consumed);
-            if (line === '') {
-              continue;
-            }
-            let event: ProxyEvent;
-            try {
-              event = JSON.parse(line);
-            } catch {
-              fail(Failure.unreadable);
-              return;
-            }
-            if (
-              event === null ||
-              typeof event !== 'object' ||
-              Array.isArray(event)
-            ) {
-              fail(Failure.badEvent);
-              return;
-            }
-            if (event.error !== undefined) {
-              fail(
-                typeof event.error === 'string'
-                  ? event.error
-                  : Failure.badEvent,
-              );
-            } else if (typeof event.text === 'string') {
-              text += event.text;
-              if (text.trim() !== '') {
-                deadlines[0]?.();
-              }
-              onText(text);
-            } else if (event.done === true) {
-              settle();
-              resolve(text);
-            } else {
-              fail(Failure.badEvent);
-            }
-          }
-        };
-        xhr.onprogress = read;
-        xhr.onload = () => {
-          if (xhr.status !== HTTP_OK) {
-            fail(`status ${xhr.status}`);
-            return;
-          }
-          read();
-          fail(Failure.incomplete);
-        };
-        xhr.onerror = () => fail(Failure.network);
-        xhr.open('POST', `${url}${ANSWER_PATH}`);
-        xhr.setRequestHeader(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE);
-        xhr.send(
-          JSON.stringify({
+        const answer = proxy.answer(
+          {
             system: cloudInstructions(pack),
             prompt: promptFor(
               question,
@@ -172,7 +82,37 @@ export function createCloudModel({
               PromptNotes.none,
               evidence,
             ),
-          }),
+          },
+          text => {
+            if (finished) {
+              return;
+            }
+            if (text.trim() !== '') {
+              deadlines[0]?.();
+            }
+            onText(text);
+          },
+        );
+        const fail = (reason: string, coolOff = true) => {
+          if (finished) {
+            return;
+          }
+          settle();
+          if (coolOff) {
+            onFailure?.();
+            offlineUntil = now() + COOL_OFF_MS;
+          }
+          answer.cancel();
+          reject(new Error(`Cloud model: ${reason}`));
+        };
+        answer.text.then(
+          text => {
+            if (!finished) {
+              settle();
+              resolve(text);
+            }
+          },
+          (error: Error) => fail(error.message),
         );
         deadlines.push(
           timers.after(FIRST_TEXT_MS, () => fail(Failure.firstText)),
