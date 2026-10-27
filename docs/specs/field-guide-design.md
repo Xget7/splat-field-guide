@@ -35,20 +35,20 @@ Instructor replies follow [ADR 0006](../adr/0006-commands-and-ordered-instructor
 
 | Unit | Owns |
 | --- | --- |
-| `src/app` | Startup with the production platform and the instructor, navigation, the catalog context and the pack error screen |
+| `src/app` | Startup with the production platform, the instructor and the progress storage, the navigation adapters that map each route to a screen's props, and the pack error screen |
 | `src/features/pack` | Pure pack parsing, catalog and parts tour |
-| `src/features/guide` | Session, progress, highlight and framing rules, the guide detail screen and the native progress adapter |
+| `src/features/guide` | Session, session start, progress, highlight and framing rules, the guide detail screen and the progress storage over the storage port |
 | `src/features/instructor` | Command routing, turns, authored grounding, the answerers and the Worker proxy client, voice, mode and voice widgets, the composition that wires them to speech, network and modes, and the store of its status |
 | `src/features/viewer` | The viewer screen and its instructor panel, native viewer readiness, gestures, camera conversion, framing and projected markers |
-| `src/features/library`, `ar`, `bench` | The library, the AR screens and check, and the renderer bench |
-| `src/platform`, `src/ui` | The platform ports, network quality and monitoring, then business-free presentation primitives |
+| `src/features/library`, `ar`, `bench` | The library; the AR screens, the assembly tour rules and store, and the AR availability rules; the renderer bench |
+| `src/platform`, `src/ui` | The platform ports, including key-value storage, network quality and monitoring, then business-free presentation primitives |
 | `react-native-splat` | Shared C++ viewer behaviour, Metal/Vulkan rendering, Nitro views, iOS spatial placement/assembly and provisional AR alignment |
 | `react-native-on-device` | Platform speech, iOS Apple generation/Kokoro and audio coordination |
 | `instructor-proxy` | Cloud request policy and stream translation |
 | `splat-tools`, separate workspace | Capture, annotation, reconstruction, training and pack export |
 
 A slice splits into `domain`, `data`, `state`, `ui` and `tests` folders as it needs them and is reached only through its `index.ts`, free of React and native imports, or its `views.ts`.
-Dependencies run from viewer to instructor to guide to pack; pack, platform and UI import no slice, and domain code loads no React or native package.
+Dependencies run from viewer to instructor to guide to pack; no slice imports `src/app`, pack, platform and UI import no slice, and domain code loads no React or native package.
 The iOS-only AR screen checks recognition and four landmarks with a separately prepared reference; it stays hidden unless `AR_CHECK_ENABLED` is set, and physical alignment and semantic camera masks remain open.
 
 ## Spatial assembly
