@@ -72,6 +72,7 @@ Versions and resource identities remain in the app lockfiles and [provenance](do
 | use-sync-external-store | MIT | [Source](https://github.com/react/react) |
 | warn-once | MIT | [Source](https://github.com/satya164/warn-once) |
 | whatwg-fetch | MIT | [Source](https://github.com/github/fetch) |
+| zustand 5.0.16 | MIT | [License](https://raw.githubusercontent.com/pmndrs/zustand/v5.0.16/LICENSE) |
 
 ONNX Runtime dependency notices are retained as one upstream document, including their individual licenses.
 The speech frontend uses Misaki/BART resources; no eSpeak or phonemizer code/data is bundled.
