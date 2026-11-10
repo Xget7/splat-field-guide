@@ -6,6 +6,7 @@ import {
   type Procedure,
   type Step,
 } from '../../pack/pack';
+import { relationsOf, type PartRelation } from '../../pack/graph';
 import { currentProcedure, currentStep, type SessionState } from '../../guide';
 import { focusPart, namedPart, procedureForQuestion } from './instructor';
 
@@ -250,6 +251,8 @@ export interface AuthoredEvidence {
   readonly currentStep: Step | null;
   readonly notes: readonly PartNote[];
   readonly safety: PartNote | null;
+  /** The subject's supplied connections, each with its evidence. */
+  readonly relations: readonly PartRelation[];
 }
 
 export function evidenceFor(
@@ -273,5 +276,6 @@ export function evidenceFor(
     notes,
     safety:
       subject?.notes.find(note => note.topic === NoteTopic.safety) ?? null,
+    relations: subject === null ? [] : relationsOf(pack, subject.id),
   };
 }

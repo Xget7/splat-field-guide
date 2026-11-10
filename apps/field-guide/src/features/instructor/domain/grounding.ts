@@ -14,11 +14,14 @@ import {
   ReplyLength,
 } from './answerFormat';
 import { NOT_COVERED_REPLY, type InstructorAnswer } from './instructor';
+import { connectionsLine } from './knowledge';
 
 // Bound prompt size to leave room for the answer within the on-device token window.
 export const MAX_QUESTION_CHARS = 300;
 export const MAX_HISTORY_CHARS = 300;
 export const MAX_PROMPT_CHARS = 6000;
+// A hub part may have many connections; keep room for its notes in the on-device window.
+export const MAX_CONNECTIONS = 6;
 const EVIDENCE_TOO_LARGE = 'Authored evidence exceeds the model prompt budget';
 
 export interface PreviousExchange {
@@ -148,6 +151,20 @@ export function promptFor(
       }
     }
   }
+  if (notes === PromptNotes.subject && evidence.relations.length > 0) {
+    const connections = connectionsLine(
+      evidence.relations.slice(0, MAX_CONNECTIONS),
+    );
+    // Connections are optional evidence, so they yield to the budget instead of failing the turn.
+    if (used + connections.length + 1 <= maxChars) {
+      let at = lines.findIndex(line => line.startsWith('Part: ')) + 1;
+      if (lines[at]?.startsWith('Notes: ')) {
+        at += 1;
+      }
+      lines.splice(at, 0, connections);
+      used += connections.length + 1;
+    }
+  }
   const earlierLines: string[][] = [];
   for (const earlier of [...history].reverse()) {
     const entry = [
@@ -180,11 +197,16 @@ export function inventsNumbers(
     procedure,
     onScreen,
     currentStep: step,
+    relations,
   } = evidence;
   const known = new Set(
     numbersIn(
       [
         subject?.name ?? '',
+        ...relations.flatMap(({ relation, other }) => [
+          other.name,
+          relation.evidence.source,
+        ]),
         subject?.summary ?? '',
         subject?.details ?? '',
         ...notes.map(note => note.text),

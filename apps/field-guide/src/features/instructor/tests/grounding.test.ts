@@ -1,6 +1,7 @@
 import { SessionEventType, INITIAL_SESSION, startAt } from '../../guide';
 import { evidenceFor } from '../domain/context';
-import { fixturePack } from '@tests/fixturePack';
+import { fixtureCopy, fixturePack } from '@tests/fixturePack';
+import { parsePack } from '../../pack/parsePack';
 import { TOUR_ID } from '../../pack/tour';
 import {
   answerAbout,
@@ -82,6 +83,24 @@ describe('prompt', () => {
     ).toBe(['Part: Battery', 'Question: What does the battery do?'].join('\n'));
   });
 
+  test('grounds what a part is connected to in its supplied relations', () => {
+    const question = 'What is the coolant reservoir connected to?';
+    const prompt = promptFor(
+      question,
+      INITIAL_SESSION,
+      pack,
+      [],
+      PromptNotes.subject,
+    ).split('\n');
+    expect(prompt[0]).toBe('Part: Coolant reservoir');
+    expect(prompt[2]).toBe(
+      'Connections: feeds Engine (Workshop manual, cooling).',
+    );
+    expect(
+      promptFor(question, INITIAL_SESSION, pack, [], PromptNotes.none),
+    ).not.toContain('Connections');
+  });
+
   test('a part without notes falls back to its summary', () => {
     expect(
       promptFor(
@@ -152,6 +171,25 @@ describe('replies', () => {
     expect(inventsNumbers('Use 5W-30 oil.', evidence)).toBe(true);
     expect(inventsNumbers('It is a 12 volt battery.', evidence)).toBe(false);
     expect(inventsNumbers('No numbers here.', evidence)).toBe(false);
+  });
+
+  test('a number in a connected part or its evidence source is not invented', () => {
+    const manifest = fixtureCopy();
+    manifest.relations[0].evidence.source = 'Drawing 12';
+    manifest.parts[5].name = 'Engine 2';
+    const result = parsePack(manifest);
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+    const connected = evidenceFor(
+      'What feeds the coolant reservoir?',
+      INITIAL_SESSION,
+      result.pack,
+    );
+    expect(
+      inventsNumbers('Drawing 12 shows it feeds Engine 2.', connected),
+    ).toBe(false);
+    expect(inventsNumbers('It feeds Engine 3.', connected)).toBe(true);
   });
 
   test('an invented number turns the reply into the not covered answer', () => {
