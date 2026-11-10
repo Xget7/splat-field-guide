@@ -104,6 +104,71 @@ export interface Procedure {
   readonly steps: readonly Step[];
 }
 
+/**
+ * Relationships between parts in Brick vocabulary; a part's `parent` is already `brick:hasPart`.
+ * Preparation supplies them with evidence; the app never infers them from geometry or similarity.
+ */
+export const RelationType = {
+  /** `brick:feeds`: media flows from `from` into `to`, such as hose to housing to tool. */
+  feeds: 'feeds',
+  /** `from` mechanically supports and moves `to`, one link of a kinematic chain. */
+  carries: 'carries',
+  /** The motors of `from` actuate the joint of `to`. */
+  drives: 'drives',
+  /** Measured proximity on the reconstruction; symmetric and stored once. */
+  adjacent: 'adjacent',
+} as const;
+export type RelationType = (typeof RelationType)[keyof typeof RelationType];
+
+export const EvidenceKind = {
+  /** Stated by a reviewed source such as a drawing or manual. */
+  authored: 'authored',
+  /** Measured on the reconstruction by preparation tooling. */
+  measured: 'measured',
+} as const;
+export type EvidenceKind = (typeof EvidenceKind)[keyof typeof EvidenceKind];
+
+export type RelationEvidence =
+  | { readonly kind: typeof EvidenceKind.authored; readonly source: string }
+  | {
+      readonly kind: typeof EvidenceKind.measured;
+      readonly source: string;
+      /** Gap between the parts in reconstruction units, when measured. */
+      readonly distance?: number;
+    };
+
+export interface Relation {
+  readonly type: RelationType;
+  readonly from: PartId;
+  readonly to: PartId;
+  readonly evidence: RelationEvidence;
+}
+
+export const VectorKind = { image: 'image', text: 'text' } as const;
+export type VectorKind = (typeof VectorKind)[keyof typeof VectorKind];
+
+/** Identifies the encoder whose outputs are comparable; equal dimensions alone are not enough. */
+export interface VectorSpace {
+  readonly id: string;
+  readonly encoder: string;
+  readonly weightsSha256: string;
+  readonly preprocessing: string;
+  readonly dimensions: number;
+  readonly normalized: true;
+}
+
+export interface VectorRow {
+  readonly part: PartId;
+  readonly kind: VectorKind;
+}
+
+/** Supplied part vectors: `vectors` holds little-endian float32 rows in `rows` order. */
+export interface PackSemantic {
+  readonly space: VectorSpace;
+  readonly vectors: PackFile;
+  readonly rows: readonly VectorRow[];
+}
+
 export interface Pack {
   readonly schemaVersion: number;
   readonly packId: string;
@@ -115,6 +180,11 @@ export interface Pack {
   readonly parts: readonly Part[];
   /** The parts tour first, then the authored procedures. */
   readonly procedures: readonly Procedure[];
+  /** Empty when the pack supplies none. */
+  readonly relations: readonly Relation[];
+  /** The Brick/Turtle graph of the same facts, bundled for other consumers and never parsed here. */
+  readonly model?: PackFile;
+  readonly semantic?: PackSemantic;
 }
 
 export function findPart(pack: Pack, id: PartId): Part | undefined {

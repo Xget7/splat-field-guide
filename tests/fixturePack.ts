@@ -1,6 +1,8 @@
 import { Pack } from '../apps/field-guide/src/features/pack/pack';
 import { parsePack } from '../apps/field-guide/src/features/pack/parsePack';
 
+export const FIXTURE_DIMENSIONS = 4;
+
 const box = (x: number) => ({ min: [x, 0, 0], max: [x + 1, 1, 1] });
 const part = (
   id: string,
@@ -112,6 +114,41 @@ export const fixtureManifest = {
       ],
     },
   ],
+  relations: [
+    {
+      type: 'feeds',
+      from: 'coolant-reservoir',
+      to: 'engine',
+      evidence: { kind: 'authored', source: 'Workshop manual, cooling' },
+    },
+    {
+      type: 'adjacent',
+      from: 'brake-fluid-reservoir',
+      to: 'power-steering-reservoir',
+      evidence: { kind: 'measured', source: 'Lifted bounds', distance: 0.4 },
+    },
+  ],
+  model: { path: 'semantic/model.ttl', bytes: 1, sha256: 'c'.repeat(64) },
+  semantic: {
+    space: {
+      id: 'd'.repeat(64),
+      encoder: 'fixture-encoder',
+      weightsSha256: 'e'.repeat(64),
+      preprocessing: 'fixture-crop',
+      dimensions: FIXTURE_DIMENSIONS,
+      normalized: true,
+    },
+    vectors: {
+      path: 'semantic/vectors.f32',
+      bytes: 3 * FIXTURE_DIMENSIONS * 4,
+      sha256: 'f'.repeat(64),
+    },
+    rows: [
+      { part: 'battery', kind: 'image' },
+      { part: 'engine', kind: 'image' },
+      { part: 'battery', kind: 'text' },
+    ],
+  },
 };
 
 export function fixtureCopy(): Record<string, any> {

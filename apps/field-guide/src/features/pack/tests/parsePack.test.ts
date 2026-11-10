@@ -1,6 +1,10 @@
 import { findProcedure, PART_LABEL_MAX, PART_LABEL_MIN } from '../pack';
 import { PackErrorCode, parsePack } from '../parsePack';
-import { fixtureCopy, fixtureManifest } from '@tests/fixturePack';
+import {
+  FIXTURE_DIMENSIONS,
+  fixtureCopy,
+  fixtureManifest,
+} from '@tests/fixturePack';
 import { TOUR_ID } from '../tour';
 
 function errorOf(mutate: (manifest: Record<string, any>) => void) {
@@ -431,6 +435,141 @@ describe('parsePack', () => {
     it.each([0, -1])('refuses a minimum radius of %p', radius => {
       const error = errorOf(setLimits({ minRadius: radius }));
       expect(error.path).toBe('camera.limits.minRadius');
+    });
+  });
+
+  describe('relations and semantic data', () => {
+    it('keeps relations with their evidence, the model file and the vector block', () => {
+      const result = parsePack(fixtureManifest);
+      if (!result.ok) {
+        throw new Error(result.error.message);
+      }
+      expect(result.pack.relations).toEqual(fixtureManifest.relations);
+      expect(result.pack.model?.path).toBe('semantic/model.ttl');
+      expect(result.pack.semantic?.space.dimensions).toBe(FIXTURE_DIMENSIONS);
+      expect(result.pack.semantic?.rows).toEqual(fixtureManifest.semantic.rows);
+    });
+
+    it('reads absent keys as no relations, no model and no vectors', () => {
+      const manifest = fixtureCopy();
+      delete manifest.relations;
+      delete manifest.model;
+      delete manifest.semantic;
+      const result = parsePack(manifest);
+      expect(result.ok && result.pack.relations).toEqual([]);
+      expect(result.ok && result.pack.model).toBeUndefined();
+      expect(result.ok && result.pack.semantic).toBeUndefined();
+    });
+
+    const relation = (type: string, from: string, to: string) => ({
+      type,
+      from,
+      to,
+      evidence: { kind: 'authored', source: 'Drawing 12' },
+    });
+
+    it.each([
+      [
+        'an unknown part',
+        [relation('feeds', 'battery', 'horn')],
+        PackErrorCode.unknownRelationPart,
+        'relations[0].to',
+      ],
+      [
+        'a part related to itself',
+        [relation('drives', 'engine', 'engine')],
+        PackErrorCode.selfRelation,
+        'relations[0].to',
+      ],
+      [
+        'a repeated relation',
+        [
+          relation('feeds', 'battery', 'fuse-box'),
+          relation('feeds', 'battery', 'fuse-box'),
+        ],
+        PackErrorCode.duplicateRelation,
+        'relations[1]',
+      ],
+      [
+        'adjacency stated in both directions',
+        [
+          relation('adjacent', 'battery', 'fuse-box'),
+          relation('adjacent', 'fuse-box', 'battery'),
+        ],
+        PackErrorCode.duplicateRelation,
+        'relations[1]',
+      ],
+      [
+        'a carries cycle',
+        [
+          relation('carries', 'engine', 'valve-cover'),
+          relation('carries', 'valve-cover', 'intake-manifold'),
+          relation('carries', 'intake-manifold', 'engine'),
+        ],
+        PackErrorCode.carriesCycle,
+        'relations[0]',
+      ],
+    ])('refuses %s', (_name, relations, code, path) => {
+      const error = errorOf(m => (m.relations = relations));
+      expect(error.code).toBe(code);
+      expect(error.path).toBe(path);
+    });
+
+    it('accepts feeds in both directions, as in a coolant loop', () => {
+      const manifest = fixtureCopy();
+      manifest.relations.push(relation('feeds', 'engine', 'coolant-reservoir'));
+      expect(parsePack(manifest).ok).toBe(true);
+    });
+
+    it.each([
+      [
+        'a distance on authored evidence',
+        (m: any) => (m.relations[0].evidence.distance = 1),
+        'relations[0].evidence.distance',
+      ],
+      [
+        'a negative distance',
+        (m: any) => (m.relations[1].evidence.distance = -0.1),
+        'relations[1].evidence.distance',
+      ],
+      [
+        'evidence without a source',
+        (m: any) => (m.relations[0].evidence.source = ' '),
+        'relations[0].evidence.source',
+      ],
+      [
+        'an unknown relation type',
+        (m: any) => (m.relations[0].type = 'touches'),
+        'relations[0].type',
+      ],
+      [
+        'vectors that are not normalized',
+        (m: any) => (m.semantic.space.normalized = false),
+        'semantic.space.normalized',
+      ],
+      [
+        'a vector file whose size disagrees with its rows',
+        (m: any) => (m.semantic.vectors.bytes += 4),
+        'semantic.vectors.bytes',
+      ],
+      [
+        'a vector space id that is not 64 hex digits',
+        (m: any) => (m.semantic.space.id = 'clip'),
+        'semantic.space.id',
+      ],
+    ])('refuses %s', (_name, mutate, path) => {
+      const error = errorOf(mutate);
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe(path);
+    });
+
+    it('refuses a vector row for an unknown part or a repeated kind', () => {
+      const unknown = errorOf(m => (m.semantic.rows[1].part = 'horn'));
+      expect(unknown.code).toBe(PackErrorCode.unknownVectorPart);
+      expect(unknown.path).toBe('semantic.rows[1].part');
+      const repeated = errorOf(m => (m.semantic.rows[2].kind = 'image'));
+      expect(repeated.code).toBe(PackErrorCode.duplicateVectorRow);
+      expect(repeated.path).toBe('semantic.rows[2]');
     });
   });
 });
