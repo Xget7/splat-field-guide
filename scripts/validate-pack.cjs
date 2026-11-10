@@ -53,25 +53,49 @@ function readPackFile(directory, relative) {
   return fs.readFileSync(filename);
 }
 
+// Every file a pack ships besides its manifest: tier trees and labels, the Brick model and vectors.
+function packFiles(pack) {
+  return [
+    ...pack.tiers.flatMap(tier => [tier.world, tier.labels]),
+    ...(pack.model ? [pack.model] : []),
+    ...(pack.semantic ? [pack.semantic.vectors] : []),
+  ];
+}
+
+// Preparation writes unit vectors; float32 rounding leaves a small error in each norm.
+const UNIT_NORM_TOLERANCE = 1e-3;
+
+function checkVectors(data, semantic) {
+  const { dimensions } = semantic.space;
+  for (let row = 0; row < semantic.rows.length; row += 1) {
+    let sum = 0;
+    for (let index = 0; index < dimensions; index += 1) {
+      const value = data.readFloatLE((row * dimensions + index) * 4);
+      if (!Number.isFinite(value)) throw new Error(`non-finite vector value in row ${row}`);
+      sum += value * value;
+    }
+    if (Math.abs(Math.sqrt(sum) - 1) > UNIT_NORM_TOLERANCE) throw new Error(`vector row ${row} is not normalized`);
+  }
+}
+
 function verify(directory) {
   const manifest = JSON.parse(readPackFile(directory, 'manifest.json').toString('utf8'));
   const pack = parse(manifest);
-  const files = new Set();
-  for (const tier of pack.tiers) {
-    const bytes = {};
-    for (const kind of ['world', 'labels']) {
-      const entry = tier[kind];
-      const data = readPackFile(directory, entry.path);
-      if (data.length !== entry.bytes) throw new Error(`byte count mismatch: ${entry.path}`);
-      if (crypto.createHash('sha256').update(data).digest('hex') !== entry.sha256) {
-        throw new Error(`sha256 mismatch: ${entry.path}`);
-      }
-      files.add(entry.path);
-      bytes[kind] = data;
+  const contents = new Map();
+  for (const entry of packFiles(pack)) {
+    if (contents.has(entry.path)) throw new Error(`pack file paths repeat: ${entry.path}`);
+    const data = readPackFile(directory, entry.path);
+    if (data.length !== entry.bytes) throw new Error(`byte count mismatch: ${entry.path}`);
+    if (crypto.createHash('sha256').update(data).digest('hex') !== entry.sha256) {
+      throw new Error(`sha256 mismatch: ${entry.path}`);
     }
-    checkWorld(bytes.world, tier);
+    contents.set(entry.path, data);
+  }
+  if (pack.semantic) checkVectors(contents.get(pack.semantic.vectors.path), pack.semantic);
+  for (const tier of pack.tiers) {
+    checkWorld(contents.get(tier.world.path), tier);
     // One label per tree node, in node order.
-    const labels = bytes.labels;
+    const labels = contents.get(tier.labels.path);
     const count = tier.nodeCount;
     if (labels.length !== LABELS_HEADER_BYTES + count || labels.toString('ascii', 0, 4) !== 'SFGL' ||
         labels.readUInt16LE(4) !== 1 || labels.readUInt16LE(6) !== 1 ||
@@ -81,10 +105,10 @@ function verify(directory) {
     const known = new Set([0, ...pack.parts.map(part => part.label)]);
     for (const label of labels.subarray(LABELS_HEADER_BYTES)) if (!known.has(label)) throw new Error(`unknown part label ${label}`);
   }
-  return { packId: pack.packId, packVersion: pack.packVersion, files: [...files] };
+  return { packId: pack.packId, packVersion: pack.packVersion, files: [...contents.keys()] };
 }
 
-module.exports = { parse, verify };
+module.exports = { parse, verify, packFiles };
 if (require.main === module) {
   try {
     const result = process.argv[2] === '--json'

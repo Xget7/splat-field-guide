@@ -6,7 +6,7 @@ const zlib = require('node:zlib');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { isDeepStrictEqual } = require('node:util');
-const { verify, parse } = require('./validate-pack.cjs');
+const { verify, parse, packFiles } = require('./validate-pack.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const MANIFEST = 'manifest.json';
@@ -22,12 +22,10 @@ function releaseManifest(filename) {
 
 function entries(manifest) {
   const files = new Map([[MANIFEST, MAX_MANIFEST_BYTES]]);
-  for (const tier of manifest.tiers)
-    for (const kind of ['world', 'labels']) {
-      const entry = tier[kind];
-      if (files.has(entry.path)) throw new Error('pack file paths repeat');
-      files.set(entry.path, entry.bytes);
-    }
+  for (const entry of packFiles(parse(manifest))) {
+    if (files.has(entry.path)) throw new Error('pack file paths repeat');
+    files.set(entry.path, entry.bytes);
+  }
   return files;
 }
 

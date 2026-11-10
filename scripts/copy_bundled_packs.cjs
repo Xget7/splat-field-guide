@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { verify } = require('./validate-pack.cjs');
+const { packFiles, parse, verify } = require('./validate-pack.cjs');
 const MANIFEST = 'manifest.json';
 
 function relativePath(value) {
@@ -29,9 +29,7 @@ function copyPacks(source, destination, packs) {
       throw new Error(`pack identity differs from its directory: ${name}`);
     const files = [
       MANIFEST,
-      ...manifest.tiers.flatMap(tier =>
-        ['world', 'labels'].map(kind => tier[kind].path),
-      ),
+      ...packFiles(parse(manifest)).map(entry => entry.path),
     ];
     for (const file of files) {
       relativePath(file);

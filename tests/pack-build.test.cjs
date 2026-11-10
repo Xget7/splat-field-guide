@@ -8,7 +8,14 @@ const zlib = require('node:zlib');
 const { spawnSync } = require('node:child_process');
 const { copyPacks } = require('../scripts/copy_bundled_packs.cjs');
 const { tarHeader } = require('../scripts/pack_archive.cjs');
+const { verify } = require('../scripts/validate-pack.cjs');
 const ROOT = path.resolve(__dirname, '..');
+
+function vectorBytes(values) {
+  const bytes = Buffer.alloc(values.length * 4);
+  values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+  return bytes;
+}
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'field-guide-pack-'));
@@ -50,14 +57,29 @@ function fixture(t) {
   labels.writeUInt32LE(1, 8);
   const tier = manifest.tiers[0];
   tier.nodeCount = tier.splatCount = 1;
+  manifest.model = { path: 'semantic/model.ttl' };
+  manifest.semantic = {
+    space: {
+      id: 'c'.repeat(64),
+      encoder: 'test-encoder',
+      weightsSha256: 'd'.repeat(64),
+      preprocessing: 'test-crop',
+      dimensions: 2,
+      normalized: true,
+    },
+    vectors: { path: 'semantic/vectors.f32' },
+    rows: [{ part: 'panel', kind: 'image' }],
+  };
   const pack = 'data/pack/test-rig/1/';
-  for (const [kind, bytes] of [
-    ['world', world],
-    ['labels', labels],
+  for (const [entry, bytes] of [
+    [tier.world, world],
+    [tier.labels, labels],
+    [manifest.model, Buffer.from('<panel> a brick:Equipment .\n')],
+    [manifest.semantic.vectors, vectorBytes([0.6, 0.8])],
   ]) {
-    tier[kind].bytes = bytes.length;
-    tier[kind].sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-    put(pack + tier[kind].path, bytes);
+    entry.bytes = bytes.length;
+    entry.sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+    put(pack + entry.path, bytes);
   }
   put(pack + 'manifest.json', JSON.stringify(manifest));
   put('tests/fixtures/runtime-manifest.json', JSON.stringify(manifest));
@@ -241,10 +263,18 @@ test('bundling includes only runtime files and preserves unchanged mtimes', t =>
   put('build/packs/stale.bin', 'stale');
   copyPacks(path.join(root, 'data/pack'), destination, ['test-rig/1']);
   const runtime = path.join(destination, 'test-rig/1');
-  assert.deepEqual(fs.readdirSync(runtime).sort(), ['high', 'manifest.json']);
+  assert.deepEqual(fs.readdirSync(runtime).sort(), [
+    'high',
+    'manifest.json',
+    'semantic',
+  ]);
   assert.deepEqual(fs.readdirSync(path.join(runtime, 'high')).sort(), [
     'labels.bin',
     'world.lodsplat',
+  ]);
+  assert.deepEqual(fs.readdirSync(path.join(runtime, 'semantic')).sort(), [
+    'model.ttl',
+    'vectors.f32',
   ]);
   assert.equal(fs.existsSync(path.join(destination, 'stale.bin')), false);
   const before = fs.statSync(path.join(runtime, 'high/world.lodsplat')).mtimeMs;
@@ -305,6 +335,34 @@ test('bundling repairs damaged destination bytes even when size and timestamp ma
     fs.readFileSync(target),
     fs.readFileSync(path.join(source, relative)),
   );
+});
+
+test('pack verification checks the model and vector files like tier files', t => {
+  const { pack, manifest } = fixture(t);
+  assert.deepEqual(verify(pack).files.sort(), [
+    'high/labels.bin',
+    'high/world.lodsplat',
+    'semantic/model.ttl',
+    'semantic/vectors.f32',
+  ]);
+  const model = fs.readFileSync(path.join(pack, manifest.model.path));
+  fs.writeFileSync(
+    path.join(pack, manifest.model.path),
+    Buffer.alloc(model.length, 42),
+  );
+  assert.throws(() => verify(pack), /sha256 mismatch: semantic\/model.ttl/);
+  fs.writeFileSync(path.join(pack, manifest.model.path), model);
+  const vectors = manifest.semantic.vectors;
+  fs.writeFileSync(path.join(pack, vectors.path), vectorBytes([0.6, 0.8, 0]));
+  assert.throws(() => verify(pack), /byte count mismatch: semantic\/vectors/);
+  const unnormalized = vectorBytes([1, 1]);
+  fs.writeFileSync(path.join(pack, vectors.path), unnormalized);
+  vectors.sha256 = crypto
+    .createHash('sha256')
+    .update(unnormalized)
+    .digest('hex');
+  fs.writeFileSync(path.join(pack, 'manifest.json'), JSON.stringify(manifest));
+  assert.throws(() => verify(pack), /vector row 0 is not normalized/);
 });
 
 test('pack verification rejects linked manifests and linked runtime directories', t => {
