@@ -1,5 +1,7 @@
 # Miris architecture map
 
+Read [first principles](first-principles.md) for the domain rules behind these interfaces.
+
 Miris turns prepared factory content into an offline guide with part selection, procedures and an instructor.
 The current app has viewer, guide and instructor foundations; Miris delivery and semantic integration are pending.
 Use [tasks](../../TASKS.md) for status/acceptance and [operations](../agents/checks.md) for commands.

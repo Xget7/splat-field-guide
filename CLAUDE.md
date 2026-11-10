@@ -1,6 +1,7 @@
 # Working on Miris
 
 The product is the Miris factory guide; existing paths retain the Field Guide name.
+Read [first principles](docs/specs/first-principles.md) before changing domain identity, evidence, preparation boundaries or delivery contracts.
 Read [architecture](docs/specs/field-guide-design.md) before changing concepts, interfaces, ownership, native behavior or pack contracts.
 Read [tasks](TASKS.md) before claiming integration or acceptance and [operations](docs/agents/checks.md) before preparation, checks, builds or GPU profiling.
 `AGENTS.md` is a symlink to this file.
