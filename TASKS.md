@@ -44,7 +44,10 @@ Visual acceptance must use accepted exported data.
 - [ ] Reconcile third-party notices with the resources and dependencies that actually remain in the distributed app.
 
 AR/assembly/placement and standalone benchmark routes, native AR bindings, V8 resources and their build inputs have been removed.
-The live Gol pack, preview and provenance remain until real Miris content replaces them; unrelated catalog entries still need reconciliation.
+The four unrelated catalog entries and their images have been removed, together with unused coming-soon presentation and types.
+The live Gol pack, preview and provenance remain until real Miris content replaces them.
+Catalog cleanup passed 64 app suites, 782 tests, one snapshot, lint, types and seven tooling tests.
+Its standalone bundle check was blocked by local Node compatibility/library linkage; no bundle or physical validation is claimed for that follow-up.
 Keep source provenance for referenced pack inputs and attribution for shipped resources until their corresponding content is removed.
 
 ## Acceptance

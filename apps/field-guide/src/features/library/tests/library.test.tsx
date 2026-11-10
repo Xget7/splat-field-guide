@@ -32,7 +32,7 @@ const progress = {
 test.each([
   null,
   { ...progress, guideId: 'unknown' },
-  { ...progress, guideId: catalog[1].id },
+  { ...progress, guideId: 'tactical-truck-engine-bay' },
   { ...progress, procedureId: 'unknown' },
   { ...progress, stepIndex: -1 },
   { ...progress, stepIndex: 1.5 },
@@ -116,14 +116,21 @@ describe('Library screen', () => {
     }
   });
 
-  test('ready card opens its guide and coming soon cards are informational', async () => {
+  test('the library offers only the available guide', async () => {
     await mount();
     await press(`guide-card-${pack.packId}`);
     expect(onOpenGuide).toHaveBeenCalledWith(guide);
-    expect(node(`soon-card-${catalog[1].id}`).props.accessibilityLabel).toBe(
-      'Tactical truck, Engine bay, coming soon',
+    const cardIds = new Set(
+      renderer.root
+        .findAll(item => item.props.testID?.startsWith('guide-card-'))
+        .map(item => item.props.testID),
     );
-    expect(node(`soon-card-${catalog[1].id}`).props.onPress).toBeUndefined();
+    expect([...cardIds]).toEqual([`guide-card-${pack.packId}`]);
+    expect(
+      renderer.root.findAll(item =>
+        item.props.testID?.startsWith('soon-card-'),
+      ),
+    ).toHaveLength(0);
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);

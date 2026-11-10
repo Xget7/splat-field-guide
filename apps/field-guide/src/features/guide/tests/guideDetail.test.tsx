@@ -175,7 +175,7 @@ describe('Guide detail screen', () => {
     expect(model.props.modelPath).toBe((catalog[0] as ReadyGuide).model);
   });
 
-  test.each(['missing', catalog[1].id])(
+  test.each(['missing', 'tactical-truck-engine-bay'])(
     'unavailable guide has a message and back action: %s',
     async id => {
       await mount(id);

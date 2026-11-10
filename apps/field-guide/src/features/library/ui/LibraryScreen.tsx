@@ -3,12 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  GuideStatus,
-  type ComingSoonGuide,
-  type Guide,
-  type ReadyGuide,
-} from '../../pack/catalog';
+import { type Guide, type ReadyGuide } from '../../pack/catalog';
 import {
   LearnMode,
   type Progress,
@@ -22,20 +17,12 @@ import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
 import { Color, Space, Type } from '../../../ui/theme';
 import { continueRowFor } from '../domain/library';
 
-import { ContinueCard, ReadyCard, SoonCard } from './GuideCards';
+import { ContinueCard, ReadyCard } from './GuideCards';
 import { useWideLayout } from '../../../ui/useWideLayout';
 
 const Layout = {
-  columns: 2,
-  wideColumns: 4,
   introWidth: 560,
 } as const;
-
-function rowsOf<T>(items: readonly T[], columns: number): T[][] {
-  return Array.from({ length: Math.ceil(items.length / columns) }, (_, row) =>
-    items.slice(row * columns, (row + 1) * columns),
-  );
-}
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
@@ -54,7 +41,6 @@ export function LibraryScreen({
 }: LibraryScreenProps) {
   const insets = useSafeAreaInsets();
   const wide = useWideLayout();
-  const columns = wide ? Layout.wideColumns : Layout.columns;
   const [progress, setProgress] = useState<Progress | null>(null);
   const scroll = useScrollOffset();
 
@@ -80,13 +66,6 @@ export function LibraryScreen({
     }, [storage]),
   );
 
-  const ready = catalog.filter(
-    (guide): guide is ReadyGuide => guide.status === GuideStatus.ready,
-  );
-  const soon = catalog.filter(
-    (guide): guide is ComingSoonGuide =>
-      guide.status === GuideStatus.comingSoon,
-  );
   const continuation = continueRowFor(catalog, progress);
   const continueGuide = () => {
     // Continuing reopens the step on its own, without the instructor.
@@ -134,31 +113,16 @@ export function LibraryScreen({
             <ContinueCard row={continuation} onPress={continueGuide} />
           </View>
         )}
-        {ready.length > 0 && (
+        {catalog.length > 0 && (
           <View style={styles.section}>
             <SectionHeader title="Ready" />
-            {ready.map(guide => (
+            {catalog.map(guide => (
               <ReadyCard
                 key={guide.id}
                 guide={guide}
                 wide={wide}
                 onPress={() => onOpenGuide(guide)}
               />
-            ))}
-          </View>
-        )}
-        {soon.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader title="Coming soon" />
-            {rowsOf(soon, columns).map(row => (
-              <View key={row[0].id} style={styles.gridRow}>
-                {row.map(guide => (
-                  <SoonCard key={guide.id} guide={guide} wide={wide} />
-                ))}
-                {Array.from({ length: columns - row.length }, (_, index) => (
-                  <View key={index} style={styles.gridSpacer} />
-                ))}
-              </View>
             ))}
           </View>
         )}
@@ -182,6 +146,4 @@ const styles = StyleSheet.create({
     maxWidth: Layout.introWidth,
   },
   section: { gap: Space.md, marginTop: Space.sm },
-  gridRow: { flexDirection: 'row', gap: Space.md, alignItems: 'stretch' },
-  gridSpacer: { flex: 1 },
 });

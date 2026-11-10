@@ -4,22 +4,15 @@ export type GuideId = string;
 
 export const Category = {
   vehicles: 'vehicles',
-  aviation: 'aviation',
-  energy: 'energy',
-  oilAndGas: 'oilAndGas',
 } as const;
 export type Category = (typeof Category)[keyof typeof Category];
 
 export const CATEGORY_TITLE: Readonly<Record<Category, string>> = {
   [Category.vehicles]: 'Vehicles',
-  [Category.aviation]: 'Aviation',
-  [Category.energy]: 'Energy',
-  [Category.oilAndGas]: 'Oil & gas',
 };
 
 export const GuideStatus = {
   ready: 'ready',
-  comingSoon: 'comingSoon',
 } as const;
 export type GuideStatus = (typeof GuideStatus)[keyof typeof GuideStatus];
 
@@ -42,49 +35,9 @@ export interface ReadyGuide extends GuideBase {
   readonly pack: Pack;
 }
 
-/** Coming-soon guides have no pack and cannot be opened. */
-export interface ComingSoonGuide extends GuideBase {
-  readonly status: typeof GuideStatus.comingSoon;
-}
+export type Guide = ReadyGuide;
 
-export type Guide = ReadyGuide | ComingSoonGuide;
-
-const COMING_SOON: readonly ComingSoonGuide[] = [
-  {
-    id: 'tactical-truck-engine-bay',
-    status: GuideStatus.comingSoon,
-    category: Category.vehicles,
-    title: 'Tactical truck',
-    area: 'Engine bay',
-    image: require('../../../assets/guides/soon-tactical-truck.png'),
-  },
-  {
-    id: 'rotorcraft-rotor-head',
-    status: GuideStatus.comingSoon,
-    category: Category.aviation,
-    title: 'Rotorcraft',
-    area: 'Main rotor head',
-    image: require('../../../assets/guides/soon-rotorcraft.png'),
-  },
-  {
-    id: 'generator-set-panel',
-    status: GuideStatus.comingSoon,
-    category: Category.energy,
-    title: 'Generator set',
-    area: 'Control panel',
-    image: require('../../../assets/guides/soon-generator.png'),
-  },
-  {
-    id: 'drilling-rig-top-drive',
-    status: GuideStatus.comingSoon,
-    category: Category.oilAndGas,
-    title: 'Drilling rig',
-    area: 'Top drive',
-    image: require('../../../assets/guides/soon-drilling-rig.png'),
-  },
-];
-
-/** Put the bundled guide before guides awaiting capture. */
+/** Retain the usable bundled guide until reviewed Miris content replaces it. */
 export function catalogFor(golTrend: Pack): readonly Guide[] {
   return [
     {
@@ -100,7 +53,6 @@ export function catalogFor(golTrend: Pack): readonly Guide[] {
       model: 'ar/gol-trend-engine-bay/turntable.usdz',
       pack: golTrend,
     },
-    ...COMING_SOON,
   ];
 }
 
