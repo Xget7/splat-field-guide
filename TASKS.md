@@ -1,21 +1,99 @@
-# Open work
+# Miris delivery work
 
-These items require the inputs or hardware listed below; source and simulator checks do not establish physical acceptance.
-Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md).
+This is the current implementation and acceptance backlog.
+Architecture lives in [design](docs/specs/field-guide-design.md).
+All items below remain open unless their completion evidence is recorded here.
 
-- [ ] Verify V8 horizontal-surface placement, all 12 assembly/reverse steps, grouped fasteners and valve springs, Next during forward assembly, the initially installed crankshaft, adjustable elevation and viewing from below, complete preview, compact glass controls, hidden future parts, playback completion, pinch/rotation, relocation, camera permissions, background/interruption recovery and visibility on the physical iPhone (R22-R27).
-- [ ] Review the V8 source animation's visual order before using it for mechanical assembly instruction (R23).
+## Current foundation
 
-- [ ] Verify Android gestures, all picks/procedures, idle drawing, frame/load time, memory and thermal behaviour on physical Vulkan hardware (R4-R10, R12-R14).
-- [ ] Verify Android recognition readiness, installed offline TTS, commands, interruption/echo, cancellation and airplane-mode fallback on physical hardware (R14-R18).
-- [ ] Verify or correct fuse-box/battery masks using the capture, accepted annotations and the real engine (R6).
-- [ ] Review every highlight and verify metric dimensions against the physical engine (R7).
-- [ ] Review [authored content qualifications](content/gol-trend-engine-bay/SOURCES.md) against the correct manual and actual reservoir markings (R11, R12, R16).
-- [ ] Repeat Nitro mount stress, pinch, all part picks and every procedure on physical hardware (R5, R6, R12-R14).
-- [ ] Measure iPhone frame rate, idle drawing, load time, memory and thermal behaviour; reduce the tier if required (R10).
-- [ ] Check voice commands, interruption/echo, pronunciation, latency, model fallback, cautions and continuation behaviour on an eligible device (R14-R17).
-- [ ] Run prepared-device airplane-mode checks and fresh-device missing-assets checks separately, with system asset readiness recorded (R18).
-- [ ] Enable `AR_CHECK_ENABLED`, verify the current AR reference on the real engine, then measure landmark alignment, drift, recovery, negative scenes and actual torch behaviour on an iOS 27 iPhone.
-- [ ] Choose the semantic camera-overlay renderer after reference-frame and physical alignment acceptance.
-- [ ] Supply `publication.json` and manifest source artifacts to complete capture-backed export verification.
-- [ ] Record the airplane-mode video (R19).
+The app already contains verified bundled-pack loading, a native viewer, sessions, procedures, saved continuation and an instructor with online/offline capabilities.
+Startup and catalog still target the previous bundled demo.
+Zustand is installed; WatermelonDB and TanStack Query are selected but not installed or integrated.
+Miris teaching is active in `../splat-tools`; accepted masks, lifting, export and app integration must not be conflated.
+
+## Product and preparation
+
+- [ ] Fix the Miris demonstration path, supported languages, voice expectations, target devices and delivery format.
+- [ ] Finish reviewed annotations for the four-robot pilot, with especially careful review of R01 and R02, in `splat-tools`.
+- [ ] Verify the transformation between original cameras and the upright PLY, coordinate conventions and units before lifting.
+- [ ] Lift accepted masks and review coverage, including occluded parts and whether further views need annotation.
+- [ ] Export a real Miris pack with stable IDs, node labels, bounds, anchors, authored records and compatible supplied vectors.
+- [ ] Agree on the minimum delivery contract using those outputs and the existing pack consumer interface.
+
+Preparation and model work belongs in the separate workspace.
+Annotation drafts, source captures and the running teaching service must be preserved during repository cleanup.
+
+## App integration
+
+- [ ] Implement verified pack installation, activation and failure recovery, replacing the current hardcoded startup/catalog assumptions.
+- [ ] Integrate WatermelonDB semantic records and TanStack Query API delivery without duplicating persistent records in Zustand.
+- [ ] Validate vector-space identity and implement supplied-vector comparison returning stable part IDs.
+- [ ] Resolve selected IDs through the active reconstruction's mappings and connect them to existing viewer highlight and framing.
+- [ ] Connect reviewed Miris information and procedures to the existing guide/instructor interfaces.
+- [ ] Test interrupted installation, incompatible vectors, wrong-reconstruction mappings and replacement preserving stable identities.
+- [ ] Agree separately on a free-text query flow before adding any query encoder or runtime.
+
+Contract and app-interface work can proceed while annotations are refined.
+Visual acceptance must use accepted exported data.
+
+## Runtime cleanup
+
+- [ ] Remove the discarded Gol, V8 and AR product paths, unrelated catalog entries and standalone benchmark screens; migrate callers and tests before deleting their content, assets and source records.
+- [x] Remove the superseded mobile semantic tokenizer/encoder experiment and its unneeded scripts, resources and retrieval tests.
+- [ ] Update preparation, packaging, navigation and tests with those removals, retaining required viewer, speech and GPU verification support.
+- [ ] Reconcile third-party notices with the resources and dependencies that actually remain in the distributed app.
+
+AR/assembly/placement and standalone benchmark routes, native AR bindings, V8 resources and their build inputs have been removed.
+The live Gol pack, preview and provenance remain until real Miris content replaces them; unrelated catalog entries still need reconciliation.
+Keep source provenance for referenced pack inputs and attribution for shipped resources until their corresponding content is removed.
+
+## Acceptance
+
+- [ ] Verify orbit, pinch, part picking, every accepted highlight, procedure framing and mount/unmount recovery on physical target hardware.
+- [ ] Measure Miris frame time, idle drawing, load time, memory and thermal behaviour; adjust its export tier if needed.
+- [ ] Verify prepared-device offline browsing and vector comparison on physical iOS and Android; test missing resources separately on a fresh device.
+- [ ] Verify the agreed voice flow, pronunciation, interruption, cancellation, answer fallback and continuation on eligible hardware.
+- [ ] Run affected interface tests, lint, types and relevant platform builds, and remove temporary build output.
+- [ ] Record Miris-specific evidence and deliver the agreed demo artifact only when explicitly requested.
+
+## Completion criteria
+
+The demo opens a verified Miris pack for the four-robot pilot, selects and frames accepted parts, presents reviewed information and supports the agreed instructor flow.
+Stable IDs survive replacement; invalid files, incompatible vectors and wrong-reconstruction mappings are rejected without losing the last usable installation.
+Prepared-data browsing and supplied-vector comparison work offline on physical iOS and Android.
+The viewer targets 60 fps on the chosen acceptance device and draws no unchanged idle frames; record load time, memory and thermal behavior.
+Only the Miris experience and its required resources ship, with matching notices and passing interface tests, lint, types and relevant builds.
+Demonstration devices, languages, voice expectations and delivery format remain to be fixed above.
+
+## Preparation evidence
+
+The active external session is `splat-tools/data/analysis/miris-pilot/teaching-02`; accepted masks are in `references/` and `teaching-state.json`, not draft counts.
+The retained reconstruction is `data/analysis/miris-factory/fvdb-full-50-t1e-4-v1/results/output/final-pruned-upright.ply` in that workspace.
+Verify its transform against the original OpenCV cameras before lifting; earlier cross-view transfer did not establish coverage.
+Preserve the annotation service and source data during mobile cleanup.
+Record Miris artifact identities and physical-device evidence here as tasks complete; earlier fixture results do not establish Miris acceptance.
+
+## Architecture audit evidence
+
+The instructor/services audit corrected interruption before audio, retryable limiter failures, legacy generation persona, incomplete stream completion, malformed provider resource responses and Worker URL validation before sync mutations.
+Each fix has a regression test that failed before the correction.
+The delegated checks passed 34 instructor suites (352 tests and one snapshot), 49 proxy tests, 12 voice-agent tests, app/service TypeScript checks, instructor lint/format checks and a local Worker dry-run bundle.
+No deployment or paid request was performed; live provider compatibility and physical voice acceptance remain unchecked.
+Caller authentication for answer/session routes and serialization of live sync operations remain unresolved; sync still needs reviewed Miris content before deployment.
+Native/tooling regressions now cover source validation before bundling, repair of same-size/same-timestamp corrupted copies, linked pack paths and conversation-owner microphone release.
+Checks passed 11 root tooling tests, 23 on-device tests (one skipped for unavailable retrieval inputs), four splat package tests, both packages' lint/types and engine artifact fingerprint verification.
+The first iOS build was blocked by the local Node library linkage; a temporary Node 26 wrapper using installed simdjson enabled the final successful build.
+The upstream SplatKit event-sink teardown race is fixed and selectively integrated, preserving unrelated upstream GPU edits.
+The regression crashed before the fix; upstream event tests passed ThreadSanitizer, the imported engine passed 180 tests with one fixture skip under ThreadSanitizer, and Metal passed 269 tests with two fixture skips.
+Android arm64 engine/test cross-compilation passed; physical checks remain outstanding.
+App fixes cover voice ownership on close/replacement, stale answer and connectivity callbacks, pack directory IDs, non-React public imports and Android keyboard events with listener cleanup.
+The app audit passed 64 suites (752 tests and one snapshot), lint and types; the final keyboard regression rerun passed two tests.
+Runtime tier metadata now requires lowercase SHA-256 digests and label bytes equal to the SFGL header plus node count, matching native readers.
+The follow-up passed 782 app tests, seven pack tooling tests, 49 proxy tests, 12 voice-agent tests, app ESLint and app/service types.
+The event fix is pinned to upstream commit `c857707186c25497df4ad71b03a8f3b4efe1c230`.
+Independent source review found no actionable correctness issues in the stable functional changes; it excluded the ongoing native cleanup and did not independently rerun builds or hardware checks.
+Final cleanup checks passed on-device (21 tests), splat (three tests), root tooling (seven tests), native package lint/types and app types.
+Two clean codegen runs matched 84 files.
+Unsigned iOS Simulator Debug and Android arm64 Debug builds passed, with no discarded AR/semantic resources in either bundle.
+The final integrated app run passed 64 suites, 782 tests, one snapshot, lint, formatting and types.
+Build outputs and temporary tooling were removed; no device interaction or physical acceptance was performed.

@@ -1,10 +1,23 @@
-# Checks
+# Development and verification
 
-Run each command with `nice -n 19` from the stated directory.
+Run installs, builds, tests and preparation with `nice -n 19` from the stated directory.
+Use fakes for paid providers; deployment, upload and live paid requests require explicit authorization.
+
+## Setup
+
+Use an Apple silicon Mac, Xcode 27, Node 26+, npm, CMake, Ruby and Bundler.
+The viewer requires iOS/iPadOS 26+ with an A14-class GPU or Android 10+ with Vulkan.
+Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROID_HOME` configured.
+After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
+For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
+Debug needs reachable Metro; Release bundles JavaScript.
+Prepare system speech assets and permissions before airplane-mode tests; Apple generation also needs eligible hardware and a ready model.
 
 ## Prepare
 
-`scripts/prepare.sh` from root prepares the demo: it installs the app and native package dependencies, the locked Gems and Pods, and fetches the pack release with an authenticated `gh`, or takes `--pack <archive>`.
+`scripts/prepare.sh` from root prepares the current runtime: it installs the app and native package dependencies, the locked Gems and Pods, and fetches the pinned pack release with an authenticated `gh`, or takes `--pack <archive>`.
+This command still prepares legacy content; it does not deliver a Miris pack.
+Track the replacement in [tasks](../../TASKS.md).
 After an engine source change, prepare before installing Pods; `packages/react-native-splat/scripts/build-ios-engine.sh --force` forces an engine rebuild.
 Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so the locked Bundler, CocoaPods and xcodeproj apply.
 
@@ -62,19 +75,60 @@ For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebu
 
 ## Maestro E2E
 
-Install Maestro CLI with `nice -n 19 brew install mobile-dev-inc/tap/maestro`; it requires Java 17 or later.
-Prepare and install the app using the platform workflow above, and start Metro for a Debug build.
-Use a tablet layout at least 700 points wide in portrait, where the guide drawer exposes the step list.
-From `apps/field-guide`, run `nice -n 19 npm run e2e -- --udid <simulator-udid-or-emulator-serial>` against the explicit running target.
-The flow clears that app's local state, opens the bundled guide in self-guided mode and starts the parts tour without enabling voice or asking the instructor.
-Only the Start navigation can retry once if the first synthetic tap is dropped after a cold iOS launch; step selection and label assertions are not retried as a block.
-It waits for the first highlighted marker, which mounts only after native `onReady` reports the first GPU frame, then selects the second step and returns to the first.
-It checks the selected row and the corresponding visible part label, rejects renderer errors and saves `parts-tour-first-step.png` under `.work/maestro`.
-The screenshot is review evidence; this flow does not compare renderer pixels or establish physical performance acceptance.
+The existing `npm run e2e` script targets the legacy bundled guide and clears the target app's local state.
+Replace that flow with Miris assertions before using it as demo acceptance.
+The replacement must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
+Screenshots and simulator checks do not establish physical performance acceptance.
 
 ## Cleanup
 
-Remove temporary build directories, test caches, logs and superseded plans after recording useful measurements and unresolved prerequisites in [the process record](../process.md).
+Remove temporary build directories, test caches, logs and superseded plans after recording useful measurements and unresolved prerequisites in [tasks](../../TASKS.md).
 Keep mobile runtime resources and publication receipts under `data/`; capture inputs, accepted annotations and trained output belong to `splat-tools/data/`.
 Keep release `.xcarchive` files with their debug symbols for shipped-build diagnosis, and preserve raw recordings and pending plans until their work is complete.
 `AGENTS.md` is a relative symlink to `CLAUDE.md`; edit the shared instructions through `CLAUDE.md`.
+
+## Android
+
+Keep Gradle caches, builds and owned AVDs under `.work/`.
+From root, build with at most three workers:
+
+```sh
+JAVA_HOME=$(/usr/libexec/java_home -v 17) GRADLE_USER_HOME="$PWD/.work/gradle" nice -n 19 apps/field-guide/android/gradlew -p apps/field-guide/android :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --max-workers=3
+```
+
+Use an API 36 arm64 tablet emulator with 6 GB RAM and host GPU rendering; software SwiftShader previously stalled during upload.
+Use Argent when available for device interaction and keep other sessions' devices and servers untouched.
+For an owned Debug Metro, reverse its port with `adb -s <serial> reverse tcp:<port> tcp:<port>`.
+Stop only owned device/Metro processes and remove temporary build/cache output after verification.
+Android Release without an upload key uses the debug key and is suitable only for local installation.
+
+## GPU profiling
+
+Keep the native engine and Metal checks above, the renderer counters in `packages/react-native-splat/src/diagnostics.ts`, and the upstream GPU documentation.
+Use `splat_snapshot` from the Metal build to capture verified runtime files:
+
+```sh
+nice -n 19 packages/react-native-splat/build/checks/splat_snapshot --world <world.lodsplat> --labels <labels.bin> --out /tmp/miris.png
+```
+
+Record pack identity, device/OS, pose, drawn count, frame/load time, memory and thermal behavior with each measurement.
+The prior M4 Pro fixture measured about 6-10 ms GPU time and 663 MB peak memory; this is historical context, not Miris device acceptance.
+The native lifetime suite previously checked 100 mount/unmount cycles; retain stress checks and sanitizer coverage for draw-range ownership.
+iOS Release disables diagnostic counters; Android load/frame timings appear in logcat.
+Physical acceptance must use the Miris pack on the target hardware.
+
+## Instructor configuration
+
+Preparation copies `apps/field-guide/instructor.config.example.json` to ignored `instructor.config.json`; a null `proxyUrl` selects offline operation.
+The proxy's `.dev.vars.example` lists local provider configuration; keys remain outside git and the app.
+The Worker serves probes, typed NDJSON answers, signed agent sessions and authenticated custom-LLM SSE; its source and `wrangler.toml` own exact limits/models.
+Incomplete streams must fail rather than commit partial answers.
+Answer/session routes currently lack caller authentication; rate limits are not authentication.
+
+For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 npm run plan` in `services/voice-agent`.
+The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 npm run sync`.
+Sync updates the shared secret, tools, dictionary and agent and saves IDs in ignored `agent.json`; preserve it for retries.
+The agent key needs agent/workspace write, pronunciation dictionary read/write and voice read permissions; the Worker's key needs agent read access.
+Use the same `AGENT_LLM_SECRET` on both sides and configure the returned `AGENT_ID` on the Worker.
+Sync still reads the previous pack; replace it with reviewed Miris content before deployment.
+For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload` exports locally; signing needs a configured team and account.
