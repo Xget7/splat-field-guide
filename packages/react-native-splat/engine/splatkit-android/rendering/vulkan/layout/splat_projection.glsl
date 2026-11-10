@@ -23,8 +23,12 @@ struct Splat {
 // With degree 0 the SH buffer is never read.
 layout(constant_id = 0) const uint SH_DEGREE = 0;
 const uint SH_COEFFICIENTS = (SH_DEGREE + 1) * (SH_DEGREE + 1) - 1;
-// Coefficients are rgb halves, channel fastest, two halves per uint, no padding.
+// Matches GpuLayout: channel fastest; each record starts on a uint.
+#if SPLATKIT_VULKAN_SH8
+const uint SH_STRIDE = SH_DEGREE == 0u ? 0u : 1u + (SH_COEFFICIENTS * 3u + 3u) / 4u;
+#else
 const uint SH_STRIDE = (SH_COEFFICIENTS * 3 + 1) / 2;
+#endif
 layout(std430, set = 0, binding = SH_BINDING) readonly buffer Sh { uint shData[]; };
 
 // Variance, in squared pixels, added to every projected covariance: the low-pass filter of the
@@ -71,14 +75,20 @@ void ellipseAxes(vec3 covariance, out vec2 axis1, out vec2 axis2) {
   axis2 = e2 * sqrt(max(lambda2, 0.0));
 }
 
-// Half number h of splat `base` in the SH buffer.
-float shHalf(uint base, uint h) {
+// Scalar coefficient h of splat `base` in the SH buffer.
+float shScalar(uint base, uint h) {
+#if SPLATKIT_VULKAN_SH8
+  uint packed = shData[base + 1u + h / 4u];
+  int quantized = int((packed >> ((h & 3u) * 8u)) & 255u) - 128;
+  return (float(quantized) / 127.0) * uintBitsToFloat(shData[base]);
+#else
   vec2 pair = unpackHalf2x16(shData[base + h / 2u]);
   return (h & 1u) == 0u ? pair.x : pair.y;
+#endif
 }
 
 vec3 shCoefficient(uint base, uint k) {
-  return vec3(shHalf(base, k * 3u), shHalf(base, k * 3u + 1u), shHalf(base, k * 3u + 2u));
+  return vec3(shScalar(base, k * 3u), shScalar(base, k * 3u + 1u), shScalar(base, k * 3u + 2u));
 }
 
 // Colour change along the unit direction `d` from the camera to the splat, from the real

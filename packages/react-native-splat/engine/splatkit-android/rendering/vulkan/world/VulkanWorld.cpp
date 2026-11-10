@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "splatkit/guide/GuideLayout.h"
+#include "rendering/vulkan/layout/VulkanShStorage.h"
 #include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
@@ -55,7 +56,7 @@ struct UploadScratch {
 
 bool uploadShWindow(const splat::SplatCloud& cloud, const VulkanWorld& world,
                     UploadScratch& scratch, size_t offset, size_t count, size_t stride) {
-  packShRange(cloud, world.shDegree, offset, count, scratch.sh.data());
+  packShRange(cloud, world.shDegree, offset, count, scratch.sh.data(), kVulkanShStorage);
   return world.sh->upload(offset * stride * sizeof(uint32_t), scratch.sh.data(),
                           count * stride * sizeof(uint32_t));
 }
@@ -88,7 +89,8 @@ void packInPlace(const splat::SplatCloud& cloud, const VulkanWorld& world, size_
   packSplatRange(cloud, 0, n, static_cast<GpuSplat*>(world.splats->mapped()));
   world.splats->flush(0, n * sizeof(GpuSplat));
   if (stride == 0) return;
-  packShRange(cloud, world.shDegree, 0, n, static_cast<uint32_t*>(world.sh->mapped()));
+  packShRange(cloud, world.shDegree, 0, n, static_cast<uint32_t*>(world.sh->mapped()),
+              kVulkanShStorage);
   world.sh->flush(0, n * stride * sizeof(uint32_t));
 }
 
@@ -128,7 +130,7 @@ std::unique_ptr<VulkanWorld> VulkanWorld::upload(const VulkanContext& ctx,
   const size_t n = cloud.count();
   const int requestedDegree = std::clamp(std::min(cloud.shDegree, maxShDegree), 0, kMaxShDegree);
   const int shDegree = carriesSh(cloud, requestedDegree) ? requestedDegree : 0;
-  const size_t stride = shDegree ? shStride(shDegree) : 0;
+  const size_t stride = shDegree ? shStride(shDegree, kVulkanShStorage) : 0;
   const VkDeviceSize sourceBytes = std::max(size_t{1}, n) * sizeof(GpuSplat);
   const VkDeviceSize orderBytes = (cpuOrder ? std::max(size_t{1}, n) : 1) * sizeof(uint32_t);
   const VkDeviceSize shBytes = std::max(size_t{1}, n * stride) * sizeof(uint32_t);
@@ -159,8 +161,9 @@ std::unique_ptr<VulkanWorld> VulkanWorld::createSlab(const VulkanContext& ctx, u
   world->count = capacity;
   world->shDegree = std::clamp(shDegree, 0, kMaxShDegree);
   const VkDeviceSize shBytes =
-      world->shDegree > 0 ? VkDeviceSize{capacity} * shStride(world->shDegree) * sizeof(uint32_t)
-                          : sizeof(uint32_t);
+      world->shDegree > 0
+          ? VkDeviceSize{capacity} * shStride(world->shDegree, kVulkanShStorage) * sizeof(uint32_t)
+          : sizeof(uint32_t);
   VkPhysicalDeviceProperties properties{};
   vkGetPhysicalDeviceProperties(ctx.physicalDevice(), &properties);
   if (std::max(shBytes, VkDeviceSize{capacity} * sizeof(GpuSplat)) >
@@ -201,14 +204,14 @@ bool VulkanWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) co
     if (!splats->upload(splatOffset, packed.data(), splatBytes)) return false;
   }
   if (shDegree == 0) return true;
-  const size_t stride = shStride(shDegree);
+  const size_t stride = shStride(shDegree, kVulkanShStorage);
   const VkDeviceSize shOffset = VkDeviceSize{offset} * stride * sizeof(uint32_t);
   const size_t shBytes = n * stride * sizeof(uint32_t);
   const bool carries = carriesSh(cloud, shDegree);
   if (auto* mapped = static_cast<uint32_t*>(sh->mapped())) {
     uint32_t* records = mapped + size_t{offset} * stride;
     if (carries) {
-      packShRange(cloud, shDegree, 0, n, records);
+      packShRange(cloud, shDegree, 0, n, records, kVulkanShStorage);
     } else {
       std::memset(records, 0, shBytes);
     }
@@ -216,7 +219,7 @@ bool VulkanWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) co
     return true;
   }
   const std::vector<uint32_t> packedSh =
-      carries ? packSh(cloud, shDegree) : std::vector<uint32_t>(n * stride, 0);
+      carries ? packSh(cloud, shDegree, kVulkanShStorage) : std::vector<uint32_t>(n * stride, 0);
   return sh->upload(shOffset, packedSh.data(), shBytes);
 }
 

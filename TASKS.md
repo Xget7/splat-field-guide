@@ -78,6 +78,13 @@ Record Miris artifact identities and physical-device evidence here as tasks comp
 
 ## Architecture audit evidence
 
+The vendored SplatKit packages were reconciled with published `origin/main` at `8a25c57c6c4f62cf682e4c6159cfcae048f7fefe`, retaining the separate event-dispatch fix and documented guide adaptations.
+Vulkan CPU camera validation and optional SH8 support are integrated; SH8 remains OFF.
+Core/C-interface/Metal checks passed 271 tests with two fixture skips; Android renderer/test targets cross-compiled with SH8 OFF and ON, and both iOS framework slices rebuilt.
+Independent source review found no actionable regressions and reran the CPU camera projection check.
+Renderer-level valid-invalid-valid camera recovery across both frame slots still needs Vulkan execution covering clear output, submission, failure state and world-ready timing.
+These native packages are manually integrated snapshots, not dependencies that automatically track upstream.
+
 The instructor/services audit corrected interruption before audio, retryable limiter failures, legacy generation persona, incomplete stream completion, malformed provider resource responses and Worker URL validation before sync mutations.
 Each fix has a regression test that failed before the correction.
 The delegated checks passed 34 instructor suites (352 tests and one snapshot), 49 proxy tests, 12 voice-agent tests, app/service TypeScript checks, instructor lint/format checks and a local Worker dry-run bundle.

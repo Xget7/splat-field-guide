@@ -27,7 +27,8 @@ class VulkanCameraUniforms {
 
   // After the frame-slot fence, before compute/draw. Borrowed uniform stays valid until
   // this object is destroyed. `extent` is in the window's orientation (VulkanSurface::viewExtent);
-  // `minPixelRadius` is the sub-pixel cutoff, in pixels.
+  // `minPixelRadius` is the sub-pixel cutoff, in pixels. An invalid projection/extent returns
+  // VK_NULL_HANDLE without uploading; the caller must submit a clear frame without compute/draw.
   VkBuffer update(uint32_t frameSlot, const splat::Mat4& view, const splat::Mat4& proj,
                   const splat::Vec3& cameraPosition, VkExtent2D extent, bool outputLinear,
                   uint32_t quarterTurns, float minPixelRadius);

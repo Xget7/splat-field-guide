@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "rendering/vulkan/layout/VulkanShaderTypes.h"
+#include "rendering/vulkan/frame/VulkanCameraProjection.h"
 
 namespace splatkit {
 
@@ -26,13 +26,7 @@ VkBuffer VulkanCameraUniforms::update(uint32_t frameSlot, const splat::Mat4& vie
   u.cameraPosition[1] = cameraPosition.y;
   u.cameraPosition[2] = cameraPosition.z;
   u.view = view;
-  u.proj = proj;
-  u.screenSize[0] = static_cast<float>(extent.width);
-  u.screenSize[1] = static_cast<float>(extent.height);
-  u.focal[0] = u.screenSize[0] * proj.at(0, 0) / 2;
-  u.focal[1] = u.screenSize[1] * proj.at(1, 1) / 2;
-  u.tanHalfFov[0] = 1 / proj.at(0, 0);
-  u.tanHalfFov[1] = 1 / proj.at(1, 1);
+  if (!setCameraProjection(u, proj, extent.width, extent.height)) return VK_NULL_HANDLE;
   u.outputLinear = outputLinear ? 1u : 0u;
   u.quarterTurns = quarterTurns;
   u.minPixelRadius = minPixelRadius;

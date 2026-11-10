@@ -23,6 +23,7 @@ function(splatkit_compile_shaders target)
     add_custom_command(
       OUTPUT "${spv}"
       COMMAND "${glslc}" -O --target-env=vulkan1.1 -I "${CMAKE_CURRENT_SOURCE_DIR}"
+        -DSPLATKIT_VULKAN_SH8=$<BOOL:${SPLATKIT_VULKAN_SH8}>
         -MD -MF "${spv}.d" -o "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
       DEPFILE "${spv}.d"

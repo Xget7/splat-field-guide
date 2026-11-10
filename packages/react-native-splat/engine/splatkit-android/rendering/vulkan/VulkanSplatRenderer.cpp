@@ -253,10 +253,12 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   const uint32_t slot = frameLoop_.currentSlot();
   const bool outputLinear = isSrgb(pipelineFormat_);
   // Outside the render pass: transfers are not allowed inside one.
+  const VkBuffer camera =
+      world_ ? camera_->update(slot, frame.view, frame.proj, frame.cameraPosition, view,
+                               outputLinear, turns, policy_.subpixelThreshold)
+             : VK_NULL_HANDLE;
   std::optional<VulkanFrameCompute::Draw> gpuDraw;
-  if (world_ && compute_ && frame.orderSource == OrderSource::gpu) {
-    const VkBuffer camera = camera_->update(slot, frame.view, frame.proj, frame.cameraPosition,
-                                            view, outputLinear, turns, policy_.subpixelThreshold);
+  if (world_ && camera != VK_NULL_HANDLE && compute_ && frame.orderSource == OrderSource::gpu) {
     {
       const TraceSection section(trace::kEncodeCompute);
       gpuDraw = compute_->encode(cmd, slot, camera, *world_->splats, *world_->labels,

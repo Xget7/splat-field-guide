@@ -1,4 +1,5 @@
-SplatKit source: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
+SplatKit source: 8a25c57c6c4f62cf682e4c6159cfcae048f7fefe (published origin/main, audited 2026-11-10)
+Original import: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-android
 License: MIT, ../LICENSE
 Imported folders: src/main/cpp/rendering/vulkan as rendering/vulkan, with cull, device, frame, layout, presentation, raster, selection, sort and world.
@@ -18,3 +19,15 @@ Field Guide patches:
 - presentation/VulkanFrameLoop.h: failed() exposes the completion failure.
 - presentation/VulkanSurface.cpp: resize sets the TextureView producer's buffer size before the rebuild.
 - tests: CMakeLists.txt comment; WorldFrameCompletionTest drops upstream's JNI event ordinals; VulkanSplatPipelineTest drops the CPU-order cases; the visibility, frame compute and world tests add the label stream and guide cases.
+
+Committed updates integrated from published main:
+- d0f86ef and 733a59c: validate projection/viewport once on the CPU, upload near/far in the existing camera uniform, and submit clear frames without world compute/draw for invalid cameras.
+- 2b6493a: optional scaled 8-bit SH packing, upload, descriptor bounds and GLSL decoding, with matching CMake shader definitions and upstream regressions.
+SPLATKIT_VULKAN_SH8 stays OFF, matching upstream; enabling quantization requires a product quality/performance decision and physical-device evidence.
+VulkanCameraProjectionTest is a GPU-independent host/device executable; camera upload, shader colour/stride and world upload tests retain Miris label/guide coverage.
+Invalid camera frames do not latch the Miris GPU failure flag, so the next valid frame can recover.
+The Gradle property for upstream SH8 is omitted because this host owns a separate CMake integration; the option is available through CMake.
+No dirty upstream source was imported, including the separate occlusion, saturation-mask, SH-storage and GPU profiling experiments.
+
+Integration checks, 2026-11-10: arm64-v8a API 29 renderer and every native test executable cross-compiled successfully with SH8 OFF and ON.
+The camera projection contract passed on the macOS host; Android GPU tests were linked but not run on a device.
