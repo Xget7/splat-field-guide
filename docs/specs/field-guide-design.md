@@ -43,18 +43,27 @@ Startup supplies no pack until real Miris content is integrated; the library sho
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
 The current schema uses `.lodsplat` and one label byte per tree node, with zero unlabelled and 1-255 available part labels.
-**Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
-**Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
+A part's `parent` is Brick `brick:hasPart`; optional `relations` add `feeds` (`brick:feeds`, media flow), `carries` (kinematic support), `drives` (actuation) and `adjacent` (measured proximity, stored once).
+Each relation names two different known parts, appears once and keeps `authored` or `measured` evidence with a source; `carries` stays acyclic.
+The optional `model` file is the Brick/Turtle graph of the same facts; tooling verifies and bundles it, and the app never parses it.
+Schema 2 treats absent `relations`, `model` and `semantic` keys as none; the [component graph](../../apps/field-guide/src/features/pack/graph.ts) answers connections, neighbours, the carries chain, the feed path and the top-level assembly from the pack alone.
+**Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [component graph](../../apps/field-guide/src/features/pack/graph.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
+**Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [graph tests](../../apps/field-guide/src/features/pack/tests/graph.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
+Viewer controls for moving along relations and agreement on the exporter's real output are also pending.
 
 ## Semantic data
 
-**Owns, planned:** persistent prepared knowledge, reconstruction mappings and compatible-vector ranking to stable part IDs.
+**Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
 **Rule:** WatermelonDB owns local records, TanStack Query owns API state and Zustand holds transient state.
 Use one database writer; reject incompatible vector spaces even when dimensions match.
-The delivery contract needs encoder/preprocessing identity, normalization, reconstruction identity and attributed relationship evidence.
+The optional pack `semantic` block names the vector space (64-hex id, encoder, weights digest, preprocessing, dimensions, `normalized: true`), the `vectors` file and one row per part and kind (`image` or `text`).
+The vectors file holds little-endian float32 rows in row order, so its byte count must equal rows times dimensions times four; tooling also checks each row is finite and unit length.
+[Part vectors](../../apps/field-guide/src/features/semantic/domain/partVectors.ts) rank one kind by cosine and refuse another space id, a wrong-length query and a buffer that disagrees with the manifest.
 Mobile receives both comparison vectors; it does not generate embeddings or infer physical relationships from similarity.
-**Read before implementation:** [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
+**Read:** [public interface](../../apps/field-guide/src/features/semantic/index.ts), [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
+**Verify:** [vector tests](../../apps/field-guide/src/features/semantic/tests/partVectors.test.ts).
+**Pending:** reading the vectors file from an installed pack, reconstruction identity for mappings and persistent records.
 WatermelonDB and TanStack Query are not installed; free-text query encoding remains a separate decision.
 
 ## Guide
@@ -70,6 +79,7 @@ A session is the current position; progress is its saved continuation.
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
 Typed answers fall back from Claude to Apple generation to scripted guidance; Android skips Apple generation.
+Prompts list the subject's supplied connections with their evidence source, so answers about what a part is connected to stay grounded.
 Keep its three concerns behind separate internal interfaces:
 
 - **Turn policy:** [router](../../apps/field-guide/src/features/instructor/domain/router.ts), [turn runner](../../apps/field-guide/src/features/instructor/domain/turn/turnRunner.ts), [grounding](../../apps/field-guide/src/features/instructor/domain/grounding.ts); [turn tests](../../apps/field-guide/src/features/instructor/tests/turnRunner.test.ts).

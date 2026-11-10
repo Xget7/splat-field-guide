@@ -27,7 +27,7 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 - [ ] Implement verified pack installation, activation and failure recovery, connecting explicit pack selection to the empty startup/catalog.
 - [ ] Integrate WatermelonDB semantic records and TanStack Query API delivery without duplicating persistent records in Zustand.
-- [ ] Validate vector-space identity and implement supplied-vector comparison returning stable part IDs.
+- [x] Validate vector-space identity and implement supplied-vector comparison returning stable part IDs.
 - [ ] Resolve selected IDs through the active reconstruction's mappings and connect them to existing viewer highlight and framing.
 - [ ] Connect reviewed Miris information and procedures to the existing guide/instructor interfaces.
 - [ ] Test interrupted installation, incompatible vectors, wrong-reconstruction mappings and replacement preserving stable identities.
@@ -35,6 +35,12 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 Contract and app-interface work can proceed while annotations are refined.
 Visual acceptance must use accepted exported data.
+
+Schema 2 now accepts optional `relations` (Brick `feeds`, plus `carries`, `drives` and `adjacent`, each with authored or measured evidence), a `model` Turtle file and a `semantic` vector block; see [design](docs/specs/field-guide-design.md#pack-and-delivery).
+Pack tooling verifies the size and SHA-256 of the model and vectors files, checks vector rows are finite unit vectors, and bundles and archives both files.
+Component graph navigation, supplied-vector ranking and connection-grounded instructor prompts are pure source interfaces; no screen offers relation navigation yet.
+The contract still needs agreement against the exporter's first real Miris pack, and loading the vectors file from an installed pack waits for installation.
+Source checks passed 66 app suites with 811 tests, lint, types and nine pack tooling tests; no device, build or physical check was run.
 
 ## Runtime cleanup
 
