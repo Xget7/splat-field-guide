@@ -19,7 +19,6 @@ import { TOUR_ID } from '../../pack/tour';
 import { LearnMode } from '../domain/learningMode';
 import type { SessionStart } from '../domain/sessionStart';
 import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
-import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Backdrop, FadingPhoto, Spotlight } from '../../../ui/Gradients';
 import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
 import { Icon, IconName } from '../../../ui/Icon';
@@ -220,18 +219,9 @@ export function GuideDetailScreen({
         <View style={stage}>
           <Spotlight id="detail-stage" />
         </View>
-        <ModelPreview
-          path={guide.model}
-          turn={Turns.sway}
-          style={stage}
-          fallback={
-            <FadingPhoto
-              id="detail-hero"
-              source={guide.image}
-              start={fadeFrom}
-            />
-          }
-        />
+        {guide.image !== undefined && (
+          <FadingPhoto id="detail-hero" source={guide.image} start={fadeFrom} />
+        )}
       </>
     );
   };

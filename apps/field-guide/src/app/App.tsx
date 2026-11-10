@@ -4,8 +4,6 @@ import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './navigation/RootNavigator';
-import { bundledPack } from '../features/pack/bundledPack';
-import { PackErrorScreen } from './startup/PackErrorScreen';
 import { Color } from '../ui/theme';
 import { createAppInstructor } from './startup/instructor';
 import { createAppProgress } from './startup/progress';
@@ -22,11 +20,7 @@ function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <StatusBar barStyle="light-content" />
-        {bundledPack.ok ? (
-          <RootNavigator pack={bundledPack.pack} progress={progress} />
-        ) : (
-          <PackErrorScreen message={bundledPack.error.message} />
-        )}
+        <RootNavigator progress={progress} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

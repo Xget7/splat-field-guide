@@ -1,14 +1,11 @@
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { isCurrentPick, type PickInputs } from '../domain/pickInputs';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
 const VIEW = { id: 'view' };
 const BEFORE: PickInputs<typeof VIEW> = {
   generation: 1,
   session: { procedureId: 'check-coolant', stepIndex: 2, selectedPart: null },
-  pack: bundledPack.pack,
+  pack: fixturePack(),
   view: VIEW,
   frameRequest: 0,
   closeUp: false,

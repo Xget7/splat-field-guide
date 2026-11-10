@@ -82,13 +82,13 @@ class VulkanVisibilityPass {
   };
   static_assert(sizeof(Range) == 16);
   struct Input {
-    VkBuffer camera = VK_NULL_HANDLE;  // CameraUniform, std140
+    VkBuffer camera = VK_NULL_HANDLE;  // CameraUniform, std140; setCameraProjection must succeed
     VkDeviceSize cameraOffset = 0;
     VkBuffer splats = VK_NULL_HANDLE;  // resident GpuSplat records, 32 bytes each
     VkDeviceSize splatsOffset = 0;
     uint32_t sourceCount = 0;
-    // Harmonics bands 1 to shDegree, shStride(shDegree) uints per source record. Degree 0
-    // never reads it and may leave it null.
+    // Harmonics bands 1 to shDegree, shStride(shDegree, kVulkanShStorage) uints per source record.
+    // Degree 0 never reads it and may leave it null.
     VkBuffer sh = VK_NULL_HANDLE;
     VkDeviceSize shOffset = 0;
     int shDegree = 0;
@@ -147,7 +147,6 @@ class VulkanVisibilityPass {
   static constexpr uint32_t kInvalidIndex = 2u;
   static constexpr uint32_t kInvalidCount = 4u;
   static constexpr uint32_t kInvalidRange = 8u;
-  static constexpr uint32_t kInvalidProjection = 16u;
 
  private:
   VulkanVisibilityPass(const VulkanContext& ctx, VulkanVisibilityCapabilities capabilities,

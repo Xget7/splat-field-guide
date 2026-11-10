@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type ComingSoonGuide, type ReadyGuide } from '../../pack/catalog';
+import { type ReadyGuide } from '../../pack/catalog';
 import { IconButton, IconButtonVariant } from '../../../ui/Button';
-import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Scrim, SheenEdge, Spotlight } from '../../../ui/Gradients';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
@@ -15,10 +14,6 @@ const Layout = {
   heroFadeFrom: 0.15,
   // The frame shows as a thin bezel around the stage.
   frameInset: 6,
-  soonAspect: 1,
-  soonWideAspect: 4 / 3,
-  soonFadeFrom: 0.25,
-  soonImageOpacity: 0.55,
   thumbnail: 64,
   playSize: 44,
   progressHeight: 3,
@@ -37,7 +32,7 @@ export function ReadyCard({
   wide?: boolean;
   onPress: () => void;
 }) {
-  // The model turns between the facts and the title, clear of both.
+  // Keep the stage clear of the facts and title.
   const [bodyHeight, setBodyHeight] = useState(0);
   return (
     <Pressable
@@ -58,21 +53,16 @@ export function ReadyCard({
         <View style={[styles.stage, { bottom: bodyHeight }]}>
           <Spotlight id={`stage-${guide.id}`} />
         </View>
-        <ModelPreview
-          path={guide.model}
-          turn={Turns.sway}
-          style={[styles.stage, { bottom: bodyHeight }]}
-          fallback={
-            <>
-              <Image
-                source={guide.image}
-                resizeMode="cover"
-                style={styles.cover}
-              />
-              <Scrim id={`hero-${guide.id}`} start={Layout.heroFadeFrom} />
-            </>
-          }
-        />
+        {guide.image !== undefined && (
+          <>
+            <Image
+              source={guide.image}
+              resizeMode="cover"
+              style={styles.cover}
+            />
+            <Scrim id={`hero-${guide.id}`} start={Layout.heroFadeFrom} />
+          </>
+        )}
         <View style={styles.facts}>
           {factsFor(guide).map(fact => (
             <View key={fact} style={styles.chip}>
@@ -114,37 +104,6 @@ function OpenCue({ id, label }: { id: string; label: string }) {
   );
 }
 
-export function SoonCard({
-  guide,
-  wide = false,
-}: {
-  guide: ComingSoonGuide;
-  wide?: boolean;
-}) {
-  return (
-    <View
-      testID={`soon-card-${guide.id}`}
-      accessible
-      accessibilityLabel={`${guide.title}, ${guide.area}, coming soon`}
-      style={[
-        styles.soonCard,
-        { aspectRatio: wide ? Layout.soonWideAspect : Layout.soonAspect },
-      ]}
-    >
-      <Image
-        source={guide.image}
-        resizeMode="cover"
-        style={[styles.cover, styles.soonImage]}
-      />
-      <Scrim id={`soon-${guide.id}`} start={Layout.soonFadeFrom} />
-      <View style={styles.soonBody}>
-        <Text style={styles.soonTitle}>{guide.title}</Text>
-        <Text style={styles.soonArea}>{guide.area}</Text>
-      </View>
-    </View>
-  );
-}
-
 export function ContinueCard({
   row,
   onPress,
@@ -161,11 +120,13 @@ export function ContinueCard({
       onPress={onPress}
       style={({ pressed }) => [styles.continue, pressed && styles.cardPressed]}
     >
-      <Image
-        source={row.guide.image}
-        resizeMode="cover"
-        style={styles.thumbnail}
-      />
+      {row.guide.image !== undefined && (
+        <Image
+          source={row.guide.image}
+          resizeMode="cover"
+          style={styles.thumbnail}
+        />
+      )}
       <View style={styles.continueBody}>
         <Text style={styles.continueTitle}>{row.procedure.title}</Text>
         <Text style={styles.step}>{row.stepLabel}</Text>
@@ -258,24 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: Color.action,
   },
   cueText: { ...Type.calloutStrong, color: Color.actionText },
-  soonCard: {
-    flex: 1,
-    borderRadius: Radius.card,
-    overflow: 'hidden',
-    backgroundColor: Color.raised,
-    borderWidth: HAIRLINE,
-    borderColor: Color.line,
-  },
-  soonImage: { opacity: Layout.soonImageOpacity },
-  soonBody: {
-    position: 'absolute',
-    left: Space.md,
-    right: Space.md,
-    bottom: Space.md,
-    gap: Space.xxs,
-  },
-  soonTitle: { ...Type.calloutStrong, color: Color.secondaryText },
-  soonArea: { ...Type.footnote, color: Color.muted },
   continue: {
     flexDirection: 'row',
     alignItems: 'center',

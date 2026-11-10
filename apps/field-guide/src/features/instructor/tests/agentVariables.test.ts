@@ -1,4 +1,4 @@
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { INITIAL_SESSION } from '../../guide';
 import {
   agentVariables,
@@ -7,10 +7,7 @@ import {
 } from '../domain/agent/agentVariables';
 import { stateSentence } from '../domain/agent/agentTools';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 test('openings reflect exploration, a step or a resumed conversation', () => {
   expect(agentVariables(INITIAL_SESSION, pack, false)).toEqual({
     procedure: 'none',

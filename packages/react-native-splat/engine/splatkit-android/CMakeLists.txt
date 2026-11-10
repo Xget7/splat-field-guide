@@ -11,6 +11,9 @@ FetchContent_Declare(vk-bootstrap
 FetchContent_Declare(VulkanMemoryAllocator
   GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git GIT_TAG v3.2.1)
 FetchContent_MakeAvailable(vk-bootstrap VulkanMemoryAllocator)
+option(SPLATKIT_VULKAN_SH8 "Use experimental 8-bit spherical harmonics storage" OFF)
+# Upload, descriptor bounds and shaders must agree on the storage format.
+add_compile_definitions(SPLATKIT_VULKAN_SH8=$<BOOL:${SPLATKIT_VULKAN_SH8}>)
 add_subdirectory(../splatkit-engine splatkit-engine)
 include(cmake/shaders.cmake)
 splatkit_compile_shaders(splatkit_shaders

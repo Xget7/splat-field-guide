@@ -21,7 +21,7 @@ class VulkanWorld {
   static constexpr int kMaxShDegree = splatkit::kMaxShDegree;
 
   // Converts a decoded cloud to the GPU layout and uploads it (blocking). Spherical
-  // harmonics above `maxShDegree` are dropped: degree 3 costs 92 bytes per splat.
+  // harmonics above `maxShDegree` are dropped; kVulkanShStorage selects their layout.
   static std::unique_ptr<VulkanWorld> upload(const VulkanContext& ctx,
                                              const splat::SplatCloud& cloud, int maxShDegree,
                                              bool cpuOrder);
@@ -44,8 +44,8 @@ class VulkanWorld {
 
   std::unique_ptr<VulkanBuffer> splats;
   std::unique_ptr<VulkanBuffer> order;
-  // Spherical harmonics bands 1 to `shDegree`, rgb halves per coefficient, packed two per
-  // uint with no padding. A placeholder of one uint when the degree is 0, so the
+  // Spherical harmonics bands 1 to `shDegree` in kVulkanShStorage layout.
+  // A placeholder of one uint when the degree is 0, so the
   // descriptor is always valid and the degree 0 pipeline never reads it.
   std::unique_ptr<VulkanBuffer> sh;
   // Field Guide's label stream: one part label byte per record, packed into uint words

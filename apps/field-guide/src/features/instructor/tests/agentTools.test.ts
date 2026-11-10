@@ -1,5 +1,5 @@
 import { stepKeyFor } from '../domain/voice/voiceSession';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { INITIAL_SESSION, reduce, SessionEventType } from '../../guide';
 import {
   AgentTool,
@@ -8,10 +8,7 @@ import {
   stateSentence,
 } from '../domain/agent/agentTools';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const procedure = pack.procedures[1];
 const part = pack.parts[0];
 const state = reduce(

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { catalogFor, type ReadyGuide } from '../../pack/catalog';
+import { catalogFor } from '../../pack/catalog';
 import { TOUR_ID } from '../../pack/tour';
 import { LearnMode } from '../domain/learningMode';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { procedureRowsFor } from '../domain/procedureRows';
 import { GuideDetailScreen } from '../ui/GuideDetailScreen';
 
@@ -12,10 +12,7 @@ jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const catalog = catalogFor(pack);
 
 test('bundled procedure rows preserve order, counts and safety notes', () => {
@@ -30,25 +27,23 @@ test('bundled procedure rows preserve order, counts and safety notes', () => {
     {
       id: 'check-coolant',
       title: 'Check the coolant level',
-      stepsLabel: '5 steps',
+      stepsLabel: '3 steps',
       hasCaution: true,
-      accessibilityLabel: 'Check the coolant level, 5 steps, has safety notes',
+      accessibilityLabel: 'Check the coolant level, 3 steps, has safety notes',
     },
     {
       id: 'check-brake-fluid',
       title: 'Check the brake fluid level',
-      stepsLabel: '5 steps',
-      hasCaution: true,
-      accessibilityLabel:
-        'Check the brake fluid level, 5 steps, has safety notes',
+      stepsLabel: '2 steps',
+      hasCaution: false,
+      accessibilityLabel: 'Check the brake fluid level, 2 steps',
     },
     {
       id: 'check-power-steering-fluid',
       title: 'Check the power steering fluid level',
-      stepsLabel: '5 steps',
-      hasCaution: true,
-      accessibilityLabel:
-        'Check the power steering fluid level, 5 steps, has safety notes',
+      stepsLabel: '2 steps',
+      hasCaution: false,
+      accessibilityLabel: 'Check the power steering fluid level, 2 steps',
     },
   ]);
 });
@@ -169,13 +164,7 @@ describe('Guide detail screen', () => {
     );
   });
 
-  test('the hero turns the model from the library card', async () => {
-    await mount();
-    const model = renderer.root.findByType('ModelView' as never);
-    expect(model.props.modelPath).toBe((catalog[0] as ReadyGuide).model);
-  });
-
-  test.each(['missing', catalog[1].id])(
+  test.each(['missing', 'tactical-truck-engine-bay'])(
     'unavailable guide has a message and back action: %s',
     async id => {
       await mount(id);

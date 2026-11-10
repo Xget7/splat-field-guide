@@ -21,7 +21,9 @@ struct alignas(16) CameraUniform {
   float cameraPosition[4];
   // Pixels: a splat whose source sigma times its quad radius is smaller is not drawn.
   float minPixelRadius;
-  float pad[3];
+  float nearPlane;
+  float farPlane;
+  float pad;
 };
 static_assert(sizeof(CameraUniform) == 192);
 static_assert(offsetof(CameraUniform, proj) == 64);
@@ -32,6 +34,8 @@ static_assert(offsetof(CameraUniform, outputLinear) == 152);
 static_assert(offsetof(CameraUniform, quarterTurns) == 156);
 static_assert(offsetof(CameraUniform, cameraPosition) == 160);
 static_assert(offsetof(CameraUniform, minPixelRadius) == 176);
+static_assert(offsetof(CameraUniform, nearPlane) == 180);
+static_assert(offsetof(CameraUniform, farPlane) == 184);
 
 // Peak opacity at which a splat's quad ends; below it the splat has no quad. constant_id
 // kQuadMinAlphaConstant of visibility.comp and splat.vert (splat_footprint.glsl), and the

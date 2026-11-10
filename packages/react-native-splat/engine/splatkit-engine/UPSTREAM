@@ -1,4 +1,5 @@
-SplatKit source: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
+SplatKit source: 8a25c57c6c4f62cf682e4c6159cfcae048f7fefe (published origin/main, audited 2026-11-10)
+Original import: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-engine
 License: MIT, ../LICENSE
 Imported files: Log, rendering/GpuLayout, rendering/RenderPolicy, rendering/LodThreshold.h, rendering/SplatRenderer.h, diagnostics/StatsPublisher and camera/Lens.
@@ -13,3 +14,11 @@ Imported file: include/splatkit/engine/EventDispatcher.h (byte-identical upstrea
 SHA-256: 1e042d9774d65913735cfaa2a762aada27993da5c9e202eb644a390fc61d0767.
 Local engine/SplatEngine uses that dispatcher; upstream engine and GPU working-tree changes were not imported.
 Replacement is nonblocking; selected callbacks may finish, and hosts retain the engine and callback context until in-flight load/render calls return.
+
+GpuLayout headers, implementation and tests include committed scaled 8-bit SH support from 2b6493a, byte-identical to the audited main.
+Float16 remains the default, including Metal; the load-memory estimate remains conservative.
+The EventDispatcher fix above is retained from origin/docs/gpu-evidence-guides, which is still c857707 and is not yet in published main.
+The custom C interface, orbit/guide engine, event ownership and local statistics tests remain intentional host adaptations.
+
+Integration checks, 2026-11-10: combined core/C-interface/Metal CTest registered 273 tests, with 271 passing and two missing-fixture skips.
+The four scaled-SH packing regressions passed; package tests (3), lint and TypeScript passed.

@@ -54,6 +54,22 @@ Scene scene(const Gpu& gpu) {
   return s;
 }
 
+void testCameraRejection(const Scene& s) {
+  for (uint32_t slot = 0; slot < splatkit::kFramesInFlight; ++slot) {
+    const auto update = [&](const splat::Mat4& projection, VkExtent2D extent) {
+      return s.cameras->update(slot, splat::Mat4::identity(), projection, {0, 0, 0}, extent, false,
+                               0, 0);
+    };
+    require(update(s.proj, kExtent) == s.cameras->buffer(slot), "valid camera buffer");
+    require(update(splat::Mat4::identity(), kExtent) == VK_NULL_HANDLE,
+            "reject invalid projection before dispatch");
+    require(update(s.proj, {0, kExtent.height}) == VK_NULL_HANDLE,
+            "reject invalid viewport before dispatch");
+    require(update(s.proj, kExtent) == s.cameras->buffer(slot), "camera recovers in either slot");
+  }
+  std::puts("PASS camera upload rejects invalid frames and recovers in either slot");
+}
+
 using Record = std::function<void(VkCommandBuffer)>;
 
 // The red channel of what `before` and `draw` record, over transparent black: `before` runs
@@ -179,6 +195,7 @@ int main() {
     Gpu gpu;
     std::printf("GPU: %s\n", gpu.context->deviceDescription().c_str());
     const Scene s = scene(gpu);
+    testCameraRejection(s);
     testProjectedPath(gpu, s);
     gpu.requireValidationClean();
     return 0;

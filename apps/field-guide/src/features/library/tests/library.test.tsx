@@ -8,7 +8,7 @@ import {
   LearnMode,
   type ProgressStorage,
 } from '../../guide';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 
 import { continueRowFor, factsFor } from '../domain/library';
 import { LibraryScreen } from '../ui/LibraryScreen';
@@ -17,10 +17,7 @@ jest.mock('react-native-nitro-modules', () => ({
   callback: (fn: unknown) => fn,
 }));
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const catalog = catalogFor(pack);
 const guide = catalog[0] as ReadyGuide;
 const progress = {
@@ -32,7 +29,7 @@ const progress = {
 test.each([
   null,
   { ...progress, guideId: 'unknown' },
-  { ...progress, guideId: catalog[1].id },
+  { ...progress, guideId: 'tactical-truck-engine-bay' },
   { ...progress, procedureId: 'unknown' },
   { ...progress, stepIndex: -1 },
   { ...progress, stepIndex: 1.5 },
@@ -41,13 +38,17 @@ test.each([
   expect(continueRowFor(catalog, saved)).toBeNull();
 });
 
+test('an empty catalog cannot resume a previously saved guide', () => {
+  expect(continueRowFor([], progress)).toBeNull();
+});
+
 test('continue shows one-based progress and a fraction of the procedure', () => {
   expect(continueRowFor(catalog, progress)).toMatchObject({
     guide: catalog[0],
     procedure: pack.procedures[1],
     stepIndex: 1,
-    stepLabel: 'Step 2 of 5',
-    fraction: 2 / 5,
+    stepLabel: 'Step 2 of 3',
+    fraction: 2 / 3,
   });
 });
 
@@ -116,14 +117,21 @@ describe('Library screen', () => {
     }
   });
 
-  test('ready card opens its guide and coming soon cards are informational', async () => {
+  test('the library offers only the available guide', async () => {
     await mount();
     await press(`guide-card-${pack.packId}`);
     expect(onOpenGuide).toHaveBeenCalledWith(guide);
-    expect(node(`soon-card-${catalog[1].id}`).props.accessibilityLabel).toBe(
-      'Tactical truck, Engine bay, coming soon',
+    const cardIds = new Set(
+      renderer.root
+        .findAll(item => item.props.testID?.startsWith('guide-card-'))
+        .map(item => item.props.testID),
     );
-    expect(node(`soon-card-${catalog[1].id}`).props.onPress).toBeUndefined();
+    expect([...cardIds]).toEqual([`guide-card-${pack.packId}`]);
+    expect(
+      renderer.root.findAll(item =>
+        item.props.testID?.startsWith('soon-card-'),
+      ),
+    ).toHaveLength(0);
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);
@@ -134,21 +142,6 @@ describe('Library screen', () => {
     expect(
       renderer.root.findAllByProps({ testID: 'open-ar-assembly' }),
     ).toHaveLength(0);
-  });
-
-  test('the ready card turns its model and shows the photo when the model cannot load', async () => {
-    await mount();
-    const card = renderer.root.findByProps({
-      testID: `guide-card-${pack.packId}`,
-    });
-    const model = card.findByType('ModelView' as never);
-    expect(model.props.modelPath).toBe(guide.model);
-    expect(card.findAllByProps({ source: guide.image })).toHaveLength(0);
-    await act(() => model.props.onLoaded(false));
-    expect(card.findAllByType('ModelView' as never)).toHaveLength(0);
-    expect(card.findAllByProps({ source: guide.image }).length).toBeGreaterThan(
-      0,
-    );
   });
 
   test('saved progress opens the same step from the row and its play button', async () => {

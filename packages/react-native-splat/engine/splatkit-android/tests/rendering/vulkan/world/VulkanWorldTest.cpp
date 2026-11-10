@@ -2,6 +2,7 @@
 #include <cstring>
 #include <vector>
 
+#include "rendering/vulkan/layout/VulkanShStorage.h"
 #include "rendering/vulkan/world/VulkanWorld.h"
 #include "splatkit/rendering/GpuLayout.h"
 #include "support/VulkanTestContext.h"
@@ -34,7 +35,7 @@ splat::SplatCloud degree3Cloud(uint32_t count) {
 }
 
 uint64_t shBytes(uint32_t count, int degree) {
-  return uint64_t{count} * shStride(degree) * sizeof(uint32_t);
+  return uint64_t{count} * shStride(degree, splatkit::kVulkanShStorage) * sizeof(uint32_t);
 }
 
 void uploadShape(const test::VulkanTestContext& gpu) {
@@ -108,8 +109,8 @@ void tilesInSharedMemory(const test::VulkanTestContext& gpu) {
   const auto* splats = static_cast<const splatkit::GpuSplat*>(slab->splats->mapped());
   require(std::memcmp(splats + 5, packed.data(), packed.size() * sizeof(packed[0])) == 0,
           "the tile's records sit at its offset");
-  const size_t stride = shStride(1);
-  const std::vector<uint32_t> sh = splatkit::packSh(tile, 1);
+  const size_t stride = shStride(1, splatkit::kVulkanShStorage);
+  const std::vector<uint32_t> sh = splatkit::packSh(tile, 1, splatkit::kVulkanShStorage);
   const auto* slabSh = static_cast<const uint32_t*>(slab->sh->mapped());
   require(std::memcmp(slabSh + 5 * stride, sh.data(), sh.size() * sizeof(uint32_t)) == 0,
           "the tile's harmonics sit at its offset");
@@ -135,7 +136,7 @@ void worldInSharedMemory(const test::VulkanTestContext& gpu) {
   require(
       std::memcmp(gpu.readback(*world->splats, splatBytes).data(), packed.data(), splatBytes) == 0,
       "the GPU reads the packed records");
-  const std::vector<uint32_t> sh = splatkit::packSh(source, 3);
+  const std::vector<uint32_t> sh = splatkit::packSh(source, 3, splatkit::kVulkanShStorage);
   const size_t harmonicBytes = sh.size() * sizeof(uint32_t);
   require(
       std::memcmp(gpu.readback(*world->sh, harmonicBytes).data(), sh.data(), harmonicBytes) == 0,

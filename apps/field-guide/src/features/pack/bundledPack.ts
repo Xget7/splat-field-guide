@@ -1,8 +1,4 @@
-import manifest from '../../../../../content/gol-trend-engine-bay/manifest.json';
 import type { Pack } from './pack';
-import { parsePack } from './parsePack';
-
-export const bundledPack = parsePack(manifest);
 
 // Names follow the native SplatSource: the splat file is the tier's tree and the count its leaves.
 export interface PackSource {

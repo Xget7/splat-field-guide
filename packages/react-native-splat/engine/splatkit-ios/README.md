@@ -31,5 +31,5 @@ Set `SPLAT_LOD_PATH` to a .lodsplat tree to enable `MetalRasterTest.ARealWorldFi
 From the repository root after the Metal build:
 
 ```sh
-packages/react-native-splat/build/checks/splat_snapshot --world data/pack/gol-trend-engine-bay/1/high/world.lodsplat --labels data/pack/gol-trend-engine-bay/1/high/labels.bin --highlight 6 --pose 12.8,5,6.1 --out /tmp/engine.png
+nice -n 19 packages/react-native-splat/build/checks/splat_snapshot --world <world.lodsplat> --labels <labels.bin> --out /tmp/miris.png
 ```

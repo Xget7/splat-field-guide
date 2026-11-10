@@ -25,6 +25,7 @@ Each area names the complexity it owns and the rule that callers must preserve.
 ## App
 
 **Owns:** startup, navigation and dependency composition; screens receive configured capabilities.
+Startup supplies no pack until real Miris content is integrated; the library shows its empty state.
 **Rule:** features never import app composition or construct unrelated provider lifecycles.
 **Read:** [startup](../../apps/field-guide/src/app/App.tsx), [navigation](../../apps/field-guide/src/app/navigation/RootNavigator.tsx), [platform wiring](../../apps/field-guide/src/app/platform.ts).
 **Verify:** [app tests](../../apps/field-guide/src/app/tests/App.test.tsx).
@@ -42,7 +43,7 @@ Each area names the complexity it owns and the rule that callers must preserve.
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
 The current schema uses `.lodsplat` and one label byte per tree node, with zero unlabelled and 1-255 available part labels.
-**Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [current bundled loader](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
+**Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
 **Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
 

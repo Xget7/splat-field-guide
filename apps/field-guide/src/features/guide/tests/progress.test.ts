@@ -1,7 +1,7 @@
 import { parseProgress } from '../domain/progress';
 
 const good = {
-  guideId: 'gol-trend-engine-bay',
+  guideId: 'fixture',
   procedureId: 'check-coolant',
   stepIndex: 1,
 } as const;

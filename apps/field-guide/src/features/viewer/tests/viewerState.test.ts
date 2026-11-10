@@ -6,7 +6,7 @@ import {
   ExchangePhase,
   TurnEventType,
 } from '../../instructor';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 
 import {
   answeredExchanges,
@@ -18,10 +18,7 @@ import {
   type ViewerState,
 } from '../domain/viewerState';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack: Pack = bundledPack.pack;
+const pack: Pack = fixturePack();
 const run = (state: ViewerState, ...actions: ViewerAction[]) =>
   actions.reduce(
     (current, action) => reduceViewer(current, action, pack),

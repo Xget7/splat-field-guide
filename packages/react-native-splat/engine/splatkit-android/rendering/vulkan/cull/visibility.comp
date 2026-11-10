@@ -41,11 +41,6 @@ bool finiteVec4(vec4 v) {
 
 bool visible(Splat s, uint index, out uint key, out ProjectedSplat record) {
   key = 0u;
-  if (!finiteVec2(cam.focal) || !finiteVec2(cam.tanHalfFov) || !finiteVec2(cam.screenSize) ||
-      any(lessThanEqual(cam.focal, vec2(0.0))) ||
-      any(lessThanEqual(cam.tanHalfFov, vec2(0.0))) ||
-      any(lessThanEqual(cam.screenSize, vec2(0.0))))
-    return false;
   if (!finiteFloat(s.px) || !finiteFloat(s.py) || !finiteFloat(s.pz)) return false;
   vec2 c0 = unpackHalf2x16(s.cov0);
   vec2 c1 = unpackHalf2x16(s.cov1);
@@ -62,17 +57,13 @@ bool visible(Splat s, uint index, out uint key, out ProjectedSplat record) {
     return false;
 
   // A covariance-derived view-space depth interval makes near-plane handling conservative.
-  // Invalid/non-perspective projection coefficients disable only this depth rejection.
-  float nearPlane = cam.proj[3][2] / cam.proj[2][2];
-  float farPlane = cam.proj[3][2] / (cam.proj[2][2] + 1.0);
   mat3 source = mat3(c0.x, c0.y, c1.x,
                      c0.y, c1.y, c2.x,
                      c1.x, c2.x, c2.y);
   vec3 viewZ = vec3(cam.view[0][2], cam.view[1][2], cam.view[2][2]);
   float depthSigma = sqrt(max(dot(viewZ, source * viewZ), 0.0));
   float depthExtent = v.radius * depthSigma;
-  if (finiteFloat(nearPlane) && finiteFloat(farPlane) && nearPlane > 0.0 && farPlane > nearPlane &&
-      (v.viewPos.z - depthExtent > -nearPlane || v.viewPos.z + depthExtent < -farPlane))
+  if (v.viewPos.z - depthExtent > -cam.nearPlane || v.viewPos.z + depthExtent < -cam.farPlane)
     return false;
 
   float depth = -v.viewPos.z;
@@ -80,8 +71,8 @@ bool visible(Splat s, uint index, out uint key, out ProjectedSplat record) {
   key = floatBitsToUint(depth);
   if ((constants.keyMode & 1u) != 0u) {
     // Float steps above the near plane, 2^11 at a time: at most 2^-12 of the depth, so close
-    // layers keep distinct keys (SplatVisibility.metal). Projection validity checked by main.
-    uint steps = floatBitsToUint(max(depth, nearPlane)) - floatBitsToUint(nearPlane);
+    // layers keep distinct keys (SplatVisibility.metal). Projection validated on the CPU.
+    uint steps = floatBitsToUint(max(depth, cam.nearPlane)) - floatBitsToUint(cam.nearPlane);
     key = min(steps >> 11u, 65535u);
   }
   if ((constants.keyMode & 2u) != 0u)
@@ -151,20 +142,13 @@ void main() {
   uint groupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * constants.dispatchGroupsX;
   uint logical = groupIndex * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
   // Uniform workgroup exit: indexed LOD usually fills only a fraction of its capacity.
-  // Keep group zero for empty-input/projection diagnostics, and never hide invalid counts.
+  // Keep group zero for empty-input diagnostics, and never hide invalid counts.
   if (constants.mode == 1u && groupIndex > 0u &&
       candidateCount <= constants.candidateCapacity &&
       groupIndex * gl_WorkGroupSize.x >= candidateCount) return;
   uint sourceIndex = 0u, errors = 0u, key = 0u;
   if (constants.mode == 2u && logical < constants.rangeCount && !validRange(logical)) errors |= 8u;
   bool candidate = resolveCandidate(logical, sourceIndex, errors);
-  if ((constants.keyMode & 1u) != 0u) {
-    float nearPlane = cam.proj[3][2] / cam.proj[2][2];
-    float farPlane = cam.proj[3][2] / (cam.proj[2][2] + 1.0);
-    if (!finiteFloat(nearPlane) || !finiteFloat(farPlane) || nearPlane <= 0.0 || farPlane <= nearPlane) {
-      errors |= 16u; candidate = false;
-    }
-  }
   bool keep = false;
   ProjectedSplat record;
   if (candidate) keep = visible(splats[sourceIndex], sourceIndex, key, record);

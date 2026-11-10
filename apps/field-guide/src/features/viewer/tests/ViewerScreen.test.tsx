@@ -56,7 +56,6 @@ import { catalogFor } from '../../pack/catalog';
 import type { ProcedureId } from '../../pack/pack';
 
 import { TOUR_ID } from '../../pack/tour';
-import { bundledPack } from '../../pack/bundledPack';
 
 import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
 
@@ -89,10 +88,34 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const base = fixturePack();
+// Five synthetic steps exercise paging, text splitting and multi-part overlays.
+const pack = {
+  ...base,
+  parts: base.parts.map(part =>
+    part.id === 'battery'
+      ? { ...part, summary: 'The battery supplies test power.' }
+      : part,
+  ),
+  procedures: base.procedures.map(procedure =>
+    procedure.id === TOUR_ID
+      ? procedure
+      : {
+          ...procedure,
+          steps: Array.from({ length: 5 }, (_, i) => ({
+            id: `test-step-${i}`,
+            text: `Locate the test component. Inspect the synthetic ${
+              procedure.id
+            } fixture at step ${i + 1}.`,
+            parts:
+              procedure.id === 'check-power-steering-fluid'
+                ? ['power-steering-reservoir', 'coolant-reservoir']
+                : [i === 0 ? 'engine' : 'coolant-reservoir'],
+            caution: i === 0 ? 'Synthetic caution for the test.' : '',
+          })),
+        },
+  ),
+};
 const catalog = catalogFor(pack);
 const VIEWPORT = { width: 300, height: 400 };
 // About the step on screen, so it names no other part to move to.
@@ -679,7 +702,7 @@ describe('viewer screen', () => {
 
   test('loading shows until ready; renderer errors keep the session', async () => {
     await mount();
-    expect(text('splat-loading')).toBe('Loading 2.4M splats');
+    expect(text('splat-loading')).toBe('Loading 0.0M splats');
     expect(has('marker-0')).toBe(false);
     await act(() => native().props.onReady());
     expect(has('splat-loading')).toBe(false);
@@ -1606,7 +1629,9 @@ describe('viewer screen', () => {
       await act(async () =>
         jest.mocked(model.respond).mock.calls[0][2](modelReply('Provisional')),
       );
-      expect(debug().getState().selectedPart).toBe('power-steering-reservoir');
+      expect(debug().getState().selectedPart).toBe(
+        pack.procedures[0].steps[0].parts[0],
+      );
       await act(async () => {
         answer.reject(new Error('model failed'));
       });

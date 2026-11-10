@@ -1,4 +1,5 @@
-SplatKit source: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
+SplatKit source: 8a25c57c6c4f62cf682e4c6159cfcae048f7fefe (published origin/main, audited 2026-11-10)
+Original import: 3e800ff4883f7ddc0c0e7cb331401fc72f63c782
 Origin: https://github.com/Xget7/splatkit, packages/splatkit-ios
 License: MIT, ../LICENSE
 Imported folders: Sources/SplatKitCore/rendering/metal with cull, device, diagnostics, frame, layout, presentation, raster, selection, sort and world, and cmake.
@@ -18,3 +19,10 @@ Field Guide patches:
 - rendering/metal/frame/MetalFrameCompute.h and .mm: one GuideUniform per frame slot, written with the camera.
 - rendering/metal/world/MetalWorld.h and .mm: each world owns its label stream, written at upload and by tiles, and rejects labels that do not match its splats.
 - tests/MetalVisibilityPassTest.mm, tests/MetalWorldTest.mm and tests/support/MetalVisibilityRig.h: label stream and guide coverage, and the guide arguments of encodeProject.
+
+All imported Metal implementation files and their upstream test sources were audited against the published commit; none changed since the original import.
+Shared GpuLayout now includes optional scaled8 packing, but Metal continues using its default float16 buffers.
+Local test paths remain flat while upstream paths mirror rendering/metal; guide, lifetime and C-interface regressions are retained.
+
+Integration checks, 2026-11-10: macOS Metal/core/C-interface tests passed with kitchen/SPZ and real-world raster fixture skips.
+Both arm64 iPhoneOS and iPhoneSimulator static framework slices rebuilt with two jobs; no physical-device acceptance is claimed.

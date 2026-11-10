@@ -2,7 +2,7 @@ import { fakeStorage } from '@tests/platform';
 import { createProgressStorage } from '../data/progressStorage';
 
 const good = {
-  guideId: 'gol-trend-engine-bay',
+  guideId: 'fixture',
   procedureId: 'check-coolant',
   stepIndex: 1,
 } as const;
