@@ -1,4 +1,4 @@
-const SLICES = ['library', 'guide', 'viewer', 'instructor'];
+const SLICES = ['library', 'guide', 'viewer', 'instructor', 'semantic'];
 // index.ts stays free of React and native packages so domain code, tsx and Node can load it;
 // views.ts carries the components and hooks that other slices compose.
 const PUBLIC_ENTRIES = ['index', 'views'];
