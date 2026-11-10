@@ -33,8 +33,6 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/reactnativesplatOnLoad.cpp
   # Shared Nitrogen C++ sources
-  ../nitrogen/generated/shared/c++/HybridModelViewSpec.cpp
-  ../nitrogen/generated/shared/c++/views/HybridModelViewComponent.cpp
   ../nitrogen/generated/shared/c++/HybridSplatDiagnosticsSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSplatViewSpec.cpp
   ../nitrogen/generated/shared/c++/views/HybridSplatViewComponent.cpp

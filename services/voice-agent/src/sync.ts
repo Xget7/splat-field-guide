@@ -8,7 +8,6 @@ import { pronunciationRules, type PronunciationRule } from './pronunciation.ts';
 import { createElevenLabs, SECRET_NAME, SecretType } from './elevenlabs.ts';
 import { loadState, saveState, JSON_INDENT, type AgentState } from './state.ts';
 
-const MANIFEST_URL = new URL('../../../content/gol-trend-engine-bay/manifest.json', import.meta.url);
 const STATE_PATH = fileURLToPath(new URL('../agent.json', import.meta.url));
 export const WORKER_COMMAND = 'npx wrangler secret put AGENT_ID';
 export const DICTIONARY_NAME = 'Field Guide terms';
@@ -28,6 +27,7 @@ const SyncCopy = {
     `Agent id: ${id}\nFrom services/instructor-proxy, run ${WORKER_COMMAND} and paste this id.`,
 } as const;
 export interface SyncOptions {
+  readonly manifest?: unknown;
   readonly env?: Environment;
   readonly statePath?: string;
   readonly fetchImpl?: typeof fetch;
@@ -67,7 +67,8 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
       throw new Error('Invalid WORKER_URL');
     }
   }
-  const parsed = parsePack(JSON.parse(await readFile(MANIFEST_URL, 'utf8')));
+  if (options.manifest === undefined) throw new Error('An explicit validated manifest is required');
+  const parsed = parsePack(options.manifest);
   if (!parsed.ok) throw new Error(parsed.error.message);
   const pack = parsed.pack;
   const statePath = options.statePath ?? STATE_PATH;
@@ -119,7 +120,10 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    await runSync({ dryRun: process.argv.includes(DRY_RUN_ARGUMENT) });
+    const manifestIndex = process.argv.indexOf('--manifest');
+    if (manifestIndex < 0 || !process.argv[manifestIndex + 1]) throw new Error('Pass --manifest <file>');
+    const manifest = JSON.parse(await readFile(process.argv[manifestIndex + 1], 'utf8'));
+    await runSync({ manifest, dryRun: process.argv.includes(DRY_RUN_ARGUMENT) });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

@@ -107,6 +107,16 @@ export function LibraryScreen({
             Maintenance guides built from 3D captures of real equipment.
           </Text>
         </View>
+        {catalog.length === 0 && (
+          <View testID="library-empty" style={styles.section}>
+            <Text accessibilityRole="header" style={styles.lede}>
+              No guide available
+            </Text>
+            <Text style={styles.lede}>
+              A validated Miris pack has not been installed yet.
+            </Text>
+          </View>
+        )}
         {continuation && (
           <View style={styles.section}>
             <SectionHeader title="Continue" />

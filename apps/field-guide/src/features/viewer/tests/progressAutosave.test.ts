@@ -1,6 +1,6 @@
 import { fakeInstructor } from '@tests/voiceSession';
 import { LearnMode, type Progress } from '../../guide';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { catalogFor, findReadyGuide } from '../../pack/catalog';
 import {
   attachProgressAutosave,
@@ -8,10 +8,7 @@ import {
 } from '../data/progressAutosave';
 import { createViewerStore } from '../state/viewerStore';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const guide = findReadyGuide(catalogFor(pack), pack.packId)!;
 const COOLANT = 'check-coolant';
 const CLEARED = 'cleared';

@@ -6,8 +6,8 @@ All items below remain open unless their completion evidence is recorded here.
 
 ## Current foundation
 
-The app already contains verified bundled-pack loading, a native viewer, sessions, procedures, saved continuation and an instructor with online/offline capabilities.
-Startup and catalog still target the previous bundled demo.
+The app contains pack verification, a native viewer, sessions, procedures, saved continuation and an instructor with online/offline capabilities.
+Startup has an empty catalog; no former demo content or synthetic test pack ships.
 Zustand is installed; WatermelonDB and TanStack Query are selected but not installed or integrated.
 Miris teaching is active in `../splat-tools`; accepted masks, lifting, export and app integration must not be conflated.
 
@@ -25,7 +25,7 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 ## App integration
 
-- [ ] Implement verified pack installation, activation and failure recovery, replacing the current hardcoded startup/catalog assumptions.
+- [ ] Implement verified pack installation, activation and failure recovery, connecting explicit pack selection to the empty startup/catalog.
 - [ ] Integrate WatermelonDB semantic records and TanStack Query API delivery without duplicating persistent records in Zustand.
 - [ ] Validate vector-space identity and implement supplied-vector comparison returning stable part IDs.
 - [ ] Resolve selected IDs through the active reconstruction's mappings and connect them to existing viewer highlight and framing.
@@ -38,16 +38,20 @@ Visual acceptance must use accepted exported data.
 
 ## Runtime cleanup
 
-- [ ] Remove the discarded Gol, V8 and AR product paths, unrelated catalog entries and standalone benchmark screens; migrate callers and tests before deleting their content, assets and source records.
+- [x] Remove discarded demo content, AR product paths, unrelated catalog entries and standalone benchmark screens, including their callers, assets and source records.
 - [x] Remove the superseded mobile semantic tokenizer/encoder experiment and its unneeded scripts, resources and retrieval tests.
-- [ ] Update preparation, packaging, navigation and tests with those removals, retaining required viewer, speech and GPU verification support.
-- [ ] Reconcile third-party notices with the resources and dependencies that actually remain in the distributed app.
+- [x] Update preparation, packaging, navigation and tests with those removals, retaining required viewer, speech and GPU verification support.
+- [x] Reconcile third-party notices with the resources and dependencies that remain in the distributed app.
 
 AR/assembly/placement and standalone benchmark routes, native AR bindings, V8 resources and their build inputs have been removed.
 The four unrelated catalog entries and their images have been removed, together with unused coming-soon presentation and types.
-The live Gol pack, preview and provenance remain until real Miris content replaces them.
+All former demo content, previews, ModelView bindings and automatic release downloads have been removed.
+Packaging and voice-agent configuration require explicit validated manifest inputs.
 Catalog cleanup passed 64 app suites, 782 tests, one snapshot, lint, types and seven tooling tests.
-Its standalone bundle check was blocked by local Node compatibility/library linkage; no bundle or physical validation is claimed for that follow-up.
+The final removal passed 64 app suites with 781 tests, 62 service tests, nine tooling tests, three splat package tests, lint/types, codegen comparison and production JS bundling.
+Unsigned iOS Simulator Debug and Android arm64 Debug builds passed with empty content bundles.
+Two identified obsolete local release directories were removed, reclaiming about 699 MB; unidentified archives were preserved.
+Visual and physical acceptance remain unchecked.
 Keep source provenance for referenced pack inputs and attribution for shipped resources until their corresponding content is removed.
 
 ## Acceptance
@@ -89,7 +93,7 @@ The instructor/services audit corrected interruption before audio, retryable lim
 Each fix has a regression test that failed before the correction.
 The delegated checks passed 34 instructor suites (352 tests and one snapshot), 49 proxy tests, 12 voice-agent tests, app/service TypeScript checks, instructor lint/format checks and a local Worker dry-run bundle.
 No deployment or paid request was performed; live provider compatibility and physical voice acceptance remain unchecked.
-Caller authentication for answer/session routes and serialization of live sync operations remain unresolved; sync still needs reviewed Miris content before deployment.
+Caller authentication for answer/session routes and serialization of live sync operations remain unresolved; sync requires an explicit reviewed Miris manifest before deployment.
 Native/tooling regressions now cover source validation before bundling, repair of same-size/same-timestamp corrupted copies, linked pack paths and conversation-owner microphone release.
 Checks passed 11 root tooling tests, 23 on-device tests (one skipped for unavailable retrieval inputs), four splat package tests, both packages' lint/types and engine artifact fingerprint verification.
 The first iOS build was blocked by the local Node library linkage; a temporary Node 26 wrapper using installed simdjson enabled the final successful build.

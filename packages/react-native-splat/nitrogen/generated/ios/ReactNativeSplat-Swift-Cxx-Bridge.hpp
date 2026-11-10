@@ -10,8 +10,6 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
-// Forward declaration of `HybridModelViewSpec` to properly resolve imports.
-namespace margelo::nitro::splat { class HybridModelViewSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
@@ -26,8 +24,6 @@ namespace margelo::nitro::splat { struct SplatError; }
 namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Forward declarations of Swift defined types
-// Forward declaration of `HybridModelViewSpec_cxx` to properly resolve imports.
-namespace ReactNativeSplat { class HybridModelViewSpec_cxx; }
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.
@@ -35,7 +31,6 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Include C++ defined types
 #include "CameraLimits.hpp"
-#include "HybridModelViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
@@ -57,40 +52,6 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
  * as well as helper functions to interact with those C++ types from Swift.
  */
 namespace margelo::nitro::splat::bridge::swift {
-
-  // pragma MARK: std::function<void(bool /* loaded */)>
-  /**
-   * Specialized version of `std::function<void(bool)>`.
-   */
-  using Func_void_bool = std::function<void(bool /* loaded */)>;
-  /**
-   * Wrapper class for a `std::function<void(bool / * loaded * /)>`, this can be used from Swift.
-   */
-  class Func_void_bool_Wrapper final {
-  public:
-    explicit Func_void_bool_Wrapper(std::function<void(bool /* loaded */)>&& func): _function(std::make_unique<std::function<void(bool /* loaded */)>>(std::move(func))) {}
-    inline void call(bool loaded) const noexcept {
-      _function->operator()(loaded);
-    }
-  private:
-    std::unique_ptr<std::function<void(bool /* loaded */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_bool_Wrapper wrap_Func_void_bool(Func_void_bool value) noexcept {
-    return Func_void_bool_Wrapper(std::move(value));
-  }
-
-  // pragma MARK: std::shared_ptr<HybridModelViewSpec>
-  /**
-   * Specialized version of `std::shared_ptr<HybridModelViewSpec>`.
-   */
-  using std__shared_ptr_HybridModelViewSpec_ = std::shared_ptr<HybridModelViewSpec>;
-  std::shared_ptr<HybridModelViewSpec> create_std__shared_ptr_HybridModelViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
-  void* NON_NULL get_std__shared_ptr_HybridModelViewSpec_(std__shared_ptr_HybridModelViewSpec_ cppType);
-
-  // pragma MARK: std::weak_ptr<HybridModelViewSpec>
-  using std__weak_ptr_HybridModelViewSpec_ = std::weak_ptr<HybridModelViewSpec>;
-  inline std__weak_ptr_HybridModelViewSpec_ weakify_std__shared_ptr_HybridModelViewSpec_(const std::shared_ptr<HybridModelViewSpec>& strong) noexcept { return strong; }
 
   // pragma MARK: std::shared_ptr<HybridSplatDiagnosticsSpec>
   /**

@@ -36,9 +36,7 @@ function fixture(t) {
     path.join(root, 'apps/field-guide/node_modules/typescript'),
   );
   const manifest = JSON.parse(
-    fs.readFileSync(
-      path.join(ROOT, 'content/gol-trend-engine-bay/manifest.json'),
-    ),
+    fs.readFileSync(path.join(ROOT, 'tests/fixtures/runtime-manifest.json')),
   );
   const world = Buffer.alloc(128);
   world.write('LODSPLAT');
@@ -52,7 +50,7 @@ function fixture(t) {
   labels.writeUInt32LE(1, 8);
   const tier = manifest.tiers[0];
   tier.nodeCount = tier.splatCount = 1;
-  const pack = 'data/pack/gol-trend-engine-bay/1/';
+  const pack = 'data/pack/test-rig/1/';
   for (const [kind, bytes] of [
     ['world', world],
     ['labels', labels],
@@ -62,14 +60,19 @@ function fixture(t) {
     put(pack + tier[kind].path, bytes);
   }
   put(pack + 'manifest.json', JSON.stringify(manifest));
-  put('content/gol-trend-engine-bay/manifest.json', JSON.stringify(manifest));
+  put('tests/fixtures/runtime-manifest.json', JSON.stringify(manifest));
   return { root, pack: path.join(root, pack), manifest, put };
 }
 
 function cli(root, ...args) {
   return spawnSync(
     process.execPath,
-    [path.join(root, 'scripts/pack_archive.cjs'), ...args],
+    [
+      path.join(root, 'scripts/pack_archive.cjs'),
+      ...args,
+      '--manifest',
+      path.join(root, 'tests/fixtures/runtime-manifest.json'),
+    ],
     { encoding: 'utf8' },
   );
 }
@@ -80,7 +83,15 @@ test('archive round trip is reproducible and cache recovery preserves a failed r
   const packageRun = () =>
     spawnSync(
       'sh',
-      [path.join(root, 'scripts/package-pack.sh'), '--out', archive],
+      [
+        path.join(root, 'scripts/package-pack.sh'),
+        '--manifest',
+        path.join(root, 'tests/fixtures/runtime-manifest.json'),
+        '--pack',
+        pack,
+        '--out',
+        archive,
+      ],
       { encoding: 'utf8' },
     );
   let result = packageRun();
@@ -114,7 +125,7 @@ test('archive round trip is reproducible and cache recovery preserves a failed r
     0,
   );
   const damaged = put(
-    'data/pack/gol-trend-engine-bay/1/high/labels.bin',
+    'data/pack/test-rig/1/high/labels.bin',
     'damaged accepted cache',
   );
   const bad = put(
@@ -209,25 +220,27 @@ test('archive rejects links, duplicate files, wrong lengths and manifest drift',
     assert.equal(fs.existsSync(pack), false);
   }
   manifest.title = 'Different release';
-  put(
-    'data/pack/gol-trend-engine-bay/1/manifest.json',
-    JSON.stringify(manifest),
+  put('data/pack/test-rig/1/manifest.json', JSON.stringify(manifest));
+  const result = cli(
+    root,
+    'package',
+    '--pack',
+    pack,
+    '--out',
+    path.join(root, 'wrong.tar.gz'),
   );
-  const result = cli(root, 'package', '--out', path.join(root, 'wrong.tar.gz'));
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /manifest differs/);
 });
 
 test('bundling includes only runtime files and preserves unchanged mtimes', t => {
   const { root, pack, put, manifest } = fixture(t);
-  put('data/pack/gol-trend-engine-bay/1/unreferenced.bin', 'not runtime');
+  put('data/pack/test-rig/1/unreferenced.bin', 'not runtime');
   put('data/pack/releases/demo.tar.gz', 'not runtime');
   const destination = path.join(root, 'build/packs');
   put('build/packs/stale.bin', 'stale');
-  copyPacks(path.join(root, 'data/pack'), destination, [
-    'gol-trend-engine-bay/1',
-  ]);
-  const runtime = path.join(destination, 'gol-trend-engine-bay/1');
+  copyPacks(path.join(root, 'data/pack'), destination, ['test-rig/1']);
+  const runtime = path.join(destination, 'test-rig/1');
   assert.deepEqual(fs.readdirSync(runtime).sort(), ['high', 'manifest.json']);
   assert.deepEqual(fs.readdirSync(path.join(runtime, 'high')).sort(), [
     'labels.bin',
@@ -235,9 +248,7 @@ test('bundling includes only runtime files and preserves unchanged mtimes', t =>
   ]);
   assert.equal(fs.existsSync(path.join(destination, 'stale.bin')), false);
   const before = fs.statSync(path.join(runtime, 'high/world.lodsplat')).mtimeMs;
-  copyPacks(path.join(root, 'data/pack'), destination, [
-    'gol-trend-engine-bay/1',
-  ]);
+  copyPacks(path.join(root, 'data/pack'), destination, ['test-rig/1']);
   assert.equal(
     fs.statSync(path.join(runtime, 'high/world.lodsplat')).mtimeMs,
     before,
@@ -252,10 +263,7 @@ test('bundling includes only runtime files and preserves unchanged mtimes', t =>
     path.join(pack, manifest.tiers[0].labels.path),
   );
   assert.throws(
-    () =>
-      copyPacks(path.join(root, 'data/pack'), destination, [
-        'gol-trend-engine-bay/1',
-      ]),
+    () => copyPacks(path.join(root, 'data/pack'), destination, ['test-rig/1']),
     /linked runtime/,
   );
   assert.equal(
@@ -268,18 +276,16 @@ test('bundling rejects damaged source bytes before modifying the accepted bundle
   const { root, pack, manifest } = fixture(t);
   const source = path.join(root, 'data/pack');
   const destination = path.join(root, 'build/packs');
-  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
+  copyPacks(source, destination, ['test-rig/1']);
   const label = manifest.tiers[0].labels.path;
-  const accepted = fs.readFileSync(
-    path.join(destination, 'gol-trend-engine-bay/1', label),
-  );
+  const accepted = fs.readFileSync(path.join(destination, 'test-rig/1', label));
   fs.writeFileSync(path.join(pack, label), Buffer.alloc(accepted.length, 42));
   assert.throws(
-    () => copyPacks(source, destination, ['gol-trend-engine-bay/1']),
+    () => copyPacks(source, destination, ['test-rig/1']),
     /sha256 mismatch/,
   );
   assert.deepEqual(
-    fs.readFileSync(path.join(destination, 'gol-trend-engine-bay/1', label)),
+    fs.readFileSync(path.join(destination, 'test-rig/1', label)),
     accepted,
   );
 });
@@ -288,16 +294,13 @@ test('bundling repairs damaged destination bytes even when size and timestamp ma
   const { root, manifest } = fixture(t);
   const source = path.join(root, 'data/pack');
   const destination = path.join(root, 'build/packs');
-  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
-  const relative = path.join(
-    'gol-trend-engine-bay/1',
-    manifest.tiers[0].labels.path,
-  );
+  copyPacks(source, destination, ['test-rig/1']);
+  const relative = path.join('test-rig/1', manifest.tiers[0].labels.path);
   const original = fs.statSync(path.join(source, relative));
   const target = path.join(destination, relative);
   fs.writeFileSync(target, Buffer.alloc(original.size, 42));
   fs.utimesSync(target, original.atime, original.mtime);
-  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
+  copyPacks(source, destination, ['test-rig/1']);
   assert.deepEqual(
     fs.readFileSync(target),
     fs.readFileSync(path.join(source, relative)),
@@ -314,10 +317,33 @@ test('pack verification rejects linked manifests and linked runtime directories'
     const result = cli(
       root,
       'package',
+      '--pack',
+      pack,
       '--out',
       path.join(root, 'linked.tar.gz'),
     );
     assert.notEqual(result.status, 0, linked);
     assert.match(result.stderr, /symlink in pack/);
+  }
+});
+
+test('empty selection bundles no implicit pack and clears stale runtime files', t => {
+  const { root, put } = fixture(t);
+  const destination = path.join(root, 'empty-bundle');
+  put('empty-bundle/stale.bin', 'stale');
+  copyPacks(path.join(root, 'absent'), destination, []);
+  assert.deepEqual(fs.readdirSync(destination), []);
+});
+
+test('archive commands require explicit manifest and pack inputs', t => {
+  const { root } = fixture(t);
+  for (const stage of ['ensure', 'package']) {
+    const result = spawnSync(
+      process.execPath,
+      [path.join(root, 'scripts/pack_archive.cjs'), stage],
+      { encoding: 'utf8' },
+    );
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /--manifest/);
   }
 });

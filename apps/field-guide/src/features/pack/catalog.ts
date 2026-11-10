@@ -3,12 +3,12 @@ import type { Pack } from './pack';
 export type GuideId = string;
 
 export const Category = {
-  vehicles: 'vehicles',
+  equipment: 'equipment',
 } as const;
 export type Category = (typeof Category)[keyof typeof Category];
 
 export const CATEGORY_TITLE: Readonly<Record<Category, string>> = {
-  [Category.vehicles]: 'Vehicles',
+  [Category.equipment]: 'Equipment',
 };
 
 export const GuideStatus = {
@@ -19,41 +19,37 @@ export type GuideStatus = (typeof GuideStatus)[keyof typeof GuideStatus];
 interface GuideBase {
   readonly id: GuideId;
   readonly category: Category;
-  /** The equipment, e.g. "Volkswagen Gol Trend". */
+  /** The equipment, e.g. "equipment name". */
   readonly title: string;
-  /** Where on the equipment, e.g. "Engine bay". */
+  /** Where on the equipment, e.g. "equipment area". */
   readonly area: string;
-  readonly image: number;
+  readonly image?: number;
 }
 
 export interface ReadyGuide extends GuideBase {
   readonly status: typeof GuideStatus.ready;
-  /** Model details, e.g. "2010, 1.6 8V petrol". */
+  /** Model details, e.g. "equipment description". */
   readonly subtitle: string;
-  /** A USDZ model in the iOS app bundle that turns in the library and the guide; the image stands in elsewhere. */
-  readonly model?: string;
   readonly pack: Pack;
 }
 
 export type Guide = ReadyGuide;
 
-/** Retain the usable bundled guide until reviewed Miris content replaces it. */
-export function catalogFor(golTrend: Pack): readonly Guide[] {
-  return [
-    {
-      id: golTrend.packId,
-      status: GuideStatus.ready,
-      category: Category.vehicles,
-      title: 'Volkswagen Gol Trend',
-      subtitle: '2010, 1.6 8V petrol',
-      area: 'Engine bay',
-      // A frame of this pack as the app renders it, from the iOS simulator.
-      image: require('../../../assets/guides/gol-trend-engine-bay.jpg'),
-      // Built from the AR capture by scripts/make_preview_model.sh.
-      model: 'ar/gol-trend-engine-bay/turntable.usdz',
-      pack: golTrend,
-    },
-  ];
+/** Catalog entries come only from explicitly supplied, validated packs. */
+export function catalogFor(pack?: Pack): readonly Guide[] {
+  return pack
+    ? [
+        {
+          id: pack.packId,
+          status: GuideStatus.ready,
+          category: Category.equipment,
+          title: pack.title,
+          subtitle: '',
+          area: '',
+          pack,
+        },
+      ]
+    : [];
 }
 
 export function findReadyGuide(

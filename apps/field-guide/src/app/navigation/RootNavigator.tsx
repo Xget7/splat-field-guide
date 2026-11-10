@@ -44,7 +44,7 @@ export function RootNavigator({
   pack,
   progress,
 }: {
-  pack: Pack;
+  pack?: Pack;
   progress: ProgressStorage;
 }) {
   const context = useMemo<RouteContext>(

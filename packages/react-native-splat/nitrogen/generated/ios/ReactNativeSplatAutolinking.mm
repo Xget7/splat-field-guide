@@ -10,7 +10,6 @@
 #import "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
 #import <type_traits>
 
-#include "HybridModelViewSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 
@@ -23,13 +22,6 @@
   using namespace margelo::nitro;
   using namespace margelo::nitro::splat;
 
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "ModelView",
-    []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridModelViewSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createModelView();
-      return hybridObject;
-    }
-  );
   HybridObjectRegistry::registerHybridObjectConstructor(
     "SplatView",
     []() -> std::shared_ptr<HybridObject> {

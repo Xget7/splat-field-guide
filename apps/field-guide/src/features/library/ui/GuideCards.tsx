@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { type ReadyGuide } from '../../pack/catalog';
 import { IconButton, IconButtonVariant } from '../../../ui/Button';
-import { ModelPreview, Turns } from '../../../ui/ModelPreview';
 import { Scrim, SheenEdge, Spotlight } from '../../../ui/Gradients';
 import { Icon, IconName } from '../../../ui/Icon';
 import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
@@ -33,7 +32,7 @@ export function ReadyCard({
   wide?: boolean;
   onPress: () => void;
 }) {
-  // The model turns between the facts and the title, clear of both.
+  // Keep the stage clear of the facts and title.
   const [bodyHeight, setBodyHeight] = useState(0);
   return (
     <Pressable
@@ -54,21 +53,16 @@ export function ReadyCard({
         <View style={[styles.stage, { bottom: bodyHeight }]}>
           <Spotlight id={`stage-${guide.id}`} />
         </View>
-        <ModelPreview
-          path={guide.model}
-          turn={Turns.sway}
-          style={[styles.stage, { bottom: bodyHeight }]}
-          fallback={
-            <>
-              <Image
-                source={guide.image}
-                resizeMode="cover"
-                style={styles.cover}
-              />
-              <Scrim id={`hero-${guide.id}`} start={Layout.heroFadeFrom} />
-            </>
-          }
-        />
+        {guide.image !== undefined && (
+          <>
+            <Image
+              source={guide.image}
+              resizeMode="cover"
+              style={styles.cover}
+            />
+            <Scrim id={`hero-${guide.id}`} start={Layout.heroFadeFrom} />
+          </>
+        )}
         <View style={styles.facts}>
           {factsFor(guide).map(fact => (
             <View key={fact} style={styles.chip}>
@@ -126,11 +120,13 @@ export function ContinueCard({
       onPress={onPress}
       style={({ pressed }) => [styles.continue, pressed && styles.cardPressed]}
     >
-      <Image
-        source={row.guide.image}
-        resizeMode="cover"
-        style={styles.thumbnail}
-      />
+      {row.guide.image !== undefined && (
+        <Image
+          source={row.guide.image}
+          resizeMode="cover"
+          style={styles.thumbnail}
+        />
+      )}
       <View style={styles.continueBody}>
         <Text style={styles.continueTitle}>{row.procedure.title}</Text>
         <Text style={styles.step}>{row.stepLabel}</Text>

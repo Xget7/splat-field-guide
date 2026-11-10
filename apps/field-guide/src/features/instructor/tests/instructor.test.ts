@@ -6,7 +6,7 @@ import {
   type SessionState,
 } from '../../guide';
 import { TOUR_ID } from '../../pack/tour';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import {
   answerFor,
   asksForSpecification,
@@ -17,10 +17,39 @@ import {
   NOT_COVERED_REPLY,
 } from '../domain/instructor';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack: Pack = bundledPack.pack;
+const base = fixturePack();
+// These are invented sentences for routing tests, not equipment advice.
+const pack: Pack = {
+  ...base,
+  procedures: base.procedures.map(procedure =>
+    procedure.id === 'check-coolant'
+      ? {
+          ...procedure,
+          steps: procedure.steps.map((step, index) =>
+            index === 2 ? { ...step, caution: 'Synthetic caution.' } : step,
+          ),
+        }
+      : procedure,
+  ),
+  parts: base.parts.map(part => ({
+    ...part,
+    aliases: part.id === 'valve-cover' ? ['oil filler cap'] : part.aliases,
+    notes: [
+      ...part.notes,
+      ...(['valve-cover', 'intake-manifold'].includes(part.id)
+        ? []
+        : [
+            {
+              topic: NoteTopic.specifications,
+              text:
+                part.id === 'engine'
+                  ? 'The engine oil grade is TEST-OIL in this synthetic fixture. The oil capacity, oil and filter interval are test-only values.'
+                  : `The ${part.name} fluid capacity and grade are synthetic test values.`,
+            },
+          ]),
+    ],
+  })),
+};
 const part = (id: string) => {
   const found = findPart(pack, id);
   if (found === undefined) {
@@ -45,7 +74,11 @@ const specificationsOf = (partId: string) =>
 
 describe('specifications', () => {
   it.each([
-    ['So what type of oil this gold train carries?', 'valve-cover', 'engine'],
+    [
+      'So what type of oil this test equipment carries?',
+      'valve-cover',
+      'engine',
+    ],
     ['What oil does this car take?', 'valve-cover', 'engine'],
     ['Is 5W30 fine?', 'valve-cover', 'engine'],
     ['When should I change the oil?', 'valve-cover', 'engine'],
@@ -90,7 +123,7 @@ describe('specifications', () => {
   it.each([
     [
       'What oil does it use?',
-      /^The engine oil grade is 5W-40, as the owner's manual states\.$/,
+      /^The engine oil grade is TEST-OIL in this synthetic fixture\.$/,
     ],
     ['How much oil does the motor take?', /^The oil capacity\b/],
     [
@@ -181,7 +214,7 @@ describe('answerFor', () => {
     expect(
       answerFor('What does the fuse box do?', INITIAL_SESSION, pack),
     ).toEqual({
-      reply: part('fuse-box').details,
+      reply: part('fuse-box').summary,
       caution: '',
       part: 'fuse-box',
       event: select('fuse-box'),
@@ -227,8 +260,8 @@ describe('answerFor', () => {
   });
 
   it('reads the next step and its caution', () => {
-    const answer = answerFor('next', coolantStep(2), pack);
-    const step = pack.procedures.find(p => p.id === 'check-coolant')?.steps[3];
+    const answer = answerFor('next', coolantStep(1), pack);
+    const step = pack.procedures.find(p => p.id === 'check-coolant')?.steps[2];
     expect(answer).toEqual({
       reply: step?.text,
       caution: step?.caution,
@@ -258,7 +291,7 @@ describe('answerFor', () => {
     const state = startAt(TOUR_ID, 0, pack);
     const onScreen = focusPart(state, pack);
     expect(answerFor('What does it do?', state, pack)).toEqual({
-      reply: onScreen?.details,
+      reply: onScreen?.summary,
       caution: '',
       part: onScreen?.id ?? null,
       event: null,
@@ -286,7 +319,7 @@ describe('answerFor', () => {
   });
 
   it('refuses to guess: an ambiguous word or an unknown question gets a hint', () => {
-    for (const question of ['where is the fluid', 'tell me a joke', '']) {
+    for (const question of ['where is the reservoir', 'tell me a joke', '']) {
       const answer = answerFor(question, INITIAL_SESSION, pack);
       expect(answer.event).toBeNull();
       expect(answer.part).toBeNull();

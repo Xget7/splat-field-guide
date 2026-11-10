@@ -62,6 +62,11 @@ function copyPacks(source, destination, packs) {
     // Validate every selected pack before rsync can replace any accepted build resources.
     verify(directory);
   }
+  if (packs.length === 0) {
+    fs.rmSync(destination, { recursive: true, force: true });
+    fs.mkdirSync(destination, { recursive: true });
+    return;
+  }
   fs.mkdirSync(destination, { recursive: true });
   const result = spawnSync(
     'rsync',
@@ -87,7 +92,7 @@ module.exports = { copyPacks };
 if (require.main === module) {
   const [source, destination, ...packs] = process.argv.slice(2);
   try {
-    if (!source || !destination || !packs.length)
+    if (!source || !destination)
       throw new Error(
         'Usage: copy_bundled_packs.cjs <source> <destination> <pack/version>...',
       );

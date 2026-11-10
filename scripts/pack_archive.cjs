@@ -9,17 +9,13 @@ const { isDeepStrictEqual } = require('node:util');
 const { verify, parse } = require('./validate-pack.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
-const PACK_ID = 'gol-trend-engine-bay';
-const VERSION = 1;
-const DESTINATION = path.join(ROOT, 'data/pack', PACK_ID, String(VERSION));
 const MANIFEST = 'manifest.json';
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const BLOCK = 512;
 
-function releaseManifest() {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(ROOT, 'content', PACK_ID, MANIFEST), 'utf8'),
-  );
+function releaseManifest(filename) {
+  if (!filename) throw new Error('An explicit --manifest <file> is required');
+  const manifest = JSON.parse(fs.readFileSync(filename, 'utf8'));
   parse(manifest);
   return manifest;
 }
@@ -197,8 +193,15 @@ async function download(url, target, limit) {
   }
 }
 
-async function ensure(archive, url, destination = DESTINATION) {
-  const manifest = releaseManifest();
+async function ensure(archive, url, manifestPath) {
+  const manifest = releaseManifest(manifestPath);
+  if (!archive && !url) throw new Error('Pass --pack <archive> or --url <url>');
+  const destination = path.join(
+    ROOT,
+    'data/pack',
+    manifest.packId,
+    String(manifest.packVersion),
+  );
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const lock = path.join(path.dirname(destination), '.prepare-node.lock');
   try {
@@ -213,7 +216,7 @@ async function ensure(archive, url, destination = DESTINATION) {
   try {
     try {
       validate(destination, manifest);
-      console.log('Demo pack already matches every pinned file digest.');
+      console.log('Pack already matches every pinned file digest.');
       return;
     } catch {}
     candidate = fs.mkdtempSync(path.join(path.dirname(destination), '.pack-'));
@@ -239,7 +242,7 @@ async function ensure(archive, url, destination = DESTINATION) {
       throw error;
     }
     fs.rmSync(backup, { recursive: true, force: true });
-    console.log(`Verified demo pack: ${destination}`);
+    console.log(`Verified pack: ${destination}`);
   } finally {
     if (candidate) fs.rmSync(candidate, { recursive: true, force: true });
     fs.rmSync(lock, { recursive: true, force: true });
@@ -277,8 +280,12 @@ function tarHeader(name, size) {
   return header;
 }
 
-async function packagePack(directory, archive) {
-  const manifest = releaseManifest();
+async function packagePack(directory, archive, manifestPath) {
+  if (!directory || !archive)
+    throw new Error(
+      'Explicit --pack <directory> and --out <archive> are required',
+    );
+  const manifest = releaseManifest(manifestPath);
   validate(directory, manifest);
   fs.mkdirSync(path.dirname(archive), { recursive: true });
   const temporary = `${archive}.partial-${crypto.randomUUID()}`;
@@ -320,32 +327,31 @@ if (require.main === module) {
   let valid = ['ensure', 'package'].includes(stage);
   for (let index = 0; index < args.length; index += 2) {
     if (
-      !['--pack', '--url', '--out'].includes(args[index]) ||
+      !['--pack', '--url', '--out', '--manifest'].includes(args[index]) ||
       !args[index + 1] ||
       options[args[index]]
     )
       valid = false;
     options[args[index]] = args[index + 1];
   }
-  if (!valid || (stage === 'ensure' && !options['--url'])) {
+  if (
+    !valid ||
+    !options['--manifest'] ||
+    (stage === 'ensure' && !options['--pack'] && !options['--url']) ||
+    (stage === 'package' && (!options['--pack'] || !options['--out']))
+  ) {
     console.error(
-      'Usage: pack_archive.cjs ensure --url <url> [--pack <archive>] | package [--pack <directory>] [--out <archive>]',
+      'Usage: pack_archive.cjs ensure --manifest <file> (--pack <archive> | --url <url>) | package --manifest <file> --pack <directory> --out <archive>',
     );
     process.exitCode = 2;
   } else {
     const operation =
       stage === 'ensure'
-        ? ensure(options['--pack'], options['--url'])
+        ? ensure(options['--pack'], options['--url'], options['--manifest'])
         : packagePack(
-            path.resolve(options['--pack'] || DESTINATION),
-            path.resolve(
-              options['--out'] ||
-                path.join(
-                  ROOT,
-                  'data/pack/releases',
-                  `${PACK_ID}-${VERSION}.tar.gz`,
-                ),
-            ),
+            options['--pack'],
+            options['--out'],
+            options['--manifest'],
           );
     operation.catch(error => {
       console.error(error.message);

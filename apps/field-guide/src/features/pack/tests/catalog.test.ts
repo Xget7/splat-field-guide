@@ -1,10 +1,7 @@
 import { catalogFor, findReadyGuide, GuideStatus, packFacts } from '../catalog';
-import { bundledPack } from '../bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const catalog = catalogFor(pack);
 
 test('the catalog contains only the available bundled guide', () => {
@@ -31,6 +28,10 @@ test('removed placeholders and unknown guides cannot open a pack', () => {
 
 test('bundled facts match the on-device pack', () => {
   expect(packFacts(pack)).toEqual({
-    splats: '2.4M',
+    splats: '0.0M',
   });
+});
+
+test('without a validated pack the catalog is empty', () => {
+  expect(catalogFor()).toEqual([]);
 });

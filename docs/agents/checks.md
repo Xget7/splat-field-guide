@@ -15,8 +15,10 @@ Prepare system speech assets and permissions before airplane-mode tests; Apple g
 
 ## Prepare
 
-`scripts/prepare.sh` from root prepares the current runtime: it installs the app and native package dependencies, the locked Gems and Pods, and fetches the pinned pack release with an authenticated `gh`, or takes `--pack <archive>`.
-This command still prepares legacy content; it does not deliver a Miris pack.
+`nice -n 19 scripts/prepare.sh` prepares dependencies, native frameworks, speech assets, locked Gems and Pods without downloading guide content.
+An optional `--manifest <file> --pack <archive>` validates and caches an explicit pack; it does not activate or select that pack for the app.
+Packaging requires `nice -n 19 scripts/package-pack.sh --manifest <file> --pack <directory> --out <archive>`.
+Both platform bundles select no packs by default; installation and activation remain pending.
 Track the replacement in [tasks](../../TASKS.md).
 After an engine source change, prepare before installing Pods; `packages/react-native-splat/scripts/build-ios-engine.sh --force` forces an engine rebuild.
 Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so the locked Bundler, CocoaPods and xcodeproj apply.
@@ -26,7 +28,7 @@ Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so th
 Each unit under `apps/`, `packages/` and `services/` installs with `npm ci` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
 Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
 `services/instructor-proxy` has no typecheck script; use `npx tsc --noEmit -p .`.
-`services/voice-agent` previews its agent configuration with `npm run plan`.
+`services/voice-agent` previews its agent configuration with `npm run plan -- --manifest <file>`.
 The on-device Swift harnesses compile on macOS 26+ and skip on other hosts.
 
 ## Mobile pack tooling
@@ -73,11 +75,10 @@ nice -n 19 xcodebuild -workspace apps/field-guide/ios/FieldGuide.xcworkspace \
 Keep DerivedData under `apps/field-guide/ios/build/` with compilation caching disabled, and delete the build directory afterward.
 For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebuild, with `localhost` for a simulator or the Mac's reachable address for a phone.
 
-## Maestro E2E
+## Device acceptance
 
-The existing `npm run e2e` script targets the legacy bundled guide and clears the target app's local state.
-Replace that flow with Miris assertions before using it as demo acceptance.
-The replacement must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
+The obsolete demo Maestro flow and its npm command have been removed.
+Future Miris flows must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
 Screenshots and simulator checks do not establish physical performance acceptance.
 
 ## Cleanup
@@ -125,10 +126,10 @@ The Worker serves probes, typed NDJSON answers, signed agent sessions and authen
 Incomplete streams must fail rather than commit partial answers.
 Answer/session routes currently lack caller authentication; rate limits are not authentication.
 
-For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 npm run plan` in `services/voice-agent`.
-The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 npm run sync`.
+For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 npm run plan -- --manifest <file>` in `services/voice-agent`.
+The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 npm run sync -- --manifest <file>`.
 Sync updates the shared secret, tools, dictionary and agent and saves IDs in ignored `agent.json`; preserve it for retries.
 The agent key needs agent/workspace write, pronunciation dictionary read/write and voice read permissions; the Worker's key needs agent read access.
 Use the same `AGENT_LLM_SECRET` on both sides and configure the returned `AGENT_ID` on the Worker.
-Sync still reads the previous pack; replace it with reviewed Miris content before deployment.
+Plan and sync require an explicit validated manifest; use reviewed Miris content before deployment.
 For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload` exports locally; signing needs a configured team and account.

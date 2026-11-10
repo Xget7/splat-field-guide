@@ -8,16 +8,13 @@ import {
   type Instructor,
   type TurnEvent,
 } from '../../instructor';
-import { bundledPack } from '../../pack/bundledPack';
+import { fixturePack } from '@tests/fixturePack';
 import { catalogFor, findReadyGuide } from '../../pack/catalog';
 import { Capability } from '../domain/capability';
 import { progressTargetFor } from '../domain/viewerState';
 import { createViewerStore, type VoicePort } from '../state/viewerStore';
 
-if (!bundledPack.ok) {
-  throw new Error(bundledPack.error.message);
-}
-const pack = bundledPack.pack;
+const pack = fixturePack();
 const guide = findReadyGuide(catalogFor(pack), pack.packId)!;
 const COOLANT = 'check-coolant';
 const COOLANT_STEPS = pack.procedures.find(item => item.id === COOLANT)!.steps
@@ -232,12 +229,12 @@ describe('progress target', () => {
   });
 
   test('exploring keeps the procedure to resume', () => {
-    const store = openStore(3);
+    const store = openStore(2);
     store.getState().explore();
     expect(progressTargetFor(store.getState().viewer!, guide.id)).toEqual({
       guideId: guide.id,
       procedureId: COOLANT,
-      stepIndex: 3,
+      stepIndex: 2,
     });
   });
 });

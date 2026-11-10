@@ -25,7 +25,7 @@ test('the plan command loads an optional owner environment without exposing its 
   for (const key of Object.values(Setting)) delete env[key];
   for (const withEnv of [true, false]) {
     if (!withEnv) await rm(join(directory, '.env'));
-    const result = spawnSync(process.execPath, ['--import', fakeFetch, cli, ...args], { cwd: directory, env, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, ['--import', fakeFetch, cli, ...args, '--manifest', fileURLToPath(new URL('../../../tests/fixtures/runtime-manifest.json', import.meta.url))], { cwd: directory, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.agent.conversation_config.tts.voice_id, withEnv ? 'local-voice' : Placeholder.voiceId);

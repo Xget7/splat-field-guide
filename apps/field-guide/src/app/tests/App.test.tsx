@@ -1,8 +1,7 @@
 import React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
-import { bundledPack } from '../../features/pack/bundledPack';
 import { instructorStore } from '../../features/instructor';
 import { createAppInstructor } from '../startup/instructor';
 
@@ -72,25 +71,28 @@ describe('app', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('an invalid pack shows the parse message and no renderer', async () => {
-    const original = { ...bundledPack };
-    try {
-      Object.assign(bundledPack, {
-        ok: false,
-        error: { message: 'schema version 99 is not supported' },
-      });
-      await act(() => {
-        renderer = ReactTestRenderer.create(<App />);
-      });
-      expect(
-        renderer.root.findByProps({ testID: 'pack-error' }).props.children,
-      ).toBe('schema version 99 is not supported');
-      expect(
-        renderer.root.findAllByType('SplatView' as React.ElementType),
-      ).toHaveLength(0);
-    } finally {
-      Object.assign(bundledPack, original);
-    }
+  test('empty startup explains availability and offers no guide or native renderer', async () => {
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    expect(
+      renderer.root.findAllByProps({ testID: 'library-empty' }).length,
+    ).toBeGreaterThan(0);
+    const visibleText = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(visibleText).toContain('No guide available');
+    expect(visibleText).toContain(
+      'A validated Miris pack has not been installed yet.',
+    );
+    expect(
+      renderer.root.findAll(item =>
+        item.props.testID?.startsWith('guide-card-'),
+      ),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(0);
   });
 
   test('does not expose discarded AR or standalone benchmark routes', async () => {

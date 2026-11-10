@@ -13,7 +13,7 @@ import {
 import { INVALID_STATE } from '../src/state.ts';
 import { LLM_BASE_PATH, type buildAgentConfig } from '../src/agentConfig.ts';
 import { buildToolConfigs } from '../src/tools.ts';
-import { pack } from './pack.ts';
+import { pack, manifest } from './pack.ts';
 
 const tools = buildToolConfigs(pack);
 const apiPath = (path: string) => new URL(API_URL + path).pathname;
@@ -66,7 +66,7 @@ test('first sync creates resources and later sync reuses them in current tool or
   const statePath = await workspace(t);
   const first = fakeApi();
   const output: string[] = [];
-  const state = await runSync({ env, statePath, fetchImpl: first.fetchImpl, print: text => output.push(text) });
+  const state = await runSync({ manifest, env, statePath, fetchImpl: first.fetchImpl, print: text => output.push(text) });
   assert.deepEqual(first.calls.map(call => [call.method, call.path]), [
     [Method.create, apiPath(SECRET_PATH)],
     ...tools.map(() => [Method.create, apiPath(TOOL_PATH)]),
@@ -89,7 +89,7 @@ test('first sync creates resources and later sync reuses them in current tool or
   const later = fakeApi([...pronunciationRules].reverse().map(rule => ({
     ...rule, case_sensitive: true, word_boundaries: true,
   })));
-  const updated = await runSync({ env, statePath, fetchImpl: later.fetchImpl, print: () => {} });
+  const updated = await runSync({ manifest, env, statePath, fetchImpl: later.fetchImpl, print: () => {} });
   assert.deepEqual(later.calls.map(call => [call.method, call.path]), [
     [Method.update, apiPath(`${SECRET_PATH}/${state.secretId}`)],
     ...tools.map(tool => [Method.update, apiPath(`${TOOL_PATH}/${state.toolIds![tool.name]}`)]),
@@ -111,9 +111,9 @@ test('first sync creates resources and later sync reuses them in current tool or
 test('a later sync updates existing resources and replaces changed dictionary rules in a new version', async t => {
   const statePath = await workspace(t);
   const first = fakeApi();
-  await runSync({ env, statePath, fetchImpl: first.fetchImpl, print: () => {} });
+  await runSync({ manifest, env, statePath, fetchImpl: first.fetchImpl, print: () => {} });
   const later = fakeApi([{ ...pronunciationRules[0], type: ALIAS_RULE_TYPE, alias: 'wrong' }]);
-  await runSync({ env, statePath, fetchImpl: later.fetchImpl, print: () => {} });
+  await runSync({ manifest, env, statePath, fetchImpl: later.fetchImpl, print: () => {} });
   assert.equal(later.calls.at(-2)!.path, apiPath(`${DICTIONARY_PATH}/dictionary-created${SET_RULES_PATH}`));
   assert.equal(later.calls.at(-2)!.method, Method.create);
   assert.deepEqual(later.calls.at(-2)!.body, { rules: pronunciationRules });
@@ -131,7 +131,7 @@ test('an API error stops provisioning with the status and detail while saving id
       if (requests === failureAt) return Response.json({ detail: { message: 'Permission denied' } }, { status: 403 });
       return api.fetchImpl(input, init);
     };
-    await assert.rejects(runSync({ env, statePath, fetchImpl, print: () => {} }), /403.*Permission denied/);
+    await assert.rejects(runSync({ manifest, env, statePath, fetchImpl, print: () => {} }), /403.*Permission denied/);
     assert.equal(requests, failureAt);
     const saved = JSON.parse(await readFile(statePath, 'utf8'));
     assert.equal(saved.secretId, 'secret-created');
@@ -153,7 +153,7 @@ test('dry runs need no credentials, make no requests, leave state untouched and 
   };
   for (const settings of [env, {}]) {
     const output: string[] = [];
-    await runSync({ env: settings, statePath, fetchImpl, dryRun: true, print: text => output.push(text) });
+    await runSync({ manifest, env: settings, statePath, fetchImpl, dryRun: true, print: text => output.push(text) });
     const text = output.join('\n');
     assert.ok(!text.includes(env[Setting.apiKey]));
     assert.ok(!text.includes(env[Setting.llmSecret]));
@@ -166,7 +166,7 @@ test('dry runs need no credentials, make no requests, leave state untouched and 
     assert.equal(await readFile(statePath, 'utf8'), '{}\n');
   }
   await rm(statePath);
-  await runSync({ env: {}, statePath, fetchImpl, dryRun: true, print: () => {} });
+  await runSync({ manifest, env: {}, statePath, fetchImpl, dryRun: true, print: () => {} });
   await assert.rejects(readFile(statePath), { code: 'ENOENT' });
   assert.equal(requests, 0);
 });
@@ -175,7 +175,7 @@ test('sync rejects missing settings before provisioning any resource', async t =
   const statePath = await workspace(t);
   const api = fakeApi();
   for (const name of Object.values(Setting)) {
-    await assert.rejects(runSync({ env: { ...env, [name]: '' }, statePath, fetchImpl: api.fetchImpl }),
+    await assert.rejects(runSync({ manifest, env: { ...env, [name]: '' }, statePath, fetchImpl: api.fetchImpl }),
       new RegExp(`Missing ${name}`));
   }
   assert.equal(api.calls.length, 0);
@@ -185,7 +185,7 @@ test('invalid local state stops sync instead of discarding an existing resource 
   const statePath = await workspace(t);
   await writeFile(statePath, JSON.stringify({ toolIds: { [tools[0].name]: 0 } }));
   const api = fakeApi();
-  await assert.rejects(runSync({ env, statePath, fetchImpl: api.fetchImpl }), new Error(INVALID_STATE));
+  await assert.rejects(runSync({ manifest, env, statePath, fetchImpl: api.fetchImpl }), new Error(INVALID_STATE));
   assert.equal(api.calls.length, 0);
 });
 
@@ -193,7 +193,7 @@ test('malformed successful responses stop sync without overwriting saved resourc
   for (const failureAt of [1, 2, tools.length + 2, tools.length + 3]) {
     const statePath = await workspace(t);
     const api = fakeApi();
-    await runSync({ env, statePath, fetchImpl: api.fetchImpl, print: () => {} });
+    await runSync({ manifest, env, statePath, fetchImpl: api.fetchImpl, print: () => {} });
     const saved = await readFile(statePath, 'utf8');
     let requests = 0;
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -201,7 +201,7 @@ test('malformed successful responses stop sync without overwriting saved resourc
       if (requests === failureAt) return Response.json({});
       return api.fetchImpl(input, init);
     };
-    await assert.rejects(runSync({ env, statePath, fetchImpl, print: () => {} }), /Invalid.*response/i);
+    await assert.rejects(runSync({ manifest, env, statePath, fetchImpl, print: () => {} }), /Invalid.*response/i);
     assert.equal(requests, failureAt);
     assert.equal(await readFile(statePath, 'utf8'), saved);
   }
@@ -212,8 +212,17 @@ test('invalid Worker base URLs fail before changing shared resources', async t =
   const api = fakeApi();
   for (const workerUrl of ['not-a-url', 'ftp://worker.example', 'https://worker.example?token=x',
     'https://worker.example#fragment', 'https://user:password@worker.example']) {
-    await assert.rejects(runSync({ env: { ...env, [Setting.workerUrl]: workerUrl },
+    await assert.rejects(runSync({ manifest, env: { ...env, [Setting.workerUrl]: workerUrl },
       statePath, fetchImpl: api.fetchImpl, print: () => {} }), /Invalid WORKER_URL/);
   }
   assert.equal(api.calls.length, 0);
+});
+
+test('sync requires an explicit validated manifest before network or state writes', async t => {
+  const statePath = await workspace(t);
+  const api = fakeApi();
+  await assert.rejects(runSync({ env, statePath, fetchImpl: api.fetchImpl }), /manifest/i);
+  await assert.rejects(runSync({ env, statePath, fetchImpl: api.fetchImpl, manifest: {} }), /expected a finite number/);
+  assert.equal(api.calls.length, 0);
+  await assert.rejects(readFile(statePath), { code: 'ENOENT' });
 });
