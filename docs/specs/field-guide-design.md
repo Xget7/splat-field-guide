@@ -64,7 +64,8 @@ Mobile receives both comparison vectors; it does not generate embeddings or infe
 **Read:** [public interface](../../apps/field-guide/src/features/semantic/index.ts), [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
 **Verify:** [vector tests](../../apps/field-guide/src/features/semantic/tests/partVectors.test.ts).
 **Pending:** reading the vectors file from an installed pack, reconstruction identity for mappings and persistent records.
-WatermelonDB and TanStack Query are not installed; free-text query encoding remains a separate decision.
+WatermelonDB and TanStack Query are not installed.
+The preparation pipeline produces every embedding, query vectors included; the app is a viewer and query client and never runs an encoder.
 
 ## Guide
 

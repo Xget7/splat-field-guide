@@ -31,7 +31,7 @@ Annotation drafts, source captures and the running teaching service must be pres
 - [ ] Resolve selected IDs through the active reconstruction's mappings and connect them to existing viewer highlight and framing.
 - [ ] Connect reviewed Miris information and procedures to the existing guide/instructor interfaces.
 - [ ] Test interrupted installation, incompatible vectors, wrong-reconstruction mappings and replacement preserving stable identities.
-- [ ] Agree separately on a free-text query flow before adding any query encoder or runtime.
+- [ ] Agree on how the pipeline supplies query vectors for free-text questions; the app never runs an encoder.
 
 Contract and app-interface work can proceed while annotations are refined.
 Visual acceptance must use accepted exported data.
