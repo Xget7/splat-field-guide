@@ -77,7 +77,7 @@ describe('Guide detail screen', () => {
   const press = async (testID: string) => {
     await act(() => node(testID).props.onPress());
   };
-  const mount = async (guideId = pack.packId, onOpenArCheck?: () => void) => {
+  const mount = async (guideId = pack.packId) => {
     await act(() => {
       renderer = ReactTestRenderer.create(
         <GuideDetailScreen
@@ -85,7 +85,6 @@ describe('Guide detail screen', () => {
           guideId={guideId}
           onBack={onBack}
           onOpen={onOpen}
-          onOpenArCheck={onOpenArCheck}
         />,
       );
     });
@@ -168,17 +167,6 @@ describe('Guide detail screen', () => {
     expect(onOpen).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: LearnMode.selfGuided, voice: false }),
     );
-  });
-
-  test('the AR check shows only where the device offers it', async () => {
-    await mount();
-    expect(renderer.root.findAllByProps({ testID: 'open-ar' })).toHaveLength(0);
-    await act(() => renderer.unmount());
-    const onOpenArCheck = jest.fn();
-    await mount(pack.packId, onOpenArCheck);
-    await press('open-ar');
-    expect(onOpenArCheck).toHaveBeenCalledTimes(1);
-    expect(onOpen).not.toHaveBeenCalled();
   });
 
   test('the hero turns the model from the library card', async () => {

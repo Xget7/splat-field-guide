@@ -8,32 +8,10 @@
 #pragma once
 
 // Forward declarations of C++ defined types
-// Forward declaration of `ARAssemblyEvent` to properly resolve imports.
-namespace margelo::nitro::splat { struct ARAssemblyEvent; }
-// Forward declaration of `ARAssemblyPart` to properly resolve imports.
-namespace margelo::nitro::splat { struct ARAssemblyPart; }
-// Forward declaration of `ARAssemblyPhase` to properly resolve imports.
-namespace margelo::nitro::splat { enum class ARAssemblyPhase; }
-// Forward declaration of `ARCameraTracking` to properly resolve imports.
-namespace margelo::nitro::splat { enum class ARCameraTracking; }
-// Forward declaration of `ARPlacementEvent` to properly resolve imports.
-namespace margelo::nitro::splat { struct ARPlacementEvent; }
-// Forward declaration of `ARPlacementState` to properly resolve imports.
-namespace margelo::nitro::splat { enum class ARPlacementState; }
-// Forward declaration of `ARTrackingEvent` to properly resolve imports.
-namespace margelo::nitro::splat { struct ARTrackingEvent; }
-// Forward declaration of `ARTrackingState` to properly resolve imports.
-namespace margelo::nitro::splat { enum class ARTrackingState; }
-// Forward declaration of `ARTrackingTelemetry` to properly resolve imports.
-namespace margelo::nitro::splat { struct ARTrackingTelemetry; }
 // Forward declaration of `Bounds` to properly resolve imports.
 namespace margelo::nitro::splat { struct Bounds; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
-// Forward declaration of `HybridARGuideViewSpec` to properly resolve imports.
-namespace margelo::nitro::splat { class HybridARGuideViewSpec; }
-// Forward declaration of `HybridARPlacementViewSpec` to properly resolve imports.
-namespace margelo::nitro::splat { class HybridARPlacementViewSpec; }
 // Forward declaration of `HybridModelViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridModelViewSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
@@ -54,19 +32,8 @@ namespace margelo::nitro::splat { struct Vec3; }
 namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Include C++ defined types
-#include "ARAssemblyEvent.hpp"
-#include "ARAssemblyPart.hpp"
-#include "ARAssemblyPhase.hpp"
-#include "ARCameraTracking.hpp"
-#include "ARPlacementEvent.hpp"
-#include "ARPlacementState.hpp"
-#include "ARTrackingEvent.hpp"
-#include "ARTrackingState.hpp"
-#include "ARTrackingTelemetry.hpp"
 #include "Bounds.hpp"
 #include "CameraLimits.hpp"
-#include "HybridARGuideViewSpec.hpp"
-#include "HybridARPlacementViewSpec.hpp"
 #include "HybridModelViewSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
@@ -96,10 +63,6 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
-// Forward declaration of `HybridARGuideViewSpec_cxx` to properly resolve imports.
-namespace ReactNativeSplat { class HybridARGuideViewSpec_cxx; }
-// Forward declaration of `HybridARPlacementViewSpec_cxx` to properly resolve imports.
-namespace ReactNativeSplat { class HybridARPlacementViewSpec_cxx; }
 // Forward declaration of `HybridModelViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridModelViewSpec_cxx; }
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.

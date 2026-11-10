@@ -54,7 +54,6 @@ const Layout = {
   wideColumn: 440,
   wideFadeFrom: 0.5,
 } as const;
-const AR_TITLE = 'AR check on the real engine';
 const VOICE_TITLE = 'Voice assistant';
 const TOGGLE_MOTION = LinearTransition.duration(Motion.fast);
 const VOICE_CAPTION =
@@ -67,8 +66,6 @@ export interface GuideDetailScreenProps {
   readonly onBack: () => void;
   /** Opens the viewer on the first step of a procedure. */
   readonly onOpen: (start: SessionStart) => void;
-  /** Present only where the device offers the AR check. */
-  readonly onOpenArCheck?: () => void;
 }
 
 export function GuideDetailScreen({
@@ -76,7 +73,6 @@ export function GuideDetailScreen({
   guideId,
   onBack,
   onOpen,
-  onOpenArCheck,
 }: GuideDetailScreenProps) {
   const guide = findReadyGuide(catalog, guideId);
   const insets = useSafeAreaInsets();
@@ -139,7 +135,6 @@ export function GuideDetailScreen({
       </Text>
     </View>
   );
-  // Place AR last because it requires access to the physical engine.
   const choices = (
     <>
       <View style={styles.section}>
@@ -204,30 +199,6 @@ export function GuideDetailScreen({
         <SectionHeader title="Procedures" />
         <ProcedureList rows={checks} onChoose={openProcedure} />
       </View>
-      {onOpenArCheck && (
-        <View style={styles.section}>
-          <SectionHeader title="Augmented reality" />
-          <Pressable
-            testID="open-ar"
-            accessibilityRole="button"
-            accessibilityLabel={AR_TITLE}
-            onPress={onOpenArCheck}
-            style={({ pressed }) => [styles.arRow, pressed && styles.pressed]}
-          >
-            <Icon
-              name={IconName.camera}
-              size={Layout.rowIcon}
-              color={Color.secondaryText}
-            />
-            <Text style={styles.arTitle}>{AR_TITLE}</Text>
-            <Icon
-              name={IconName.next}
-              size={Layout.rowIcon}
-              color={Color.faint}
-            />
-          </Pressable>
-        </View>
-      )}
     </>
   );
   const start = (
@@ -390,19 +361,6 @@ const styles = StyleSheet.create({
     color: Color.secondaryText,
   },
   selectedTitle: { color: Color.text },
-  arRow: {
-    minHeight: Layout.segmentHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.md,
-    paddingVertical: Space.md,
-    paddingHorizontal: Space.lg,
-    borderRadius: Radius.card,
-    borderWidth: HAIRLINE,
-    borderColor: Color.line,
-    backgroundColor: Color.raised,
-  },
-  arTitle: { ...Type.callout, color: Color.text, flex: 1 },
   voiceRow: {
     flexDirection: 'row',
     alignItems: 'center',

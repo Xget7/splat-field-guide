@@ -2,7 +2,6 @@ import React from 'react';
 import { Linking } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
-import { BENCH_URL } from '../navigation/linking';
 import { bundledPack } from '../../features/pack/bundledPack';
 import { instructorStore } from '../../features/instructor';
 import { createAppInstructor } from '../startup/instructor';
@@ -94,19 +93,21 @@ describe('app', () => {
     }
   });
 
-  test('the bench link opens only the splat view, framed on the whole pack', async () => {
-    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(BENCH_URL);
+  test('does not expose discarded AR or standalone benchmark routes', async () => {
+    jest
+      .spyOn(Linking, 'getInitialURL')
+      .mockResolvedValue('fieldguide://bench');
     await act(() => {
       renderer = ReactTestRenderer.create(<App />);
     });
     expect(
-      renderer.root.findAllByProps({ testID: 'bench-screen' }).length,
+      renderer.root.findAllByProps({ testID: 'library-screen' }).length,
     ).toBeGreaterThan(0);
     expect(
-      renderer.root.findAllByProps({ testID: 'library-screen' }),
+      renderer.root.findAllByProps({ testID: 'bench-screen' }),
     ).toHaveLength(0);
     expect(
-      renderer.root.findAllByType('SplatView' as React.ElementType),
-    ).toHaveLength(1);
+      renderer.root.findAllByProps({ testID: 'open-ar-assembly' }),
+    ).toHaveLength(0);
   });
 });

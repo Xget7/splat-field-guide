@@ -22,7 +22,7 @@ Pod::Spec.new do |s|
   no_intel_simulator = { "EXCLUDED_ARCHS[sdk=iphonesimulator*]" => "x86_64" }
   s.pod_target_xcconfig  = no_intel_simulator
   s.user_target_xcconfig = no_intel_simulator
-  s.frameworks          = ["Metal", "QuartzCore", "ARKit", "RealityKit", "AVFoundation"]
+  s.frameworks          = ["Metal", "QuartzCore", "RealityKit"]
   s.libraries           = ["c++", "z"]
 
   load "nitrogen/generated/ios/ReactNativeSplat+autolinking.rb"

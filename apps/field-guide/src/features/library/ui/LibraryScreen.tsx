@@ -15,7 +15,6 @@ import {
   type ProgressStorage,
   type SessionStart,
 } from '../../guide';
-import { AssemblyBanner } from '../../ar/views';
 
 import { SectionHeader } from '../../../ui/SectionHeader';
 import { Backdrop } from '../../../ui/Gradients';
@@ -45,8 +44,6 @@ export interface LibraryScreenProps {
   readonly onOpenGuide: (guide: ReadyGuide) => void;
   /** Opens the viewer where the saved progress left off. */
   readonly onOpen: (start: SessionStart) => void;
-  /** Present only where the device offers the assembly tour. */
-  readonly onOpenAssembly?: () => void;
 }
 
 export function LibraryScreen({
@@ -54,7 +51,6 @@ export function LibraryScreen({
   progress: storage,
   onOpenGuide,
   onOpen,
-  onOpenAssembly,
 }: LibraryScreenProps) {
   const insets = useSafeAreaInsets();
   const wide = useWideLayout();
@@ -149,12 +145,6 @@ export function LibraryScreen({
                 onPress={() => onOpenGuide(guide)}
               />
             ))}
-          </View>
-        )}
-        {onOpenAssembly && (
-          <View style={styles.section}>
-            <SectionHeader title="Spatial assembly" />
-            <AssemblyBanner wide={wide} onPress={onOpenAssembly} />
           </View>
         )}
         {soon.length > 0 && (

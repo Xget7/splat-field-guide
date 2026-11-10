@@ -8,8 +8,6 @@
 #include "ReactNativeSplat-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
-#include "HybridARGuideViewSpecSwift.hpp"
-#include "HybridARPlacementViewSpecSwift.hpp"
 #include "HybridModelViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
@@ -17,62 +15,6 @@
 #include <NitroModules/NitroDefines.hpp>
 
 namespace margelo::nitro::splat::bridge::swift {
-
-  // pragma MARK: std::function<void(const ARTrackingEvent& /* event */)>
-  Func_void_ARTrackingEvent create_Func_void_ARTrackingEvent(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeSplat::Func_void_ARTrackingEvent::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const ARTrackingEvent& event) mutable -> void {
-      swiftClosure.call(event);
-    };
-  }
-
-  // pragma MARK: std::shared_ptr<HybridARGuideViewSpec>
-  std::shared_ptr<HybridARGuideViewSpec> create_std__shared_ptr_HybridARGuideViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
-    ReactNativeSplat::HybridARGuideViewSpec_cxx swiftPart = ReactNativeSplat::HybridARGuideViewSpec_cxx::fromUnsafe(swiftUnsafePointer);
-    return std::make_shared<margelo::nitro::splat::HybridARGuideViewSpecSwift>(swiftPart);
-  }
-  void* NON_NULL get_std__shared_ptr_HybridARGuideViewSpec_(std__shared_ptr_HybridARGuideViewSpec_ cppType) {
-    std::shared_ptr<margelo::nitro::splat::HybridARGuideViewSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridARGuideViewSpecSwift>(cppType);
-    #ifdef NITRO_DEBUG
-    if (swiftWrapper == nullptr) [[unlikely]] {
-      throw std::runtime_error("Class \"HybridARGuideViewSpec\" is not implemented in Swift!");
-    }
-    #endif
-    ReactNativeSplat::HybridARGuideViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
-    return swiftPart.toUnsafe();
-  }
-
-  // pragma MARK: std::function<void(const ARPlacementEvent& /* event */)>
-  Func_void_ARPlacementEvent create_Func_void_ARPlacementEvent(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeSplat::Func_void_ARPlacementEvent::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const ARPlacementEvent& event) mutable -> void {
-      swiftClosure.call(event);
-    };
-  }
-
-  // pragma MARK: std::function<void(const ARAssemblyEvent& /* event */)>
-  Func_void_ARAssemblyEvent create_Func_void_ARAssemblyEvent(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = ReactNativeSplat::Func_void_ARAssemblyEvent::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const ARAssemblyEvent& event) mutable -> void {
-      swiftClosure.call(event);
-    };
-  }
-
-  // pragma MARK: std::shared_ptr<HybridARPlacementViewSpec>
-  std::shared_ptr<HybridARPlacementViewSpec> create_std__shared_ptr_HybridARPlacementViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
-    ReactNativeSplat::HybridARPlacementViewSpec_cxx swiftPart = ReactNativeSplat::HybridARPlacementViewSpec_cxx::fromUnsafe(swiftUnsafePointer);
-    return std::make_shared<margelo::nitro::splat::HybridARPlacementViewSpecSwift>(swiftPart);
-  }
-  void* NON_NULL get_std__shared_ptr_HybridARPlacementViewSpec_(std__shared_ptr_HybridARPlacementViewSpec_ cppType) {
-    std::shared_ptr<margelo::nitro::splat::HybridARPlacementViewSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridARPlacementViewSpecSwift>(cppType);
-    #ifdef NITRO_DEBUG
-    if (swiftWrapper == nullptr) [[unlikely]] {
-      throw std::runtime_error("Class \"HybridARPlacementViewSpec\" is not implemented in Swift!");
-    }
-    #endif
-    ReactNativeSplat::HybridARPlacementViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
-    return swiftPart.toUnsafe();
-  }
 
   // pragma MARK: std::function<void(bool /* loaded */)>
   Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {

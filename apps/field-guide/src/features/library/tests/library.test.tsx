@@ -75,7 +75,6 @@ describe('Library screen', () => {
   };
   const onOpenGuide = jest.fn();
   const onOpen = jest.fn();
-  const onOpenAssembly = jest.fn();
   let device: ReturnType<typeof fakeStorage>;
   let storage: ProgressStorage;
   const saveProgress = (saved: Parameters<ProgressStorage['save']>[0]) =>
@@ -88,7 +87,7 @@ describe('Library screen', () => {
   const press = async (testID: string) => {
     await act(() => node(testID).props.onPress());
   };
-  const mount = async (offersAssembly = true) => {
+  const mount = async () => {
     await act(() => {
       renderer = ReactTestRenderer.create(
         <NavigationContext.Provider
@@ -101,7 +100,6 @@ describe('Library screen', () => {
             progress={storage}
             onOpenGuide={onOpenGuide}
             onOpen={onOpen}
-            onOpenAssembly={offersAssembly ? onOpenAssembly : undefined}
           />
         </NavigationContext.Provider>,
       );
@@ -126,15 +124,13 @@ describe('Library screen', () => {
       'Tactical truck, Engine bay, coming soon',
     );
     expect(node(`soon-card-${catalog[1].id}`).props.onPress).toBeUndefined();
-    await press('open-ar-assembly');
-    expect(onOpenAssembly).toHaveBeenCalledTimes(1);
     expect(
       renderer.root.findAllByProps({ testID: 'library-continue' }),
     ).toHaveLength(0);
   });
 
-  test('the spatial assembly entry shows only where the device offers it', async () => {
-    await mount(false);
+  test('the discarded spatial assembly entry is absent', async () => {
+    await mount();
     expect(
       renderer.root.findAllByProps({ testID: 'open-ar-assembly' }),
     ).toHaveLength(0);
