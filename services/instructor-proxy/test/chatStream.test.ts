@@ -58,8 +58,7 @@ test("text streams in order and every stop reason finishes with DONE only after 
 
   for (const [reason, expected] of [
     ["end_turn", "stop"], ["stop_sequence", "stop"], ["tool_use", "tool_calls"],
-    ["max_tokens", "length"], ["refusal", "content_filter"], ["pause_turn", "stop"],
-    ["future_reason", "stop"], ["", "stop"],
+    ["max_tokens", "length"], ["refusal", "content_filter"],
   ]) {
     assert.deepEqual(await chunks(source([finish(reason), sse("message_stop")])), [choice({}, expected), "[DONE]"]);
     assert.deepEqual(await chunks(source([finish(reason)])), [choice({}, expected), streamError]);
@@ -124,4 +123,14 @@ test("text arrives before EOF and consumer cancellation releases the upstream", 
   assert.match(new TextDecoder().decode((await reader.read()).value), /"role":"assistant"/);
   await reader.cancel("disconnected");
   assert.equal(cancelled, "disconnected");
+});
+
+test("missing or unknown completion reasons fail instead of committing a voice response", async () => {
+  for (const terminal of [[], [finish("future_reason")], [finish("")], [finish("pause_turn")]]) {
+    const result = await chunks(source([
+      sse("content_block_delta", { delta: { type: "text_delta", text: "Partial" } }),
+      ...terminal, sse("message_stop"),
+    ]));
+    assert.deepEqual(result, [choice({ content: "Partial" }), streamError]);
+  }
 });

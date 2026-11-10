@@ -75,8 +75,10 @@ typedef void (*sfg_event_callback)(void* SFG_NULLABLE context, sfg_event event, 
 
 void sfg_destroy(sfg_engine* engine);
 
-// Install events before loading; ready reports on the render thread and failures on the thread that
-// detects them.
+// Ready reports on the render thread and failures on the thread that detects them.
+// Replacement is thread-safe and nonblocking; an already selected callback may finish.
+// Retain context and engine until all in-flight load/draw calls return, including after clearing.
+// Callbacks may replace themselves but must not destroy an engine still in use.
 void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback SFG_NULLABLE callback,
                             void* SFG_NULLABLE context);
 

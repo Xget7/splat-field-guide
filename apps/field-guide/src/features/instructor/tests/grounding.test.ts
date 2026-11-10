@@ -25,6 +25,15 @@ const evidence = evidenceFor(
 );
 
 describe('rules', () => {
+  test.each([ReplyFormat.plain, ReplyFormat.structured])(
+    '%s rules describe the factory guide without assuming military vehicles',
+    format => {
+      const rules = rulesFor(pack, format).join('\n');
+      expect(rules).toContain('factory guide instructor');
+      expect(rules).toContain(pack.title);
+      expect(rules).not.toMatch(/military|vehicle|crew/i);
+    },
+  );
   test('structured rules keep replies brief and grounded; small models stay plain', () => {
     const rules = rulesFor(pack, ReplyFormat.structured).join('\n');
     expect(rules).toContain(`1 to ${ReplyLength.usual} short sentences`);

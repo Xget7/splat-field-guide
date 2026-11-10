@@ -144,7 +144,8 @@ test.each([
   [429, { error: 'voice quota' }, 'quota'],
   [429, { error: 'rate limit exceeded' }, 'network'],
   [502, { error: 'voice auth' }, 'auth'],
-  [503, { error: 'rate limiter unavailable' }, 'auth'],
+  [503, { error: 'rate limiter unavailable' }, 'network'],
+  [503, { error: 'voice not configured' }, 'auth'],
   [500, { error: 'unavailable' }, 'network'],
   [200, {}, 'network'],
 ] as const)(

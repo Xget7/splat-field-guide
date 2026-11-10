@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, Platform } from 'react-native';
 
-/** The will* events keep panel movement in step with the keyboard. */
+/** iOS will* events track its animation; Android only reports did* events. */
 export function useKeyboardVisible(): boolean {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    const shown = Keyboard.addListener('keyboardWillShow', () =>
-      setVisible(true),
+    const shown = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setVisible(true),
     );
-    const hidden = Keyboard.addListener('keyboardWillHide', () =>
-      setVisible(false),
+    const hidden = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setVisible(false),
     );
     return () => {
       shown.remove();

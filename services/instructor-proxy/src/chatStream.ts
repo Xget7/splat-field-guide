@@ -44,6 +44,7 @@ export function anthropicToOpenAiStream(source: ReadableStream<Uint8Array>, meta
   const encoder = new TextEncoder();
   const toolIndices = new Map<number, { index: number; hasArguments: boolean }>();
   let finished = false;
+  let completed = false;
 
   function close(controller: ReadableStreamDefaultController<Uint8Array>) {
     finished = true;
@@ -113,12 +114,14 @@ export function anthropicToOpenAiStream(source: ReadableStream<Uint8Array>, meta
                 fail(controller); return;
               }
               if (typeof payload.delta?.stop_reason === "string") {
-                finishReason = Object.hasOwn(finishReasons, payload.delta.stop_reason)
-                  ? finishReasons[payload.delta.stop_reason as AnthropicStopReason] : FinishReason.stop;
+                if (!Object.hasOwn(finishReasons, payload.delta.stop_reason)) { fail(controller); return; }
+                finishReason = finishReasons[payload.delta.stop_reason as AnthropicStopReason];
+                completed = true;
                 delta = {};
               }
               break;
             case EventName.stop:
+              if (!completed) { fail(controller); return; }
               controller.enqueue(encoder.encode(OPENAI_DONE));
               close(controller);
               return;

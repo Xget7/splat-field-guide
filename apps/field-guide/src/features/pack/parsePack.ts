@@ -72,6 +72,8 @@ type Json = Record<string, unknown>;
 
 const FULL_TURN_DEGREES = 360;
 const POLE_DEGREES = 90;
+// SFGL v1 stores a 16-byte header followed by one byte per tree node.
+const LABELS_HEADER_BYTES = 16;
 
 function at(path: string, key: string | number): string {
   if (typeof key === 'number') {
@@ -174,13 +176,13 @@ function readFile(value: unknown, path: string): PackFile {
   return {
     path: filePath,
     bytes: readCount(object.bytes, at(path, 'bytes')),
-    sha256: readText(object.sha256, at(path, 'sha256')),
+    sha256: readDigest(object.sha256, at(path, 'sha256')),
   };
 }
 
 function readDigest(value: unknown, path: string): string {
   const digest = readText(value, path);
-  if (!/^[a-f0-9]{64}$/.test(digest)) {
+  if (digest.length !== 64 || !/^[a-f0-9]{64}$/.test(digest)) {
     return fail(PackErrorCode.invalidField, path, 'expected a SHA-256 digest');
   }
   return digest;
@@ -206,9 +208,7 @@ function readSources(
     );
   }
   const sourceFile = (key: string): PackFile => {
-    const file = readFile(object[key], at('sources', key));
-    readDigest(file.sha256, at(at('sources', key), 'sha256'));
-    return file;
+    return readFile(object[key], at('sources', key));
   };
   return {
     captureSha256: readDigest(object.captureSha256, 'sources.captureSha256'),
@@ -237,12 +237,21 @@ function readTier(value: unknown, path: string): Tier {
       'expected at least one node per leaf',
     );
   }
+  const world = readFile(object.world, at(path, 'world'));
+  const labels = readFile(object.labels, at(path, 'labels'));
+  if (labels.bytes !== LABELS_HEADER_BYTES + nodeCount) {
+    fail(
+      PackErrorCode.invalidField,
+      at(at(path, 'labels'), 'bytes'),
+      'expected a 16-byte header and one label byte per tree node',
+    );
+  }
   return {
     id: readName(object.id, at(path, 'id')),
     splatCount,
     nodeCount,
-    world: readFile(object.world, at(path, 'world')),
-    labels: readFile(object.labels, at(path, 'labels')),
+    world,
+    labels,
   };
 }
 
@@ -537,6 +546,15 @@ function buildPack(value: unknown): Pack {
       `schema version ${version} is not supported`,
     );
   }
+  const packId = readName(root.packId, 'packId');
+  // The ID is interpolated into a native bundle directory, so it must be one segment.
+  if (!/^[a-zA-Z0-9_-]+$/.test(packId)) {
+    fail(
+      PackErrorCode.invalidField,
+      'packId',
+      'expected a pack directory name',
+    );
+  }
   const tiers = readArray(root.tiers, 'tiers').map((tier, index) =>
     readTier(tier, at('tiers', index)),
   );
@@ -554,7 +572,7 @@ function buildPack(value: unknown): Pack {
   const camera = readCamera(root.camera, 'camera');
   return {
     schemaVersion: version,
-    packId: readName(root.packId, 'packId'),
+    packId,
     packVersion: readCount(root.packVersion, 'packVersion'),
     title: readName(root.title, 'title'),
     sources: readSources(root.sources, parts),

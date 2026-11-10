@@ -1,4 +1,4 @@
-const SLICES = ['library', 'guide', 'viewer', 'instructor', 'ar', 'bench'];
+const SLICES = ['library', 'guide', 'viewer', 'instructor'];
 // index.ts stays free of React and native packages so domain code, tsx and Node can load it;
 // views.ts carries the components and hooks that other slices compose.
 const PUBLIC_ENTRIES = ['index', 'views'];
@@ -50,6 +50,25 @@ module.exports = {
                 group: composition,
                 message:
                   'Slices cannot import app composition; screens take props and callbacks.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [`${sliceFiles}/index.ts`],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: REACT_STORE,
+            patterns: [
+              {
+                group: [...NATIVE, ...presentation],
+                allowTypeImports: true,
+                message:
+                  'Non-React public entries cannot load presentation or native capabilities.',
               },
             ],
           },

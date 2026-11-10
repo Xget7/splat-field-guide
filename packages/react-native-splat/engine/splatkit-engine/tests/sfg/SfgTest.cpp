@@ -1,5 +1,6 @@
 #include "splatkit/sfg.h"
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -80,6 +81,75 @@ class SfgTest : public ::testing::Test {
   std::vector<Event> events;
   int64_t vsync = 0;
 };
+
+TEST_F(SfgTest, CallbackCanRemoveItselfAndReenterLoading) {
+  struct Context {
+    sfg_engine* engine;
+    int calls = 0;
+  } context{engine};
+  sfg_set_event_callback(
+      engine,
+      [](void* raw, sfg_event kind, const char*, uint32_t) {
+        auto& state = *static_cast<Context*>(raw);
+        EXPECT_EQ(kind, SFG_EVENT_LOAD_FAILED);
+        ++state.calls;
+        sfg_set_event_callback(state.engine, nullptr, nullptr);
+        EXPECT_FALSE(sfg_load(state.engine, "/missing/reentrant.lodsplat", nullptr));
+      },
+      &context);
+  EXPECT_FALSE(sfg_load(engine, "/missing/world.lodsplat", nullptr));
+  EXPECT_EQ(context.calls, 1);
+}
+
+TEST_F(SfgTest, TeardownCanClearCallbackDuringWorkerFailure) {
+  struct Context {
+    std::promise<void> entered;
+    std::shared_future<void> release;
+    int calls = 0;
+  };
+  std::promise<void> release;
+  Context context{{}, release.get_future().share(), 0};
+  sfg_set_event_callback(
+      engine,
+      [](void* raw, sfg_event kind, const char*, uint32_t) {
+        auto& state = *static_cast<Context*>(raw);
+        EXPECT_EQ(kind, SFG_EVENT_LOAD_FAILED);
+        ++state.calls;
+        state.entered.set_value();
+        state.release.wait();
+      },
+      &context);
+  auto load = std::async(std::launch::async,
+                         [&] { return sfg_load(engine, "/missing/worker.lodsplat", nullptr); });
+  context.entered.get_future().wait();
+  auto clear =
+      std::async(std::launch::async, [&] { sfg_set_event_callback(engine, nullptr, nullptr); });
+  EXPECT_EQ(clear.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  release.set_value();
+  EXPECT_FALSE(load.get());
+  clear.get();
+  EXPECT_FALSE(sfg_load(engine, "/missing/after-clear.lodsplat", nullptr));
+  EXPECT_EQ(context.calls, 1);
+}
+
+TEST_F(SfgTest, CallbackReplacementRacesWorkerFailuresSafely) {
+  std::atomic<int> calls{0};
+  const auto callback = [](void* raw, sfg_event, const char*, uint32_t) {
+    ++*static_cast<std::atomic<int>*>(raw);
+  };
+  auto load = std::async(std::launch::async, [&] {
+    for (int i = 0; i < 200; ++i) sfg_load(engine, "/missing/racing.lodsplat", nullptr);
+  });
+  for (int i = 0; i < 200; ++i) {
+    sfg_set_event_callback(engine, callback, &calls);
+    sfg_set_event_callback(engine, nullptr, nullptr);
+  }
+  load.get();
+  sfg_set_event_callback(engine, callback, &calls);
+  EXPECT_FALSE(sfg_load(engine, "/missing/final.lodsplat", nullptr));
+  EXPECT_GT(calls.load(), 0);
+  sfg_set_event_callback(engine, nullptr, nullptr);
+}
 
 TEST_F(SfgTest, DrawsTheSplatsBelowFullResolution) {
   EXPECT_FLOAT_EQ(renderer->renderScale(), kFieldGuideRenderScale);

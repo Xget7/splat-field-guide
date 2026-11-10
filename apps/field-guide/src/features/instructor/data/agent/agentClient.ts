@@ -255,6 +255,8 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         break;
       case 'responsePart':
         if (acceptResponse(event.eventId)) {
+          // Text can precede both audio and the final response when the user interrupts.
+          currentEventId = event.eventId;
           responseText =
             event.part === 'start' ? event.text : responseText + event.text;
           timeline.replaceText(responseText);

@@ -36,6 +36,7 @@ export function createNetworkService(
   const estimator = createQualityEstimator();
   const backoff = createBackoff(ProbeRetry, options.random);
   let started = false;
+  let generation = 0;
   let active = false;
   let foreground = true;
   let satisfied = false;
@@ -111,8 +112,9 @@ export function createNetworkService(
         return;
       }
       started = true;
+      const subscription = ++generation;
       options.paths.start(info => {
-        if (!started) {
+        if (!started || subscription !== generation) {
           return;
         }
         backoff.reset();
@@ -130,6 +132,7 @@ export function createNetworkService(
         return;
       }
       started = false;
+      satisfied = false;
       halt();
       options.paths.stop();
     },

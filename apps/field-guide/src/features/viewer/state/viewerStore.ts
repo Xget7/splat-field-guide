@@ -126,9 +126,15 @@ const INITIAL_STATUS: ViewerStatus = {
 
 export function createViewerStore(): ViewerStore {
   return createStore<ViewerStoreState>()((set, get) => {
+    let turnGeneration = 0;
     function act(action: ViewerAction) {
       const { viewer, display, pack } = get();
-      if (viewer === null || display === null || pack === null) {
+      if (
+        get().instructor === null ||
+        viewer === null ||
+        display === null ||
+        pack === null
+      ) {
         return;
       }
       const next = reduceViewer(viewer, action, pack);
@@ -181,6 +187,7 @@ export function createViewerStore(): ViewerStore {
     return {
       ...INITIAL_STATUS,
       open: ({ guide, procedureId, stepIndex, mode, instructor }) => {
+        get().close();
         const { pack } = guide;
         const viewer = initialViewerState(procedureId, stepIndex, pack);
         const instructorOpen = mode === LearnMode.instructor;
@@ -201,7 +208,9 @@ export function createViewerStore(): ViewerStore {
         }
       },
       close: () => {
-        const { instructor } = get();
+        turnGeneration += 1;
+        const { instructor, voice } = get();
+        voice?.stop();
         instructor?.setInstructorOpen(false);
         instructor?.turns.cancel();
         set({ instructor: null, voice: null });
@@ -253,6 +262,7 @@ export function createViewerStore(): ViewerStore {
         if (viewer === null || pack === null || instructor === null) {
           return;
         }
+        const generation = ++turnGeneration;
         instructor.turns.ask(
           {
             question,
@@ -260,10 +270,18 @@ export function createViewerStore(): ViewerStore {
             pack,
             history: answeredExchanges(viewer),
           },
-          event => get().receiveTurn(event),
+          event => {
+            if (generation === turnGeneration) {
+              get().receiveTurn(event);
+            }
+          },
         );
       },
-      cancelAnswer: () => get().instructor?.turns.cancel(),
+      cancelAnswer: () => {
+        // The runner emits its cancellation synchronously to restore the prior display.
+        get().instructor?.turns.cancel();
+        turnGeneration += 1;
+      },
       receiveTurn: event => act({ type: ViewerActionType.turn, event }),
       applyAgentAction: event => act({ type: ViewerActionType.agent, event }),
       toggleInstructor: () => {
@@ -285,7 +303,10 @@ export function createViewerStore(): ViewerStore {
       openPicker: () => set({ pickerVisible: true }),
       closePicker: () => set({ pickerVisible: false }),
       attachVoice: voice => set({ voice }),
-      reset: () => set(INITIAL_STATUS),
+      reset: () => {
+        get().close();
+        set(INITIAL_STATUS);
+      },
     };
   });
 }

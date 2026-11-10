@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { verify } = require('./validate-pack.cjs');
 const MANIFEST = 'manifest.json';
 
 function relativePath(value) {
@@ -58,12 +59,15 @@ function copyPacks(source, destination, packs) {
         included.add('/' + parent + '/');
       }
     }
+    // Validate every selected pack before rsync can replace any accepted build resources.
+    verify(directory);
   }
   fs.mkdirSync(destination, { recursive: true });
   const result = spawnSync(
     'rsync',
     [
       '-a',
+      '--checksum',
       '--delete',
       '--delete-excluded',
       '--prune-empty-dirs',

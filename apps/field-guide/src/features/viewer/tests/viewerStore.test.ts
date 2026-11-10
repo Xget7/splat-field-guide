@@ -1,6 +1,13 @@
 import { fakeInstructor } from '@tests/voiceSession';
 import { LearnMode, SessionEventType } from '../../guide';
-import type { Instructor } from '../../instructor';
+import {
+  createTurnRunner,
+  createExchangeIds,
+  ExchangePhase,
+  TurnEventType,
+  type Instructor,
+  type TurnEvent,
+} from '../../instructor';
 import { bundledPack } from '../../pack/bundledPack';
 import { catalogFor, findReadyGuide } from '../../pack/catalog';
 import { Capability } from '../domain/capability';
@@ -42,6 +49,77 @@ function recordingVoice(accepts = false): VoicePort & { asked: string[] } {
 }
 
 describe('viewer store', () => {
+  test('cancelling an answer restores the previous display', () => {
+    const instructor = {
+      ...fakeInstructor(),
+      turns: createTurnRunner(
+        [
+          {
+            isReady: () => true,
+            prewarm: async () => {},
+            respond: () => new Promise<string>(() => {}),
+            cancel: () => {},
+          },
+        ],
+        createExchangeIds(),
+      ),
+    };
+    const store = openStore(1, LearnMode.selfGuided, instructor);
+    store.getState().ask('Why does this step matter?');
+    expect(store.getState().viewer?.exchange).not.toBeNull();
+    store.getState().cancelAnswer();
+    expect(store.getState().viewer?.exchange).toBeNull();
+  });
+
+  test('closing releases the voice and rejects subsequent session actions', () => {
+    const store = openStore(1);
+    const voice = recordingVoice();
+    store.getState().attachVoice(voice);
+    store.getState().close();
+    const closed = store.getState().viewer;
+    store.getState().next();
+    expect(voice.stop).toHaveBeenCalledTimes(1);
+    expect(store.getState().viewer).toBe(closed);
+  });
+
+  test.each(['next', 'close', 'reopen'] as const)(
+    'ignores a retained answer callback after %s',
+    action => {
+      const instructor = fakeInstructor();
+      let emit!: (event: TurnEvent) => void;
+      jest
+        .spyOn(instructor.turns, 'ask')
+        .mockImplementation(async (_request, callback) => {
+          emit = callback;
+        });
+      const store = openStore(1, LearnMode.selfGuided, instructor);
+      store.getState().ask('Why?');
+      if (action === 'next') store.getState().next();
+      else store.getState().close();
+      if (action === 'reopen')
+        store.getState().open({
+          guide,
+          procedureId: COOLANT,
+          stepIndex: 0,
+          mode: LearnMode.selfGuided,
+          instructor,
+        });
+      const before = store.getState().viewer;
+      emit({
+        type: TurnEventType.begin,
+        exchange: {
+          id: 42,
+          question: 'Why?',
+          reply: '',
+          caution: '',
+          part: null,
+          phase: ExchangePhase.pending,
+        },
+      });
+      expect(store.getState().viewer).toBe(before);
+    },
+  );
+
   test('Next moves on until the last step, where it finishes the procedure and stops the voice', () => {
     const store = openStore(COOLANT_STEPS - 2);
     const voice = recordingVoice();

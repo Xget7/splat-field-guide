@@ -18,6 +18,18 @@ export const SecretType = { create: 'new', update: 'update' } as const;
 export const CREATE_DICTIONARY_PATH = DICTIONARY_PATH + '/add-from-rules';
 export const SET_RULES_PATH = '/set-rules';
 const INVALID_JSON = 'Invalid JSON response';
+const INVALID_RESPONSE = 'Invalid ElevenLabs response';
+
+function record(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(INVALID_RESPONSE);
+  return value as Record<string, unknown>;
+}
+
+function resourceId(value: unknown, field: string): string {
+  const id = record(value)[field];
+  if (typeof id !== 'string' || !id.trim()) throw new Error(INVALID_RESPONSE);
+  return id;
+}
 
 interface DictionaryResponse { id: string; version_id: string }
 
@@ -47,16 +59,16 @@ export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
   }
 
   function dictionaryRef(response: DictionaryResponse): DictionaryRef {
-    return { id: response.id, versionId: response.version_id };
+    return { id: resourceId(response, 'id'), versionId: resourceId(response, 'version_id') };
   }
 
   return {
-    secret: (value: string, id?: string) => createOrUpdate<{ secret_id: string }>(
+    secret: async (value: string, id?: string) => ({ secret_id: resourceId(await createOrUpdate<unknown>(
       SECRET_PATH, { type: id ? SecretType.update : SecretType.create, name: SECRET_NAME, value }, id,
-    ),
-    tool: (config: ClientToolConfig, id?: string) => createOrUpdate<{ id: string }>(
+    ), 'secret_id') }),
+    tool: async (config: ClientToolConfig, id?: string) => ({ id: resourceId(await createOrUpdate<unknown>(
       TOOL_PATH, { tool_config: config }, id,
-    ),
+    ), 'id') }),
     createDictionaryRef: async (name: string, rules: readonly PronunciationRule[]) => dictionaryRef(
       await request<DictionaryResponse>(CREATE_DICTIONARY_PATH, Method.create, { name, rules }),
     ),
@@ -64,15 +76,22 @@ export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
       const response = await request<{ latest_version_id: string; rules: readonly PronunciationRule[] }>(
         `${DICTIONARY_PATH}/${encodeURIComponent(id)}`, Method.get,
       );
-      return { id, versionId: response.latest_version_id, rules: response.rules };
+      const versionId = resourceId(response, 'latest_version_id');
+      if (!Array.isArray(response.rules) || !response.rules.every(rule =>
+        rule && typeof rule.type === 'string' && typeof rule.string_to_replace === 'string' &&
+          (rule.alias === undefined || typeof rule.alias === 'string') &&
+          (rule.case_sensitive === undefined || typeof rule.case_sensitive === 'boolean') &&
+          (rule.word_boundaries === undefined || typeof rule.word_boundaries === 'boolean'),
+      )) throw new Error(INVALID_RESPONSE);
+      return { id, versionId, rules: response.rules };
     },
     updateDictionaryRef: async (id: string, rules: readonly PronunciationRule[]) => dictionaryRef(
       await request<DictionaryResponse>(
         `${DICTIONARY_PATH}/${encodeURIComponent(id)}${SET_RULES_PATH}`, Method.create, { rules },
       ),
     ),
-    agent: (config: ReturnType<typeof buildAgentConfig>, id?: string) => createOrUpdate<{ agent_id: string }>(
+    agent: async (config: ReturnType<typeof buildAgentConfig>, id?: string) => ({ agent_id: resourceId(await createOrUpdate<unknown>(
       AGENT_PATH, config, id, CREATE_AGENT_PATH,
-    ),
+    ), 'agent_id') }),
   };
 }

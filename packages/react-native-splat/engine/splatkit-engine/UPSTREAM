@@ -7,3 +7,9 @@ Left out: engine/SplatEngine, camera/WalkCamera and CameraRequest, diagnostics/B
 Field Guide keeps its own engine/SplatEngine, camera/OrbitCamera, guide/GuideLayout, highlight, reveal, pick and the sfg C interface.
 Field Guide patches:
 - include/splatkit/rendering/SplatRenderer.h: Frame gains labelStyles, revealLevel and revealBand from guide/GuideLayout.h, and the renderer gains a pure virtual failed(), because a zero completedFrames() does not tell a GPU error from a GPU that has not finished a frame.
+
+Event dispatch lifetime fix imported selectively from SplatKit commit c857707186c25497df4ad71b03a8f3b4efe1c230.
+Imported file: include/splatkit/engine/EventDispatcher.h (byte-identical upstream copy).
+SHA-256: 1e042d9774d65913735cfaa2a762aada27993da5c9e202eb644a390fc61d0767.
+Local engine/SplatEngine uses that dispatcher; upstream engine and GPU working-tree changes were not imported.
+Replacement is nonblocking; selected callbacks may finish, and hosts retain the engine and callback context until in-flight load/render calls return.

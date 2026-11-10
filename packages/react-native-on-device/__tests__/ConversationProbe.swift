@@ -57,6 +57,7 @@ final class ControlledAudio: ConversationAudio {
     stopped = onStopped
     return format
   }
+  var isListening: Bool { tap != nil }
   func stopListening() { tap = nil }
   func loseAudio() { stopped?("Audio session interrupted") }
   func feed(level: Double, tick: Int) {
@@ -75,7 +76,8 @@ final class ControlledTranscription: ConversationTranscription {
   var pendingTurn: ((String) -> Void)?
   func append(_ buffer: AVAudioPCMBuffer) {}
   func endTurn(_ done: @escaping (String) -> Void) { pendingTurn = done }
-  func cancel() {}
+  var cancelled = false
+  func cancel() { cancelled = true }
 }
 
 @main
@@ -114,6 +116,28 @@ struct ConversationProbe {
         userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
       center.removeObserver(observer)
       print(String(decoding: try JSONSerialization.data(withJSONObject: events), as: UTF8.self))
+      return
+    }
+    if CommandLine.arguments.last == "release" {
+      let audio = ControlledAudio()
+      let model = ControlledTranscription()
+      var events: [String] = []
+      var conversation: OnDeviceConversation? = OnDeviceConversation(audio: audio) { _, _, change, end in
+        model.onChange = change
+        model.onEnd = end
+        return model
+      }
+      try conversation!.listen(locale: "en-US", hints: [],
+        onPartial: { events.append($0) }, onTurn: { events.append($0) },
+        onLevel: { _ in }, onVoice: { _ in }, onStopped: { events.append($0) })
+      weak let released = conversation
+      conversation = nil
+      precondition(released == nil, "The audio tap must not retain its conversation")
+      RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+      model.onChange("stale")
+      model.onEnd(nil)
+      let result: [String: Any] = ["listening": audio.isListening, "cancelled": model.cancelled, "events": events]
+      print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
       return
     }
     let audio = ControlledAudio()

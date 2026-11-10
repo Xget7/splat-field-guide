@@ -17,6 +17,7 @@ export const ProxyStatus = {
 export const ProxyError = {
   voiceQuota: 'voice quota',
   voiceAuth: 'voice auth',
+  voiceNotConfigured: 'voice not configured',
 } as const;
 
 /** The answer request body is JSON; the reply streams one JSON object per line. */

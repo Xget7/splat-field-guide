@@ -92,6 +92,17 @@ final class OnDeviceConversation {
     audio.stopListening()
   }
 
+  deinit {
+    guard let current = listening else { return }
+    // Nitro may release its owner off main; the audio graph and transcription lifecycle stay on main.
+    let audio = audio
+    DispatchQueue.main.async {
+      current.transcription?.cancel()
+      current.transcription = nil
+      audio.stopListening()
+    }
+  }
+
   private func stopped(_ current: Listening?, reason: String) {
     guard let current, listening === current else { return }
     OnDeviceLog.voice("Listening stopped: \(reason)")

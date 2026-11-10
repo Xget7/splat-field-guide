@@ -263,3 +263,61 @@ test('bundling includes only runtime files and preserves unchanged mtimes', t =>
     before,
   );
 });
+
+test('bundling rejects damaged source bytes before modifying the accepted bundle', t => {
+  const { root, pack, manifest } = fixture(t);
+  const source = path.join(root, 'data/pack');
+  const destination = path.join(root, 'build/packs');
+  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
+  const label = manifest.tiers[0].labels.path;
+  const accepted = fs.readFileSync(
+    path.join(destination, 'gol-trend-engine-bay/1', label),
+  );
+  fs.writeFileSync(path.join(pack, label), Buffer.alloc(accepted.length, 42));
+  assert.throws(
+    () => copyPacks(source, destination, ['gol-trend-engine-bay/1']),
+    /sha256 mismatch/,
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(destination, 'gol-trend-engine-bay/1', label)),
+    accepted,
+  );
+});
+
+test('bundling repairs damaged destination bytes even when size and timestamp match', t => {
+  const { root, manifest } = fixture(t);
+  const source = path.join(root, 'data/pack');
+  const destination = path.join(root, 'build/packs');
+  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
+  const relative = path.join(
+    'gol-trend-engine-bay/1',
+    manifest.tiers[0].labels.path,
+  );
+  const original = fs.statSync(path.join(source, relative));
+  const target = path.join(destination, relative);
+  fs.writeFileSync(target, Buffer.alloc(original.size, 42));
+  fs.utimesSync(target, original.atime, original.mtime);
+  copyPacks(source, destination, ['gol-trend-engine-bay/1']);
+  assert.deepEqual(
+    fs.readFileSync(target),
+    fs.readFileSync(path.join(source, relative)),
+  );
+});
+
+test('pack verification rejects linked manifests and linked runtime directories', t => {
+  for (const linked of ['manifest.json', 'high']) {
+    const { root, pack } = fixture(t);
+    const target = path.join(pack, linked);
+    const outside = path.join(root, 'linked-' + linked);
+    fs.renameSync(target, outside);
+    fs.symlinkSync(outside, target);
+    const result = cli(
+      root,
+      'package',
+      '--out',
+      path.join(root, 'linked.tar.gz'),
+    );
+    assert.notEqual(result.status, 0, linked);
+    assert.match(result.stderr, /symlink in pack/);
+  }
+});

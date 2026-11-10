@@ -42,17 +42,26 @@ function checkWorld(world, tier) {
   if (world.length !== size) throw new Error('invalid LODSPLAT length');
 }
 
+function readPackFile(directory, relative) {
+  // lstat every component: checking only the leaf still follows linked tier directories.
+  let filename = directory;
+  for (const part of ['', ...relative.split('/')]) {
+    filename = path.join(filename, part);
+    if (fs.lstatSync(filename).isSymbolicLink()) throw new Error(`symlink in pack: ${relative}`);
+  }
+  if (!fs.statSync(filename).isFile()) throw new Error(`not a pack file: ${relative}`);
+  return fs.readFileSync(filename);
+}
+
 function verify(directory) {
-  const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+  const manifest = JSON.parse(readPackFile(directory, 'manifest.json').toString('utf8'));
   const pack = parse(manifest);
   const files = new Set();
   for (const tier of pack.tiers) {
     const bytes = {};
     for (const kind of ['world', 'labels']) {
       const entry = tier[kind];
-      const filename = path.join(directory, entry.path);
-      if (fs.lstatSync(filename).isSymbolicLink()) throw new Error(`symlink in pack: ${entry.path}`);
-      const data = fs.readFileSync(filename);
+      const data = readPackFile(directory, entry.path);
       if (data.length !== entry.bytes) throw new Error(`byte count mismatch: ${entry.path}`);
       if (crypto.createHash('sha256').update(data).digest('hex') !== entry.sha256) {
         throw new Error(`sha256 mismatch: ${entry.path}`);

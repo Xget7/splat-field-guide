@@ -14,6 +14,15 @@ function errorOf(mutate: (manifest: Record<string, any>) => void) {
 }
 
 describe('parsePack', () => {
+  it.each(['../outside', '/absolute', 'a/b', '.', '..', 'a\\b'])(
+    'refuses unsafe pack directory ID %s',
+    packId => {
+      const error = errorOf(m => (m.packId = packId));
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe('packId');
+    },
+  );
+
   it('accepts the fixture and keeps its parts and procedures', () => {
     const result = parsePack(fixtureManifest);
     expect(result.ok).toBe(true);
@@ -90,9 +99,69 @@ describe('parsePack', () => {
       id: 'high',
       splatCount: 10,
       nodeCount: 13,
-      world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a' },
-      labels: { path: 'high/labels.bin', bytes: 1, sha256: 'b' },
+      world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a'.repeat(64) },
+      labels: { path: 'high/labels.bin', bytes: 29, sha256: 'b'.repeat(64) },
     });
+  });
+
+  describe.each(['world', 'labels'])('%s digest', kind => {
+    it.each([
+      '',
+      'a',
+      'a'.repeat(63),
+      'a'.repeat(65),
+      'A'.repeat(64),
+      'g'.repeat(64),
+      ` ${'a'.repeat(64)}`,
+      `${'a'.repeat(64)}\n`,
+      null,
+      123,
+    ])('refuses invalid SHA-256 %p', digest => {
+      const error = errorOf(m => (m.tiers[0][kind].sha256 = digest));
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe(`tiers[0].${kind}.sha256`);
+    });
+  });
+
+  it('accepts a lowercase hexadecimal digest without changing it', () => {
+    const manifest = fixtureCopy();
+    const digest = '0123456789abcdef'.repeat(4);
+    manifest.tiers[0].world.sha256 = digest;
+    manifest.tiers[0].labels.sha256 = digest;
+    const result = parsePack(manifest);
+    expect(result.ok && result.pack.tiers[0].world.sha256).toBe(digest);
+    expect(result.ok && result.pack.tiers[0].labels.sha256).toBe(digest);
+  });
+
+  it.each([1, 13, 100])(
+    'accepts one label byte per node for %p nodes',
+    nodeCount => {
+      const manifest = fixtureCopy();
+      manifest.tiers[0].splatCount = 1;
+      manifest.tiers[0].nodeCount = nodeCount;
+      manifest.tiers[0].labels.bytes = 16 + nodeCount;
+      expect(parsePack(manifest).ok).toBe(true);
+    },
+  );
+
+  it.each([0, 13, 26, 28, 30])(
+    'refuses label byte count %p inconsistent with the tree',
+    bytes => {
+      const error = errorOf(m => (m.tiers[0].labels.bytes = bytes));
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe('tiers[0].labels.bytes');
+    },
+  );
+
+  it('checks files in every tier', () => {
+    const error = errorOf(m => {
+      m.tiers.push({
+        ...m.tiers[0],
+        labels: { ...m.tiers[0].labels, bytes: 13 },
+      });
+    });
+    expect(error.code).toBe(PackErrorCode.invalidField);
+    expect(error.path).toBe('tiers[1].labels.bytes');
   });
 
   it('refuses a tree with fewer nodes than leaves', () => {

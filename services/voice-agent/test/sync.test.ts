@@ -188,3 +188,32 @@ test('invalid local state stops sync instead of discarding an existing resource 
   await assert.rejects(runSync({ env, statePath, fetchImpl: api.fetchImpl }), new Error(INVALID_STATE));
   assert.equal(api.calls.length, 0);
 });
+
+test('malformed successful responses stop sync without overwriting saved resource references', async t => {
+  for (const failureAt of [1, 2, tools.length + 2, tools.length + 3]) {
+    const statePath = await workspace(t);
+    const api = fakeApi();
+    await runSync({ env, statePath, fetchImpl: api.fetchImpl, print: () => {} });
+    const saved = await readFile(statePath, 'utf8');
+    let requests = 0;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests++;
+      if (requests === failureAt) return Response.json({});
+      return api.fetchImpl(input, init);
+    };
+    await assert.rejects(runSync({ env, statePath, fetchImpl, print: () => {} }), /Invalid.*response/i);
+    assert.equal(requests, failureAt);
+    assert.equal(await readFile(statePath, 'utf8'), saved);
+  }
+});
+
+test('invalid Worker base URLs fail before changing shared resources', async t => {
+  const statePath = await workspace(t);
+  const api = fakeApi();
+  for (const workerUrl of ['not-a-url', 'ftp://worker.example', 'https://worker.example?token=x',
+    'https://worker.example#fragment', 'https://user:password@worker.example']) {
+    await assert.rejects(runSync({ env: { ...env, [Setting.workerUrl]: workerUrl },
+      statePath, fetchImpl: api.fetchImpl, print: () => {} }), /Invalid WORKER_URL/);
+  }
+  assert.equal(api.calls.length, 0);
+});

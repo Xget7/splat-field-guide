@@ -133,3 +133,31 @@ test('failed probes retry with backoff in the foreground until the route answers
   service.stop();
   expect(jest.getTimerCount()).toBe(0);
 });
+
+test('a callback retained from a stopped monitor cannot replace the restarted path', async () => {
+  const callbacks: ((path: PathInfo) => void)[] = [];
+  const probe = jest.fn(async () => 100);
+  const emit = jest.fn();
+  const service = createNetworkService({
+    paths: {
+      start: callback => {
+        callbacks.push(callback);
+      },
+      stop: () => {},
+    },
+    probe,
+    emit,
+    timers,
+    random,
+  });
+  service.start();
+  const stale = callbacks[0];
+  service.stop();
+  service.start();
+  callbacks[1](route);
+  await flush();
+  const before = emit.mock.calls.length;
+  stale({ ...route, satisfied: false, transport: Transport.none });
+  expect(emit).toHaveBeenCalledTimes(before);
+  service.stop();
+});

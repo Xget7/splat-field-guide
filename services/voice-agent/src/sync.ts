@@ -59,6 +59,14 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   const llmSecret = readSetting(env, Setting.llmSecret, dryRun);
   const workerUrl = readSetting(env, Setting.workerUrl, dryRun);
   const voiceId = readSetting(env, Setting.voiceId, dryRun);
+  // Validate before updating shared resources; a malformed base would break the final agent URL.
+  if (!dryRun || workerUrl !== Placeholder.workerUrl) {
+    let url: URL;
+    try { url = new URL(workerUrl); } catch { throw new Error('Invalid WORKER_URL'); }
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+      throw new Error('Invalid WORKER_URL');
+    }
+  }
   const parsed = parsePack(JSON.parse(await readFile(MANIFEST_URL, 'utf8')));
   if (!parsed.ok) throw new Error(parsed.error.message);
   const pack = parsed.pack;

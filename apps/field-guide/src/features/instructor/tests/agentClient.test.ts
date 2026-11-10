@@ -488,3 +488,21 @@ test('a playback clock reset after an interruption restarts the reply timing', a
   expect(test.handlers.speaking).toHaveBeenLastCalledWith(false);
   test.client.stop();
 });
+
+test('interrupting streamed text before audio suppresses the rest of that response', async () => {
+  const test = setup();
+  await test.start();
+  test.part('Old');
+  test.client.interrupt();
+  test.part(' tail', 'delta');
+  test.respond(1, 'Old tail');
+  test.audioEvent(1);
+  test.respond(2, 'New');
+  test.audioEvent(2);
+  expect(jest.mocked(test.handlers.responseText).mock.calls).toEqual([
+    ['Old', 1],
+  ]);
+  expect(jest.mocked(test.handlers.response).mock.calls).toEqual([['New', 2]]);
+  expect(test.audio.play).toHaveBeenCalledTimes(1);
+  test.client.stop();
+});

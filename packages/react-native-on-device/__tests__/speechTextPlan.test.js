@@ -127,6 +127,14 @@ nativeSuite('native conversation', () => {
       execFileSync(conversationOutput, [scenario], { encoding: 'utf8' }),
     );
 
+  test('releases microphone and transcription when the conversation owner is released', () => {
+    expect(conversation('release')).toEqual({
+      listening: false,
+      cancelled: true,
+      events: [],
+    });
+  });
+
   test('rejects a second listener with the shared microphone ownership message', () => {
     expect(conversation('duplicate')).toEqual([
       'Speech input or audio link is already listening',

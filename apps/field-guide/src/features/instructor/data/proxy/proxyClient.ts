@@ -84,9 +84,10 @@ function signedUrlFrom(status: number, body: unknown): string {
   ) {
     throw new Error(AgentFailure.quota);
   }
-  // Any 503 disables the agent, including a limiter that is only briefly down.
+  // Only configuration and credential failures disable voice for the run.
   if (
-    status === ProxyStatus.unavailable ||
+    (status === ProxyStatus.unavailable &&
+      fields.error === ProxyError.voiceNotConfigured) ||
     fields.error === ProxyError.voiceAuth
   ) {
     throw new Error(AgentFailure.auth);

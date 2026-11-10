@@ -15,6 +15,7 @@
 #include "splat/math/Mat4.h"
 #include "splatkit/camera/OrbitCamera.h"
 #include "splatkit/diagnostics/StatsPublisher.h"
+#include "splatkit/engine/EventDispatcher.h"
 #include "splatkit/highlight/Highlight.h"
 #include "splatkit/pick/PickIndex.h"
 #include "splatkit/rendering/SplatRenderer.h"
@@ -61,7 +62,9 @@ class SplatEngine {
   // thread, and GPU failure is final.
   enum class Event { worldReady = 0, worldFailed = 1, labelsMismatch = 2, gpuFailed = 3 };
   using EventSink = std::function<void(Event, const std::string& message, uint32_t splatCount)>;
-  void setEventSink(EventSink sink) { events_ = std::move(sink); }
+  // Any thread. Selected callbacks may finish after replacement; the host keeps their
+  // context and this engine alive until its in-flight load/render calls return.
+  void setEventSink(EventSink sink) { events_.set(std::move(sink)); }
 
   // Camera mutations use the render thread; unpositioned cameras frame each new world from the
   // current direction.
@@ -125,7 +128,7 @@ class SplatEngine {
   static constexpr int kMaxShDegree = 3;
 
   void emit(Event event, const std::string& message = {}, uint32_t splatCount = 0) const {
-    if (events_) events_(event, message, splatCount);
+    events_.emit(event, message, splatCount);
   }
   bool report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
   bool finishLoad(uint64_t request, splat::Result<LoadedWorld> result);
@@ -151,7 +154,7 @@ class SplatEngine {
   };
   View publishedView() const;
 
-  EventSink events_;
+  EventDispatcher<Event> events_;
   std::unique_ptr<SplatRenderer> renderer_;
   FileLoader loadFile_;
   std::atomic<int> maxShDegree_{kMaxShDegree};
