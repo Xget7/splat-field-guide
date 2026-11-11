@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../../../ui/Icon';
-import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
+import { Color, Font, MIN_TOUCH, Radius, Space, Type } from '../../../ui/theme';
 import type { Part, PartId } from '../../pack/pack';
 import { CHEVRON_SIZE, ROW_HEIGHT } from './shell/layout';
 
@@ -156,7 +156,7 @@ export function PartList({
                 <Icon
                   name={IconName.explore}
                   size={GLYPH_SIZE}
-                  color={current ? Color.accentText : Color.accent}
+                  color={current ? Color.accent : Color.secondaryText}
                 />
                 <Text
                   numberOfLines={1}
@@ -183,7 +183,7 @@ export function PartList({
                   <Icon
                     name={open ? IconName.down : IconName.next}
                     size={CHEVRON_SIZE}
-                    color={current ? Color.accentText : Color.muted}
+                    color={Color.muted}
                   />
                 </Pressable>
               )}
@@ -204,9 +204,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: Radius.control,
+    borderWidth: 1,
+    borderColor: 'transparent',
     overflow: 'hidden',
   },
-  rowCurrent: { backgroundColor: Color.accentFill },
+  rowCurrent: { backgroundColor: Color.raised, borderColor: Color.accent },
   select: {
     flex: 1,
     minHeight: ROW_HEIGHT,
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
   },
   pressed: { backgroundColor: Color.pressed },
   name: { ...Type.callout, flex: 1, color: Color.text },
-  nameCurrent: { color: Color.accentText },
+  nameCurrent: { fontFamily: Font.semiBold },
   empty: {
     ...Type.callout,
     color: Color.secondaryText,

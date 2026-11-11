@@ -14,7 +14,7 @@ import { Color, Radius, Space, Type } from '../../../ui/theme';
 import type { StepRow } from '../../guide';
 import { ROW_HEIGHT, SCROLL_EVENT_THROTTLE_MS } from './shell/layout';
 
-const BADGE_SIZE = 22;
+const BADGE_SIZE = 24;
 const CHECK_SIZE = 14;
 const SELECT_HINT = 'Show this step';
 const STEP_LABEL = 'Step';
@@ -36,7 +36,7 @@ const SPOKEN_STATE: Readonly<Record<StepState, string>> = {
 
 const TEXT_COLOR: Readonly<Record<StepState, string>> = {
   earlier: Color.muted,
-  current: Color.accentText,
+  current: Color.text,
   upcoming: Color.text,
 };
 
@@ -53,7 +53,11 @@ function Badge({ index, state }: { index: number; state: StepState }) {
       style={[styles.badge, state === StepState.current && styles.badgeCurrent]}
     >
       {state === StepState.earlier ? (
-        <Icon name={IconName.check} size={CHECK_SIZE} color={Color.accent} />
+        <Icon
+          name={IconName.check}
+          size={CHECK_SIZE}
+          color={Color.secondaryText}
+        />
       ) : (
         <Text
           style={[
@@ -183,17 +187,22 @@ export function StepList({
 const styles = StyleSheet.create({
   list: { flex: 1 },
   scroll: { flex: 1 },
-  rows: { gap: Space.xs, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
+  rows: { gap: Space.sm, paddingHorizontal: Space.lg, paddingBottom: Space.lg },
   row: {
     minHeight: ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.md,
-    paddingVertical: Space.xs,
-    paddingHorizontal: Space.md,
+    gap: Space.sm,
+    paddingVertical: Space.sm,
+    paddingHorizontal: Space.lg,
     borderRadius: Radius.control,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  rowCurrent: { backgroundColor: Color.accentFill },
+  rowCurrent: {
+    backgroundColor: Color.raised,
+    borderColor: Color.accent,
+  },
   rowPressed: { backgroundColor: Color.pressed },
   badge: {
     width: BADGE_SIZE,
@@ -201,21 +210,16 @@ const styles = StyleSheet.create({
     borderRadius: Radius.round,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Color.accent,
   },
-  badgeCurrent: {
-    backgroundColor: Color.accentFill,
-    borderColor: Color.accentText,
-  },
-  number: { ...Type.footnote, color: Color.accent },
+  badgeCurrent: { backgroundColor: Color.accent },
+  number: { ...Type.data, color: Color.muted },
   numberCurrent: { color: Color.accentText },
   text: { ...Type.callout, flex: 1 },
   detailBlock: {
-    marginLeft: Space.md + BADGE_SIZE + Space.md,
-    marginRight: Space.md,
+    marginLeft: Space.lg + BADGE_SIZE + Space.sm,
+    marginRight: Space.lg,
     paddingTop: Space.sm,
-    paddingBottom: Space.md,
+    paddingBottom: Space.lg,
     gap: Space.sm,
   },
   detail: { ...Type.callout, color: Color.secondaryText },

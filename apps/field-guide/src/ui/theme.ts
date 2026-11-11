@@ -1,40 +1,41 @@
+import { CourseColor } from './courseTokens';
 import type { TextStyle } from 'react-native';
 
-// Match the renderer's selection tint (Highlight::kTint) so the accent consistently identifies selection.
+// Interface emphasis uses the course primary; the renderer retains its independent part-selection tint.
 export const Color = {
   // The camera and the splat stage only; every other surface is graphite.
   black: '#000000',
   // Graphite: screens deepen from the top colour to the surface, and cards sit a step above.
-  canvasTop: '#17181B',
-  surface: '#0D0E10',
-  raised: '#1C1D21',
-  pressed: '#25272C',
+  canvasTop: CourseColor.surface,
+  surface: CourseColor.canvas,
+  raised: CourseColor.raised,
+  pressed: '#303234',
   line: 'rgba(255, 255, 255, 0.10)',
   lineStrong: 'rgba(255, 255, 255, 0.22)',
-  text: '#E9EDF1',
-  secondaryText: '#B4BBC3',
-  muted: '#8B939C',
+  text: CourseColor.text,
+  secondaryText: CourseColor.secondary,
+  muted: '#9599a1',
   // 4.5:1 on raised surfaces, so even the quietest readout passes AA.
-  faint: '#808892',
-  // Text, icons and lines on dark surfaces.
-  accent: '#2BB8CC',
-  // Filled controls that carry white text.
-  accentFill: '#0F7C8A',
-  accentPressed: '#0B6874',
-  accentText: '#FFFFFF',
-  accentWash: 'rgba(43, 184, 204, 0.16)',
-  completed: 'rgba(15, 124, 138, 0.75)',
-  // Reserve the accent for selection by using a neutral primary action.
-  action: '#F4F6F8',
-  actionPressed: '#C3C9D0',
+  faint: '#9599a1',
+  // The course primary: about 14:1 on graphite, reserved for the current item and the way forward.
+  accent: CourseColor.accent,
+  // Filled controls carry black ink, about 15:1 on the primary.
+  accentFill: CourseColor.accent,
+  accentPressed: '#D9B500',
+  accentText: '#000000',
+  accentWash: 'rgba(255, 214, 10, 0.12)',
+  completed: 'rgba(255, 255, 255, 0.16)',
+  action: CourseColor.accent,
+  actionPressed: '#D9B500',
   actionText: '#000000',
-  caution: '#F5B731',
-  cautionWash: 'rgba(245, 183, 49, 0.10)',
+  // Orange keeps warnings distinct from the yellow primary.
+  caution: '#FF8A3D',
+  cautionWash: 'rgba(255, 138, 61, 0.10)',
   // Keep overlaid controls legible on bright captures.
   overlay: 'rgba(16, 17, 20, 0.78)',
   // The viewer's side column: the rail, then the drawer beside it.
-  rail: '#111215',
-  drawer: '#18191C',
+  rail: CourseColor.canvas,
+  drawer: CourseColor.surface,
   field: 'rgba(255, 255, 255, 0.06)',
   // Tints over a native blur; the strong one carries reading text.
   glass: 'rgba(20, 22, 26, 0.2)',
@@ -44,8 +45,8 @@ export const Color = {
   chip: 'rgba(13, 14, 16, 0.62)',
 } as const;
 
-// The primary call to action's iridescent edge, cool to warm.
-export const Sheen = ['#8FE6F2', '#B9A6FF', '#FFC9A3'] as const;
+// A light-to-deep edge on the primary action, within the primary's hue.
+export const Sheen = ['#FFF3A6', '#FFD60A', '#B89400'] as const;
 
 export const Space = {
   xxs: 2,

@@ -44,7 +44,9 @@ Controls have a minimum 48-point touch area; 16/24-point corner radii distinguis
 The sidebar collapses in narrow windows and the hero and module cards stack below 1056 points or with large text.
 `CourseNavigation`, `CourseOverview`, `CourseComposer` and `ModuleCard` compose the entry screen without a WebView.
 Course tabs use text only, the source attachment is a filename card, and the composer has exactly two grounded example questions and an upward send control.
-The existing viewer palette remains separate because its emphasis colors are coupled to GPU selection.
+The viewer chrome shares the charcoal palette and the yellow primary with the course shell.
+The primary marks only the current step or part, active tools and the forward action, with black ink on filled controls; warnings use orange so they never read as the primary.
+Native part-selection tint remains an independent renderer contract; UI palette changes do not alter GPU highlighting.
 The three module names are demonstration presentation, not installed learning content or a new pack identity.
 Course-wide answers, PDF opening and downloads currently show explicit availability states; no remote request or generated equipment claim is made.
 The entry links to Downloads, where course content and shared Voice & AI resources have separate status cards.
