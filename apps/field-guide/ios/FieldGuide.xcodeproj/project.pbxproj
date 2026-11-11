@@ -251,7 +251,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\nnice -n 19 node \"$SRCROOT/../../../scripts/copy_bundled_packs.cjs\" \"$PACKS\" \"$DEST\"\n";
+			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\n# FIELD_GUIDE_PACKS names bundled packs as space-separated <packId>/<packVersion> entries; none by default.\nnice -n 19 node \"$SRCROOT/../../../scripts/copy_bundled_packs.cjs\" \"$PACKS\" \"$DEST\" ${FIELD_GUIDE_PACKS:-}\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

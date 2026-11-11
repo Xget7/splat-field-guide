@@ -10,7 +10,7 @@ const IOS_ONLY_NOTICES = new Set(['SocketRocket']);
 
 function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
   fs.rmSync(destination, { recursive: true, force: true });
-  // No pack is selected for shipment until reviewed content is integrated.
+  // Only packs the build names ship; none by default.
   require('../../../scripts/copy_bundled_packs.cjs').copyPacks(
     packRoot,
     path.join(destination, 'packs'),
@@ -74,4 +74,9 @@ function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
 }
 
 module.exports = { prepareAssets };
-if (require.main === module) prepareAssets(path.resolve(process.argv[2]));
+// The build selects packs explicitly, as `<packId>/<packVersion>` entries separated by spaces.
+const selectedPacks = () =>
+  (process.env.FIELD_GUIDE_PACKS ?? '').split(/\s+/).filter(Boolean);
+
+if (require.main === module)
+  prepareAssets(path.resolve(process.argv[2]), PACK_ROOT, selectedPacks());
