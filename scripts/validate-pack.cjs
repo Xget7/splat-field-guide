@@ -1,4 +1,5 @@
-// Load the consumer's TypeScript rules directly; there is no second manifest schema.
+// Load the consumer's TypeScript rules directly, including required schema 3 view directions.
+// There is no second manifest schema.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');

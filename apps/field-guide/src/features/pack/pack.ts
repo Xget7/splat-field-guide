@@ -1,4 +1,4 @@
-export const SUPPORTED_SCHEMA_VERSION = 2;
+export const SUPPORTED_SCHEMA_VERSION = 3;
 
 // A part label is an unsigned 16-bit value per tree node in labels.bin and zero means "no part".
 export const PART_LABEL_MIN = 1;
@@ -44,9 +44,12 @@ export interface Tier {
   readonly labels: PackFile;
 }
 
-export interface CameraHome {
+export interface FrameDirection {
   readonly azimuth: number;
   readonly elevation: number;
+}
+
+export interface CameraHome extends FrameDirection {
   readonly radius: number;
 }
 
@@ -78,6 +81,7 @@ export interface PartNote {
 }
 
 export interface Part {
+  readonly viewDirection?: FrameDirection;
   readonly id: PartId;
   readonly label: PartLabel;
   readonly parent: PartId | null;
@@ -92,6 +96,7 @@ export interface Part {
 }
 
 export interface Step {
+  readonly viewDirection?: FrameDirection;
   readonly id: string;
   readonly text: string;
   readonly parts: readonly PartId[];

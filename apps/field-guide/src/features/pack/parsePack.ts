@@ -402,10 +402,23 @@ function readNotes(value: unknown, path: string): PartNote[] {
   return notes;
 }
 
+function readDirection(value: unknown, path: string) {
+  if (value === undefined) return undefined;
+  const object = readObject(value, path);
+  return {
+    azimuth: readNumber(object.azimuth, at(path, 'azimuth')),
+    elevation: readNumber(object.elevation, at(path, 'elevation')),
+  };
+}
+
 function readPart(value: unknown, path: string): Part {
   const object = readObject(value, path);
   const parent = object.parent;
   return {
+    viewDirection: readDirection(
+      object.viewDirection,
+      at(path, 'viewDirection'),
+    ),
     id: readName(object.id, at(path, 'id')),
     label: readLabel(object.label, at(path, 'label')),
     parent:
@@ -432,6 +445,10 @@ function readStep(value: unknown, path: string): Step {
   const partsPath = at(path, 'parts');
   return {
     id: readName(object.id, at(path, 'id')),
+    viewDirection: readDirection(
+      object.viewDirection,
+      at(path, 'viewDirection'),
+    ),
     text: readText(object.text, at(path, 'text')),
     parts: readArray(object.parts, partsPath).map((id, index) =>
       readName(id, at(partsPath, index)),
@@ -766,7 +783,7 @@ function readSemantic(
 function buildPack(value: unknown): Pack {
   const root = readObject(value, '');
   const version = readNumber(root.schemaVersion, 'schemaVersion');
-  if (version !== SUPPORTED_SCHEMA_VERSION) {
+  if (version !== 2 && version !== SUPPORTED_SCHEMA_VERSION) {
     fail(
       PackErrorCode.unsupportedSchemaVersion,
       'schemaVersion',
@@ -804,6 +821,38 @@ function buildPack(value: unknown): Pack {
         );
   checkRelations(relations, parts);
   const camera = readCamera(root.camera, 'camera');
+  const checkDirection = (item: Part | Step, path: string) => {
+    const direction = item.viewDirection;
+    if (direction === undefined) {
+      if (version === 3)
+        fail(
+          PackErrorCode.invalidField,
+          path,
+          'schema 3 requires a view direction',
+        );
+      return;
+    }
+    const { limits } = camera;
+    if (
+      direction.azimuth < limits.minAzimuth ||
+      direction.azimuth > limits.maxAzimuth ||
+      direction.elevation < limits.minElevation ||
+      direction.elevation > limits.maxElevation
+    ) {
+      fail(
+        PackErrorCode.invalidField,
+        path,
+        'view direction is outside camera limits',
+      );
+    }
+  };
+  parts.forEach((part, i) => checkDirection(part, `parts.${i}.viewDirection`));
+  procedures.forEach((procedure, i) =>
+    procedure.steps.forEach((step, j) =>
+      checkDirection(step, `procedures.${i}.steps.${j}.viewDirection`),
+    ),
+  );
+
   return {
     schemaVersion: version,
     packId,

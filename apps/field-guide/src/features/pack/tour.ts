@@ -57,6 +57,7 @@ export function tourOf(
   pack.parts.forEach(visit);
   const steps: Step[] = ordered.map(part => ({
     id: part.id,
+    viewDirection: part.viewDirection,
     text: part.summary,
     parts: [part.id],
     caution: '',

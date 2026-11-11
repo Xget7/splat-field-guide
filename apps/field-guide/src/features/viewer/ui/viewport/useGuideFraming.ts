@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { SplatViewSpec, ViewDirection } from 'react-native-splat';
-import { framingFor, type SessionState } from '../../../guide';
+import { directionFor, framingFor, type SessionState } from '../../../guide';
 import type { Bounds, Pack } from '../../../pack/pack';
 
 import {
@@ -16,7 +16,7 @@ interface FramedInputs {
   view: SplatViewSpec;
   framing: Bounds;
   closeUp: boolean;
-  from: ViewDirection | undefined;
+  from: ViewDirection;
   frameRequest: number;
   width: number;
   height: number;
@@ -35,8 +35,10 @@ export function useGuideFraming(
   closeUp = false,
 ) {
   const framing = useMemo(() => framingFor(state, pack), [state, pack]);
-  const home = useMemo(() => homeDirectionInRadians(pack.camera.home), [pack]);
-  const from = state.selectedPart === null ? home : undefined;
+  const from = useMemo(
+    () => homeDirectionInRadians(directionFor(state, pack)),
+    [state, pack],
+  );
   const framed = useRef<FramedInputs | null>(null);
   const { width, height } = viewport;
 
@@ -79,8 +81,8 @@ export function useGuideFraming(
         : pushIn
         ? CLOSE_UP_SECONDS
         : FRAME_SECONDS;
-    if (from === undefined || pushIn) {
-      // A picked part, and a push-in, keep the direction the user chose by orbiting.
+    if (pushIn) {
+      // A push-in keeps the direction the user chose by orbiting.
       view.frame(bounds, seconds);
     } else {
       view.frame(bounds, seconds, from);

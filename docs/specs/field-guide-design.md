@@ -103,6 +103,32 @@ CAD never depth-tests against splats until a soft-depth composite is accepted on
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
 Secure remote chunk transfer, manifest authentication, on-device processing, viewer relation controls and acceptance of the regenerated export are pending.
 
+### Prepared framing directions
+
+Schema 3 requires `viewDirection: { azimuth, elevation }` in degrees on every part and authored procedure step, within the manifest camera limits.
+The generated parts tour inherits each part's direction.
+Schema 2 remains readable with home-direction fallback so installed legacy packs retain access while preparation migrates; that fallback makes no visibility claim.
+The consumer parser, also loaded by `scripts/validate-pack.cjs`, rejects missing schema 3 directions, non-finite angles and directions outside the limits.
+Selection takes precedence over the active step for bounds, highlights and direction, while an overview uses home.
+A subsequent push-in preserves the user's orbit.
+
+Export scores candidate directions across the allowed azimuth and elevation intervals, including home and the boundaries, using the placed cloud's positions, anisotropic scales, rotations and opacities.
+Distance matches the engine's bounding-sphere frame of the doubled context bounds, including radius clamping and its 65 degree vertical field of view.
+A CPU label buffer composites contributions nearest-first and samples the projected target union's box on a 12 by 12 grid, accepting descendant labels for assemblies, and rejects a camera inside a half-opacity support ellipsoid.
+Among combined quality scores within 0.0001, directions closer to home take precedence.
+Visibility is a hard floor: if any safe candidate reaches 0.3 projected-box coverage, only those candidates may compete on quality.
+Quality is `0.45 * boxCoverage + 0.20 * frontMostSplats + 0.25 * captureSupport + 0.10 * crispPixels`, with named weights in the preparation module.
+Self-occlusion tests every target-labelled splat centre and rejects same-label surfaces that win substantially in front of that centre, using a three-sigma depth tolerance.
+Capture support averages Gaussian angular support with a 20 degree sigma over the nearest three training views whose frusta contain the target centre and whose distance is between one half and twice the framing distance.
+The original capture poses and target centres share the pack placement transform; absent qualifying captures score zero rather than inventing support.
+Crisp pixels are the share of winning target samples whose strongest contributing splat has opacity at least 0.5 and projected support diameter at most six pixels at a reference viewport height of 768 points.
+These thresholds flag haze and broad footprints as preparation heuristics, not measured image sharpness.
+The report keeps every chosen component, combined score, diffuse share, nearest capture angle, supporting capture count and best available visibility.
+The publication receipt retains the chosen score and safe-candidate count for every part and step, explicitly flagging scores below 0.3, including zero.
+This finite search does not prove that a target is enclosed or that no continuous direction could improve it.
+The CPU projection approximates native ray intersections and uses the placed source cloud before runtime quantization; native development audits remain the visibility evidence at the measured viewport.
+The preparation score uses a square viewport, where landscape framing distance is unchanged; narrower viewports require separate native validation.
+
 ## Semantic data
 
 **Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
