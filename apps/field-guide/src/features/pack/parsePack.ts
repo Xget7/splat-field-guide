@@ -86,7 +86,7 @@ type Json = Record<string, unknown>;
 
 const FULL_TURN_DEGREES = 360;
 const POLE_DEGREES = 90;
-// SFGL v1 stores a 16-byte header followed by one byte per tree node.
+// SFGL v2 stores a 16-byte header followed by two bytes per tree node.
 const LABELS_HEADER_BYTES = 16;
 const FLOAT32_BYTES = 4;
 
@@ -254,11 +254,11 @@ function readTier(value: unknown, path: string): Tier {
   }
   const world = readFile(object.world, at(path, 'world'));
   const labels = readFile(object.labels, at(path, 'labels'));
-  if (labels.bytes !== LABELS_HEADER_BYTES + nodeCount) {
+  if (labels.bytes !== LABELS_HEADER_BYTES + nodeCount * 2) {
     fail(
       PackErrorCode.invalidField,
       at(at(path, 'labels'), 'bytes'),
-      'expected a 16-byte header and one label byte per tree node',
+      'expected a 16-byte header and two label bytes per tree node',
     );
   }
   return {

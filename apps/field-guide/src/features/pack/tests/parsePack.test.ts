@@ -18,6 +18,14 @@ function errorOf(mutate: (manifest: Record<string, any>) => void) {
 }
 
 describe('parsePack', () => {
+  it('preserves unsigned 16-bit labels and rejects duplicates', () => {
+    const manifest = fixtureCopy();
+    manifest.parts[0].label = 65535;
+    const result = parsePack(manifest);
+    expect(result.ok && result.pack.parts[0].label).toBe(65535);
+    manifest.parts[1].label = 65535;
+    expect(parsePack(manifest).ok).toBe(false);
+  });
   it.each(['../outside', '/absolute', 'a/b', '.', '..', 'a\\b'])(
     'refuses unsafe pack directory ID %s',
     packId => {
@@ -104,7 +112,7 @@ describe('parsePack', () => {
       splatCount: 10,
       nodeCount: 13,
       world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a'.repeat(64) },
-      labels: { path: 'high/labels.bin', bytes: 29, sha256: 'b'.repeat(64) },
+      labels: { path: 'high/labels.bin', bytes: 42, sha256: 'b'.repeat(64) },
     });
   });
 
@@ -138,17 +146,17 @@ describe('parsePack', () => {
   });
 
   it.each([1, 13, 100])(
-    'accepts one label byte per node for %p nodes',
+    'accepts two label bytes per node for %p nodes',
     nodeCount => {
       const manifest = fixtureCopy();
       manifest.tiers[0].splatCount = 1;
       manifest.tiers[0].nodeCount = nodeCount;
-      manifest.tiers[0].labels.bytes = 16 + nodeCount;
+      manifest.tiers[0].labels.bytes = 16 + 2 * nodeCount;
       expect(parsePack(manifest).ok).toBe(true);
     },
   );
 
-  it.each([0, 13, 26, 28, 30])(
+  it.each([0, 13, 26, 28, 30, 41, 43])(
     'refuses label byte count %p inconsistent with the tree',
     bytes => {
       const error = errorOf(m => (m.tiers[0].labels.bytes = bytes));

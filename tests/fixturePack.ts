@@ -40,7 +40,7 @@ export const fixtureManifest = {
       splatCount: 10,
       nodeCount: 13,
       world: { path: 'high/world.lodsplat', bytes: 1, sha256: 'a'.repeat(64) },
-      labels: { path: 'high/labels.bin', bytes: 29, sha256: 'b'.repeat(64) },
+      labels: { path: 'high/labels.bin', bytes: 42, sha256: 'b'.repeat(64) },
     },
   ],
   camera: {

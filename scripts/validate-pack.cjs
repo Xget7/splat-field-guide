@@ -97,13 +97,16 @@ function verify(directory) {
     // One label per tree node, in node order.
     const labels = contents.get(tier.labels.path);
     const count = tier.nodeCount;
-    if (labels.length !== LABELS_HEADER_BYTES + count || labels.toString('ascii', 0, 4) !== 'SFGL' ||
-        labels.readUInt16LE(4) !== 1 || labels.readUInt16LE(6) !== 1 ||
+    if (labels.length !== LABELS_HEADER_BYTES + count * 2 || labels.toString('ascii', 0, 4) !== 'SFGL' ||
+        labels.readUInt16LE(4) !== 2 || labels.readUInt16LE(6) !== 2 ||
         labels.readUInt32LE(8) !== count || labels.readUInt32LE(12) !== 0) {
-      throw new Error('invalid labels header or count');
+      throw new Error('invalid SFGL v2 uint16 labels header or count');
     }
     const known = new Set([0, ...pack.parts.map(part => part.label)]);
-    for (const label of labels.subarray(LABELS_HEADER_BYTES)) if (!known.has(label)) throw new Error(`unknown part label ${label}`);
+    for (let index = 0; index < count; index += 1) {
+      const label = labels.readUInt16LE(LABELS_HEADER_BYTES + index * 2);
+      if (!known.has(label)) throw new Error(`unknown part label ${label}`);
+    }
   }
   return { packId: pack.packId, packVersion: pack.packVersion, files: [...contents.keys()] };
 }

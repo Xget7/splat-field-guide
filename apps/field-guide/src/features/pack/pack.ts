@@ -1,8 +1,8 @@
 export const SUPPORTED_SCHEMA_VERSION = 2;
 
-// A part label is one byte per tree node in labels.bin and zero means "no part".
+// A part label is an unsigned 16-bit value per tree node in labels.bin and zero means "no part".
 export const PART_LABEL_MIN = 1;
-export const PART_LABEL_MAX = 255;
+export const PART_LABEL_MAX = 65535;
 
 export type PartId = string;
 export type ProcedureId = string;

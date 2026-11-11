@@ -50,10 +50,10 @@ function fixture(t) {
   world.writeUInt32LE(1, 8);
   world.writeUInt32LE(1, 12);
   world.writeUInt32LE(1, 16);
-  const labels = Buffer.alloc(17);
+  const labels = Buffer.alloc(18);
   labels.write('SFGL');
-  labels.writeUInt16LE(1, 4);
-  labels.writeUInt16LE(1, 6);
+  labels.writeUInt16LE(2, 4);
+  labels.writeUInt16LE(2, 6);
   labels.writeUInt32LE(1, 8);
   const tier = manifest.tiers[0];
   tier.nodeCount = tier.splatCount = 1;
@@ -404,4 +404,32 @@ test('archive commands require explicit manifest and pack inputs', t => {
     assert.equal(result.status, 2);
     assert.match(result.stderr, /--manifest/);
   }
+});
+
+test('validator preserves uint16 labels and rejects unknown labels and old SFGL', t => {
+  const { pack, manifest } = fixture(t);
+  const tier = manifest.tiers[0];
+  manifest.parts[0].label = 65535;
+  const labels = fs.readFileSync(path.join(pack, tier.labels.path));
+  const save = () => {
+    tier.labels.sha256 = crypto
+      .createHash('sha256')
+      .update(labels)
+      .digest('hex');
+    fs.writeFileSync(path.join(pack, tier.labels.path), labels);
+    fs.writeFileSync(
+      path.join(pack, 'manifest.json'),
+      JSON.stringify(manifest),
+    );
+  };
+  labels.writeUInt16LE(65535, 16);
+  save();
+  assert.equal(verify(pack).packId, manifest.packId);
+  labels.writeUInt16LE(65534, 16);
+  save();
+  assert.throws(() => verify(pack), /unknown part label 65534/);
+  labels.writeUInt16LE(1, 4);
+  labels.writeUInt16LE(1, 6);
+  save();
+  assert.throws(() => verify(pack), /SFGL v2/);
 });
