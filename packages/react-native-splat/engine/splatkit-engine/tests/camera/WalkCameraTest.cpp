@@ -529,3 +529,26 @@ TEST(WalkCamera, LimitsAndFramingUseInjectedTime) {
   limits.minRadius = -1;
   EXPECT_FALSE(camera.setOrbitLimits(limits));
 }
+
+TEST(WalkCamera, FramingInterpolatesDirectionAndRejectsInvalidTargets) {
+  splatkit::WalkCamera camera;
+  camera.setAnchor({0, 0, 0});
+  const splat::Bounds bounds{{-1, -1, -1}, {1, 1, 1}};
+  const float start = camera.orbitAzimuth();
+  ASSERT_TRUE(camera.frameBounds(bounds, splatkit::Lens{}, {100, 100}, 1,
+                                 splatkit::WalkCamera::ViewDirection{start + 1, 0.5f}));
+  EXPECT_TRUE(camera.needsUpdate());
+  camera.update(0.5f);
+  EXPECT_NEAR(camera.orbitAzimuth(), start + 0.5f, 1e-5f);
+  camera.update(0.5f);
+  EXPECT_NEAR(camera.orbitAzimuth(), start + 1, 1e-5f);
+  EXPECT_FALSE(camera.needsUpdate());
+  ASSERT_TRUE(camera.frameBounds(bounds, splatkit::Lens{}, {100, 100}, 0));
+  EXPECT_NEAR(camera.orbitAzimuth(), start + 1, 1e-5f);
+  EXPECT_FALSE(camera.frameBounds(bounds, splatkit::Lens{}, {100, 100}, 0,
+                                  splatkit::WalkCamera::ViewDirection{NAN, 0}));
+  ASSERT_TRUE(camera.frameBounds(bounds, splatkit::Lens{}, {}, 1,
+                                 splatkit::WalkCamera::ViewDirection{0, 0}));
+  EXPECT_FALSE(camera.needsUpdate());
+  EXPECT_FLOAT_EQ(camera.orbitAzimuth(), 0);
+}

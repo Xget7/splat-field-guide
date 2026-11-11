@@ -32,9 +32,14 @@ class WalkCamera {
     float minRadius = 0.05f;
     float maxRadius = std::numeric_limits<float>::infinity();
   };
+  struct ViewDirection {
+    float azimuth = 0;
+    float elevation = 0;
+  };
+  bool needsUpdate() const;
   bool setOrbitLimits(const OrbitLimits& limits);
   bool frameBounds(const splat::Bounds& bounds, const Lens& lens, Extent extent,
-                   float durationSeconds);
+                   float durationSeconds, std::optional<ViewDirection> from = std::nullopt);
 
   void setCollider(std::unique_ptr<splat::Collider> collider);
   bool hasCollider() const { return collider_ != nullptr; }

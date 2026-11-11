@@ -387,3 +387,61 @@ TEST(SplatWorldLoader, VerifiesIdentityBeforeDecode) {
   ASSERT_NE(pending, nullptr);
   EXPECT_EQ(pending->sourceCount, kCount);
 }
+
+TEST(SplatWorldLoader, VerifiesLabelIdentityAcrossHashChunksAndPreservesPending) {
+  splat::SplatWorldLoader loader;
+  const auto bytes = splat::encodeSpz(40000);
+  const auto labels = splat::encodePartLabels(std::vector<uint16_t>(40000, 7));
+  splat::SplatWorldLoader::LoadOptions options;
+  options.expectedLabelsSha256 =
+      std::array<std::uint8_t, 32>{0xd5, 0x2c, 0xc5, 0xef, 0x3d, 0x5,  0x36, 0xbb, 0x34, 0x42, 0xa1,
+                                   0xe,  0xaa, 0xe4, 0x40, 0x4c, 0x3e, 0xdc, 0xbd, 0xb5, 0x40, 0x11,
+                                   0xa,  0x5b, 0xb3, 0xd3, 0x89, 0x23, 0xe7, 0x4e, 0x37, 0x86};
+  options.expectedSplatCount = 40000;
+  ASSERT_TRUE(loader.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size(), options));
+  const splat::TempPath worldFile("verified.spz");
+  const splat::TempPath labelFile("verified.sfgl");
+  {
+    std::ofstream worldOutput(worldFile.string(), std::ios::binary);
+    worldOutput.write(reinterpret_cast<const char*>(bytes.data()),
+                      static_cast<std::streamsize>(bytes.size()));
+    std::ofstream labelsOutput(labelFile.string(), std::ios::binary);
+    labelsOutput.write(reinterpret_cast<const char*>(labels.data()),
+                       static_cast<std::streamsize>(labels.size()));
+  }
+  ASSERT_TRUE(loader.loadWorldFile(worldFile.string(), labelFile.string(), options));
+  (*options.expectedLabelsSha256)[0] ^= 1;
+  auto mismatch =
+      loader.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size(), options);
+  ASSERT_FALSE(mismatch);
+  EXPECT_EQ(mismatch.error().code, splat::ErrorCode::labelsMismatch);
+  EXPECT_EQ(loader.takeWorld()->sourceCount, 40000u);
+  options.expectedLabelsSha256.reset();
+  options.expectedSplatCount = 39999;
+  EXPECT_FALSE(loader.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size(), options));
+  EXPECT_EQ(loader.takeWorld(), nullptr);
+}
+
+TEST(SplatWorldLoader, LabelledFileOptionsCountLeavesAndEmptyBracesSelectOptions) {
+  splat::SplatWorldLoader loader;
+  loader.setBudget(10);
+  const auto bytes = splat::encodeSpz(50);
+  ASSERT_TRUE(loader.loadWorld(bytes.data(), bytes.size()));
+  auto world = loader.takeWorld();
+  const splat::TempPath file("identity.lodsplat");
+  const splat::TempPath sidecar("identity.sfgl");
+  ASSERT_TRUE(splat::writeLodSplat(*world->tree, file.string()));
+  const auto labels = splat::encodePartLabels(std::vector<uint16_t>(world->tree->nodeCount(), 7));
+  {
+    std::ofstream output(sidecar.string(), std::ios::binary);
+    output.write(reinterpret_cast<const char*>(labels.data()),
+                 static_cast<std::streamsize>(labels.size()));
+  }
+  splat::SplatWorldLoader::LoadOptions options;
+  options.expectedSplatCount = 50;
+  ASSERT_TRUE(loader.loadWorldFile(file.string(), sidecar.string(), options));
+  options.expectedSplatCount = 49;
+  EXPECT_FALSE(loader.loadWorldFile(file.string(), sidecar.string(), options));
+  EXPECT_EQ(loader.takeWorld()->sourceCount, 50u);
+  EXPECT_TRUE(loader.loadWorldFile(file.string(), {}));
+}

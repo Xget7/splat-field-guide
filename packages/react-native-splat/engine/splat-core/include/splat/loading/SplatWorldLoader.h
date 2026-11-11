@@ -9,6 +9,8 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include "splat/core/CoordinateFrame.h"
 #include "splat/core/Result.h"
@@ -18,6 +20,10 @@
 #include "splat/navigation/Collider.h"
 #include "splat/tiles/TileStreamer.h"
 #include "splat/tiles/TiledWorld.h"
+
+namespace splatkit {
+class SplatEngine;
+}
 
 namespace splat {
 
@@ -94,6 +100,9 @@ class SplatWorldLoader {
 
   struct LoadOptions {
     std::optional<std::array<std::uint8_t, 32>> expectedSha256;
+    std::optional<std::array<std::uint8_t, 32>> expectedLabelsSha256;
+    // Source splats, or leaves for a prepared tree, never its total node count.
+    std::optional<std::size_t> expectedSplatCount;
   };
   Result<WorldReport> loadWorld(const std::uint8_t* data, std::size_t size,
                                 const LoadOptions& options);
@@ -104,7 +113,16 @@ class SplatWorldLoader {
   Result<WorldReport> loadWorldFile(const std::string& path);
   Result<WorldReport> loadWorld(const std::uint8_t* data, std::size_t size,
                                 const std::uint8_t* labels, std::size_t labelsSize);
-  Result<WorldReport> loadWorldFile(const std::string& path, const std::string& labelsPath);
+  Result<WorldReport> loadWorld(const std::uint8_t* data, std::size_t size,
+                                const std::uint8_t* labels, std::size_t labelsSize,
+                                const LoadOptions& options);
+  Result<WorldReport> loadWorldFile(const std::string& path, const std::string& labelsPath,
+                                    const LoadOptions& options);
+  // A template leaves loadWorldFile(path, {}) unambiguously a LoadOptions call.
+  template <typename Path, std::enable_if_t<std::is_convertible_v<Path, std::string>, int> = 0>
+  Result<WorldReport> loadWorldFile(const std::string& path, Path&& labelsPath) {
+    return loadWorldFile(path, std::string(std::forward<Path>(labelsPath)), LoadOptions{});
+  }
   // A tiled world from its index (a tileset.json next to its tiles). Only the index is
   // read here; tiles stream in as the camera needs them.
   Result<WorldReport> loadTiledWorldFile(const std::string& path);
@@ -116,6 +134,20 @@ class SplatWorldLoader {
   std::unique_ptr<Collider> takeCollider();
 
  private:
+  // The engine coordinates publication with its upload and event lock.
+  friend class splatkit::SplatEngine;
+  Result<WorldReport> loadTiledWorldFileRequest(std::uint64_t request, const std::string& path);
+  std::atomic<std::uint64_t> currentLoad_{0};
+  Result<WorldReport> loadWorldRequest(std::uint64_t request, const std::uint8_t* data,
+                                       std::size_t size, const std::uint8_t* labels,
+                                       std::size_t labelsSize, const LoadOptions& identity);
+  Result<WorldReport> loadLodWorldRequest(std::uint64_t request, const std::uint8_t* data,
+                                          std::size_t size, const std::uint8_t* labels,
+                                          std::size_t labelsSize, const LoadOptions& identity);
+  Result<WorldReport> loadWorldFileRequest(std::uint64_t request, const std::string& path,
+                                           const std::string& labelsPath,
+                                           const LoadOptions& options);
+
   // What a load needs and has, as the report carries them; or why it cannot be held.
   struct MemoryUse {
     std::uint64_t needed = 0;

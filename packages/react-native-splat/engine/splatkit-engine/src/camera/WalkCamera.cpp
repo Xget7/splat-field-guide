@@ -69,13 +69,14 @@ void WalkCamera::clampOrbit() {
 }
 
 bool WalkCamera::frameBounds(const splat::Bounds& bounds, const Lens& lens, Extent extent,
-                             float durationSeconds) {
+                             float durationSeconds, std::optional<ViewDirection> from) {
   if (!std::isfinite(durationSeconds) || durationSeconds < 0) return false;
   for (int axis = 0; axis < 3; ++axis) {
     if (!std::isfinite(bounds.min[axis]) || !std::isfinite(bounds.max[axis]) ||
         bounds.min[axis] > bounds.max[axis])
       return false;
   }
+  if (from && (!std::isfinite(from->azimuth) || !std::isfinite(from->elevation))) return false;
   const float radius = lens.framingRadius(bounds, extent);
   const splat::Vec3 center{bounds.min[0] / 2 + bounds.max[0] / 2,
                            bounds.min[1] / 2 + bounds.max[1] / 2,
@@ -87,8 +88,12 @@ bool WalkCamera::frameBounds(const splat::Bounds& bounds, const Lens& lens, Exte
   Orbit target = *anchor_;
   target.anchor = center;
   target.radius = std::clamp(radius, limits_.minRadius, limits_.maxRadius);
+  if (from) {
+    target.azimuth = std::clamp(from->azimuth, limits_.minAzimuth, limits_.maxAzimuth);
+    target.elevation = std::clamp(from->elevation, limits_.minElevation, limits_.maxElevation);
+  }
   anchorExplicit_ = true;
-  if (durationSeconds == 0) {
+  if (durationSeconds == 0 || extent.width == 0 || extent.height == 0) {
     anchor_ = target;
     applyOrbitPose();
   } else {
@@ -449,6 +454,19 @@ void WalkCamera::setMotionEnabled(bool enabled) {
   if (enabled) pitch_ = 0;
 }
 
+bool WalkCamera::needsUpdate() const {
+  if (orbitAnimationRunning() || orbitRadiansPerSecond_ != 0 || velocityForward_ != 0 ||
+      velocityRight_ != 0)
+    return true;
+  // Probe a copy so floor settling uses exactly the controller's floating point rule.
+  if (player_ && !orbiting_) {
+    auto next = *player_;
+    next.update(1.0f / 60.0f);
+    return next.position().y != player_->position().y;
+  }
+  return false;
+}
+
 bool WalkCamera::update(float dtSeconds) {
   if (!std::isfinite(dtSeconds) || dtSeconds <= 0) return false;
   bool orbitMoved = false;
@@ -459,6 +477,8 @@ bool WalkCamera::update(float dtSeconds) {
     const float eased = t * t * (3 - 2 * t);
     anchor_->anchor = move.from.anchor + (move.to.anchor - move.from.anchor) * eased;
     anchor_->radius = move.from.radius + (move.to.radius - move.from.radius) * eased;
+    anchor_->azimuth = move.from.azimuth + (move.to.azimuth - move.from.azimuth) * eased;
+    anchor_->elevation = move.from.elevation + (move.to.elevation - move.from.elevation) * eased;
     applyOrbitPose();
     orbitMoved = true;
     if (move.elapsed == move.duration) framing_.reset();

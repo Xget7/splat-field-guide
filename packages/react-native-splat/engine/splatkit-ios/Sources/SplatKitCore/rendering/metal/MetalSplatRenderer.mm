@@ -107,6 +107,7 @@ DeviceCapabilities MetalSplatRenderer::deviceCapabilities() const {
   // The LOD error threshold applies live to a hierarchy world and at its next upload; the
   // sub-pixel cutoff from the next frame, on both order paths.
   policy.subpixelThreshold = true;
+  policy.backgroundColor = true;
   policy.lodErrorPixels = compute_->gpuSort();
   policy.minLodErrorPixels = LodThreshold::kMinPolicyPixels;
   policy.maxLodErrorPixels = LodThreshold::kMaxPolicyPixels;
@@ -116,7 +117,9 @@ DeviceCapabilities MetalSplatRenderer::deviceCapabilities() const {
 }
 
 bool MetalSplatRenderer::applyRenderPolicy(const RenderPolicy& policy, std::string* reason) {
-  return compute_->configure(policy, reason);
+  if (!compute_->configure(policy, reason)) return false;
+  pipeline_.setBackgroundColor(policy.backgroundColor);
+  return true;
 }
 
 std::optional<std::uint64_t> MetalSplatRenderer::availableMemory() const {

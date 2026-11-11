@@ -30,6 +30,22 @@ constexpr const char* kSplatFileAdvice = "prepare it as a .lodsplat or a tileset
 constexpr const char* kLodSplatAdvice = "prepare it as a tileset";
 constexpr const char* kSlabAdvice = "lower the residency budget";
 
+bool matchesDigest(const std::uint8_t* data, std::size_t size,
+                   const std::array<std::uint8_t, 32>& expected) {
+  if (!data && size != 0) return false;
+  picosha2::hash256_one_by_one hash;
+  constexpr std::size_t kHashChunkBytes = 64 * 1024;
+  for (std::size_t offset = 0; offset < size;) {
+    const auto count = std::min(kHashChunkBytes, size - offset);
+    hash.process(data + offset, data + offset + count);
+    offset += count;
+  }
+  hash.finish();
+  std::array<std::uint8_t, 32> actual{};
+  hash.get_hash_bytes(actual.begin(), actual.end());
+  return actual == expected;
+}
+
 }  // namespace
 
 void SplatWorldLoader::setBudget(int budget) {
@@ -79,23 +95,7 @@ Result<SplatWorldLoader::MemoryUse> SplatWorldLoader::admit(const Result<LoadCos
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
                                                                   std::size_t size,
                                                                   const LoadOptions& options) {
-  if (options.expectedSha256) {
-    if (!data && size != 0) return Error{ErrorCode::corrupt, "Missing world bytes"};
-    picosha2::hash256_one_by_one hash;
-    // Bound the hash library's input scratch independently of world size.
-    constexpr std::size_t kHashChunkBytes = 64 * 1024;
-    for (std::size_t offset = 0; offset < size;) {
-      const auto count = std::min(kHashChunkBytes, size - offset);
-      hash.process(data + offset, data + offset + count);
-      offset += count;
-    }
-    hash.finish();
-    std::array<std::uint8_t, 32> actual{};
-    hash.get_hash_bytes(actual.begin(), actual.end());
-    if (actual != *options.expectedSha256)
-      return Error{ErrorCode::corrupt, "World SHA-256 mismatch"};
-  }
-  return loadWorld(data, size);
+  return loadWorld(data, size, nullptr, 0, options);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path,
@@ -114,35 +114,29 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uin
                                                                   std::size_t size,
                                                                   const std::uint8_t* labels,
                                                                   std::size_t labelsSize) {
+  return loadWorld(data, size, labels, labelsSize, LoadOptions{});
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
+                                                                  std::size_t size,
+                                                                  const std::uint8_t* labels,
+                                                                  std::size_t labelsSize,
+                                                                  const LoadOptions& options) {
+  return loadWorldRequest(currentLoad_.load(), data, size, labels, labelsSize, options);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldRequest(
+    std::uint64_t request, const std::uint8_t* data, std::size_t size, const std::uint8_t* labels,
+    std::size_t labelsSize, const LoadOptions& identity) {
+  if (identity.expectedSha256 && !matchesDigest(data, size, *identity.expectedSha256))
+    return Error{ErrorCode::corrupt, "World SHA-256 mismatch"};
+  if (identity.expectedLabelsSha256 &&
+      !matchesDigest(labels, labelsSize, *identity.expectedLabelsSha256))
+    return Error{ErrorCode::labelsMismatch, "Labels SHA-256 mismatch"};
   WorldReport report;
   auto start = Clock::now();
-  if (isLodSplat(data, size)) {
-    const int lodBudget = budget() > 0 ? budget() : kDefaultLodBudget;
-    const auto memory =
-        admit(lodSplatLoadCost(data, size, maxShDegree_.load(), lodBudget), kLodSplatAdvice);
-    if (!memory) return memory.error();
-    report.neededBytes = memory.value().needed;
-    report.availableBytes = memory.value().available;
-    auto decoded = decodeLodSplat(data, size, maxShDegree_.load());
-    if (!decoded) return decoded.error();
-    if (labelsSize != 0 || labels != nullptr) {
-      auto decodedLabels = decodePartLabels(labels, labelsSize, decoded.value().nodeCount());
-      if (!decodedLabels) return decodedLabels.error();
-      decoded.value().nodes.labels = std::move(decodedLabels.value());
-    }
-    auto world = std::make_unique<World>();
-    world->tree = std::make_unique<LodTree>(std::move(decoded.value()));
-    world->budget = lodBudget;
-    world->sourceCount = world->tree->leafCount;
-    report.splatCount = world->sourceCount;
-    report.nodeCount = world->tree->nodeCount();
-    report.shDegree = world->tree->nodes.shDegree;
-    report.bounds = world->tree->nodes.bounds;
-    report.decodeMillis = millisSince(start);
-    const std::lock_guard<std::mutex> lock(mutex_);
-    pendingWorld_ = std::move(world);
-    return report;
-  }
+  if (isLodSplat(data, size))
+    return loadLodWorldRequest(request, data, size, labels, labelsSize, identity);
   SplatDecodeOptions options;
   options.maxShDegree = maxShDegree_.load();
   options.sourceFrame = sourceFrame();
@@ -157,9 +151,11 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uin
   auto cloud = std::make_unique<SplatCloud>(std::move(decoded.value()));
   if (labelsSize != 0 || labels != nullptr) {
     auto decodedLabels = decodePartLabels(labels, labelsSize, cloud->count());
-    if (!decodedLabels) return decodedLabels.error();
+    if (!decodedLabels) return Error{ErrorCode::labelsMismatch, decodedLabels.error().message};
     cloud->labels = std::move(decodedLabels.value());
   }
+  if (identity.expectedSplatCount && cloud->count() != *identity.expectedSplatCount)
+    return Error{ErrorCode::corrupt, "World splat count mismatch"};
   report.splatCount = cloud->count();
   report.shDegree = cloud->shDegree;
   report.bounds = cloud->bounds;
@@ -181,7 +177,41 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uin
   }
 
   const std::lock_guard<std::mutex> lock(mutex_);
-  pendingWorld_ = std::move(world);
+  if (request == currentLoad_.load()) pendingWorld_ = std::move(world);
+  return report;
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadLodWorldRequest(
+    std::uint64_t request, const std::uint8_t* data, std::size_t size, const std::uint8_t* labels,
+    std::size_t labelsSize, const LoadOptions& identity) {
+  WorldReport report;
+  const auto start = Clock::now();
+  const int lodBudget = budget() > 0 ? budget() : kDefaultLodBudget;
+  const auto memory =
+      admit(lodSplatLoadCost(data, size, maxShDegree_.load(), lodBudget), kLodSplatAdvice);
+  if (!memory) return memory.error();
+  report.neededBytes = memory.value().needed;
+  report.availableBytes = memory.value().available;
+  auto decoded = decodeLodSplat(data, size, maxShDegree_.load());
+  if (!decoded) return decoded.error();
+  if (identity.expectedSplatCount && decoded.value().leafCount != *identity.expectedSplatCount)
+    return Error{ErrorCode::corrupt, "World splat count mismatch"};
+  if (labelsSize != 0 || labels != nullptr) {
+    auto decodedLabels = decodePartLabels(labels, labelsSize, decoded.value().nodeCount());
+    if (!decodedLabels) return Error{ErrorCode::labelsMismatch, decodedLabels.error().message};
+    decoded.value().nodes.labels = std::move(decodedLabels.value());
+  }
+  auto world = std::make_unique<World>();
+  world->tree = std::make_unique<LodTree>(std::move(decoded.value()));
+  world->budget = lodBudget;
+  world->sourceCount = world->tree->leafCount;
+  report.splatCount = world->sourceCount;
+  report.nodeCount = world->tree->nodeCount();
+  report.shDegree = world->tree->nodes.shDegree;
+  report.bounds = world->tree->nodes.bounds;
+  report.decodeMillis = millisSince(start);
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (request == currentLoad_.load()) pendingWorld_ = std::move(world);
   return report;
 }
 
@@ -191,19 +221,33 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std:
   return loadWorld(file.value().data(), file.value().size());
 }
 
-Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(
-    const std::string& path, const std::string& labelsPath) {
-  if (labelsPath.empty()) return loadWorldFile(path);
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path,
+                                                                      const std::string& labelsPath,
+                                                                      const LoadOptions& options) {
+  return loadWorldFileRequest(currentLoad_.load(), path, labelsPath, options);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFileRequest(
+    std::uint64_t request, const std::string& path, const std::string& labelsPath,
+    const LoadOptions& options) {
   auto world = MappedFile::open(path);
   if (!world) return world.error();
+  if (labelsPath.empty())
+    return loadWorldRequest(request, world.value().data(), world.value().size(), nullptr, 0,
+                            options);
   auto labels = MappedFile::open(labelsPath);
   if (!labels) return labels.error();
-  return loadWorld(world.value().data(), world.value().size(), labels.value().data(),
-                   labels.value().size());
+  return loadWorldRequest(request, world.value().data(), world.value().size(),
+                          labels.value().data(), labels.value().size(), options);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFile(
     const std::string& path) {
+  return loadTiledWorldFileRequest(currentLoad_.load(), path);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFileRequest(
+    std::uint64_t request, const std::string& path) {
   const auto start = Clock::now();
   auto opened = openTiledWorld(path, sourceFrame());
   if (!opened) return opened.error();
@@ -227,7 +271,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFile(
   report.decodeMillis = millisSince(start);
 
   const std::lock_guard<std::mutex> lock(mutex_);
-  pendingWorld_ = std::move(world);
+  if (request == currentLoad_.load()) pendingWorld_ = std::move(world);
   return report;
 }
 

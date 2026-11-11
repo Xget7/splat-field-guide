@@ -100,6 +100,7 @@ DeviceCapabilities VulkanSplatRenderer::deviceCapabilities() const {
   // live; the CPU path has none of them, and the rest is not implemented.
   policy.sortDepth = gpu;
   policy.subpixelThreshold = true;
+  policy.backgroundColor = true;
   policy.lodErrorPixels = gpu;
   policy.minLodErrorPixels = LodThreshold::kMinPolicyPixels;
   policy.maxLodErrorPixels = LodThreshold::kMaxPolicyPixels;
@@ -112,6 +113,7 @@ bool VulkanSplatRenderer::applyRenderPolicy(const RenderPolicy& policy, std::str
       policy.lodSplatLimit == policy_.lodSplatLimit) {
     // The cutoff rides in the camera each frame writes after its slot's fence.
     policy_.subpixelThreshold = policy.subpixelThreshold;
+    policy_.backgroundColor = policy.backgroundColor;
     return true;
   }
   const RenderPolicy previous = policy_;
@@ -302,7 +304,9 @@ bool VulkanSplatRenderer::draw(const Frame& frame) {
   }
 
   VkClearValue clear{};
-  clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
+  clear.color = {{static_cast<float>(policy_.backgroundColor[0]),
+                  static_cast<float>(policy_.backgroundColor[1]),
+                  static_cast<float>(policy_.backgroundColor[2]), 1.0f}};
   VkRenderPassBeginInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   pass.renderPass = surface_.activeRenderPass();
   pass.framebuffer = surface_.framebuffer(imageIndex);
