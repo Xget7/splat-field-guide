@@ -15,8 +15,6 @@
 #include "sfg/sfg_platform.h"
 
 struct sfg_engine {
-  // Declared first, so it outlives the engine and the renderer the engine owns.
-  std::shared_ptr<void> platform;
   // Retain the host interval so equivalent angles can be normalized before the
   // engine's linear clamp, including intervals crossing pi.
   std::optional<std::pair<float, float>> azimuthLimits;
@@ -74,11 +72,9 @@ std::array<float, 3> toArray(sfg_vec3 v) {
 
 }  // namespace
 
-sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer,
-                          std::shared_ptr<void> platform) {
+sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
   renderer->setRenderScale(kRenderScale);
   auto result = std::make_unique<sfg_engine>();
-  result->platform = std::move(platform);
   result->engine = std::make_unique<SplatEngine>(std::move(renderer));
   sfg_set_camera_limits(result.get(), nullptr);
   result->engine->setPartPickingEnabled(true);

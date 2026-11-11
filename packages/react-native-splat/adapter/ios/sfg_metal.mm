@@ -5,7 +5,7 @@
 #include <memory>
 #include <utility>
 
-#include "rendering/metal/MetalSplatRenderer.h"
+#include "SplatKit/metal/MetalRenderer.h"
 #include "splatkit/Log.h"
 #include "sfg/sfg_platform.h"
 
@@ -19,8 +19,9 @@ void osLogSink(splatkit::LogLevel level, const char* message) {
   os_log_with_type(log, type, "%{public}s", message);
 }
 
-splatkit::MetalSplatRenderer& metalOf(sfg_engine* engine) {
-  return static_cast<splatkit::MetalSplatRenderer&>(splatkit::engineOf(engine).renderer());
+// Every engine this file hands out was made over a MetalRenderer.
+splatkit::MetalRenderer& metalOf(sfg_engine* engine) {
+  return static_cast<splatkit::MetalRenderer&>(splatkit::engineOf(engine).renderer());
 }
 
 }  // namespace
@@ -29,7 +30,7 @@ extern "C" {
 
 sfg_engine* sfg_metal_create(void) {
   splatkit::setLogSink(&osLogSink);
-  auto renderer = splatkit::MetalSplatRenderer::create();
+  auto renderer = splatkit::MetalRenderer::create();
   if (!renderer) return nullptr;
   auto* engine = splatkit::makeSfgEngine(std::move(renderer));
   // Keep the guide's scene fill through the upstream optional extension.

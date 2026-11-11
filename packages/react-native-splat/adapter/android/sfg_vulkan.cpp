@@ -5,10 +5,8 @@
 #include <string>
 
 #include <android/log.h>
-#include "rendering/vulkan/VulkanSplatRenderer.h"
-#include "rendering/vulkan/device/VulkanContext.h"
-#include "rendering/vulkan/presentation/VulkanFrameLoop.h"
 #include "splatkit/Log.h"
+#include "splatkit/vulkan/VulkanRenderer.h"
 #include "sfg/sfg_platform.h"
 
 namespace {
@@ -23,19 +21,9 @@ void androidLog(splatkit::LogLevel level, const char* message) {
   __android_log_write(priority, kLogTag, message);
 }
 
-// What the renderer borrows. The engine handle releases it after the renderer, and the frame
-// loop goes before the device it was made on.
-struct VulkanDevice {
-  ~VulkanDevice() {
-    frameLoop.reset();
-    if (ctx) ctx->waitIdle();
-  }
-  std::unique_ptr<splatkit::VulkanContext> ctx;
-  std::unique_ptr<splatkit::VulkanFrameLoop> frameLoop;
-};
-
-splatkit::VulkanSplatRenderer& renderer(sfg_engine* engine) {
-  return static_cast<splatkit::VulkanSplatRenderer&>(splatkit::engineOf(engine).renderer());
+// Every engine this file hands out was made over a VulkanRenderer.
+splatkit::VulkanRenderer& renderer(sfg_engine* engine) {
+  return static_cast<splatkit::VulkanRenderer&>(splatkit::engineOf(engine).renderer());
 }
 
 }  // namespace
@@ -43,21 +31,13 @@ splatkit::VulkanSplatRenderer& renderer(sfg_engine* engine) {
 extern "C" {
 sfg_engine* sfg_vulkan_create(const char* SFG_NULLABLE cacheDir) {
   splatkit::setLogSink(androidLog);
-  auto device = std::make_shared<VulkanDevice>();
-  auto ctx = splatkit::VulkanContext::create(
+  auto vulkan = splatkit::VulkanRenderer::create(
       cacheDir ? std::string(cacheDir) + "/" + kPipelineCacheFile : std::string{});
-  if (!ctx) {
-    LOGE("Vulkan unavailable: %s", ctx.error().message.c_str());
+  if (!vulkan) {
+    LOGE("Vulkan unavailable: %s", vulkan.error().message.c_str());
     return nullptr;
   }
-  device->ctx = std::move(ctx.value());
-  device->frameLoop = std::make_unique<splatkit::VulkanFrameLoop>(*device->ctx);
-  if (!device->frameLoop->valid()) {
-    LOGE("Vulkan frame loop unavailable");
-    return nullptr;
-  }
-  auto vulkan = std::make_unique<splatkit::VulkanSplatRenderer>(*device->ctx, *device->frameLoop);
-  auto* engine = splatkit::makeSfgEngine(std::move(vulkan), std::move(device));
+  auto* engine = splatkit::makeSfgEngine(std::move(vulkan.value()));
   auto policy = splatkit::engineOf(engine).renderPolicy();
   // Preserve the app's black clear colour instead of the SDK's default blue.
   constexpr std::array<double, 3> kBackgroundColor = {0.0, 0.0, 0.0};
