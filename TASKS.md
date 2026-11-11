@@ -22,8 +22,9 @@ Miris preparation in the separate `splat-tools` checkout includes accepted-mask 
 - [ ] Revalidate the regenerated pack against current content and the full app contract; the receipt is not visual acceptance.
 - [ ] Agree on the minimum delivery contract using those outputs and the existing pack consumer interface.
 - [ ] Segment and lift the whole cell, including fences, gates, barriers, cabinets/panels, body/transport and racks, from the proposals in `content/miris-pilot/cell.md`.
-- [ ] Reconcile the R01/R02 disagreement between session guides with the owner before extending annotations.
-- [ ] Confirm the car process, tool function and transport sequence with the owner; the seven-step narrative is inferred.
+- [x] Reconcile R01 and R02: the accepted masks and the lifted pack follow the Spanish session guide consistently across views; the English guide reverses them in views 0, 4, 7, 9 and 17 and must be corrected in `splat-tools` session data before reuse.
+- [x] Tool function: the owner confirmed on 2026-11-11 that the cell performs resistance spot welding.
+- [ ] Confirm the transport sequence and division of work among robots; those parts of the seven-step narrative remain inferred.
 - [ ] Review and extend both contracts for proposed `supports`, `guards`, `monitors`, `stores`, `processes` and `controls` relations with evidence.
 - [ ] Obtain matching assembly/operating and accessory instructions, confirm installed models and resolve inherited QUANTEC-2 K/P citations before authoring service schedules.
 - [ ] Complete the single annotated Turtle projection, including procedures, aliases and details, and verify parity with the manifest.
@@ -34,7 +35,14 @@ Annotation drafts, source captures and the running teaching service must be pres
 ## App integration
 
 - [ ] Implement secure remote compressed chunk delivery, authenticated manifest trust, on-device processing, verified installation, atomic activation and failure recovery, connecting pack selection to startup.
-- [ ] Add CAD file, node and alignment joins by stable segmentation ID.
+- [ ] Add CAD joins by stable segmentation ID per the planned contract in design; the owner holds only photographs and point clouds of an approximate recreation, so reference geometry is authored or adopted and made exact by this project.
+- [ ] Remount the viewer per installation identity and test that no highlight or pick crosses pack versions.
+- [ ] Replace the per-frame 2 MiB label style upload with a state table uploaded on change and a small palette, and measure it on the iPad.
+- [ ] Define the signed manifest envelope (key ID, Ed25519 signature over raw bytes, required format versions, chunk table) in `splat-tools` export and `validate-pack.cjs`.
+- [ ] Build the native installer: one background session, chunks named by digest, capacity preflight, rename commit, `active.json` pointer and launch recovery, with fakes at the network seam.
+- [ ] Test rollback refusal, reused-version refusal, power loss at each installation state, missing capacity and a corrupted chunk.
+- [ ] Implement the projected-bounds cutaway, opacity-based emphasis states and styled picking, with a visual check on inner robot parts.
+- [ ] Measure world and label verification plus decode time and remount peak memory on the target iPad, and digest-check vectors on read.
 - [x] Widen node labels to SFGL v2 unsigned 16-bit values in export, validation, picking and both renderer copies before freezing the installer contract.
 - [ ] Expose supplied relation navigation in the viewer.
 - [x] Implement grounded on-device generation behind the instructor answerer seam, after the remote proxy and before scripted fallback; hardware acceptance remains open.

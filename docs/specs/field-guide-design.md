@@ -57,6 +57,26 @@ The optional `model` file is the single annotated Brick/Turtle graph alongside t
 The exporter includes notes, hierarchy evidence and vector metadata, but omits procedures, aliases and details, so complete same-facts parity remains open.
 Manual references are currently prose attached to part IDs; CAD file/node/transform joins and the proposed cell relation kinds have no contract yet.
 Schema 2 treats absent `relations`, `model` and `semantic` keys as none; the [component graph](../../apps/field-guide/src/features/pack/graph.ts) answers connections, neighbours, the carries chain, the feed path and the top-level assembly from the pack alone.
+Planned installation contract, not yet implemented:
+An installation is the immutable directory `Application Support/<bundle-id>/packs/<packId>/<packVersion>/`, holding the signed manifest bytes, its signature and every runtime file; nothing inside is written after it is renamed into place.
+Staging lives in `packs/<packId>/.staging-<packVersion>/` inside the same directory tree, with each transport chunk named by its SHA-256 so the files present are the resume state; caches and temporary directories hold nothing an installation depends on.
+`packs/` is excluded from backup at directory level and the exclusion is asserted again at every launch.
+Activation has one commit point: atomically replacing `packs/<packId>/active.json`, which holds `packVersion` and `manifestSha256`; no symlink or key-value store records activation, and persisted paths are relative and resolved at launch.
+Trust roots are Ed25519 public keys with key IDs compiled into the app, rotated or revoked only by an app update; the app verifies the signature over the exact manifest bytes, with a size cap, before parsing them.
+The signed manifest carries `packId`, `packVersion`, the required schema, SFGL and `.lodsplat` versions, each transport chunk's digest and size and each runtime file's final digest.
+The app refuses a manifest whose `packVersion` is below the highest it has activated for that `packId`, or that reuses an activated `packVersion` with a different manifest digest.
+Before transfer the app requires important-usage capacity for the remaining chunks, the final files and a margin, and keeps the previous installation until the new one is ready.
+A chunk is accepted only when its digest matches; final files must match their manifest digests and their format headers before staging is renamed to its version.
+At launch an installation is usable when its pointer, manifest, signature and file sizes agree; the engine digest-verifies geometry and labels on every load and the vectors file is digest-verified when read.
+Recovery at launch deletes staging that matches no verified manifest, treats a verified version newer than the active one as installed but not activated, and keeps only the active and previous versions.
+A failed verification marks the version unusable and falls back to the previous installation, never to partial data; a bundled pack is the fallback only when no installed version verifies.
+Installed files are removed only by unlink, after no mounted viewer or open session references their version, and are never truncated, overwritten or renamed.
+A new installation takes effect by remounting the viewer keyed by `packId@packVersion`, never by changing the source under a mounted session, so records, highlight and picks cannot cross versions and the old world's GPU memory is released before the new one is decoded.
+Planned CAD contract, not yet implemented:
+A CAD join belongs to a representation mapping: part ID, CAD file `{path, bytes, sha256}`, node path and a 4x4 similarity transform from CAD to splat frame, with its scale, the reconstruction SHA-256 it applies to, the registration method and the residual in splat units.
+Articulated equipment carries one join per rigid link in its captured pose.
+The Miris source is photographs and point clouds of an approximate recreation, so CAD for it is authored or adopted reference geometry made exact by this project, and each join records that origin as its evidence.
+CAD never depth-tests against splats until a soft-depth composite is accepted on hardware; a cross-fade or an overlay drawn after the splats comes first.
 **Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [component graph](../../apps/field-guide/src/features/pack/graph.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
 **Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [graph tests](../../apps/field-guide/src/features/pack/tests/graph.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
@@ -114,6 +134,12 @@ Keep its three concerns behind separate internal interfaces:
 **Rule:** reject stale loads; report ready after the accepted first frame; stop rendering when detached and sleep when unchanged.
 The shared C++ core owns behavior; Metal/Vulkan adapters draw, with the current 1.6-million-splat budget.
 SplatKit changes land upstream before integration here.
+Planned emphasis contract, not yet implemented:
+Emphasis is a per-label state in {target, context, hidden} plus a view-dependent cutaway, and the engine owns the style of each state; a target's descendants are targets.
+Highlight state is uploaded when it changes, as a one-byte state per label with a small style palette, not as a full style table every frame.
+Splats outside the target set that lie in front of the target's projected bounds are faded by the cutaway, whatever their label, so fences, housings and neighbouring equipment cannot hide the target.
+Merged tree nodes carry their dominant label, so styling is exact only at leaves.
+A pick returns what the drawn frame shows, after styles and cutaway.
 **Read:** [Nitro contract](../../packages/react-native-splat/src/SplatView.nitro.ts), [C interface](../../packages/react-native-splat/engine/splatkit-engine/include/splatkit/sfg.h), [GPU stages](../../packages/react-native-splat/engine/splatkit-ios/README.md), [import receipt](../../packages/react-native-splat/engine/splatkit-engine/UPSTREAM).
 **Verify:** [C-interface tests](../../packages/react-native-splat/engine/splatkit-engine/tests/sfg/SfgTest.cpp), [Metal tests](../../packages/react-native-splat/engine/splatkit-ios/tests), [profiling operations](../agents/checks.md#gpu-profiling).
 
