@@ -25,6 +25,7 @@ type AuditRow = Awaited<ReturnType<typeof measureFraming>> & {
   partId: string;
   label: number;
   viewDirection: FrameDirection;
+  drawnDirection?: FrameDirection;
 };
 interface FramingAuditDebug {
   run: (directionMode?: 'prepared' | 'home') => Promise<void>;
@@ -89,6 +90,16 @@ export function useFramingAudit(
       );
       await wait(FRAME_SECONDS * 1000 + SETTLE_MARGIN_MS);
       check();
+      const drawn = view.drawnDirection();
+      console.log(
+        `FRAMING_AUDIT_POSE ${JSON.stringify({
+          requested:
+            directionMode === 'home'
+              ? pack.camera.home
+              : directionFor(state, pack),
+          drawn,
+        })}`,
+      );
       return state;
     };
     const debug: FramingAuditDebug = {
@@ -142,7 +153,15 @@ export function useFramingAudit(
                   directionMode === 'home'
                     ? pack.camera.home
                     : directionFor(state, pack);
+                const drawn = view.drawnDirection();
                 const row = {
+                  drawnDirection:
+                    drawn === undefined
+                      ? undefined
+                      : {
+                          azimuth: (drawn.azimuth * 180) / Math.PI,
+                          elevation: (drawn.elevation * 180) / Math.PI,
+                        },
                   viewDirection: {
                     azimuth: direction.azimuth,
                     elevation: direction.elevation,

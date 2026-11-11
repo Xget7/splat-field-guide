@@ -115,6 +115,7 @@ A subsequent push-in preserves the user's orbit.
 Export scores candidate directions across the allowed azimuth and elevation intervals, including home and the boundaries, using the placed cloud's positions, anisotropic scales, rotations and opacities.
 Distance matches the engine's bounding-sphere frame of the doubled context bounds, including radius clamping and its 65 degree vertical field of view.
 A CPU label buffer composites contributions nearest-first and samples the projected target union's box on a 12 by 12 grid, accepting descendant labels for assemblies, and rejects a camera inside a half-opacity support ellipsoid.
+Scoring retains the whole cloud, because composited background contributions can change the winning label even behind a translucent target.
 Among combined quality scores within 0.0001, directions closer to home take precedence.
 Visibility is a hard floor: if any safe candidate reaches 0.3 projected-box coverage, only those candidates may compete on quality.
 Within that union eligibility set, a multi-part step must show every individual target above 0.3 whenever a candidate can do so.
@@ -129,7 +130,7 @@ These thresholds flag haze and broad footprints as preparation heuristics, not m
 The report keeps every chosen component, combined score, diffuse share, nearest capture angle, supporting capture count and best available visibility.
 The publication receipt retains the chosen score and safe-candidate count for every part and step, explicitly flagging scores below 0.3, including zero.
 This finite search does not prove that a target is enclosed or that no continuous direction could improve it.
-The CPU label buffer uses the native ray-to-Gaussian distance formula with conservative projected sphere bounds and uses the placed source cloud before runtime quantization; native development audits remain the visibility evidence at the measured viewport.
+The CPU label buffer uses the native ray-to-Gaussian distance and sphere rejection formulas with normalized rays, float32 arithmetic and the delivered tree leaves, including quantized positions, covariance and opacity; native development audits remain the visibility evidence at the measured viewport.
 The export accepts `--view-aspect` for the reference viewer width divided by height, defaults to a square viewport and records it in the receipt.
 The audit export uses 982/1024, matching the landscape iPad split viewport; other viewport shapes require separate native validation.
 
