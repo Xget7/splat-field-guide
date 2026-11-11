@@ -44,6 +44,7 @@ import {
   Color,
   HAIRLINE,
   Motion,
+  PartHighlight,
   Radius,
   Space,
   Type,
@@ -314,6 +315,7 @@ function Viewport({
             style={styles.root}
             source={source}
             highlight={highlight}
+            highlightLook={PartHighlight}
             cameraLimits={limits}
             revealSeconds={
               materialize ? Motion.reveal / MS_PER_SECOND : undefined
