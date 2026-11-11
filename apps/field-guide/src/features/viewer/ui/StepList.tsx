@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeCurrent: { backgroundColor: Color.accent },
+  badgeCurrent: { backgroundColor: Color.accentFill },
   number: { ...Type.data, color: Color.muted },
   numberCurrent: { color: Color.accentText },
   text: { ...Type.callout, flex: 1 },

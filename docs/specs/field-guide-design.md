@@ -158,7 +158,10 @@ Keep its three concerns behind separate internal interfaces:
 
 **Owns:** load ownership, geometry, picking, LOD, render-thread lifetime and GPU resources.
 **Rule:** reject stale loads; report ready after the accepted first frame; stop rendering when detached and sleep when unchanged.
-The shared C++ core owns behavior; Metal/Vulkan adapters draw, with the current 1.6-million-splat budget.
+The shared C++ core owns behavior; Metal/Vulkan adapters draw.
+The app does not override the imported loader's default `.lodsplat` budget of 1,200,000 splats; this bounds hierarchy selection and is distinct from pack leaf count and the actual post-culling draw count.
+The host renders at 0.75 scale, while the engine exposes native selected/drawn statistics that the current app diagnostics do not publish.
+The Dev panel labels its manifest-derived count as Pack splats; changing the rendering budget requires target-device GPU, memory and thermal measurements.
 SplatKit changes land upstream before integration here.
 The target boundary is SplatKit's public API at a pinned revision, with no app patches to engine sources.
 Pack policy and identity requirements remain app-owned; generic rendering and loading mechanisms belong upstream.

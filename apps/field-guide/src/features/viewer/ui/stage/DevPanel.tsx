@@ -36,7 +36,7 @@ const DevCopy = {
   quality: 'Quality',
   link: 'Link',
   reason: 'Reason',
-  splats: 'Splats',
+  splats: 'Pack splats',
   pack: 'Pack',
   loaded: 'First frame',
   loading: 'Loading',

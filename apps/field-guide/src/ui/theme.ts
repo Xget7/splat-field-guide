@@ -17,18 +17,18 @@ export const Color = {
   muted: '#9599a1',
   // 4.5:1 on raised surfaces, so even the quietest readout passes AA.
   faint: '#9599a1',
-  // The course primary: about 14:1 on graphite, reserved for the current item and the way forward.
+  // A readable blue for foreground emphasis on graphite.
   accent: CourseColor.accent,
-  // Filled controls carry black ink, about 15:1 on the primary.
-  accentFill: CourseColor.accent,
-  accentPressed: '#D9B500',
-  accentText: '#000000',
-  accentWash: 'rgba(255, 214, 10, 0.12)',
+  // Filled controls use the reference blue with white ink.
+  accentFill: CourseColor.primary,
+  accentPressed: CourseColor.primaryPressed,
+  accentText: CourseColor.white,
+  accentWash: 'rgba(0, 54, 158, 0.24)',
   completed: 'rgba(255, 255, 255, 0.16)',
-  action: CourseColor.accent,
-  actionPressed: '#D9B500',
-  actionText: '#000000',
-  // Orange keeps warnings distinct from the yellow primary.
+  action: CourseColor.primary,
+  actionPressed: CourseColor.primaryPressed,
+  actionText: CourseColor.white,
+  // Orange keeps warnings distinct from the blue primary.
   caution: '#FF8A3D',
   cautionWash: 'rgba(255, 138, 61, 0.10)',
   // Keep overlaid controls legible on bright captures.
@@ -46,7 +46,7 @@ export const Color = {
 } as const;
 
 // A light-to-deep edge on the primary action, within the primary's hue.
-export const Sheen = ['#FFF3A6', '#FFD60A', '#B89400'] as const;
+export const Sheen = ['#5B86FF', '#00369E', '#002B80'] as const;
 
 // Selected parts in the 3D view: a light navy wash lifted a little, with the rest of the scene left exactly as captured.
 // The wash keeps 80 % of the captured colour so the part's surface detail stays readable under it;
