@@ -93,7 +93,7 @@ describe('app', () => {
     ).toContain('The 3D scene is not available on this device yet.');
   });
 
-  test('a bundled pack opens in the library as a guide', async () => {
+  test('a bundled pack opens its parts tour from the course entry', async () => {
     jest.mocked(getBundledPacks).mockReturnValueOnce({
       manifests: () => [
         { directory: 'fixture/1', manifest: JSON.stringify(fixtureCopy()) },
@@ -102,12 +102,13 @@ describe('app', () => {
     await act(() => {
       renderer = ReactTestRenderer.create(<App />);
     });
+    const explore = renderer.root
+      .findAllByProps({ testID: 'course-explore' })
+      .find(item => item.props.accessibilityRole === 'button')!;
+    await act(() => explore.props.onPress());
     expect(
-      renderer.root.findAllByProps({ testID: 'guide-card-fixture' }).length,
+      renderer.root.findAllByType('SplatView' as React.ElementType).length,
     ).toBeGreaterThan(0);
-    expect(
-      renderer.root.findAllByProps({ testID: 'library-empty' }),
-    ).toHaveLength(0);
   });
 
   test('a broken bundled pack shows why instead of the library', async () => {
@@ -122,6 +123,21 @@ describe('app', () => {
     ).toBe('fixture/1: manifest is not JSON');
     expect(
       renderer.root.findAllByProps({ testID: 'library-screen' }),
+    ).toHaveLength(0);
+  });
+
+  test('an unavailable native pack reader shows the startup error', async () => {
+    jest.mocked(getBundledPacks).mockImplementationOnce(() => {
+      throw new Error('BundledPacks is not registered');
+    });
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    expect(
+      renderer.root.findByProps({ testID: 'pack-error' }).props.children,
+    ).toContain('BundledPacks is not registered');
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
     ).toHaveLength(0);
   });
 

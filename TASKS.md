@@ -7,7 +7,8 @@ All items below remain open unless their completion evidence is recorded here.
 ## Current foundation
 
 The app contains pack verification, a native viewer, sessions, procedures, saved continuation and an instructor with online/offline capabilities.
-Startup has an empty catalog; no former demo content or synthetic test pack ships.
+Startup reads explicitly bundled packs through the consumer parser; without FIELD_GUIDE_PACKS the catalog remains empty.
+No former demo content or synthetic test pack ships.
 Zustand is installed; WatermelonDB and TanStack Query are selected but not installed or integrated.
 Miris preparation in the separate `splat-tools` checkout includes accepted-mask lifting, export, notes, procedures, Brick evidence and part vectors; these do not establish app integration.
 
@@ -33,6 +34,8 @@ Preparation and model work belongs in the separate workspace.
 Annotation drafts, source captures and the running teaching service must be preserved during repository cleanup.
 
 ## App integration
+
+- [x] Reuse the native BundledPacks reader and explicit build selection to open verified bundled packs at startup, including course Explore entry and a visible startup failure when native registration is unavailable.
 
 - [x] Compose the landscape course entry in React Native with shared charcoal tokens, 8-point spacing, sidebar, module cards, document attachment and controlled question draft.
 - [x] Share automatic offline model preparation at app lifetime, verify before download, reuse device files and recover on reconnect with cancellation/concurrency tests.
@@ -61,6 +64,11 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 Contract and app-interface work can proceed while annotations are refined.
 Visual acceptance must use accepted exported data.
+
+Bundled startup integration passes 67 app suites with 830 tests, ten pack-tooling tests and three native-package source tests, with app/package lint and TypeScript checks.
+The local miris-pilot/1 copy was refreshed from the canonical 2026-11-11 publication and passed full pack verification.
+An unsigned iPad Simulator build succeeded with that pack selected and opened the course entry while retaining verified model files.
+The Explore tap landed in the question composer despite targeting its accessibility reference, so native first-frame, picking and highlight checks remain unresolved; no physical acceptance is claimed.
 
 Course entry and preparation checks pass 67 app suites with 822 tests, 26 on-device tests, app/package lint and TypeScript checks, a production iOS JavaScript bundle and an unsigned iOS Simulator build.
 The isolated iPad preview completed automatic model download and reported verified readiness after relaunch; microphone, transcription, synthesis and generated answers were not exercised.

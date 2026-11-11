@@ -22,7 +22,9 @@ A fresh installation without those files cannot provide local voice or generated
 `nice -n 19 scripts/prepare.sh` prepares dependencies, native frameworks, locked Gems and Pods without downloading guide content.
 An optional `--manifest <file> --pack <archive>` validates and caches an explicit pack; it does not activate or select that pack for the app.
 Packaging requires `nice -n 19 scripts/package-pack.sh --manifest <file> --pack <directory> --out <archive>`.
-Both platform bundles select no packs by default; installation and activation remain pending.
+Both platform bundles select no packs by default.
+Set FIELD_GUIDE_PACKS to space-separated <packId>/<packVersion> entries under data/pack when building, for example FIELD_GUIDE_PACKS=miris-pilot/1.
+Startup reads those bundled manifests through the native BundledPacks object and the existing consumer parser; remote installation and activation remain pending.
 Track the replacement in [tasks](../../TASKS.md).
 After an engine source change, prepare before installing Pods; `packages/react-native-splat/scripts/build-ios-engine.sh --force` forces an engine rebuild.
 Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so the locked Bundler, CocoaPods and xcodeproj apply.

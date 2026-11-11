@@ -6,5 +6,6 @@ import {
 
 /** The packs this build bundled; installed packs will join them here once delivery exists. */
 export function loadAppPacks(): BundledPacksResult {
-  return loadBundledPacks(getBundledPacks());
+  // Create the native reader inside the loader's failure boundary as registration can fail.
+  return loadBundledPacks({ manifests: () => getBundledPacks().manifests() });
 }
