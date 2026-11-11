@@ -27,17 +27,33 @@ Each area names the complexity it owns and the rule that callers must preserve.
 ## App
 
 **Owns:** startup, navigation and dependency composition; screens receive configured capabilities.
-Startup supplies no pack until real Miris content is integrated; the library shows its empty state.
+Startup supplies no pack until real Miris content is integrated; the course shell presents the Automotive Assembly Line demonstration without mounting a native scene.
 **Rule:** features never import app composition or construct unrelated provider lifecycles.
 **Read:** [startup](../../apps/field-guide/src/app/App.tsx), [navigation](../../apps/field-guide/src/app/navigation/RootNavigator.tsx), [platform wiring](../../apps/field-guide/src/app/platform.ts).
 **Verify:** [app tests](../../apps/field-guide/src/app/tests/App.test.tsx).
 
 ## Library
 
-**Owns:** discoverable guide entries, availability and opening a session.
+**Owns:** the course entry shell, module presentation, discoverable guide entries, availability and opening a session.
 **Rule:** discovery chooses a session start; guide rules own its subsequent position.
 **Read:** [public interface](../../apps/field-guide/src/features/library/index.ts), [presentation](../../apps/field-guide/src/features/library/views.ts), [catalog](../../apps/field-guide/src/features/pack/catalog.ts).
 **Verify:** [library tests](../../apps/field-guide/src/features/library/tests/library.test.tsx).
+
+The course shell uses `ui/courseTokens.ts` for neutral charcoal surfaces, system typography and 8-point spacing.
+Controls have a minimum 48-point touch area; 16/24-point corner radii distinguish controls and page surfaces.
+The sidebar collapses in narrow windows and the hero and module cards stack below 1056 points or with large text.
+`CourseNavigation`, `CourseOverview`, `CourseComposer` and `ModuleCard` compose the entry screen without a WebView.
+Course tabs use text only, the source attachment is a filename card, and the composer has exactly two grounded example questions and an upward send control.
+The existing viewer palette remains separate because its emphasis colors are coupled to GPU selection.
+The three module names are demonstration presentation, not installed learning content or a new pack identity.
+Course-wide answers, PDF opening and downloads currently show explicit availability states; no remote request or generated equipment claim is made.
+The entry links to Downloads, where course content and shared Voice & AI resources have separate status cards.
+The sidebar selects global destinations Courses, Downloads and Help; only Courses renders the selected course breadcrumb and its Course, Modules, Documentation and Assistant tabs.
+Switching a global destination preserves the course tab and draft without presenting course navigation inside Downloads or Help.
+A ready model set is labelled Models ready, never evidence that a course is available offline.
+The demonstration course remains unavailable offline until its required content has a verified installation; a catalog scene alone does not satisfy that condition.
+Model controls pause, continue or retry the existing ExecuTorch preparation, while unavailable course delivery has no simulated download action.
+Ready catalog entries and saved continuation still enter the existing guide and viewer interfaces.
 
 ## Pack and delivery
 
@@ -155,10 +171,14 @@ A pick returns what the drawn frame shows, after styles and cutaway.
 ExecuTorch owns local speech recognition, phonemization, synthesis and answer generation on both platforms.
 `react-native-audio-api` supplies one echo-cancelled microphone/playback module shared with the online PCM audio link.
 The previous native Apple Foundation Models, platform speech and ONNX/Kokoro implementations are removed; a missing local model leaves reading, typing and scripted guidance available.
-The instructor exposes explicit offline preparation with size, progress, cancellation and retry.
+The app starts shared offline preparation automatically: verify device files, then download missing resources when the device has a network route.
+The course, chat and voice observe the same checking, progress, ready or error state; offline availability is shown separately from online service availability.
+Preparation survives screen changes, permits pause and retry, and recovers when the network route returns without retry loops.
+Workers reuse the same verified device files, not a separate 1.8 GB set per account.
+Downloading files never preloads Qwen, Whisper or Kokoro into memory and does not gate online answers.
 It downloads only the pinned files in `modelAssets.json`, verifies size and SHA-256, and promotes each staged file after verification.
 A complete set must pass verification before any inference factory can obtain local paths.
-Verified files persist in the app's Documents directory; startup verification and inference make no network requests.
+Verified files persist in the app's Documents directory; restore and inference make no network requests, while the startup coordinator may prepare missing files after restore.
 The English part-of-speech tagger is omitted because its upstream Brown Corpus data is not cleared for commercial use; lexicon and neural phonemization remain available.
 Preparing models is separate from downloading or activating a Miris scene pack.
 **Read:** [lazy entry points](../../packages/react-native-on-device/src/index.ts), [capability contracts](../../packages/react-native-on-device/src/capabilities.ts), [model preparation](../../packages/react-native-on-device/src/local/modelStore.ts), [inference](../../packages/react-native-on-device/src/local/inference.ts), [audio](../../packages/react-native-on-device/src/local/audio.ts), [online audio link](../../packages/react-native-on-device/src/AudioLink.ts).

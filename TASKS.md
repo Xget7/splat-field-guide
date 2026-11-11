@@ -34,6 +34,12 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 ## App integration
 
+- [x] Compose the landscape course entry in React Native with shared charcoal tokens, 8-point spacing, sidebar, module cards, document attachment and controlled question draft.
+- [x] Share automatic offline model preparation at app lifetime, verify before download, reuse device files and recover on reconnect with cancellation/concurrency tests.
+- [x] Separate course offline availability from verified Voice & AI models in entry and Downloads, with model pause, continue and retry controls.
+- [ ] Connect course-wide grounded answers, source PDF opening and course module content; the entry currently presents availability states.
+- [ ] Connect course download controls to the authenticated installer below, deriving offline readiness from all required verified course files rather than the model cache or a catalog entry.
+
 - [ ] Implement secure remote compressed chunk delivery, authenticated manifest trust, on-device processing, verified installation, atomic activation and failure recovery, connecting pack selection to startup.
 - [ ] Add CAD joins by stable segmentation ID per the planned contract in design; the owner holds only photographs and point clouds of an approximate recreation, so reference geometry is authored or adopted and made exact by this project.
 - [ ] Remount the viewer per installation identity and test that no highlight or pick crosses pack versions.
@@ -56,6 +62,12 @@ Annotation drafts, source captures and the running teaching service must be pres
 Contract and app-interface work can proceed while annotations are refined.
 Visual acceptance must use accepted exported data.
 
+Course entry and preparation checks pass 67 app suites with 822 tests, 26 on-device tests, app/package lint and TypeScript checks, a production iOS JavaScript bundle and an unsigned iOS Simulator build.
+The isolated iPad preview completed automatic model download and reported verified readiness after relaunch; microphone, transcription, synthesis and generated answers were not exercised.
+Course and assistant navigation were observed in the simulator, but the final Downloads tap check is unresolved because the device automation dispatched taps without the expected navigation.
+The next course delivery sequence is verified content installation, source document bindings, grounded course answers, then course voice interaction and physical acceptance.
+Model readiness does not complete those tickets; no complete offline course or functional voice acceptance is claimed.
+
 Schema 2 now accepts optional `relations` (Brick `feeds`, plus `carries`, `drives` and `adjacent`, each with authored or measured evidence), a `model` Turtle file and a `semantic` vector block; see [design](docs/specs/field-guide-design.md#pack-and-delivery).
 Pack tooling verifies the size and SHA-256 of the model and vectors files, checks vector rows are finite unit vectors, and bundles and archives both files.
 Component graph navigation, supplied-vector ranking and connection-grounded instructor prompts are pure source interfaces; no screen offers relation navigation yet.
@@ -65,7 +77,8 @@ Source checks passed 66 app suites with 811 tests, lint, types and nine pack too
 ## Local inference migration
 
 The local recognition, synthesis and answer adapters now use ExecuTorch 0.11.0 on both platforms, with CPU Whisper Base English, Kokoro and Qwen2.5 1.5B Instruct.
-Offline preparation is an explicit instructor action; pinned files are verified before inference and checked again after restart without a network request.
+Offline preparation starts automatically after verification and a usable device route; pinned files are verified before inference and reused across workers.
+Restore itself is offline; the coordinator downloads missing files, exposes pause/retry and retries after connectivity returns without blocking online operation.
 The initial model set is about 1.8 GB and supports `en-US`; it is separate from the Miris scene pack.
 The native Apple Foundation Models, platform recognition/TTS and ONNX frontend implementations have been removed.
 Physical acceptance of recognition in factory noise, technical part names without vocabulary biasing, pronunciation, answer grounding, interruption, restart offline, memory and thermal behaviour remains open.
