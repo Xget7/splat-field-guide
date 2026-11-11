@@ -1,3 +1,4 @@
+import type { PathInfo } from '../../../../platform/connectivity/networkQuality';
 import type { Platform } from '../../../../platform/ports';
 import {
   NetworkQuality,
@@ -17,6 +18,7 @@ export interface InstructorNetworkOptions {
   /** Without a proxy Claude is never reachable, so the instructor stays offline. */
   readonly proxy: ProxyClient | null;
   /** The status screens show. */
+  readonly onPath?: (path: PathInfo) => void;
   readonly onShown: (status: NetworkStatus) => void;
   /** The status the instructor's mode follows. */
   readonly onMode: (status: NetworkStatus) => void;
@@ -37,8 +39,17 @@ export function createInstructorNetwork({
   proxy,
   onShown,
   onMode,
+  onPath,
 }: InstructorNetworkOptions): NetworkService {
-  const paths = platform.networkMonitor;
+  const paths = {
+    start(listener: (path: PathInfo) => void) {
+      platform.networkMonitor.start(path => {
+        onPath?.(path);
+        listener(path);
+      });
+    },
+    stop: () => platform.networkMonitor.stop(),
+  };
   if (proxy === null) {
     const pathQuality = createQualityEstimator();
     return {

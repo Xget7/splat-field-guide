@@ -1,3 +1,4 @@
+import { createOfflinePreparation } from './data/runtime/offlinePreparation';
 import type { Platform } from '../../platform/ports';
 import type { Pack } from '../pack/pack';
 import type { Instructor } from './domain/instructorHandle';
@@ -39,6 +40,7 @@ export function createInstructor({
   let started = false;
   let disposed = false;
   let idle = true;
+  let preparation: ReturnType<typeof createOfflinePreparation> | null = null;
   let unsubscribeModels: (() => void) | null = null;
   const modes = createInstructorModes({
     clock,
@@ -61,6 +63,10 @@ export function createInstructor({
   const network = createInstructorNetwork({
     platform,
     proxy,
+    onPath: path => {
+      store.getState().networkRouteChanged(path.satisfied);
+      preparation?.path(path.satisfied);
+    },
     onShown: status => store.getState().networkChanged(status),
     onMode(status) {
       modes.network(status);
@@ -124,7 +130,8 @@ export function createInstructor({
             sessions.publish(modes.current());
           }
         });
-        models.restore().catch(() => {});
+        preparation = createOfflinePreparation(models);
+        preparation.start();
       }
       foreground.start(active => {
         if (!active) {
@@ -147,6 +154,7 @@ export function createInstructor({
       started = false;
       sessions.stop();
       unsubscribeModels?.();
+      preparation?.stop();
       platform.offlineModels?.().release();
       foreground.stop();
       network.stop();

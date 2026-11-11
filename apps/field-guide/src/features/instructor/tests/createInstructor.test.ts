@@ -114,8 +114,10 @@ test('without a proxy the instructor settles offline on the device while screens
   const fake = fakePlatform();
   const store = createInstructorStore();
   const instructor = instructorOn(fake.platform, { proxyUrl: null, store });
+  expect(store.getState().hasNetworkRoute).toBe(false);
   instructor.start();
   fake.network.emit(WIFI);
+  expect(store.getState().hasNetworkRoute).toBe(true);
   expect(store.getState().mode).toMatchObject({
     mode: 'offline',
     cause: 'startup',
@@ -124,6 +126,8 @@ test('without a proxy the instructor settles offline on the device while screens
   });
   expect(store.getState().network).toMatchObject({ transport: 'wifi' });
   expect(fake.platform.fetch).not.toHaveBeenCalled();
+  fake.network.emit({ ...WIFI, satisfied: false });
+  expect(store.getState().hasNetworkRoute).toBe(false);
   instructor.stop();
 });
 
