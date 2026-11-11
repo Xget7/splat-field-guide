@@ -9,23 +9,35 @@ All items below remain open unless their completion evidence is recorded here.
 The app contains pack verification, a native viewer, sessions, procedures, saved continuation and an instructor with online/offline capabilities.
 Startup has an empty catalog; no former demo content or synthetic test pack ships.
 Zustand is installed; WatermelonDB and TanStack Query are selected but not installed or integrated.
-Miris teaching is active in `../splat-tools`; accepted masks, lifting, export and app integration must not be conflated.
+Miris preparation in the separate `splat-tools` checkout includes accepted-mask lifting, export, notes, procedures, Brick evidence and part vectors; these do not establish app integration.
 
 ## Product and preparation
 
 - [ ] Fix the Miris demonstration path, supported languages, voice expectations, target devices and delivery format.
 - [ ] Finish reviewed annotations for the four-robot pilot, with especially careful review of R01 and R02, in `splat-tools`.
-- [ ] Verify the transformation between original cameras and the upright PLY, coordinate conventions and units before lifting.
-- [ ] Lift accepted masks and review coverage, including occluded parts and whether further views need annotation.
-- [ ] Export a real Miris pack with stable IDs, node labels, bounds, anchors, authored records and compatible supplied vectors.
+- [ ] Verify the camera-to-reconstruction transformation, coordinate conventions and assumed units before accepting the lifted export.
+- [x] Implement multi-view confirmed lifting and produce a Miris lift, recorded by the publication receipt.
+- [ ] Review lifted coverage, including occluded parts and whether further views need annotation.
+- [x] Export a Miris pack with stable IDs, node labels, bounds, anchors, authored records and supplied vectors, recorded in `splat-tools/data/pack/miris-pilot/1/manifest.json` and `publication.json`.
+- [ ] Revalidate the regenerated pack against current content and the full app contract; the receipt is not visual acceptance.
 - [ ] Agree on the minimum delivery contract using those outputs and the existing pack consumer interface.
+- [ ] Segment and lift the whole cell, including fences, gates, barriers, cabinets/panels, body/transport and racks, from the proposals in `content/miris-pilot/cell.md`.
+- [ ] Reconcile the R01/R02 disagreement between session guides with the owner before extending annotations.
+- [ ] Confirm the car process, tool function and transport sequence with the owner; the seven-step narrative is inferred.
+- [ ] Review and extend both contracts for proposed `supports`, `guards`, `monitors`, `stores`, `processes` and `controls` relations with evidence.
+- [ ] Obtain matching assembly/operating and accessory instructions, confirm installed models and resolve inherited QUANTEC-2 K/P citations before authoring service schedules.
+- [ ] Complete the single annotated Turtle projection, including procedures, aliases and details, and verify parity with the manifest.
 
 Preparation and model work belongs in the separate workspace.
 Annotation drafts, source captures and the running teaching service must be preserved during repository cleanup.
 
 ## App integration
 
-- [ ] Implement verified pack installation, activation and failure recovery, connecting explicit pack selection to the empty startup/catalog.
+- [ ] Implement secure remote compressed chunk delivery, authenticated manifest trust, on-device processing, verified installation, atomic activation and failure recovery, connecting pack selection to startup.
+- [ ] Add CAD file, node and alignment joins by stable segmentation ID.
+- [ ] Widen node labels beyond one byte in the pack format and renderer before a world needs more than 255 labelled parts.
+- [ ] Expose supplied relation navigation in the viewer.
+- [x] Implement grounded on-device generation behind the instructor answerer seam, after the remote proxy and before scripted fallback; hardware acceptance remains open.
 - [ ] Integrate WatermelonDB semantic records and TanStack Query API delivery without duplicating persistent records in Zustand.
 - [x] Validate vector-space identity and implement supplied-vector comparison returning stable part IDs.
 - [ ] Resolve selected IDs through the active reconstruction's mappings and connect them to existing viewer highlight and framing.
@@ -39,7 +51,7 @@ Visual acceptance must use accepted exported data.
 Schema 2 now accepts optional `relations` (Brick `feeds`, plus `carries`, `drives` and `adjacent`, each with authored or measured evidence), a `model` Turtle file and a `semantic` vector block; see [design](docs/specs/field-guide-design.md#pack-and-delivery).
 Pack tooling verifies the size and SHA-256 of the model and vectors files, checks vector rows are finite unit vectors, and bundles and archives both files.
 Component graph navigation, supplied-vector ranking and connection-grounded instructor prompts are pure source interfaces; no screen offers relation navigation yet.
-The contract still needs agreement against the exporter's first real Miris pack, and loading the vectors file from an installed pack waits for installation.
+The current exported manifest and publication receipt provide handoff evidence; acceptance of regenerated content and loading installed vectors remain open.
 Source checks passed 66 app suites with 811 tests, lint, types and nine pack tooling tests; no device, build or physical check was run.
 
 ## Runtime cleanup
@@ -62,6 +74,9 @@ Keep source provenance for referenced pack inputs and attribution for shipped re
 
 ## Acceptance
 
+No Miris pack opening on a simulator or physical device is recorded.
+
+- [ ] Open the integrated Miris pack on a simulator for functional review, then on target hardware for physical acceptance.
 - [ ] Verify orbit, pinch, part picking, every accepted highlight, procedure framing and mount/unmount recovery on physical target hardware.
 - [ ] Measure Miris frame time, idle drawing, load time, memory and thermal behaviour; adjust its export tier if needed.
 - [ ] Verify prepared-device offline browsing and vector comparison on physical iOS and Android; test missing resources separately on a fresh device.
@@ -71,7 +86,8 @@ Keep source provenance for referenced pack inputs and attribution for shipped re
 
 ## Completion criteria
 
-The demo opens a verified Miris pack for the four-robot pilot, selects and frames accepted parts, presents reviewed information and supports the agreed instructor flow.
+The first delivery opens a verified four-robot Miris pack, selects and frames accepted parts, presents reviewed information and supports the agreed instructor flow.
+The product objective extends this to the whole cell and confirmed car process, with CAD, manuals, procedures and relations joined by segmentation ID and complete annotated Turtle alongside the manifest.
 Stable IDs survive replacement; invalid files, incompatible vectors and wrong-reconstruction mappings are rejected without losing the last usable installation.
 Prepared-data browsing and supplied-vector comparison work offline on physical iOS and Android.
 The viewer targets 60 fps on the chosen acceptance device and draws no unchanged idle frames; record load time, memory and thermal behavior.
@@ -81,8 +97,11 @@ Demonstration devices, languages, voice expectations and delivery format remain 
 ## Preparation evidence
 
 The active external session is `splat-tools/data/analysis/miris-pilot/teaching-02`; accepted masks are in `references/` and `teaching-state.json`, not draft counts.
-The retained reconstruction is `data/analysis/miris-factory/fvdb-full-50-t1e-4-v1/results/output/final-pruned-upright.ply` in that workspace.
-Verify its transform against the original OpenCV cameras before lifting; earlier cross-view transfer did not establish coverage.
+Read the current `data/pack/miris-pilot/1/publication.json` and `manifest.json` in that workspace for reconstruction/lift identities, counts, bytes and consumer validation.
+The receipt identifies `final-pruned-vertex.ply` and a completed lift; scale remains assumed and non-metric, and coordinate/coverage acceptance is still open.
+Authored content has 44 parts with notes, including inherited visual/anatomy references, and 12 maintenance procedures, three per robot, based on the 127-page KR QUANTEC extra V6 specification.
+That source supplies no lubrication, oil-change, belt or cable-replacement schedule; inherited pages 287 and 353 belong to an unavailable QUANTEC-2 K/P reference.
+The cell research register has 25 proposed non-robot components and 35 candidate relations, none integrated into accepted segmentation or the pack.
 Preserve the annotation service and source data during mobile cleanup.
 Record Miris artifact identities and physical-device evidence here as tasks complete; earlier fixture results do not establish Miris acceptance.
 

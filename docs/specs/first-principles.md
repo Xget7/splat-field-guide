@@ -2,9 +2,14 @@
 
 ## Goal and operator
 
-Miris is a state-of-the-art viewer of spatially aware Gaussian splats joined with CAD, manuals and component knowledge.
+Miris aims to be a state-of-the-art iOS viewer of spatially aware Gaussian splats joined with CAD, manuals and local ML.
 It serves an operator who starts from zero: explain the factory machine by machine, what each machine does, what each piece is, where the manual describes it and how the pieces relate.
-The first world is the Miris factory cell with four robots.
+The world is the whole Miris factory cell: robots, fences, gates, light barriers, cabinets and control panels, the car body and its transport, and racks.
+All must be segmented and related by stable ID so an employee starting from zero can follow the car process step by step, machine by machine.
+The four-robot pack is the current subset, not the product boundary.
+A large compressed world must arrive securely from a remote source in chunks, then be verified, processed and activated on the device.
+An on-phone language model explains each part from supplied pack text, generation only; every embedding is produced by the external preparation pipeline.
+Manuals and maintenance guidance join parts by ID, and all annotations and relations must be consolidated in the Brick-based `semantic/model.ttl` alongside the manifest.
 This is the product direction, not a claim that CAD, delivery or the complete operator experience already exists.
 Use [architecture](field-guide-design.md) for implementation ownership and [tasks](../../TASKS.md) for integration and physical acceptance.
 
@@ -22,7 +27,7 @@ Names, coordinates, vector row positions and CAD node names must never replace t
 
 A phone must render and respond while carrying a large world in limited memory and within a thermal budget.
 Annotation review, reconstruction, mask lifting, model encoding and manual processing require source material and preparation resources that do not belong in that interactive loop.
-Therefore all such work happens in the preparation pipeline, including every query embedding.
+Therefore all such work happens in the preparation pipeline, including every query embedding; query-vector supply is not yet integrated.
 The phone is a viewer and query client: it consumes prepared facts and can compare supplied vectors, but never runs an embedding encoder or infers physical relationships from similarity.
 Speech and answer-generation capabilities described in the architecture do not change this boundary.
 
@@ -44,7 +49,10 @@ For example, the inspected pack maps `r01-arm` to label `1`, but neither that nu
 | Hierarchy | Component ownership | Child `id` to `parent` ID | Authored pack content | Assembly lookup and descendant expansion | Manifest and Brick export exist |
 | Embeddings | Image/text vectors and vector-space identity | `semantic.rows[].part`, with `kind` | Pipeline encoders | Supplied-vector cosine ranking returns IDs | Part export and ranking exist; installed-file loading and query-vector supply are open |
 | CAD | Geometry and structure reference, alignment | Per ID: CAD file, node inside it, transform to splat frame | External preparation | Joined spatial inspection | Reserved domain place only; no pack fields or implementation yet |
-| Relations | Containment, flow, carrying, actuation, proximity and evidence | Endpoint IDs | Authored sources or pipeline measurements | Graph queries and grounded explanations | Graph functions exist; viewer relation navigation is open; hierarchy evidence is incomplete |
+| Relations | Containment, flow, carrying, actuation, proximity and evidence | Endpoint IDs | Authored sources or pipeline measurements | Graph queries and grounded explanations | Graph functions exist; viewer relation navigation is open; hierarchy evidence is exported, with identity uncertainty retained |
+| Process and cell context | Car journey, surrounding equipment and roles | Step and relation endpoints join segmentation IDs | Reviewed cell research and owner confirmation in pipeline | Step-by-step employee explanation | `cell.md` has proposals only; accepted cell segmentation and process confirmation are open |
+| Procedures and maintenance | Ordered instructions and cautions | Procedure step `parts` references stable IDs | Authored pipeline content with manual citations | Guide steps and instructor grounding | 12 authored procedures, three per robot; matching service instructions and Turtle procedure projection are missing |
+| On-device explanation | Grounded generated answers | Selected part ID resolves pack text and connections | Apple Foundation Models on eligible iOS hardware, never an encoder | Instructor answerer seam | Implemented after remote proxy and before scripted fallback; Miris hardware acceptance is open |
 | Manuals and knowledge | Notes, descriptions and manual references | Part ID | Reviewed content and manual processing in pipeline | Part explanations and instructor grounding | Notes and prose citations exist; structured manual references are absent |
 
 The table's implemented fields come from [pack.ts](../../apps/field-guide/src/features/pack/pack.ts), [graph.ts](../../apps/field-guide/src/features/pack/graph.ts) and [partVectors.ts](../../apps/field-guide/src/features/semantic/domain/partVectors.ts).
@@ -77,7 +85,7 @@ They are assembly IDs whose geometry and highlighting derive from their children
 
 Keep annotations consolidated by layer inside the pack, keyed by ID: `manifest.json` contains parts, hierarchy, relations, notes and vector-row mappings; `semantic/model.ttl` is intended to express the same facts as a Brick graph.
 Binary geometry, node-label payloads and vector values remain referenced files, not per-part annotation documents.
-The current Turtle projection is incomplete, as listed under Known gaps.
+The exporter already includes notes with citation tags, reified hierarchy evidence and vector-space/row metadata; remaining omissions are listed under Known gaps.
 The phone consumes the manifest and never parses Turtle.
 
 [pack.ts](../../apps/field-guide/src/features/pack/pack.ts) and [parsePack.ts](../../apps/field-guide/src/features/pack/parsePack.ts) define the actual schema:
@@ -106,11 +114,8 @@ It also rejects duplicate `(part, kind)` vector rows and inconsistent vector byt
 [scripts/validate-pack.cjs](../../scripts/validate-pack.cjs) reuses the consumer parser and additionally verifies runtime file sizes and SHA-256 digests, world/label headers and counts, known label values, finite unit vector rows and unlinked file paths.
 It verifies the Turtle file's bytes, not its semantic equivalence to JSON.
 
-The inspected export at `splat-tools/data/pack/miris-pilot/1/manifest.json` contains 44 parts, comprising four robot assemblies and forty component groups.
-It contains 113 explicit relations: 24 carries, 16 drives, 12 feeds and 61 adjacent, in addition to the parent hierarchy.
-Its 88 vector rows are 512-dimensional, one image and one text row per part.
-The `high` tier contains 1,395,393 leaves and 1,554,657 nodes; `world.lodsplat` is 171,240,232 bytes.
-These are properties of this inspected export, not future pack requirements or proof of physical acceptance.
+For the current export counts, vector dimensions, byte sizes, digests and validation result, read `splat-tools/data/pack/miris-pilot/1/manifest.json` and its `publication.json`.
+These changing artifact properties are not product requirements or proof of physical acceptance.
 
 ## Brick expresses distinct kinds of connection
 
@@ -157,7 +162,7 @@ The app repository owns mobile validation, bundling, release packaging and the e
 The phone renders, selects, frames, browses, queries and explains supplied knowledge.
 It may rank supplied vectors in the declared space; it must never run an encoder, promote similarity into a physical edge, or treat a generated answer as new equipment evidence.
 
-A large spatial world must ultimately arrive from a remote source in compressed chunks, verified by digest, and activate together with matching records.
+A large spatial world must ultimately arrive securely from a remote source in compressed chunks, be processed and verified on the device, and activate together with matching records.
 A failed replacement must preserve the last usable installation.
 Otherwise a correct part ID could highlight geometry from a different reconstruction or present stale knowledge as current.
 
@@ -170,21 +175,29 @@ Startup still supplies an empty catalog, as recorded in [architecture](field-gui
 
 ## Known gaps
 
-- **Graph parity:** `semantic_model.py` exports identity, classes, summaries, geometry, hierarchy and explicit relation evidence, but omits `details`, notes/manual citations, aliases, procedures and vector-space/row metadata.
-  The inspected Turtle is therefore not the complete same-facts counterpart required by the principle.
+- **Graph parity:** `semantic_model.py` exports identity, classes, summaries, geometry, hierarchy and explicit relation evidence, notes with citation tags, and vector-space/row metadata.
+  It still omits `details`, aliases and procedures, plus the vector normalization flag and file byte count; the single annotated file objective is not yet complete.
   Adjacency symmetry is described in prose but not declared as `owl:SymmetricProperty`.
-- **Evidence coverage:** `parent` has no evidence field and containment triples have no reified evidence.
-  Some authored `feeds` and `carries` edges cite visual routing or visual interpretation without a manual figure/page; `drives` cites page groups with inferred correspondence.
-  The parser requires only a non-empty source string, so it cannot enforce the stronger citation requirement or confirm the asserted relationship.
-  Notes carry prose citations rather than structured manual references.
+- **Evidence coverage:** manifest `parent` has no evidence field; Turtle containment statements now carry authored evidence explicitly identifying session identity references as unconfirmed.
+  Some relation sources are visual interpretations or unresolved manual citations; the parser's non-empty source requirement cannot verify them.
+  Notes carry prose citations rather than structured manual references by ID.
+- **Whole-cell coverage:** `content/miris-pilot/cell.md` records 25 proposed non-robot components, 35 candidate relations and a seven-step plausible process, outside the pack until accepted segmentation and lifting exist.
+  Its proposal IDs are not accepted segmentation mappings; `supports`, `guards`, `monitors`, `stores`, `processes` and `controls` are unsupported proposed relation kinds.
+  Tool function, possibly spot welding, and transport sequence need owner confirmation; no definite emergency stop, signal tower, scanner or HMI was identified in the research register.
+  Session guides disagree on R01/R02 identity, which must be reconciled before extending annotations.
+- **Manual sources:** authored content has 44 parts with notes and 12 maintenance procedures, three per robot, grounded in the available KR QUANTEC extra specification.
+  The supplied *KR QUANTEC extra, With F and C Variants, Specification*, Spez KR QUANTEC extra V6, 18.06.2015, has 127 pages and no lubrication, oil-change, belt or cable-replacement schedule.
+  Inherited QUANTEC-2 K/P citations, including pages 287 and 353, remain unresolved; matching assembly or operating instructions and installed-model confirmation are prerequisites for part-specific service guidance.
 - **Representation ownership:** `Part` embeds `label`, `bounds` and `anchor` directly, while `sources.reconstructionSha256` is optional and no persistent reconstruction mapping is integrated.
   The exporter assigns labels by array order; ID stability across replacement is a rule, not an implemented cross-version identity check.
 - **Provenance handoff:** the export includes `sources.cameras` and `sources.labelClasses`, but the app's `PackSources` omits them.
   Runtime `packFiles` excludes source artifacts and `publication.json`, so mobile file verification alone does not verify the complete evidence chain or retain the receipt's scale details.
 - **Validation scope:** `export.py` can fall back to consumer validation with `relations`, `model` and `semantic` stripped after a rejection.
-  That fallback cannot establish acceptance of the complete contract, although this inspected receipt reports `full manifest accepted`.
+  That fallback cannot establish acceptance of the complete contract, so check the current `publication.json` result against the complete manifest.
 - **Integration:** CAD by ID has no implementation; installed vector loading, pipeline-supplied free-text query vectors, persistent records, viewer relation navigation and mobile delivery/activation are open.
-  Existing graph and ranking interfaces do not establish an end-to-end Miris experience or physical acceptance.
+  Apple Foundation Models answering exists behind the instructor answerer seam, ordered remote proxy, on-device, then scripted.
+  Its prompt reserves required part/procedure/safety context, then admits physical connections, notes and nearest measured proximity; oversized required evidence fails rather than discarding instructions.
+  Existing graph, ranking and generation interfaces do not establish an end-to-end Miris experience; no Miris simulator or device acceptance is recorded.
 
 Reserve only the CAD file reference, node reference and transform to the splat frame per ID for future CAD work.
 The query-vector supply mechanism, relation navigation interaction and remote installation protocol remain undecided; this document does not invent them.

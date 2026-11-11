@@ -2,7 +2,7 @@
 
 Read [first principles](first-principles.md) for the domain rules behind these interfaces.
 
-Miris turns prepared factory content into an offline guide with part selection, procedures and an instructor.
+Miris targets an iOS guide to the whole factory cell and car process, joining splats, CAD and local ML through stable segmentation IDs.
 The current app has viewer, guide and instructor foundations; Miris delivery and semantic integration are pending.
 Use [tasks](../../TASKS.md) for status/acceptance and [operations](../agents/checks.md) for commands.
 
@@ -47,12 +47,14 @@ Activate matching files and records together; failed replacement must preserve t
 The current schema uses `.lodsplat` and one label byte per tree node, with zero unlabelled and 1-255 available part labels.
 A part's `parent` is Brick `brick:hasPart`; optional `relations` add `feeds` (`brick:feeds`, media flow), `carries` (kinematic support), `drives` (actuation) and `adjacent` (measured proximity, stored once).
 Each relation names two different known parts, appears once and keeps `authored` or `measured` evidence with a source; `carries` stays acyclic.
-The optional `model` file is the Brick/Turtle graph of the same facts; tooling verifies and bundles it, and the app never parses it.
+The optional `model` file is the single annotated Brick/Turtle graph alongside the manifest; tooling verifies and bundles its bytes, and the app never parses it.
+The exporter includes notes, hierarchy evidence and vector metadata, but omits procedures, aliases and details, so complete same-facts parity remains open.
+Manual references are currently prose attached to part IDs; CAD file/node/transform joins and the proposed cell relation kinds have no contract yet.
 Schema 2 treats absent `relations`, `model` and `semantic` keys as none; the [component graph](../../apps/field-guide/src/features/pack/graph.ts) answers connections, neighbours, the carries chain, the feed path and the top-level assembly from the pack alone.
 **Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [component graph](../../apps/field-guide/src/features/pack/graph.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
 **Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [graph tests](../../apps/field-guide/src/features/pack/tests/graph.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
-Viewer controls for moving along relations and agreement on the exporter's real output are also pending.
+Secure remote chunk transfer, manifest authentication, on-device processing, viewer relation controls and acceptance of the regenerated export are pending.
 
 ## Semantic data
 
@@ -81,10 +83,12 @@ A session is the current position; progress is its saved continuation.
 
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
-Typed answers fall back from Claude to Apple generation to scripted guidance; Android skips Apple generation.
+Typed answers fall back from the remote proxy to Apple Foundation Models generation to scripted guidance; Android skips Apple generation.
+Local generation explains supplied pack text and never computes embeddings; Miris hardware acceptance remains open.
 Prompts list the subject's supplied connections with their evidence source, so answers about what a part is connected to stay grounded.
 Apple Foundation Models is the on-device answerer because it ships no weights and answers offline on Apple Intelligence devices; weight-shipping runtimes would add a gigabyte-class model to every install.
-Its 4096-token window holds instructions, prompt and reply together, so the on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, each yielding to the budget instead of failing the turn.
+Its 4096-token window holds instructions, prompt and reply together, so the on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, with optional evidence yielding to the budget.
+Required procedure and safety context exceeding the budget fails the turn rather than losing instructions.
 Keep its three concerns behind separate internal interfaces:
 
 - **Turn policy:** [router](../../apps/field-guide/src/features/instructor/domain/router.ts), [turn runner](../../apps/field-guide/src/features/instructor/domain/turn/turnRunner.ts), [grounding](../../apps/field-guide/src/features/instructor/domain/grounding.ts); [turn tests](../../apps/field-guide/src/features/instructor/tests/turnRunner.test.ts).
@@ -136,7 +140,7 @@ Feature callers use `index.ts` or `views.ts`; pack and platform files use direct
 
 **Owns:** accepted annotations, reconstruction, lifting, embeddings, authored evidence and export.
 **Rule:** verify camera-to-upright transforms before export; only accepted masks establish labels, and supplied relationships retain evidence.
-**Read in the sibling workspace:** [overview](../../../splat-tools/README.md), [operations](../../../splat-tools/operations.md).
+**Read in the sibling workspace:** `splat-tools/README.md` and `splat-tools/operations.md` in the separate preparation checkout.
 **Mobile prerequisites:** [preparation tasks](../../TASKS.md#product-and-preparation), [recorded handoff](../../TASKS.md#preparation-evidence).
 
 ## Cross-area changes

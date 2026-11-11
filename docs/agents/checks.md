@@ -40,6 +40,8 @@ nice -n 19 node --test tests/pack-build.test.cjs tests/mobile-asset-tools.test.c
 ```
 
 Capture-stage and training checks run in the separate `splat-tools` workspace.
+Before packaging regenerated Miris content, inspect its matching `manifest.json` and `publication.json` for source identities and full consumer validation, then run the validator against that exact directory.
+A stripped-extension fallback is not validation of the complete pack, and archive download into a host cache is not mobile chunk delivery or activation.
 
 ## Native engine
 
@@ -80,6 +82,8 @@ For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebu
 The obsolete demo Maestro flow and its npm command have been removed.
 Future Miris flows must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
 Screenshots and simulator checks do not establish physical performance acceptance.
+No Miris pack opening on a simulator or device is recorded in [tasks](../../TASKS.md).
+Verify grounded Apple Foundation Models answers and the remote/on-device/scripted fallback on eligible hardware using supplied text; no phone encoder is part of this flow.
 
 ## Cleanup
 
