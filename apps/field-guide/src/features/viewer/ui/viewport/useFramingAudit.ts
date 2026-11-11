@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SplatViewSpec } from 'react-native-splat';
-import { framingFor, type SessionState } from '../../../guide';
+import { directionFor, framingFor, type SessionState } from '../../../guide';
 import type { Pack } from '../../../pack/pack';
 import {
   guideFrameBounds,
@@ -26,10 +26,11 @@ type AuditRow = Awaited<ReturnType<typeof measureFraming>> & {
   label: number;
 };
 interface FramingAuditDebug {
-  run: () => Promise<void>;
+  run: (directionMode?: 'prepared' | 'home') => Promise<void>;
   showStep: (procedureId: string, stepIndex: number) => Promise<void>;
   restore: () => void;
   report: {
+    directionMode: 'prepared' | 'home';
     packId: string;
     packVersion: number;
     splatCount: number;
@@ -64,6 +65,7 @@ export function useFramingAudit(
         );
       }
     };
+    let directionMode: 'prepared' | 'home' = 'prepared';
     const showStep = async (procedureId: string, stepIndex: number) => {
       check();
       const state = { procedureId, stepIndex, selectedPart: null };
@@ -78,7 +80,11 @@ export function useFramingAudit(
       view.frame(
         guideFrameBounds(bounds),
         FRAME_SECONDS,
-        homeDirectionInRadians(pack.camera.home),
+        homeDirectionInRadians(
+          directionMode === 'home'
+            ? pack.camera.home
+            : directionFor(state, pack),
+        ),
       );
       await wait(FRAME_SECONDS * 1000 + SETTLE_MARGIN_MS);
       check();
@@ -86,6 +92,7 @@ export function useFramingAudit(
     };
     const debug: FramingAuditDebug = {
       report: {
+        directionMode: 'prepared',
         packId: pack.packId,
         packVersion: pack.packVersion,
         splatCount: pack.tiers[0].splatCount,
@@ -99,11 +106,13 @@ export function useFramingAudit(
         await showStep(procedureId, stepIndex);
       },
       restore: () => setSession(null),
-      run: async () => {
+      run: async (mode = 'prepared') => {
         if (running.current) {
           throw new Error('Framing audit already running');
         }
         running.current = true;
+        directionMode = mode;
+        debug.report.directionMode = mode;
         debug.report.steps = [];
         debug.report.complete = false;
         delete debug.report.error;

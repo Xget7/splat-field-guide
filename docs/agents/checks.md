@@ -156,11 +156,11 @@ For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload
 
 In a Debug viewer, open Dev and choose Check framing to audit every procedure target at the current viewport size.
 The audit owns framing and highlights until it finishes; avoid procedure or layout changes during the run.
-It uses the guide context distance and home direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
+It uses the guide context distance and prepared step direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
 A visible fraction below 0.3 is flagged, including targets entirely off-screen; an assembly accepts its own and descendant labels.
 These are projected-box occupancy scores, so sparse geometry can score low even without another part in front.
 Each target is logged as a FRAMING_AUDIT JSON line, followed by FRAMING_AUDIT_REPORT for the full report.
-The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` and `globalThis.fieldGuideFraming.report`; retrieve the latter with CDP Runtime.evaluate using returnByValue.
+The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` (`run('home')` records a home-direction baseline on the same pack) and `globalThis.fieldGuideFraming.report`; retrieve the latter with CDP Runtime.evaluate using returnByValue.
 For screenshots, await `globalThis.fieldGuideFraming.showStep(procedureId, zeroBasedStepIndex)` and then call `restore()` when finished.
 From the library, `globalThis.fieldGuideOpenFraming()` opens the first bundled guide for debugger-driven audits.
 Release builds expose neither the audit action nor the debugger hooks.
