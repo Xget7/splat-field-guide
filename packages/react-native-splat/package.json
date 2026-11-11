@@ -10,6 +10,7 @@
     "ios",
     "scripts",
     "engine",
+    "adapter",
     "engine-source.json",
     "nitrogen",
     "nitro.json",
