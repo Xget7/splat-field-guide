@@ -48,6 +48,7 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
 
   override var source = SplatSource("", "", "", "", 0.0)
   override var highlight = doubleArrayOf()
+  override var highlightLook: HighlightLook? = null
   override var cameraLimits: CameraLimits? = null
   override var revealSeconds: Double? = null
   override var onReady: () -> Unit = {}
@@ -75,12 +76,19 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
       floatArrayOf(it.minAzimuth.toFloat(), it.maxAzimuth.toFloat(), it.minElevation.toFloat(),
         it.maxElevation.toFloat(), it.minRadius.toFloat(), it.maxRadius.toFloat())
     }
+    val look = highlightLook
+    // An out-of-range colour maps past 0xFFFFFF so the adapter rejects it rather than wrapping.
+    val tintRgb = look?.tintRgb?.takeIf { it.isFinite() && it in 0.0..MAX_RGB }?.toLong() ?: (MAX_RGB.toLong() + 1)
+    val lookValues = look?.let {
+      floatArrayOf(it.tintAmount.toFloat(), it.partBrightness.toFloat(), it.otherBrightness.toFloat())
+    }
     val labels = highlight.filter { it.isFinite() && it in 1.0..65535.0 && it % 1.0 == 0.0 }
       .map { it.toInt().toShort() }.toShortArray()
     val seconds = (revealSeconds ?: 0.0).toFloat()
     val input = source
     post {
       SplatEngine.limits(engine, limits)
+      SplatEngine.highlightLook(engine, tintRgb, lookValues)
       SplatEngine.highlight(engine, labels)
       SplatEngine.reveal(engine, seconds)
       if (input != loaded && input.splatPath.isNotEmpty()) {
@@ -197,6 +205,7 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     private const val VULKAN_INITIALIZATION_FAILED = "Vulkan initialization failed"
     private const val PACK_LOADING_FAILED = "Pack loading failed"
     private const val MAX_SPLAT_COUNT = 4294967295.0
+    private const val MAX_RGB = 16777215.0
     private const val MAX_FRAMES_PER_SECOND = 60
     // Two milliseconds under the 60 Hz period, so vsync jitter on a 60 Hz panel never skips a frame.
     private const val MIN_FRAME_NANOS = 1_000_000_000L / MAX_FRAMES_PER_SECOND - 2_000_000L

@@ -307,10 +307,33 @@ TEST_F(SfgTest, HighlightsAndClearsParts) {
   const uint16_t part = 1;
   sfg_set_highlight(engine, &part, 1);
   settle();
-  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, HighlightLook{}.tintAmount);
   sfg_set_highlight(engine, nullptr, 0);
   settle();
   EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, 0.0f);
+}
+
+TEST_F(SfgTest, TheHostsHighlightLookStylesPartsAndRejectsOutOfRangeValues) {
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 1, 0}));
+  ASSERT_TRUE(loadReserved(engine, world.c_str(), labels.c_str()));
+  constexpr float kTintAmount = 0.5f;
+  constexpr float kOverBright = 3;
+  const sfg_highlight_look look{0x2A5BD7, kTintAmount, 1.2f, 1.0f};
+  ASSERT_TRUE(sfg_set_highlight_look(engine, &look));
+  sfg_highlight_look tooBright = look;
+  tooBright.other_brightness = kOverBright;
+  EXPECT_FALSE(sfg_set_highlight_look(engine, &tooBright));
+  sfg_highlight_look notRgb = look;
+  notRgb.tint_rgb = 0x1000000;
+  EXPECT_FALSE(sfg_set_highlight_look(engine, &notRgb));
+  const uint16_t part = 1;
+  sfg_set_highlight(engine, &part, 1);
+  settle();
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, kTintAmount);
+  ASSERT_TRUE(sfg_set_highlight_look(engine, nullptr));
+  settle();
+  EXPECT_FLOAT_EQ((*renderer->last.labelStyles)[1].tintAmount, HighlightLook{}.tintAmount);
 }
 
 TEST_F(SfgTest, AHighlightOutlivesTheWorldsLoadedAfterIt) {
@@ -322,11 +345,11 @@ TEST_F(SfgTest, AHighlightOutlivesTheWorldsLoadedAfterIt) {
   ASSERT_TRUE(loadReserved(engine, world.c_str(), labels.c_str()));
   settle();
   ASSERT_NE(renderer->last.labelStyles, nullptr);
-  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, HighlightLook{}.tintAmount);
   ASSERT_TRUE(loadReserved(engine, world.c_str(), labels.c_str()));
   settle();
   ASSERT_NE(renderer->last.labelStyles, nullptr);
-  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, HighlightLook{}.tintAmount);
 }
 
 }  // namespace

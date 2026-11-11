@@ -12,6 +12,8 @@
 namespace margelo::nitro::splat { struct BundledPackManifest; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
 // Forward declaration of `HybridBundledPacksSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridBundledPacksSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
@@ -38,6 +40,7 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 // Include C++ defined types
 #include "BundledPackManifest.hpp"
 #include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include "HybridBundledPacksSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
@@ -123,6 +126,21 @@ namespace margelo::nitro::splat::bridge::swift {
     std::vector<double> vector;
     vector.reserve(size);
     return vector;
+  }
+  
+  // pragma MARK: std::optional<HighlightLook>
+  /**
+   * Specialized version of `std::optional<HighlightLook>`.
+   */
+  using std__optional_HighlightLook_ = std::optional<HighlightLook>;
+  inline std::optional<HighlightLook> create_std__optional_HighlightLook_(const HighlightLook& value) noexcept {
+    return std::optional<HighlightLook>(value);
+  }
+  inline bool has_value_std__optional_HighlightLook_(const std::optional<HighlightLook>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline HighlightLook get_std__optional_HighlightLook_(const std::optional<HighlightLook>& optional) noexcept {
+    return optional.value();
   }
   
   // pragma MARK: std::optional<CameraLimits>

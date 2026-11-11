@@ -35,6 +35,18 @@ export interface CameraLimits {
   maxRadius: number;
 }
 
+/** How highlighted parts and the rest look; brightness scales captured colour, 1 leaves it as captured. */
+export interface HighlightLook {
+  /** 0xRRGGBB. */
+  tintRgb: number;
+  /** [0, 1]: how far a part's captured colour moves toward the tint. */
+  tintAmount: number;
+  /** [0, 2]. */
+  partBrightness: number;
+  /** [0, 2]. */
+  otherBrightness: number;
+}
+
 /** A pack tier's files on disk: absolute, or relative to the app bundle's resources. */
 export interface SplatSource {
   /** The tier's level-of-detail tree, a `.lodsplat` file. */
@@ -60,8 +72,10 @@ export interface SplatError {
 export interface SplatViewProps extends HybridViewProps {
   /** Loaded whenever it changes; the current cloud stays on screen until the new one is. */
   source: SplatSource;
-  /** Parts to emphasise, the rest dimmed; none shows the cloud as captured. */
+  /** Parts to emphasise in the highlight look; none shows the cloud as captured. */
   highlight: PartLabel[];
+  /** Unset keeps the engine's look. */
+  highlightLook?: HighlightLook;
   /** Unset turns freely. */
   cameraLimits?: CameraLimits;
   /** Cloud reveal duration in seconds, from bottom to top; unset shows it at once. */

@@ -51,6 +51,17 @@ typedef struct {
   float max_radius;
 } sfg_camera_limits;
 
+// How highlighted parts and everything else look.
+typedef struct {
+  // 0xRRGGBB.
+  uint32_t tint_rgb;
+  // [0, 1]: how far a part's captured colour moves toward the tint.
+  float tint_amount;
+  // [0, 2] scales captured colour; 1 leaves it as captured.
+  float part_brightness;
+  float other_brightness;
+} sfg_highlight_look;
+
 typedef enum {
   // The loaded world is on screen; the count is its tree's leaves, the splats the capture kept.
   SFG_EVENT_WORLD_READY = 0,
@@ -116,6 +127,10 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
 // Highlights fade between label sets and dim the rest; no labels restore captured styles.
 // A set outlives world loads: it styles the current world and each one loaded after it.
 void sfg_set_highlight(sfg_engine* engine, const uint16_t* SFG_NULLABLE labels, size_t count);
+// Rejects non-finite or out-of-range values and tint_rgb above 0xFFFFFF without changes; NULL
+// restores the engine's defaults. Restyles the current highlight with a fade and every later one,
+// across loads.
+bool sfg_set_highlight_look(sfg_engine* engine, const sfg_highlight_look* SFG_NULLABLE look);
 // Reveal duration uses seconds for a bottom-up sweep; zero shows the world immediately.
 void sfg_set_reveal(sfg_engine* engine, float seconds);
 

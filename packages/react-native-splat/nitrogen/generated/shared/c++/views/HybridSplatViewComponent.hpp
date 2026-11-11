@@ -19,8 +19,9 @@
 
 #include "SplatSource.hpp"
 #include <vector>
-#include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include <optional>
+#include "CameraLimits.hpp"
 #include <functional>
 #include "SplatError.hpp"
 #include <memory>
@@ -48,6 +49,7 @@ namespace margelo::nitro::splat::views {
   public:
     nitro::ReactProp<SplatSource> source;
     nitro::ReactProp<std::vector<double>> highlight;
+    nitro::ReactProp<std::optional<HighlightLook>> highlightLook;
     nitro::ReactProp<std::optional<CameraLimits>> cameraLimits;
     nitro::ReactProp<std::optional<double>> revealSeconds;
     nitro::ReactProp<std::function<void()>> onReady;
@@ -58,6 +60,7 @@ namespace margelo::nitro::splat::views {
     bool hasSameProps(const HybridSplatViewProps& other) const noexcept {
       return source.hasSameValue(other.source) &&
              highlight.hasSameValue(other.highlight) &&
+             highlightLook.hasSameValue(other.highlightLook) &&
              cameraLimits.hasSameValue(other.cameraLimits) &&
              revealSeconds.hasSameValue(other.revealSeconds) &&
              onReady.hasSameValue(other.onReady) &&
@@ -69,6 +72,7 @@ namespace margelo::nitro::splat::views {
     bool hasAnyProvidedProps() const noexcept {
       return source.isProvided() ||
              highlight.isProvided() ||
+             highlightLook.isProvided() ||
              cameraLimits.isProvided() ||
              revealSeconds.isProvided() ||
              onReady.isProvided() ||

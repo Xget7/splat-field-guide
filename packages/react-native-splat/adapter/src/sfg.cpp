@@ -237,6 +237,22 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
   return engineOf(engine).frameBounds(b, seconds, direction);
 }
 
+bool sfg_set_highlight_look(sfg_engine* engine, const sfg_highlight_look* look) {
+  constexpr uint32_t kMaxRgb = 0xFFFFFF;
+  constexpr float kChannelMax = 255;
+  splatkit::HighlightLook l;
+  if (look != nullptr) {
+    if (look->tint_rgb > kMaxRgb) return false;
+    l.tint[0] = ((look->tint_rgb >> 16) & 0xFF) / kChannelMax;
+    l.tint[1] = ((look->tint_rgb >> 8) & 0xFF) / kChannelMax;
+    l.tint[2] = (look->tint_rgb & 0xFF) / kChannelMax;
+    l.tintAmount = look->tint_amount;
+    l.partBrightness = look->part_brightness;
+    l.otherBrightness = look->other_brightness;
+  }
+  return engineOf(engine).setHighlightLook(l);
+}
+
 void sfg_set_highlight(sfg_engine* engine, const uint16_t* labels, size_t count) {
   if (labels == nullptr) count = 0;
   engine->highlight.assign(labels, labels + count);

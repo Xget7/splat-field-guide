@@ -18,6 +18,8 @@ namespace margelo::nitro::splat {
       prototype.registerHybridSetter("source", &HybridSplatViewSpec::setSource);
       prototype.registerHybridGetter("highlight", &HybridSplatViewSpec::getHighlight);
       prototype.registerHybridSetter("highlight", &HybridSplatViewSpec::setHighlight);
+      prototype.registerHybridGetter("highlightLook", &HybridSplatViewSpec::getHighlightLook);
+      prototype.registerHybridSetter("highlightLook", &HybridSplatViewSpec::setHighlightLook);
       prototype.registerHybridGetter("cameraLimits", &HybridSplatViewSpec::getCameraLimits);
       prototype.registerHybridSetter("cameraLimits", &HybridSplatViewSpec::setCameraLimits);
       prototype.registerHybridGetter("revealSeconds", &HybridSplatViewSpec::getRevealSeconds);

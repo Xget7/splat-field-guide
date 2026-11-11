@@ -14,6 +14,8 @@ namespace margelo::nitro::splat { struct Bounds; }
 namespace margelo::nitro::splat { struct BundledPackManifest; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
 // Forward declaration of `HybridBundledPacksSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridBundledPacksSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
@@ -37,6 +39,7 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 #include "Bounds.hpp"
 #include "BundledPackManifest.hpp"
 #include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include "HybridBundledPacksSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"

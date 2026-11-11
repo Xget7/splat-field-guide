@@ -14,6 +14,8 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 
 // Forward declaration of `SplatSource` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `SplatError` to properly resolve imports.
@@ -32,8 +34,9 @@ namespace NitroModules { class ArrayBufferHolder; }
 #include "SplatSource.hpp"
 #include <string>
 #include <vector>
-#include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include <optional>
+#include "CameraLimits.hpp"
 #include <functional>
 #include "SplatError.hpp"
 #include "SplatErrorCode.hpp"
@@ -102,6 +105,13 @@ namespace margelo::nitro::splat {
     }
     inline void setHighlight(const std::vector<double>& highlight) noexcept override {
       _swiftPart.setHighlight(highlight);
+    }
+    inline std::optional<HighlightLook> getHighlightLook() noexcept override {
+      auto __result = _swiftPart.getHighlightLook();
+      return __result;
+    }
+    inline void setHighlightLook(const std::optional<HighlightLook>& highlightLook) noexcept override {
+      _swiftPart.setHighlightLook(highlightLook);
     }
     inline std::optional<CameraLimits> getCameraLimits() noexcept override {
       auto __result = _swiftPart.getCameraLimits();

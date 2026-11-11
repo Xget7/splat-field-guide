@@ -84,7 +84,7 @@ open class HybridSplatViewSpec_cxx {
     }
   }
 
-  
+
 
   /**
    * Get the memory size of the Swift class (plus size of any other allocations)
@@ -131,7 +131,7 @@ open class HybridSplatViewSpec_cxx {
       self.__implementation.source = newValue
     }
   }
-  
+
   public final var highlight: bridge.std__vector_double_ {
     @inline(__always)
     get {
@@ -148,7 +148,24 @@ open class HybridSplatViewSpec_cxx {
       self.__implementation.highlight = newValue.map({ __item in __item })
     }
   }
-  
+
+  public final var highlightLook: bridge.std__optional_HighlightLook_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_HighlightLook_ in
+        if let __unwrappedValue = self.__implementation.highlightLook {
+          return bridge.create_std__optional_HighlightLook_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.highlightLook = newValue.value
+    }
+  }
+
   public final var cameraLimits: bridge.std__optional_CameraLimits_ {
     @inline(__always)
     get {
@@ -165,7 +182,7 @@ open class HybridSplatViewSpec_cxx {
       self.__implementation.cameraLimits = newValue.value
     }
   }
-  
+
   public final var revealSeconds: bridge.std__optional_double_ {
     @inline(__always)
     get {
@@ -189,7 +206,7 @@ open class HybridSplatViewSpec_cxx {
       }()
     }
   }
-  
+
   public final var onReady: bridge.Func_void {
     @inline(__always)
     get {
@@ -208,7 +225,7 @@ open class HybridSplatViewSpec_cxx {
       }()
     }
   }
-  
+
   public final var onError: bridge.Func_void_SplatError {
     @inline(__always)
     get {
@@ -239,7 +256,7 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_void_(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func dolly(factor: Double) -> bridge.Result_void_ {
     do {
@@ -250,7 +267,7 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_void_(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func frame(bounds: Bounds, seconds: Double, from: bridge.std__optional_ViewDirection_) -> bridge.Result_void_ {
     do {
@@ -261,7 +278,7 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_void_(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func pick(x: Double, y: Double) -> bridge.Result_std__shared_ptr_Promise_double___ {
     do {
@@ -280,7 +297,7 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_std__shared_ptr_Promise_double___(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func project(points: ArrayBuffer, out: ArrayBuffer) -> bridge.Result_double_ {
     do {
@@ -292,7 +309,7 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_double_(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func drawnDirection() -> bridge.Result_std__optional_ViewDirection__ {
     do {
@@ -310,24 +327,24 @@ open class HybridSplatViewSpec_cxx {
       return bridge.create_Result_std__optional_ViewDirection__(__exceptionPtr)
     }
   }
-  
+
   public final func getView() -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(__implementation.view).toOpaque()
   }
-  
+
   public final func beforeUpdate() {
     __implementation.beforeUpdate()
   }
-  
+
   public final func afterUpdate() {
     __implementation.afterUpdate()
   }
-  
+
   public final func maybePrepareForRecycle() {
     guard let recyclable = __implementation as? any RecyclableView else { return }
     recyclable.prepareForRecycle()
   }
-  
+
   public final func onDropView() {
     __implementation.onDropView()
   }

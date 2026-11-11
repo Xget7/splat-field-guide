@@ -15,6 +15,8 @@
 
 // Forward declaration of `SplatSource` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `SplatError` to properly resolve imports.
@@ -26,8 +28,9 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 
 #include "SplatSource.hpp"
 #include <vector>
-#include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include <optional>
+#include "CameraLimits.hpp"
 #include <functional>
 #include "SplatError.hpp"
 #include "Bounds.hpp"
@@ -66,6 +69,8 @@ namespace margelo::nitro::splat {
       virtual void setSource(const SplatSource& source) = 0;
       virtual std::vector<double> getHighlight() = 0;
       virtual void setHighlight(const std::vector<double>& highlight) = 0;
+      virtual std::optional<HighlightLook> getHighlightLook() = 0;
+      virtual void setHighlightLook(const std::optional<HighlightLook>& highlightLook) = 0;
       virtual std::optional<CameraLimits> getCameraLimits() = 0;
       virtual void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) = 0;
       virtual std::optional<double> getRevealSeconds() = 0;

@@ -64,6 +64,11 @@ void JHybridSplatViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass> /
     hybridView->setHighlight(newProps->highlight.get());
   }
   if (oldProps == nullptr
+        ? newProps->highlightLook.isProvided()
+        : !newProps->highlightLook.hasSameValue(oldProps->highlightLook)) {
+    hybridView->setHighlightLook(newProps->highlightLook.get());
+  }
+  if (oldProps == nullptr
         ? newProps->cameraLimits.isProvided()
         : !newProps->cameraLimits.hasSameValue(oldProps->cameraLimits)) {
     hybridView->setCameraLimits(newProps->cameraLimits.get());
