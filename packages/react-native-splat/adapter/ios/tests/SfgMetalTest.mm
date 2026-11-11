@@ -1,0 +1,103 @@
+#include <gtest/gtest.h>
+
+#import <QuartzCore/CAMetalLayer.h>
+
+#include <chrono>
+#include <fstream>
+#include <cstdio>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "TestWorlds.h"
+#include "sfg/sfg_metal.h"
+
+namespace splatkit {
+namespace {
+
+constexpr int64_t kVsyncNanos = 16666667;
+constexpr uint32_t kSide = 256;
+constexpr uint32_t kPointCount = 2;
+constexpr uint16_t kFirstPart = 1;
+constexpr uint16_t kSecondPart = 2;
+// Vsyncs to wait for the GPU, a millisecond each, before calling the world lost.
+constexpr int kMaxVsyncs = 5000;
+constexpr auto kGpuPoll = std::chrono::milliseconds(1);
+
+std::vector<std::string> files;
+
+std::string writeFile(const std::string& name, const std::vector<uint8_t>& bytes) {
+  const std::string path = ::testing::TempDir() + name;
+  std::ofstream(path, std::ios::binary)
+      .write(reinterpret_cast<const char*>(bytes.data()),
+             static_cast<std::streamsize>(bytes.size()));
+  files.push_back(path);
+  return path;
+}
+
+class SfgMetalTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    engine = sfg_metal_create();
+    if (engine == nullptr) GTEST_SKIP() << "Apple GPU family 7 unavailable";
+    sfg_set_event_callback(
+        engine,
+        [](void* context, sfg_event kind, const char*, uint32_t) {
+          static_cast<std::vector<sfg_event>*>(context)->push_back(kind);
+        },
+        &events);
+    layer = [CAMetalLayer layer];
+    layer.drawableSize = CGSizeMake(kSide, kSide);
+    sfg_metal_set_layer(engine, layer);
+    sfg_metal_set_drawable_size(engine, kSide, kSide);
+  }
+  void TearDown() override {
+    if (engine != nullptr) {
+      sfg_metal_set_layer(engine, nil);
+      sfg_destroy(engine);
+    }
+    for (const auto& path : files) std::remove(path.c_str());
+    files.clear();
+  }
+
+  void settle() {
+    for (int i = 0; i < kMaxVsyncs && sfg_needs_frame(engine); ++i) {
+      if (!sfg_draw(engine, ++vsync * kVsyncNanos)) std::this_thread::sleep_for(kGpuPoll);
+    }
+  }
+
+  sfg_engine* engine = nullptr;
+  CAMetalLayer* layer = nil;
+  std::vector<sfg_event> events;
+  int64_t vsync = 0;
+};
+
+TEST_F(SfgMetalTest, AWorldIsReadyOnceTheGpuHasDrawnItThenTheViewRests) {
+  const std::string world = writeFile("metal-solid.lodsplat", test::solidPairBytes());
+  // Node order: the merged root's label, then each leaf's.
+  const std::string labels = writeFile("metal-solid.labels.bin", test::labelBytes({kFirstPart, kFirstPart, kSecondPart}));
+  ASSERT_TRUE(sfg_load_request(engine, sfg_begin_load(engine), world.c_str(), labels.c_str(), nullptr));
+  settle();
+  ASSERT_EQ(events, std::vector<sfg_event>{SFG_EVENT_WORLD_READY});
+  EXPECT_FALSE(sfg_needs_frame(engine));
+  float at[kPointCount * 2];
+  ASSERT_EQ(sfg_project(engine, test::kPairPoints, kPointCount, at), kPointCount);
+  EXPECT_EQ(sfg_pick(engine, at[0], at[1]), kFirstPart);
+  EXPECT_EQ(sfg_pick(engine, at[2], at[3]), kSecondPart);
+}
+
+TEST_F(SfgMetalTest, ADetachedWorldBecomesReadyOnlyAfterReattaching) {
+  sfg_metal_set_layer(engine, nil);
+  const std::string world = writeFile("metal-pair.lodsplat", test::pairBytes());
+  ASSERT_TRUE(sfg_load_request(engine, sfg_begin_load(engine), world.c_str(), nullptr, nullptr));
+  // Pending asynchronous loads still request frames, but cannot present without a surface.
+  EXPECT_FALSE(sfg_draw(engine, ++vsync * kVsyncNanos));
+  EXPECT_TRUE(events.empty());
+  sfg_metal_set_layer(engine, layer);
+  EXPECT_TRUE(sfg_needs_frame(engine));
+  settle();
+  EXPECT_EQ(events, std::vector<sfg_event>{SFG_EVENT_WORLD_READY});
+}
+
+}  // namespace
+}  // namespace splatkit
