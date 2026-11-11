@@ -13,7 +13,7 @@ jest.mock('react-native-nitro-modules', () => ({
 }));
 
 const pack = fixturePack();
-const catalog = catalogFor(pack);
+const catalog = catalogFor([pack]);
 
 test('bundled procedure rows preserve order, counts and safety notes', () => {
   expect(procedureRowsFor(pack)).toEqual([

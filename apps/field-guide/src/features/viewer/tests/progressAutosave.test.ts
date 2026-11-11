@@ -9,7 +9,7 @@ import {
 import { createViewerStore } from '../state/viewerStore';
 
 const pack = fixturePack();
-const guide = findReadyGuide(catalogFor(pack), pack.packId)!;
+const guide = findReadyGuide(catalogFor([pack]), pack.packId)!;
 const COOLANT = 'check-coolant';
 const CLEARED = 'cleared';
 

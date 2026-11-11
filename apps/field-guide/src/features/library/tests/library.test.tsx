@@ -19,7 +19,7 @@ jest.mock('react-native-nitro-modules', () => ({
 }));
 
 const pack = fixturePack();
-const catalog = catalogFor(pack);
+const catalog = catalogFor([pack]);
 const guide = catalog[0] as ReadyGuide;
 const progress = {
   guideId: pack.packId,

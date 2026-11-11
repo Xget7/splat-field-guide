@@ -41,18 +41,18 @@ const SCREEN_OPTIONS = {
 const VIEWER_OPTIONS = { gestureEnabled: false } as const;
 
 export function RootNavigator({
-  pack,
+  packs,
   progress,
 }: {
-  pack?: Pack;
+  packs: readonly Pack[];
   progress: ProgressStorage;
 }) {
   const context = useMemo<RouteContext>(
     () => ({
-      catalog: catalogFor(pack),
+      catalog: catalogFor(packs),
       progress,
     }),
-    [pack, progress],
+    [packs, progress],
   );
   return (
     <NavigationContainer theme={NAVIGATION_THEME}>

@@ -4,6 +4,8 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
 import { instructorStore } from '../../features/instructor';
 import { createAppInstructor } from '../startup/instructor';
+import { getBundledPacks } from 'react-native-splat';
+import { fixtureCopy } from '@tests/fixturePack';
 
 // The real instructor, with its lifecycle observable.
 jest.mock('../startup/instructor', () => {
@@ -89,6 +91,38 @@ describe('app', () => {
     expect(
       renderer.root.findAllByType(Text).map(item => item.props.children),
     ).toContain('The 3D scene is not available on this device yet.');
+  });
+
+  test('a bundled pack opens in the library as a guide', async () => {
+    jest.mocked(getBundledPacks).mockReturnValueOnce({
+      manifests: () => [
+        { directory: 'fixture/1', manifest: JSON.stringify(fixtureCopy()) },
+      ],
+    } as unknown as ReturnType<typeof getBundledPacks>);
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    expect(
+      renderer.root.findAllByProps({ testID: 'guide-card-fixture' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'library-empty' }),
+    ).toHaveLength(0);
+  });
+
+  test('a broken bundled pack shows why instead of the library', async () => {
+    jest.mocked(getBundledPacks).mockReturnValueOnce({
+      manifests: () => [{ directory: 'fixture/1', manifest: '{' }],
+    } as unknown as ReturnType<typeof getBundledPacks>);
+    await act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
+    expect(
+      renderer.root.findByProps({ testID: 'pack-error' }).props.children,
+    ).toBe('fixture/1: manifest is not JSON');
+    expect(
+      renderer.root.findAllByProps({ testID: 'library-screen' }),
+    ).toHaveLength(0);
   });
 
   test('does not expose discarded AR or standalone benchmark routes', async () => {

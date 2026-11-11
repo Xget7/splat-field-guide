@@ -36,20 +36,16 @@ export interface ReadyGuide extends GuideBase {
 export type Guide = ReadyGuide;
 
 /** Catalog entries come only from explicitly supplied, validated packs. */
-export function catalogFor(pack?: Pack): readonly Guide[] {
-  return pack
-    ? [
-        {
-          id: pack.packId,
-          status: GuideStatus.ready,
-          category: Category.equipment,
-          title: pack.title,
-          subtitle: '',
-          area: '',
-          pack,
-        },
-      ]
-    : [];
+export function catalogFor(packs: readonly Pack[]): readonly Guide[] {
+  return packs.map(pack => ({
+    id: pack.packId,
+    status: GuideStatus.ready,
+    category: Category.equipment,
+    title: pack.title,
+    subtitle: '',
+    area: '',
+    pack,
+  }));
 }
 
 export function findReadyGuide(
