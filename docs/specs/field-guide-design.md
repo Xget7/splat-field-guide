@@ -117,6 +117,9 @@ Distance matches the engine's bounding-sphere frame of the doubled context bound
 A CPU label buffer composites contributions nearest-first and samples the projected target union's box on a 12 by 12 grid, accepting descendant labels for assemblies, and rejects a camera inside a half-opacity support ellipsoid.
 Among combined quality scores within 0.0001, directions closer to home take precedence.
 Visibility is a hard floor: if any safe candidate reaches 0.3 projected-box coverage, only those candidates may compete on quality.
+Within that union eligibility set, a multi-part step must show every individual target above 0.3 whenever a candidate can do so.
+If simultaneous target floors are impossible, candidates maximize the weakest target's projected-box coverage within one grid sample before competing on quality, preventing a well-covered union from sacrificing one target.
+The receipt records each root target's coverage and whether an all-targets-visible candidate exists.
 Quality is `0.45 * boxCoverage + 0.20 * frontMostSplats + 0.25 * captureSupport + 0.10 * crispPixels`, with named weights in the preparation module.
 Self-occlusion tests every target-labelled splat centre and rejects same-label surfaces that win substantially in front of that centre, using a three-sigma depth tolerance.
 Capture support averages Gaussian angular support with a 20 degree sigma over the nearest three training views whose frusta contain the target centre and whose distance is between one half and twice the framing distance.
