@@ -117,7 +117,12 @@ Keep source provenance for referenced pack inputs and attribution for shipped re
 
 ## Acceptance
 
-No Miris pack opening on a simulator or physical device is recorded.
+The full Miris pack opened on the landscape Field Guide iPad simulator in an isolated development app.
+Its home-direction framing baseline flagged 70 of 84 procedure steps and 88 of 116 target measurements below 0.3 on 3,311,590 leaves.
+The reports and geometry snapshots are in `/Users/xget/Documents/splat-field-guide/.work/plans/framing-audit-v2/`.
+Schema 3 directions, shared guide and audit direction selection, native candidate measurement and native-input export have source coverage: 843 app tests, lint, types, 159 pipeline tests and the full-pack validator pass.
+The isolated iOS Debug build passed, but the concurrent-pick update has not been installed for the full candidate run.
+The 54-set, 594-candidate native measurement pass, native-selected re-export, final prepared audit, remaining-target screenshots and physical acceptance are pending.
 
 - [ ] Open the integrated Miris pack on a simulator for functional review, then on target hardware for physical acceptance.
 - [ ] Verify orbit, pinch, part picking, every accepted highlight, procedure framing and mount/unmount recovery on physical target hardware.

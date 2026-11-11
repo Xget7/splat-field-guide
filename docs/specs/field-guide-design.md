@@ -112,28 +112,32 @@ The consumer parser, also loaded by `scripts/validate-pack.cjs`, rejects missing
 Selection takes precedence over the active step for bounds, highlights and direction, while an overview uses home.
 A subsequent push-in preserves the user's orbit.
 
-Export scores candidate directions across the allowed azimuth and elevation intervals, including home and the boundaries, using the placed cloud's positions, anisotropic scales, rotations and opacities.
-Distance matches the engine's bounding-sphere frame of the doubled context bounds, including radius clamping and its 65 degree vertical field of view.
-A CPU label buffer composites contributions nearest-first and samples the projected target union's box on a 12 by 12 grid, accepting descendant labels for assemblies, and rejects a camera inside a half-opacity support ellipsoid.
-Scoring retains the whole cloud, because composited background contributions can change the winning label even behind a translucent target.
-A conservative infinite-frustum packet index skips only Gaussian support spheres that cannot intersect any sampled ray, including the self-occlusion samples.
-Among combined quality scores within 0.0001, directions closer to home take precedence.
-Visibility is a hard floor: if any safe candidate reaches 0.3 projected-box coverage, only those candidates may compete on quality.
-Within that union eligibility set, a multi-part step must show every individual target above 0.3 whenever a candidate can do so.
-If simultaneous target floors are impossible, candidates maximize the weakest target's projected-box coverage within one grid sample before competing on quality, preventing a well-covered union from sacrificing one target.
-The receipt records each root target's coverage and whether an all-targets-visible candidate exists.
-Quality is `0.45 * boxCoverage + 0.20 * frontMostSplats + 0.25 * captureSupport + 0.10 * crispPixels`, with named weights in the preparation module.
-Self-occlusion tests every target-labelled splat centre and rejects same-label surfaces that win substantially in front of that centre, using a three-sigma depth tolerance.
+Preparation shortlists ten alternative directions at least 20 degrees apart plus home for each distinct target set, using capture support and projected target-splat quality.
+It retains the whole delivered cloud and uses the app's doubled-context bounding-sphere framing distance, radius limits and 65 degree vertical field of view.
+The shortlist checks whether each camera lies inside a half-opacity Gaussian support ellipsoid; those directions remain diagnosable but cannot win selection.
+The CPU visibility approximation is no longer used to choose export directions.
+A development-only native candidate pass frames each candidate instantly, waits for its published drawn pose and centred target projection, then samples the normal 12 by 12 native-pick grid independently for every root target.
+Assemblies accept descendant labels through the same guide highlight contract as the normal audit.
+Bounded batches of eight immutable native picks reduce measurement overhead without changing the grid or scoring.
+
+A complete measurement pass must match the pack identity, geometry hashes, viewport, target sets, candidate IDs, requested poses and CPU quality components.
+Every target must reach 0.3 projected-box coverage whenever any safe measured candidate can show all targets at that floor.
+If simultaneous floors are impossible, selection maximizes the weakest target exactly before considering quality.
+Eligible quality is `0.55 * nativeCoverage + 0.30 * captureSupport + 0.15 * crispPixels`, with named constants in preparation.
+Native coverage is the mean per-target projected-box occupancy, preventing a union score from hiding an absent target.
+Within 0.0001 quality, home proximity breaks ties.
 Capture support averages Gaussian angular support with a 20 degree sigma over the nearest three training views whose frusta contain the target centre and whose distance is between one half and twice the framing distance.
-The original capture poses and target centres share the pack placement transform; absent qualifying captures score zero rather than inventing support.
-Crisp pixels are the share of winning target samples whose strongest contributing splat has opacity at least 0.5 and projected support diameter at most six pixels at a reference viewport height of 768 points.
-These thresholds flag haze and broad footprints as preparation heuristics, not measured image sharpness.
-The report keeps every chosen component, combined score, diffuse share, nearest capture angle, supporting capture count and best available visibility.
-The publication receipt retains the chosen score and safe-candidate count for every part and step, explicitly flagging scores below 0.3, including zero.
-This finite search does not prove that a target is enclosed or that no continuous direction could improve it.
-The CPU label buffer uses the native ray-to-Gaussian distance and sphere rejection formulas with normalized rays, float32 arithmetic and the delivered tree leaves, including quantized positions, covariance and opacity; native development audits remain the visibility evidence at the measured viewport.
-The export accepts `--view-aspect` for the reference viewer width divided by height, defaults to a square viewport and records it in the receipt.
-The audit export uses 982/1024, matching the landscape iPad split viewport; other viewport shapes require separate native validation.
+The capture poses and target centres share the pack placement transform; absent qualifying captures score zero.
+The shortlist's crispness proxy is the share of projected target splats with opacity at least 0.5 and three-sigma support diameter at most six pixels at a reference viewport height of 768 points.
+This target-only proxy does not measure front-most pixel sharpness, and native coverage alone does not establish image quality or how much of the target's own surface is visible.
+Those limitations remain explicit rather than treating the CPU approximation as native reconstruction-quality evidence.
+
+The exporter accepts `--native-views` containing the shortlist, complete native measurements and derived selections, rechecks their binding and copies directions into schema 3.
+Its receipt records the native measurements, component scores, best measured weakest-target coverage, safe-candidate count and every target set below 0.3, including zero.
+Without that input, export creates an explicitly unmeasured home-direction bootstrap for acquiring geometry and candidate measurements, with no CPU visibility rescore.
+The final normal prepared audit checks the re-exported pack through the same direction source as the guide.
+The reference landscape iPad split viewport is 982 by 1024 points; other viewport shapes require separate native validation.
+A finite shortlist does not prove enclosure or that no continuous camera direction could improve a target.
 
 ## Semantic data
 
