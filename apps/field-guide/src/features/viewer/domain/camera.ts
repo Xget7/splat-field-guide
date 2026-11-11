@@ -49,3 +49,10 @@ export function inContext(bounds: Bounds, scale = CONTEXT_SCALE): Bounds {
   ) as unknown as Vec3;
   return { min: scaled(bounds.min, centre), max: scaled(bounds.max, centre) };
 }
+
+/** Guided steps and the dev audit share the renderer inputs, including context distance. */
+export function guideFrameBounds(bounds: Bounds, closeUp = false): SplatBounds {
+  return boundsForView(
+    inContext(bounds, closeUp ? CLOSE_UP_SCALE : CONTEXT_SCALE),
+  );
+}

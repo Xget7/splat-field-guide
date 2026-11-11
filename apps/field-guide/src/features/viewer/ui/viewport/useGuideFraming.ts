@@ -4,13 +4,10 @@ import { framingFor, type SessionState } from '../../../guide';
 import type { Bounds, Pack } from '../../../pack/pack';
 
 import {
-  boundsForView,
-  CLOSE_UP_SCALE,
   CLOSE_UP_SECONDS,
-  CONTEXT_SCALE,
   FRAME_SECONDS,
   homeDirectionInRadians,
-  inContext,
+  guideFrameBounds,
   INITIAL_FRAME_SECONDS,
 } from '../../domain/camera';
 import type { Size } from '../../domain/screenGeometry';
@@ -45,6 +42,7 @@ export function useGuideFraming(
 
   useEffect(() => {
     if (view === null || framing === null || width === 0 || height === 0) {
+      framed.current = null;
       return;
     }
     const previous = framed.current;
@@ -70,9 +68,7 @@ export function useGuideFraming(
     ) {
       return;
     }
-    const bounds = boundsForView(
-      inContext(framing, closeUp ? CLOSE_UP_SCALE : CONTEXT_SCALE),
-    );
+    const bounds = guideFrameBounds(framing, closeUp);
     const pushIn = !changedScene && !changedSize;
     const seconds =
       previous?.view !== view
