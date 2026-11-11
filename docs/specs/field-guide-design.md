@@ -116,6 +116,7 @@ Export scores candidate directions across the allowed azimuth and elevation inte
 Distance matches the engine's bounding-sphere frame of the doubled context bounds, including radius clamping and its 65 degree vertical field of view.
 A CPU label buffer composites contributions nearest-first and samples the projected target union's box on a 12 by 12 grid, accepting descendant labels for assemblies, and rejects a camera inside a half-opacity support ellipsoid.
 Scoring retains the whole cloud, because composited background contributions can change the winning label even behind a translucent target.
+A conservative infinite-frustum packet index skips only Gaussian support spheres that cannot intersect any sampled ray, including the self-occlusion samples.
 Among combined quality scores within 0.0001, directions closer to home take precedence.
 Visibility is a hard floor: if any safe candidate reaches 0.3 projected-box coverage, only those candidates may compete on quality.
 Within that union eligibility set, a multi-part step must show every individual target above 0.3 whenever a candidate can do so.
