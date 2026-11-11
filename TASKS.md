@@ -190,13 +190,14 @@ Pipeline label, tree-export and lifting checks pass with this worktree as `FIELD
 
 ## Example machine responsibilities
 
-The authored recreation in `splat-tools` revision `dc541fa` gives R01 underbody floor/sill joints, R02 door-opening frames, R03 upper pillars/roof rails and R04 rear-quarter/crossmember joints.
+The authored recreation in `splat-tools` revision `5ef447d` gives R01 underbody floor/sill joints, R02 door-opening frames, R03 upper pillars/roof rails and R04 rear-quarter/crossmember joints.
 All 44 segmented parts have purpose notes tied to `miris-example-process-v1`, and a seven-step learning procedure links the four responsibilities to their stable robot, arm, wrist and gun IDs.
 The 43 dataset images were reviewed for scene context; task allocation is invented at the owner's request and does not establish the true production cycle.
-The locally integrated `miris-pilot/1` manifest SHA-256 is `f2cfb96aeabfaa7292e0b043c9d6e3f50fb685e729370d5bbca4e5b1a1f12093`; geometry, labels, part bounds, anchors and camera match the prior verified pack.
+The locally integrated `miris-pilot/1` manifest SHA-256 is `35c3f6ac8e7d9c6e5ac3da900dfe3fed7bb1913c0defd180333c38aa62dec995`; geometry, labels, part bounds, anchors and camera match the prior verified pack.
 The 88 vectors were regenerated offline in `teaching-02/vectors-machine-roles-v3`, and four English role queries rank the intended robot first across all text rows.
 Component visual retrieval retains the preceding export's ranking results after removing task prose from component embedding sentences.
-Full consumer validation passes; source checks pass 835 app tests, app lint/types, ten pack-tooling tests, 23 preparation tests and 128 subtests.
+Full consumer validation passes; source checks pass 835 app tests, app lint/types, ten pack-tooling tests, 24 preparation tests and 128 subtests.
 The preparation run skips one optional Turtle parser check and excludes the pre-existing LOD builder CLI mismatch after recording its failure.
+The unsigned iOS Simulator Debug build passes, and its bundled pack passes full consumer validation with the exact final manifest digest.
 Device verification is blocked by `DEVICE_IN_USE` on the Field Guide iPad after one bounded retry; no other session was reused or closed, and physical acceptance remains open.
 The refresh command preserves the existing representation while rebuilding content, graph and vector references; surrounding factory objects still require accepted segmentation before they can be selected.
