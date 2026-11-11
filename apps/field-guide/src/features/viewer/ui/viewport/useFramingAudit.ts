@@ -13,6 +13,11 @@ import {
   FRAMING_VISIBILITY_THRESHOLD,
 } from '../../domain/framingAudit';
 import type { Size } from '../../domain/screenGeometry';
+import {
+  measureCandidateSets,
+  type CandidateInput,
+  type CandidateReport,
+} from '../../domain/candidateAudit';
 
 const SETTLE_MARGIN_MS = 500;
 const HIGHLIGHT_COMMIT_MS = 100;
@@ -28,6 +33,8 @@ type AuditRow = Awaited<ReturnType<typeof measureFraming>> & {
   drawnDirection?: FrameDirection;
 };
 interface FramingAuditDebug {
+  measureCandidates: (input: CandidateInput) => Promise<void>;
+  candidateReport?: CandidateReport;
   run: (directionMode?: 'prepared' | 'home') => Promise<void>;
   showStep: (procedureId: string, stepIndex: number) => Promise<void>;
   restore: () => void;
@@ -103,6 +110,38 @@ export function useFramingAudit(
       return state;
     };
     const debug: FramingAuditDebug = {
+      measureCandidates: async input => {
+        if (running.current) throw new Error('Framing audit already running');
+        running.current = true;
+        const report: CandidateReport = {
+          packId: pack.packId,
+          packVersion: pack.packVersion,
+          geometry: input.geometry,
+          viewport: size,
+          sets: [],
+          complete: false,
+        };
+        debug.candidateReport = report;
+        try {
+          await measureCandidateSets(
+            view,
+            pack,
+            size,
+            input,
+            setSession,
+            check,
+            report,
+          );
+          console.log(`FRAMING_CANDIDATE_REPORT ${JSON.stringify(report)}`);
+        } catch (error) {
+          report.error = String(error);
+          console.log(`FRAMING_CANDIDATE_ERROR ${JSON.stringify(report)}`);
+          throw error;
+        } finally {
+          running.current = false;
+          if (!cancelled) setSession(null);
+        }
+      },
       report: {
         directionMode: 'prepared',
         packId: pack.packId,

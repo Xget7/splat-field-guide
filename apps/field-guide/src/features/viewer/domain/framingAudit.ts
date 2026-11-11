@@ -68,14 +68,23 @@ export async function measureFraming(
   bounds: Bounds,
   state: SessionState,
   pack: Pack,
+  concurrency = 1,
 ) {
   const corners = boundsCorners(bounds);
   const projected = new Float32Array((corners.length / 3) * 2);
   view.project(corners.buffer as ArrayBuffer, projected.buffer);
   const labels: number[] = [];
-  // Sequential reads avoid flooding the native worker with outstanding pick requests.
-  for (const point of framingSamples(projected)) {
-    labels.push(await view.pick(point.x, point.y));
+  const samples = framingSamples(projected);
+  // Candidate audits bound the number of immutable native reads in flight; the normal
+  // audit retains sequential reads and the exact same grid and scoring rules.
+  for (let i = 0; i < samples.length; i += concurrency) {
+    labels.push(
+      ...(await Promise.all(
+        samples
+          .slice(i, i + concurrency)
+          .map(point => view.pick(point.x, point.y)),
+      )),
+    );
   }
   return framingVisibility(labels, highlightFor(state, pack));
 }
