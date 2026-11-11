@@ -1,4 +1,5 @@
 require "digest"
+require_relative "engine-source"
 
 # Preparation and CocoaPods share a fingerprint independent of git state.
 module EngineArtifact
@@ -11,13 +12,14 @@ module EngineArtifact
   DEPLOYMENT_TARGET = "17.0"
 
   def self.fingerprint(package)
+    EngineSource.verify!(package) if File.exist?(File.join(package, EngineSource::RECEIPT))
     # Android sources, build trees and tests never reach the iOS framework.
     files = Dir.glob(File.join(package, "engine", "**", "*")).select do |file|
       parts = file.delete_prefix("#{package}/").split(File::SEPARATOR)
       File.file?(file) && parts[1] != "splatkit-android" && (parts & %w[build tests]).empty? &&
         (SOURCE_EXTENSIONS.include?(File.extname(file)) || File.basename(file) == "CMakeLists.txt")
     end
-    files += %w[build-ios-engine.sh engine-artifact.rb package-ios-engine.cjs].map { |name| File.join(package, "scripts", name) }
+    files += %w[build-ios-engine.sh engine-artifact.rb engine-source.rb package-ios-engine.cjs].map { |name| File.join(package, "scripts", name) }
     digest = Digest::SHA256.new
     files.sort.each do |file|
       digest.update(file.delete_prefix("#{package}/"))
@@ -45,6 +47,12 @@ if $PROGRAM_NAME == __FILE__
   case ARGV.shift
   when nil
     puts EngineArtifact.fingerprint(package)
+  when "--import-source"
+    repository, revision = ARGV
+    abort "Expected repository and full commit SHA" unless repository && revision && ARGV.length == 2
+    puts EngineSource.import!(package, repository, revision)
+  when "--verify-source"
+    puts EngineSource.verify!(package)
   when "--verify"
     EngineArtifact.verify!(package)
   when "--deployment-target"
@@ -54,6 +62,6 @@ if $PROGRAM_NAME == __FILE__
     raise "Expected a framework path and source fingerprint" unless output && fingerprint&.match?(/\A[0-9a-f]{64}\z/)
     File.write(File.join(output, EngineArtifact::FINGERPRINT_FILE), "#{fingerprint}\n")
   else
-    abort "Usage: engine-artifact.rb [--verify | --deployment-target | --record <framework> <fingerprint>]"
+    abort "Usage: engine-artifact.rb [--import-source <repository> <commit> | --verify-source | --verify | --deployment-target | --record <framework> <fingerprint>]"
   end
 end

@@ -10,6 +10,7 @@
     "ios",
     "scripts",
     "engine",
+    "engine-source.json",
     "nitrogen",
     "nitro.json",
     "ReactNativeSplat.podspec",
