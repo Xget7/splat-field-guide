@@ -17,7 +17,6 @@ if ! $force && ruby "$identity" --verify 2>/dev/null; then
   exit 0
 fi
 fingerprint="$(ruby "$identity")"
-engine="$package/engine"
 build="${SPLAT_IOS_BUILD_DIR:-$package/build/ios-engine}"
 jobs="${SPLAT_BUILD_JOBS:-$(sysctl -n hw.ncpu)}"
 output="$package/ios/Frameworks/SplatKitCore.xcframework"
@@ -31,28 +30,35 @@ for sdk in "${sdks[@]}"; do
   if [[ -f "$tree/sdk-path" && "$(cat "$tree/sdk-path")" != "$sdk_path" ]]; then
     rm -rf "$tree"
   fi
+  # A previously prepared checkout configured the engine directly, before the adapter owned it.
+  if [[ -f "$tree/CMakeCache.txt" ]] &&
+     ! grep -Fqx "CMAKE_HOME_DIRECTORY:INTERNAL=$package/adapter/ios" "$tree/CMakeCache.txt"; then
+    rm -rf "$tree"
+  fi
   mkdir -p "$tree"
   echo "$sdk_path" > "$tree/sdk-path"
-  cmake -S "$engine/splatkit-ios" -B "$tree" \
+  cmake -S "$package/adapter/ios" -B "$tree" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS \
     -DCMAKE_OSX_SYSROOT="$sdk" -DCMAKE_OSX_ARCHITECTURES=arm64 \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
     -DCMAKE_C_COMPILER_WORKS=ON -DCMAKE_CXX_COMPILER_WORKS=ON
-  cmake --build "$tree" --parallel "$jobs" --target splatkit_ios
+  cmake --build "$tree" --parallel "$jobs" --target sfg_metal
   xcrun libtool -static -no_warning_for_no_symbols -o "$tree/libSplatKitCore.a" \
-    "$tree/libsplatkit_ios.a" \
-    "$tree/splatkit-engine/libsplatkit_engine.a" \
-    "$tree/splatkit-engine/splat-core/libsplat_core.a" \
+    "$tree/libsfg_metal.a" \
+    "$tree/adapter/libsfg_adapter.a" \
+    "$tree/splatkit-ios/libsplatkit_ios.a" \
+    "$tree/splatkit-ios/splatkit-engine/libsplatkit_engine.a" \
+    "$tree/splatkit-ios/splatkit-engine/splat-core/libsplat_core.a" \
     "$tree/_deps/spz-build/libspz.a" \
     "$tree/_deps/zstd-build/lib/libzstd.a"
 done
 
 rm -rf "$build/headers"
-mkdir -p "$build/headers/splatkit"
-cp "$engine/splatkit-ios/module.modulemap" "$build/headers/"
-cp "$engine/splatkit-engine/include/splatkit/sfg.h" \
-  "$engine/splatkit-ios/Sources/SplatKitCore/include/splatkit/sfg_metal.h" \
-  "$build/headers/splatkit/"
+mkdir -p "$build/headers/sfg"
+cp "$package/adapter/ios/module.modulemap" "$build/headers/"
+cp "$package/adapter/include/sfg/sfg.h" \
+  "$package/adapter/ios/include/sfg/sfg_metal.h" \
+  "$build/headers/sfg/"
 
 candidate="$build/SplatKitCore.xcframework"
 rm -rf "$candidate"

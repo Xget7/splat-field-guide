@@ -59,10 +59,10 @@ nice -n 19 ctest --test-dir build/tests --output-on-failure
 
 This includes the imported core and engine suites and the adapter contract tests, using upstream portable SHA-256.
 
-Metal and the shared core on the Mac, from root:
+Metal, the iOS adapter and the shared core on the Mac, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
+nice -n 19 cmake -S packages/react-native-splat/adapter/ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release -DSFG_METAL_BUILD_TESTS=ON
 nice -n 19 cmake --build packages/react-native-splat/build/checks --parallel 2
 nice -n 19 ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 ```
