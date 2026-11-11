@@ -48,11 +48,12 @@ export const Color = {
 // A light-to-deep edge on the primary action, within the primary's hue.
 export const Sheen = ['#FFF3A6', '#FFD60A', '#B89400'] as const;
 
-// Selected parts in the 3D view: a navy tint lifted a little, with the rest of the scene left exactly as captured.
-// Pure navy, 0x000080, would darken the part below its surroundings, so the tint is a lighter navy.
+// Selected parts in the 3D view: a light navy wash lifted a little, with the rest of the scene left exactly as captured.
+// The wash keeps 80 % of the captured colour so the part's surface detail stays readable under it;
+// pure navy, 0x000080, would darken the part below its surroundings, so the tint is a lighter navy.
 export const PartHighlight = {
   tintRgb: 0x2a5bd7,
-  tintAmount: 0.5,
+  tintAmount: 0.2,
   partBrightness: 1.2,
   otherBrightness: 1,
 } as const;
