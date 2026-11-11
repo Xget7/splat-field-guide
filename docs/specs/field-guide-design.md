@@ -48,6 +48,8 @@ The existing viewer palette remains separate because its emphasis colors are cou
 The three module names are demonstration presentation, not installed learning content or a new pack identity.
 Course-wide answers, PDF opening and downloads currently show explicit availability states; no remote request or generated equipment claim is made.
 The entry links to Downloads, where course content and shared Voice & AI resources have separate status cards.
+The sidebar selects global destinations Courses, Downloads and Help; only Courses renders the selected course breadcrumb and its Course, Modules, Documentation and Assistant tabs.
+Switching a global destination preserves the course tab and draft without presenting course navigation inside Downloads or Help.
 A ready model set is labelled Models ready, never evidence that a course is available offline.
 The demonstration course remains unavailable offline until its required content has a verified installation; a catalog scene alone does not satisfy that condition.
 Model controls pause, continue or retry the existing ExecuTorch preparation, while unavailable course delivery has no simulated download action.

@@ -29,10 +29,12 @@ import {
 } from '../../../ui/courseTokens';
 import { continueRowFor } from '../domain/library';
 import { ContinueCard } from './GuideCards';
-import { CourseNavigation, type CourseSection } from './CourseNavigation';
+import { CourseNavigation, type AppSection } from './CourseNavigation';
 import { CourseOverview, DEMO_MODULES, ModuleCard } from './CourseOverview';
 import { CourseComposer } from './CourseComposer';
 import { CourseDownloads } from './CourseDownloads';
+
+type CourseSection = 'Course' | 'Modules' | 'Assistant' | 'Documentation';
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
@@ -87,6 +89,8 @@ export function LibraryScreen({
     }
   };
 
+  const [destination, setDestination] = useState<AppSection>('Courses');
+  const inCourse = destination === 'Courses';
   const [section, setSection] = useState<CourseSection>('Course');
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -120,6 +124,10 @@ export function LibraryScreen({
     setSection('Documentation');
     setNotice(null);
   };
+  const selectDestination = (next: AppSection) => {
+    setDestination(next);
+    setNotice(null);
+  };
   const select = (next: CourseSection) => {
     setSection(next);
     setNotice(null);
@@ -132,7 +140,11 @@ export function LibraryScreen({
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      <CourseNavigation section={section} compact={compact} onSelect={select} />
+      <CourseNavigation
+        section={destination}
+        compact={compact}
+        onSelect={selectDestination}
+      />
       <View style={styles.page}>
         <CourseSurface />
         <ScrollView
@@ -140,32 +152,39 @@ export function LibraryScreen({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
         >
-          <Text style={styles.breadcrumb}>
-            Organization / Courses /{' '}
-            <Text style={styles.current}>Automotive Assembly Line</Text>
-          </Text>
-          <View accessibilityRole="tablist" style={styles.tabs}>
-            {(['Course', 'Modules', 'Documentation'] as const).map(tab => (
-              <Pressable
-                key={tab}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: section === tab }}
-                onPress={() => select(tab)}
-                style={[styles.tab, section === tab && styles.activeTab]}
-              >
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    section === tab && styles.activeTabLabel,
-                  ]}
-                >
-                  {tab}
-                  {tab === 'Modules' ? '  03' : ''}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {section === 'Course' && (
+          {inCourse && (
+            <>
+              <Text testID="course-breadcrumb" style={styles.breadcrumb}>
+                Organization / Courses /{' '}
+                <Text style={styles.current}>Automotive Assembly Line</Text>
+              </Text>
+              <View accessibilityRole="tablist" style={styles.tabs}>
+                {(
+                  ['Course', 'Modules', 'Documentation', 'Assistant'] as const
+                ).map(tab => (
+                  <Pressable
+                    key={tab}
+                    accessibilityRole="tab"
+                    accessibilityLabel={tab}
+                    accessibilityState={{ selected: section === tab }}
+                    onPress={() => select(tab)}
+                    style={[styles.tab, section === tab && styles.activeTab]}
+                  >
+                    <Text
+                      style={[
+                        styles.tabLabel,
+                        section === tab && styles.activeTabLabel,
+                      ]}
+                    >
+                      {tab}
+                      {tab === 'Modules' ? '  03' : ''}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+          {inCourse && section === 'Course' && (
             <CourseOverview
               wide={columns}
               onExplore={explore}
@@ -173,10 +192,10 @@ export function LibraryScreen({
               question={draft}
               onQuestionChange={setDraft}
               onDocument={document}
-              onDownloads={() => select('Downloads')}
+              onDownloads={() => selectDestination('Downloads')}
             />
           )}
-          {(section === 'Course' || section === 'Modules') && (
+          {inCourse && (section === 'Course' || section === 'Modules') && (
             <View style={styles.modules}>
               {continuation && (
                 <ContinueCard row={continuation} onPress={continueGuide} />
@@ -208,7 +227,7 @@ export function LibraryScreen({
               </View>
             </View>
           )}
-          {section === 'Assistant' && (
+          {inCourse && section === 'Assistant' && (
             <View style={styles.panel}>
               <Text accessibilityRole="header" style={styles.heading}>
                 Assistant
@@ -227,7 +246,7 @@ export function LibraryScreen({
               />
             </View>
           )}
-          {section === 'Documentation' && (
+          {inCourse && section === 'Documentation' && (
             <View style={styles.panel}>
               <Text accessibilityRole="header" style={styles.heading}>
                 KR QUANTEC extra.pdf
@@ -237,13 +256,16 @@ export function LibraryScreen({
               </Text>
             </View>
           )}
-          {section === 'Downloads' && (
+          {destination === 'Downloads' && (
             <CourseDownloads
               sceneAvailable={catalog.length > 0}
-              onBack={() => select('Course')}
+              onBack={() => {
+                select('Course');
+                selectDestination('Courses');
+              }}
             />
           )}
-          {section === 'Help' && (
+          {destination === 'Help' && (
             <View style={styles.panel}>
               <Text accessibilityRole="header" style={styles.heading}>
                 Help
@@ -253,8 +275,8 @@ export function LibraryScreen({
               </Text>
             </View>
           )}
-          {section !== 'Downloads' && <OfflinePreparation showReady />}
-          {notice && section !== 'Assistant' && (
+          {inCourse && <OfflinePreparation showReady />}
+          {inCourse && notice && section !== 'Assistant' && (
             <Text accessibilityRole="alert" style={styles.secondary}>
               {notice}
             </Text>

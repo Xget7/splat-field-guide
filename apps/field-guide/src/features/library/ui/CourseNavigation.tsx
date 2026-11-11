@@ -7,26 +7,16 @@ import {
   Grid as G,
   CourseRadius as R,
 } from '../../../ui/courseTokens';
-export type CourseSection =
-  | 'Course'
-  | 'Modules'
-  | 'Assistant'
-  | 'Documentation'
-  | 'Downloads'
-  | 'Help';
-const ITEMS = [
-  { title: 'Course', icon: IconName.layers },
-  { title: 'Assistant', icon: IconName.chat },
-  { title: 'Documentation', icon: IconName.list },
-] as const;
+export type AppSection = 'Courses' | 'Downloads' | 'Help';
+const ITEMS = [{ title: 'Courses', icon: IconName.layers }] as const;
 export function CourseNavigation({
   section,
   compact,
   onSelect,
 }: {
-  section: CourseSection;
+  section: AppSection;
   compact: boolean;
-  onSelect: (section: CourseSection) => void;
+  onSelect: (section: AppSection) => void;
 }) {
   return (
     <ScrollView

@@ -175,7 +175,7 @@ describe('Library screen', () => {
     const pressLabel = async (accessibilityLabel: string) => {
       const control = renderer.root
         .findAllByProps({ accessibilityLabel })
-        .find(item => item.props.accessibilityRole === 'button')!;
+        .find(item => typeof item.props.onPress === 'function')!;
       await act(() => control.props.onPress());
     };
     await act(() => input().props.onChangeText('Where is the A5 axis motor?'));
@@ -213,6 +213,32 @@ describe('Library screen', () => {
     expect(texts).toContain('Manual & course modules');
     expect(texts).toContain('Not downloaded');
     expect(texts).not.toContain('Offline ready');
+  });
+
+  test('global Downloads and Help do not inherit course navigation', async () => {
+    await mount();
+    const select = async (label: string) => {
+      const control = renderer.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(item => typeof item.props.onPress === 'function')!;
+      await act(() => control.props.onPress());
+    };
+    for (const destination of ['Downloads', 'Help']) {
+      await select(destination);
+      expect(
+        renderer.root.findAllByProps({ accessibilityRole: 'tablist' }),
+      ).toHaveLength(0);
+      expect(
+        renderer.root.findAllByProps({ testID: 'course-breadcrumb' }),
+      ).toHaveLength(0);
+    }
+    await select('Courses');
+    expect(
+      renderer.root.findAllByProps({ accessibilityRole: 'tablist' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-breadcrumb' }).length,
+    ).toBeGreaterThan(0);
   });
 
   test('saved progress opens the same step from the row and its play button', async () => {
