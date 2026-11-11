@@ -53,7 +53,7 @@ export interface OfflineModels {
   subscribe(listener: () => void): () => void;
   /** Verifies installed files without networking. */
   restore(): Promise<void>;
-  /** Explicit user action: downloads pinned files, verifies them, then marks ready. */
+  /** Downloads pinned files, verifies them, then marks ready; app startup or retry may request it. */
   prepare(): Promise<void>;
   cancel(): void;
   release(): void;

@@ -36,6 +36,8 @@ export function createModelStore(
     error: null,
   };
   let pending: Promise<void> | null = null;
+  let pendingDownload = false;
+  let cancellation = 0;
   let controller: AbortController | null = null;
   const pathFor = (id: string) => `${directory}/${id}`;
   const publish = (
@@ -59,54 +61,62 @@ export function createModelStore(
     }
     const abort = new AbortController();
     controller = abort;
-    publish(download ? 'downloading' : 'checking');
-    pending = (async () => {
-      if (download) {
-        await files.mkdir(directory);
-      }
-      let completed = 0;
-      for (const asset of assets) {
+    pendingDownload = download;
+    pending = Promise.resolve()
+      .then(async () => {
+        publish(download ? 'downloading' : 'checking');
+        if (download) {
+          await files.mkdir(directory);
+        }
+        let completed = 0;
+        for (const asset of assets) {
+          if (abort.signal.aborted) {
+            throw new Error('Preparation cancelled');
+          }
+          const destination = pathFor(asset.id);
+          if (!(await valid(asset, destination))) {
+            if (!download) {
+              publish('missing');
+              return;
+            }
+            const staging = `${destination}.partial`;
+            try {
+              await files.download(
+                asset.url,
+                staging,
+                abort.signal,
+                received => {
+                  if (!abort.signal.aborted) {
+                    publish(
+                      'downloading',
+                      Math.min(1, (completed + received) / total),
+                    );
+                  }
+                },
+              );
+              if (abort.signal.aborted) {
+                throw new Error('Preparation cancelled');
+              }
+              if (!(await valid(asset, staging))) {
+                throw new Error(`Model verification failed: ${asset.id}`);
+              }
+              if (await files.exists(destination)) {
+                await files.remove(destination);
+              }
+              await files.move(staging, destination);
+            } finally {
+              if (await files.exists(staging)) {
+                await files.remove(staging);
+              }
+            }
+          }
+          completed += asset.bytes;
+        }
         if (abort.signal.aborted) {
           throw new Error('Preparation cancelled');
         }
-        const destination = pathFor(asset.id);
-        if (!(await valid(asset, destination))) {
-          if (!download) {
-            publish('missing');
-            return;
-          }
-          const staging = `${destination}.partial`;
-          try {
-            await files.download(asset.url, staging, abort.signal, received => {
-              if (!abort.signal.aborted) {
-                publish(
-                  'downloading',
-                  Math.min(1, (completed + received) / total),
-                );
-              }
-            });
-            if (abort.signal.aborted) {
-              throw new Error('Preparation cancelled');
-            }
-            if (!(await valid(asset, staging))) {
-              throw new Error(`Model verification failed: ${asset.id}`);
-            }
-            if (await files.exists(destination)) {
-              await files.remove(destination);
-            }
-            await files.move(staging, destination);
-          } finally {
-            if (await files.exists(staging)) {
-              await files.remove(staging);
-            }
-          }
-        }
-        completed += asset.bytes;
-      }
-      if (!abort.signal.aborted) {
         publish('ready', 1);
-      }
-    })()
+      })
       .catch(error => {
         publish(
           abort.signal.aborted ? 'missing' : 'error',
@@ -135,15 +145,20 @@ export function createModelStore(
     },
     restore: () => (status.state === 'ready' ? Promise.resolve() : run(false)),
     prepare: async () => {
-      // A check already in progress must finish before an explicit download begins.
-      if (pending && status.state === 'checking') {
+      const requested = cancellation;
+      // A retry must outlive a cancelled transfer, including its staging-file cleanup.
+      // Restore can also publish 'missing' before its promise settles.
+      if (pending && (!pendingDownload || controller?.signal.aborted)) {
         await pending;
       }
-      if (status.state !== 'ready') {
+      if (requested === cancellation && status.state !== 'ready') {
         await run(true);
       }
     },
-    cancel: () => controller?.abort(),
+    cancel: () => {
+      cancellation += 1;
+      controller?.abort();
+    },
     release,
     paths() {
       if (status.state !== 'ready') {

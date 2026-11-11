@@ -35,6 +35,8 @@ const READY_VOICE: VoiceRuntimeState = {
 /** What the instructor last reported, and the instructor screens talk to. */
 export interface InstructorStatus {
   readonly network: NetworkStatus;
+  /** Device route only; a failed assistant probe cannot make model downloads unavailable. */
+  readonly hasNetworkRoute: boolean;
   readonly mode: ModeStatus;
   readonly suggestion: ModeSuggestion | null;
   readonly agent: AgentStatus;
@@ -48,6 +50,7 @@ export interface InstructorStatus {
 
 export interface InstructorActions {
   networkChanged(network: NetworkStatus): void;
+  networkRouteChanged(hasNetworkRoute: boolean): void;
   modeChanged(mode: ModeStatus): void;
   switchStepArrived(step: SwitchStep): void;
   suggestionChanged(suggestion: ModeSuggestion | null): void;
@@ -64,6 +67,7 @@ export type InstructorStore = StoreApi<InstructorState>;
 
 const INITIAL_STATUS: InstructorStatus = {
   network: UNKNOWN_NETWORK,
+  hasNetworkRoute: false,
   mode: STARTUP_MODE,
   suggestion: null,
   agent: IDLE_AGENT,
@@ -82,6 +86,7 @@ export function createInstructorStore(): InstructorStore {
   return createStore<InstructorState>()((set, get) => ({
     ...INITIAL_STATUS,
     networkChanged: network => set({ network }),
+    networkRouteChanged: hasNetworkRoute => set({ hasNetworkRoute }),
     modeChanged: mode =>
       set(state => ({
         mode,

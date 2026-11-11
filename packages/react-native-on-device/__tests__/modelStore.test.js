@@ -72,3 +72,66 @@ test('pins every model file to a source commit, size and SHA-256', () => {
     expect(asset.bytes).toBeGreaterThan(0);
   }
 });
+
+test('prepare requested by a missing-state subscriber waits for restore and downloads once', async () => {
+  const { store, files } = fixture();
+  let preparation;
+  const unsubscribe = store.subscribe(() => {
+    if (store.getSnapshot().state === 'missing') { preparation = store.prepare(); }
+  });
+  await store.restore();
+  await preparation;
+  unsubscribe();
+  expect(store.getSnapshot().state).toBe('ready');
+  expect(files.download).toHaveBeenCalledTimes(assets.length);
+});
+test('cancelling a queued prepare while restore checks prevents a late download', async () => {
+  const { store, files } = fixture();
+  let finish;
+  files.exists = jest.fn().mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const restoring = store.restore();
+  await Promise.resolve();
+  const preparing = store.prepare();
+  store.cancel(); finish(false);
+  await Promise.all([restoring, preparing]);
+  expect(files.download).not.toHaveBeenCalled();
+  expect(store.getSnapshot().state).toBe('missing');
+});
+test('concurrent prepare requests share one set of downloads', async () => {
+  const { store, files } = fixture();
+  await Promise.all([store.prepare(), store.prepare(), store.restore(), store.prepare()]);
+  expect(store.getSnapshot().state).toBe('ready');
+  expect(files.download).toHaveBeenCalledTimes(assets.length);
+});
+test('continue requested while an aborted transfer settles starts a fresh verified preparation', async () => {
+  const { store, files } = fixture();
+  let finish;
+  files.download.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const first = store.prepare();
+  while (!finish) { await Promise.resolve(); }
+  store.cancel();
+  const continued = store.prepare();
+  finish();
+  await Promise.all([first, continued]);
+  expect(store.getSnapshot().state).toBe('ready');
+  expect(files.download).toHaveBeenCalledTimes(assets.length + 1);
+});
+test('pausing during final file promotion leaves a resumable state', async () => {
+  const { store, files } = fixture();
+  const move = files.move;
+  let finish;
+  files.move = async (from, to) => {
+    if (to.endsWith(`/${assets.at(-1).id}`)) {
+      await new Promise(resolve => { finish = resolve; });
+    }
+    await move(from, to);
+  };
+  const preparing = store.prepare();
+  while (!finish) { await Promise.resolve(); }
+  store.cancel();
+  finish();
+  await preparing;
+  expect(store.getSnapshot().state).toBe('missing');
+  await store.prepare();
+  expect(store.getSnapshot().state).toBe('ready');
+});
