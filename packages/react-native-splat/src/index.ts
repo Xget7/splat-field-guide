@@ -20,3 +20,5 @@ export const SplatView = getHostComponent<SplatViewProps, SplatViewMethods>(
   'SplatView',
   () => SplatViewConfig,
 );
+
+export { getBundledPacks, type BundledPackManifest } from './bundledPacks';

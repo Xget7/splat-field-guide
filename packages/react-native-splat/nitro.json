@@ -28,6 +28,16 @@
         "language": "swift",
         "implementationClassName": "HybridSplatDiagnostics"
       }
+    },
+    "BundledPacks": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridBundledPacks"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridBundledPacks"
+      }
     }
   },
   "ignorePaths": [

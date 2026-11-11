@@ -15,6 +15,7 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
+#include "JHybridBundledPacksSpec.hpp"
 #include "JHybridSplatViewSpec.hpp"
 #include "JFunc_void.hpp"
 #include "JFunc_void_SplatError.hpp"
@@ -37,12 +38,21 @@ struct JHybridSplatViewSpecImpl: public jni::JavaClass<JHybridSplatViewSpecImpl,
     return javaPart->getJHybridSplatViewSpec();
   }
 };
+struct JHybridBundledPacksSpecImpl: public jni::JavaClass<JHybridBundledPacksSpecImpl, JHybridBundledPacksSpec::JavaPart> {
+  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/splat/HybridBundledPacks;";
+  static std::shared_ptr<JHybridBundledPacksSpec> create() {
+    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridBundledPacksSpecImpl::javaobject()>();
+    jni::local_ref<JHybridBundledPacksSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
+    return javaPart->getJHybridBundledPacksSpec();
+  }
+};
 
 void registerAllNatives() {
   using namespace margelo::nitro;
   using namespace margelo::nitro::splat;
 
   // Register native JNI methods
+  margelo::nitro::splat::JHybridBundledPacksSpec::CxxPart::registerNatives();
   margelo::nitro::splat::JHybridSplatViewSpec::CxxPart::registerNatives();
   margelo::nitro::splat::JFunc_void_cxx::registerNatives();
   margelo::nitro::splat::JFunc_void_SplatError_cxx::registerNatives();
@@ -53,6 +63,12 @@ void registerAllNatives() {
     "SplatView",
     []() -> std::shared_ptr<HybridObject> {
       return JHybridSplatViewSpecImpl::create();
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "BundledPacks",
+    []() -> std::shared_ptr<HybridObject> {
+      return JHybridBundledPacksSpecImpl::create();
     }
   );
 }
