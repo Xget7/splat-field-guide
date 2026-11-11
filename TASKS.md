@@ -223,3 +223,13 @@ The existing optional preparation skip and unrelated LOD-builder CLI prerequisit
 Both existing iPads reject acquisition with `DEVICE_IN_USE`, and their sessions were preserved.
 The new `Miris relationship QA` iPad Air 13-inch M3 simulator, `BC7C5D9B-7843-4221-8964-AA5C953F097B`, was created, but T3 still omits it after discovery and rejects `device_open` with `No device ... on This machine`; it has not been booted or visually accepted.
 The app at `apps/field-guide/ios/build/relationship-ui/FieldGuide.app` is prepared with the exact validated pack for the pending simulator installation; no physical acceptance is claimed.
+
+## Blue interface and splat-count clarification
+
+The interface primary is now the supplied reference blue `#00369E`, with white text and a lighter `#7DA7FF` foreground accent for legibility on graphite.
+Current-step badges and the enabled voice toggle use the darker fill, and the shared sheen and pressed states use blue instead of yellow.
+Calculated contrast is 10.39:1 for white on the primary and 6.47:1 for the foreground accent on raised surfaces.
+The Dev panel now calls its manifest-derived number Pack splats; it does not present that number as the count drawn in a frame.
+The current local tier contains 3,311,590 leaves and 3,690,045 tree nodes, while the host inherits `kDefaultLodBudget = 1200000` from `SplatWorldLoader.cpp` and uses 0.75 render scale.
+The actual selected/drawn count and GPU cost have not been measured on the target iPad, so no higher budget or device performance claim is accepted here.
+Validation passes 840 app tests, lint, TypeScript and production iOS JavaScript bundling; this color change has no new simulator or physical acceptance.

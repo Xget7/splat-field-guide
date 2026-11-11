@@ -6,7 +6,10 @@ export const CourseColor = {
   border: '#383a3c',
   text: '#e9eaec',
   secondary: '#a3a6ad',
-  accent: '#ffd60a',
+  // Reference blue for filled actions; its lighter companion stays legible on graphite.
+  primary: '#00369E',
+  primaryPressed: '#00338F',
+  accent: '#7DA7FF',
   white: '#ffffff',
   overlay: 'rgba(20,21,22,0.64)',
 } as const;

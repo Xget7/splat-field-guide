@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   },
   toggleOn: {
     borderColor: Color.accent,
-    backgroundColor: Color.accent,
+    backgroundColor: Color.accentFill,
     alignItems: 'flex-end',
   },
   knob: {
