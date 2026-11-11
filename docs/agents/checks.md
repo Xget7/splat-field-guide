@@ -11,7 +11,9 @@ Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROI
 After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
 For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
 Debug needs reachable Metro; Release bundles JavaScript.
-While connected, choose Prepare offline in the instructor and wait for the verified model set to finish before airplane-mode tests.
+While connected, let automatic startup preparation finish and verify Models ready before local inference tests in airplane mode.
+Check the course's separate offline availability in Downloads; verified voice and AI models do not install its scene, manual or modules.
+Check pause/retry, offline startup without files and recovery when the route returns using fake transfers before a real download.
 Allow microphone access separately.
 A fresh installation without those files cannot provide local voice or generated answers.
 

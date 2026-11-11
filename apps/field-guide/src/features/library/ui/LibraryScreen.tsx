@@ -1,7 +1,16 @@
+import { OfflinePreparation } from '../../instructor/views';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Guide, type ReadyGuide } from '../../pack/catalog';
 import {
@@ -11,18 +20,19 @@ import {
   type SessionStart,
 } from '../../guide';
 
-import { SectionHeader } from '../../../ui/SectionHeader';
-import { Backdrop } from '../../../ui/Gradients';
-import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
-import { Color, Space, Type } from '../../../ui/theme';
+import { CourseSurface } from '../../../ui/CourseSurface';
+import {
+  CourseColor as C,
+  CourseType as T,
+  Grid as G,
+  CourseRadius as R,
+} from '../../../ui/courseTokens';
 import { continueRowFor } from '../domain/library';
-
-import { ContinueCard, ReadyCard } from './GuideCards';
-import { useWideLayout } from '../../../ui/useWideLayout';
-
-const Layout = {
-  introWidth: 560,
-} as const;
+import { ContinueCard } from './GuideCards';
+import { CourseNavigation, type CourseSection } from './CourseNavigation';
+import { CourseOverview, DEMO_MODULES, ModuleCard } from './CourseOverview';
+import { CourseComposer } from './CourseComposer';
+import { CourseDownloads } from './CourseDownloads';
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
@@ -40,9 +50,7 @@ export function LibraryScreen({
   onOpen,
 }: LibraryScreenProps) {
   const insets = useSafeAreaInsets();
-  const wide = useWideLayout();
   const [progress, setProgress] = useState<Progress | null>(null);
-  const scroll = useScrollOffset();
 
   useFocusEffect(
     useCallback(() => {
@@ -79,81 +87,230 @@ export function LibraryScreen({
     }
   };
 
+  const [section, setSection] = useState<CourseSection>('Course');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const ask = (question: string) => {
+    setLastQuestion(question);
+    setDraft('');
+    setNotice(null);
+    setSection('Assistant');
+  };
+  const explore = () => {
+    const guide = catalog[0];
+    const tour = guide?.pack.procedures[0];
+    if (!guide || !tour) {
+      unavailable();
+      return;
+    }
+    onOpen({
+      guideId: guide.id,
+      procedureId: tour.id,
+      stepIndex: 0,
+      mode: LearnMode.selfGuided,
+    });
+  };
+  const { width, fontScale } = useWindowDimensions();
+  const columns = width >= 1056 && fontScale < 1.4;
+  const compact = width < 800;
+  const unavailable = () =>
+    setNotice('The 3D scene is not available on this device yet.');
+  const document = () => {
+    setSection('Documentation');
+    setNotice(null);
+  };
+  const select = (next: CourseSection) => {
+    setSection(next);
+    setNotice(null);
+  };
   return (
-    <View style={styles.screen}>
-      <Backdrop />
-      <Animated.ScrollView
-        testID="library-screen"
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          wide && styles.contentWide,
-          {
-            paddingTop: insets.top + (wide ? Space.xxl : Space.lg),
-            paddingBottom: insets.bottom + Space.xxl,
-          },
-        ]}
-        contentInsetAdjustmentBehavior="never"
-        onScroll={scroll.onScroll}
-      >
-        <View style={styles.intro}>
-          <Text
-            accessibilityRole="header"
-            style={wide ? styles.titleWide : styles.title}
-          >
-            Guides
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[
+        styles.screen,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+      ]}
+    >
+      <CourseNavigation section={section} compact={compact} onSelect={select} />
+      <View style={styles.page}>
+        <CourseSurface />
+        <ScrollView
+          testID="library-screen"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.content}
+        >
+          <Text style={styles.breadcrumb}>
+            Organization / Courses /{' '}
+            <Text style={styles.current}>Automotive Assembly Line</Text>
           </Text>
-          <Text style={styles.lede}>
-            Maintenance guides built from 3D captures of real equipment.
-          </Text>
-        </View>
-        {catalog.length === 0 && (
-          <View testID="library-empty" style={styles.section}>
-            <Text accessibilityRole="header" style={styles.lede}>
-              No guide available
-            </Text>
-            <Text style={styles.lede}>
-              A validated Miris pack has not been installed yet.
-            </Text>
-          </View>
-        )}
-        {continuation && (
-          <View style={styles.section}>
-            <SectionHeader title="Continue" />
-            <ContinueCard row={continuation} onPress={continueGuide} />
-          </View>
-        )}
-        {catalog.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader title="Ready" />
-            {catalog.map(guide => (
-              <ReadyCard
-                key={guide.id}
-                guide={guide}
-                wide={wide}
-                onPress={() => onOpenGuide(guide)}
-              />
+          <View accessibilityRole="tablist" style={styles.tabs}>
+            {(['Course', 'Modules', 'Documentation'] as const).map(tab => (
+              <Pressable
+                key={tab}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: section === tab }}
+                onPress={() => select(tab)}
+                style={[styles.tab, section === tab && styles.activeTab]}
+              >
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    section === tab && styles.activeTabLabel,
+                  ]}
+                >
+                  {tab}
+                  {tab === 'Modules' ? '  03' : ''}
+                </Text>
+              </Pressable>
             ))}
           </View>
-        )}
-      </Animated.ScrollView>
-      <ScrollEdge offset={scroll.offset} />
-    </View>
+          {section === 'Course' && (
+            <CourseOverview
+              wide={columns}
+              onExplore={explore}
+              onAsk={ask}
+              question={draft}
+              onQuestionChange={setDraft}
+              onDocument={document}
+              onDownloads={() => select('Downloads')}
+            />
+          )}
+          {(section === 'Course' || section === 'Modules') && (
+            <View style={styles.modules}>
+              {continuation && (
+                <ContinueCard row={continuation} onPress={continueGuide} />
+              )}
+              <View style={styles.moduleHeader}>
+                <Text accessibilityRole="header" style={styles.heading}>
+                  Course modules
+                </Text>
+                <Text style={styles.secondary}>3 modules</Text>
+              </View>
+              <View style={[styles.cards, !columns && styles.stacked]}>
+                {DEMO_MODULES.map((title, index) => (
+                  <ModuleCard
+                    key={title}
+                    title={title}
+                    index={index}
+                    testID={
+                      index === 0 && catalog[0]
+                        ? `guide-card-${catalog[0].id}`
+                        : undefined
+                    }
+                    onPress={() =>
+                      index === 0 && catalog[0]
+                        ? onOpenGuide(catalog[0])
+                        : setNotice('This module is not available yet.')
+                    }
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+          {section === 'Assistant' && (
+            <View style={styles.panel}>
+              <Text accessibilityRole="header" style={styles.heading}>
+                Assistant
+              </Text>
+              {lastQuestion && (
+                <Text style={styles.question}>{lastQuestion}</Text>
+              )}
+              <Text style={styles.secondary}>
+                Course answers are not connected yet.
+              </Text>
+              <CourseComposer
+                onAsk={ask}
+                onDocument={document}
+                question={draft}
+                onQuestionChange={setDraft}
+              />
+            </View>
+          )}
+          {section === 'Documentation' && (
+            <View style={styles.panel}>
+              <Text accessibilityRole="header" style={styles.heading}>
+                KR QUANTEC extra.pdf
+              </Text>
+              <Text style={styles.secondary}>
+                The manual is not available on this device yet.
+              </Text>
+            </View>
+          )}
+          {section === 'Downloads' && (
+            <CourseDownloads
+              sceneAvailable={catalog.length > 0}
+              onBack={() => select('Course')}
+            />
+          )}
+          {section === 'Help' && (
+            <View style={styles.panel}>
+              <Text accessibilityRole="header" style={styles.heading}>
+                Help
+              </Text>
+              <Text style={styles.secondary}>
+                Open an available module to explore its equipment.
+              </Text>
+            </View>
+          )}
+          {section !== 'Downloads' && <OfflinePreparation showReady />}
+          {notice && section !== 'Assistant' && (
+            <Text accessibilityRole="alert" style={styles.secondary}>
+              {notice}
+            </Text>
+          )}
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Color.surface },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: Space.lg, gap: Space.xl },
-  contentWide: { paddingHorizontal: Space.xxl },
-  intro: { gap: Space.sm, marginBottom: Space.sm },
-  title: { ...Type.display, color: Color.text },
-  titleWide: { ...Type.displayWide, color: Color.text },
-  lede: {
-    ...Type.body,
-    color: Color.secondaryText,
-    maxWidth: Layout.introWidth,
+  screen: { flex: 1, flexDirection: 'row', backgroundColor: C.canvas },
+  page: {
+    flex: 1,
+    margin: G.unit,
+    marginLeft: 0,
+    borderRadius: R.card,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  section: { gap: Space.md, marginTop: Space.sm },
+  content: { padding: G.large, gap: G.large },
+  breadcrumb: { ...T.caption, color: C.secondary },
+  current: { ...T.label, color: C.text },
+  secondary: { ...T.body, color: C.secondary },
+  tabs: {
+    flexDirection: 'row',
+    gap: G.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    flexWrap: 'wrap',
+  },
+  tab: {
+    minHeight: G.control,
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: { borderBottomColor: C.text },
+  tabLabel: { ...T.label, color: C.secondary },
+  activeTabLabel: { color: C.text },
+  modules: { gap: G.medium },
+  moduleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: G.unit,
+    alignItems: 'center',
+  },
+  heading: { ...T.heading, color: C.text },
+  cards: { flexDirection: 'row', gap: G.small },
+  stacked: { flexDirection: 'column' },
+  panel: { gap: G.medium, maxWidth: 720 },
+  question: {
+    ...T.body,
+    color: C.text,
+    backgroundColor: C.raised,
+    borderRadius: R.control,
+    padding: G.small,
+  },
 });

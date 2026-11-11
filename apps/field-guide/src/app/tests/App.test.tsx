@@ -71,28 +71,24 @@ describe('app', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('empty startup explains availability and offers no guide or native renderer', async () => {
+  test('course entry does not mount an unavailable native scene', async () => {
     await act(() => {
       renderer = ReactTestRenderer.create(<App />);
     });
-    expect(
-      renderer.root.findAllByProps({ testID: 'library-empty' }).length,
-    ).toBeGreaterThan(0);
     const visibleText = renderer.root
       .findAllByType(Text)
       .map(item => item.props.children);
-    expect(visibleText).toContain('No guide available');
-    expect(visibleText).toContain(
-      'A validated Miris pack has not been installed yet.',
-    );
-    expect(
-      renderer.root.findAll(item =>
-        item.props.testID?.startsWith('guide-card-'),
-      ),
-    ).toHaveLength(0);
+    expect(visibleText).toContain('Course modules');
     expect(
       renderer.root.findAllByType('SplatView' as React.ElementType),
     ).toHaveLength(0);
+    const explore = renderer.root
+      .findAllByProps({ testID: 'course-explore' })
+      .find(item => item.props.accessibilityRole === 'button')!;
+    await act(() => explore.props.onPress());
+    expect(
+      renderer.root.findAllByType(Text).map(item => item.props.children),
+    ).toContain('The 3D scene is not available on this device yet.');
   });
 
   test('does not expose discarded AR or standalone benchmark routes', async () => {
