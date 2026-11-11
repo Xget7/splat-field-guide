@@ -127,7 +127,8 @@ The report keeps every chosen component, combined score, diffuse share, nearest 
 The publication receipt retains the chosen score and safe-candidate count for every part and step, explicitly flagging scores below 0.3, including zero.
 This finite search does not prove that a target is enclosed or that no continuous direction could improve it.
 The CPU projection approximates native ray intersections and uses the placed source cloud before runtime quantization; native development audits remain the visibility evidence at the measured viewport.
-The preparation score uses a square viewport, where landscape framing distance is unchanged; narrower viewports require separate native validation.
+The export accepts `--view-aspect` for the reference viewer width divided by height, defaults to a square viewport and records it in the receipt.
+The audit export uses 982/1024, matching the landscape iPad split viewport; other viewport shapes require separate native validation.
 
 ## Semantic data
 
