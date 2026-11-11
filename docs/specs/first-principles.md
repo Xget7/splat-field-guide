@@ -88,6 +88,10 @@ Therefore evidence is part of the domain, not optional explanatory decoration.
 Appearance supports identification review; a manual supports an authored claim; a recorded measurement supports proximity.
 None substitutes for the others, and silence in a source remains unknown.
 
+An explicitly authored training recreation may assign example equipment responsibilities and a learning process when the owner requests it.
+Keep these scenario facts labelled in pack summaries and purpose notes, with their own source tag in the graph, separate from observed identity, owner confirmations and manufacturer instructions.
+The current `miris-example-process-v1` assigns R01 to underbody joints, R02 to door frames, R03 to roof rails and R04 to rear-body joints; this is a teaching cycle rather than a recovered production program.
+
 ## The stable ID is the backbone
 
 Every component layer hangs from the stable part ID and from nothing else.
