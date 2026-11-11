@@ -233,3 +233,14 @@ The Dev panel now calls its manifest-derived number Pack splats; it does not pre
 The current local tier contains 3,311,590 leaves and 3,690,045 tree nodes, while the host inherits `kDefaultLodBudget = 1200000` from `SplatWorldLoader.cpp` and uses 0.75 render scale.
 The actual selected/drawn count and GPU cost have not been measured on the target iPad, so no higher budget or device performance claim is accepted here.
 Validation passes 840 app tests, lint, TypeScript and production iOS JavaScript bundling; this color change has no new simulator or physical acceptance.
+
+## Explicit LOD budget and iPad installation
+
+The app-owned native adapter now sets a 1,500,000-splat LOD selection budget before world loading, preserving the complete 3,311,590-leaf pack rather than cropping geometry.
+The adapter regression failed with the inherited 1,200,000 budget before the change and passes with 1,500,000 while retaining the full fixture tree.
+Portable native validation reports 414 tests, zero failures and three unavailable-fixture skips; native package lint and TypeScript pass, both iOS framework slices rebuild and artifact fingerprint verification passes.
+The Debug iOS Simulator app builds successfully for SplatKit highlight iPad, `FFC2D6EA-E75C-4BFB-916E-D0EF1F95AF47`, and its bundled pack passes full consumer validation.
+Installation of `dev.splatfieldguide.coursepreview` from `apps/field-guide/ios/build/course-ui/Build/Products/Debug-iphonesimulator/FieldGuide.app` succeeds on that iPad, superseding the older pending relationship-ui artifact.
+Launch and visual validation remain blocked because `device_open` reports that device support, agent access and an available simulator platform must be enabled; no other device or session was taken over.
+The installed app uses the existing Metro on 8081; the parallel Field Guide iPad and Metro 8107 were preserved.
+No target-device drawn-count, GPU, memory, thermal or physical-performance acceptance is claimed.

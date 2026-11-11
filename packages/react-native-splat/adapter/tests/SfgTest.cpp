@@ -168,6 +168,10 @@ TEST_F(SfgTest, LoadsAPackAndSaysWhenItIsOnScreen) {
   EXPECT_TRUE(events.empty());
   EXPECT_TRUE(sfg_needs_frame(engine));
   EXPECT_TRUE(draw());
+  // The complete three-node tree is uploaded, while frame selection uses the host budget.
+  ASSERT_TRUE(renderer->world().has_value());
+  EXPECT_EQ(renderer->world()->count, kPairLeaves + 1);
+  EXPECT_EQ(renderer->uploadedBudget, 1'500'000u);
   draw();  // Poll completion after the submitted frame.
   ASSERT_EQ(events.size(), 1u);
   EXPECT_EQ(events[0].kind, SFG_EVENT_WORLD_READY);
