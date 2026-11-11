@@ -8,8 +8,8 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
-#include "splatkit/sfg_vulkan.h"
-#include "splatkit/sfg_platform.h"
+#include "sfg/sfg_vulkan.h"
+#include "sfg/sfg_platform.h"
 
 namespace {
 struct Engine {
@@ -133,6 +133,17 @@ JNIEXPORT void JNICALL JNI_METHOD(limits)(JNIEnv* env, jobject, jlong id, jfloat
   auto v = floats(env, values); if (v.size() != 6) return;
   sfg_camera_limits limits{v[0],v[1],v[2],v[3],v[4],v[5]};
   sfg_set_camera_limits(state->handle, &limits);
+}
+JNIEXPORT void JNICALL JNI_METHOD(highlightLook)(JNIEnv* env, jobject, jlong id, jlong tintRgb,
+                                                jfloatArray values) {
+  auto state = engine(id); if (!state) return;
+  if (!values) { sfg_set_highlight_look(state->handle, nullptr); return; }
+  constexpr jlong kMaxRgb = 0xFFFFFF;
+  auto v = floats(env, values); if (v.size() != 3) return;
+  const uint32_t rgb = tintRgb >= 0 && tintRgb <= kMaxRgb ? static_cast<uint32_t>(tintRgb) : kMaxRgb + 1;
+  sfg_highlight_look look{rgb, v[0], v[1], v[2]};
+  if (!sfg_set_highlight_look(state->handle, &look))
+    __android_log_print(ANDROID_LOG_ERROR, "SplatView", "highlightLook refused: value outside its range");
 }
 JNIEXPORT void JNICALL JNI_METHOD(highlight)(JNIEnv* env, jobject, jlong id, jshortArray values) {
   auto state = engine(id); if (!state) return;

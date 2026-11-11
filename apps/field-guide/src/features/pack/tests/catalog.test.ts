@@ -2,7 +2,7 @@ import { catalogFor, findReadyGuide, GuideStatus, packFacts } from '../catalog';
 import { fixturePack } from '@tests/fixturePack';
 
 const pack = fixturePack();
-const catalog = catalogFor(pack);
+const catalog = catalogFor([pack]);
 
 test('the catalog contains only the available bundled guide', () => {
   expect(catalog).toHaveLength(1);
@@ -33,5 +33,5 @@ test('bundled facts match the on-device pack', () => {
 });
 
 test('without a validated pack the catalog is empty', () => {
-  expect(catalogFor()).toEqual([]);
+  expect(catalogFor([])).toEqual([]);
 });

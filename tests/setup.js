@@ -80,10 +80,12 @@ jest.mock('react-native-reanimated', () => {
 });
 
 // The splat views render as host components, so screens mount without the native engine.
+// The bundle carries no packs unless a test supplies manifests.
 jest.mock('react-native-splat', () => ({
   SplatView: 'SplatView',
   ARGuideView: 'ARGuideView',
   ARPlacementView: 'ARPlacementView',
+  getBundledPacks: jest.fn(() => ({ manifests: () => [] })),
 }));
 
 // Native capabilities are opt-in so each test controls readiness and callbacks.

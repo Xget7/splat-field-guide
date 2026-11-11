@@ -6,14 +6,12 @@ vertex SplatVertex splatVertex(uint vertexId [[vertex_id]], uint instanceId [[in
                                constant Camera& cam [[buffer(0)]],
                                const device Splat* splats [[buffer(1)]],
                                const device uint* order [[buffer(2)]],
-                               const device uint* shData [[buffer(3)]],
-                               const device ushort* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
-                               const device Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
+                               const device uint* shData [[buffer(3)]]) {
   uint index = order[instanceId];
   // Without the zero value, the degree-0 specialisation drew nothing on the Apple GPU compiler we
   // tested; the source never reads the uninitialised fields.
   Projected p = {};
-  if (!projectSplat(cam, splats[index], index, shData, guide, guideLabel(labels, index), p)) {
+  if (!projectSplat(cam, splats[index], index, shData, p)) {
     // z beyond w is outside clip space, so the quad is discarded.
     SplatVertex out;
     out.position = float4(0.0, 0.0, 2.0, 1.0);
@@ -21,6 +19,7 @@ vertex SplatVertex splatVertex(uint vertexId [[vertex_id]], uint instanceId [[in
     out.color = 0;
     return out;
   }
+  revealGlow(cam, splats[index].py, p);
   return expandQuad(cam, p, vertexId);
 }
 
@@ -63,4 +62,8 @@ fragment MaskOut saturationMask(BlitVertex in [[stage_in]], float4 dst [[color(0
   MaskOut out;
   out.depth = kMaskDepth;
   return out;
+}
+
+fragment float4 backgroundFragment(BlitVertex in [[stage_in]], constant float4& color [[buffer(0)]]) {
+  return color;
 }

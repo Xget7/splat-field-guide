@@ -1,0 +1,165 @@
+import { useRef, type ComponentRef } from 'react';
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
+import { Icon, IconName } from '../../../ui/Icon';
+import {
+  CourseColor as C,
+  CourseType as T,
+  Grid as G,
+  CourseRadius as R,
+} from '../../../ui/courseTokens';
+
+const SUGGESTIONS = [
+  'Where is the A5 axis motor?',
+  'What motion does axis A5 control?',
+];
+export function CourseComposer({
+  onAsk,
+  onDocument,
+  question,
+  onQuestionChange,
+}: {
+  onAsk: (question: string) => void;
+  onDocument: () => void;
+  question: string;
+  onQuestionChange: (question: string) => void;
+}) {
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  const lift = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
+  const send = () => {
+    if (!question.trim()) {
+      return;
+    }
+    if (!reduced) {
+      Animated.sequence([
+        Animated.timing(lift, {
+          toValue: -8,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(lift, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    onAsk(question.trim());
+  };
+  return (
+    <View style={styles.wrap}>
+      <View style={styles.composer}>
+        <TextInput
+          ref={input}
+          testID="course-question"
+          accessibilityLabel="Ask about this course"
+          placeholder="Ask about this course…"
+          placeholderTextColor={C.secondary}
+          value={question}
+          onChangeText={onQuestionChange}
+          multiline
+          style={styles.input}
+        />
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open source document, KR QUANTEC extra.pdf"
+            onPress={onDocument}
+            style={styles.document}
+          >
+            <Text style={styles.filename}>KR QUANTEC extra.pdf</Text>
+          </Pressable>
+          <Pressable
+            testID="course-send"
+            accessibilityRole="button"
+            accessibilityLabel="Send question"
+            accessibilityState={{ disabled: !question.trim() }}
+            disabled={!question.trim()}
+            onPress={send}
+            style={[styles.send, !question.trim() && styles.disabled]}
+          >
+            <Animated.View style={{ transform: [{ translateY: lift }] }}>
+              <Icon name={IconName.send} color={C.canvas} size={24} />
+            </Animated.View>
+          </Pressable>
+        </View>
+      </View>
+      <View style={styles.suggestions}>
+        {SUGGESTIONS.map(text => (
+          <Pressable
+            key={text}
+            accessibilityRole="button"
+            onPress={() => {
+              onQuestionChange(text);
+              input.current?.focus();
+            }}
+            style={styles.suggestion}
+          >
+            <Text style={styles.prompt}>{text}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  wrap: { gap: G.small },
+  composer: {
+    minHeight: 184,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.card,
+    backgroundColor: C.canvas,
+    padding: G.small,
+  },
+  input: {
+    ...T.body,
+    color: C.text,
+    minHeight: 96,
+    textAlignVertical: 'top',
+    padding: 0,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: G.unit,
+  },
+  document: {
+    minHeight: G.control,
+    paddingHorizontal: G.small,
+    borderRadius: R.control,
+    backgroundColor: C.raised,
+    justifyContent: 'center',
+    flexShrink: 1,
+  },
+  filename: { ...T.caption, color: C.text },
+  send: {
+    width: G.control,
+    height: G.control,
+    borderRadius: R.pill,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabled: { opacity: 0.5 },
+  suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: G.unit },
+  suggestion: {
+    minHeight: G.control,
+    paddingHorizontal: G.small,
+    paddingVertical: G.unit,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.pill,
+    justifyContent: 'center',
+  },
+  prompt: { ...T.caption, color: C.secondary },
+});

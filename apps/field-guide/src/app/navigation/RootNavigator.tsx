@@ -1,13 +1,14 @@
 import {
   DarkTheme,
   NavigationContainer,
+  useNavigationContainerRef,
   type Theme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { catalogFor } from '../../features/pack/catalog';
 import type { Pack } from '../../features/pack/pack';
-import type { ProgressStorage } from '../../features/guide';
+import { LearnMode, type ProgressStorage } from '../../features/guide';
 
 import { Color } from '../../ui/theme';
 import {
@@ -41,21 +42,47 @@ const SCREEN_OPTIONS = {
 const VIEWER_OPTIONS = { gestureEnabled: false } as const;
 
 export function RootNavigator({
-  pack,
+  packs,
   progress,
 }: {
-  pack?: Pack;
+  packs: readonly Pack[];
   progress: ProgressStorage;
 }) {
   const context = useMemo<RouteContext>(
     () => ({
-      catalog: catalogFor(pack),
+      catalog: catalogFor(packs),
       progress,
     }),
-    [pack, progress],
+    [packs, progress],
   );
+  const navigation = useNavigationContainerRef<RootStackParamList>();
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    const open = () => {
+      const guide = context.catalog[0];
+      const procedure = guide?.pack.procedures[0];
+      if (!guide || !procedure || !navigation.isReady()) {
+        throw new Error('Framing viewer is not ready');
+      }
+      navigation.navigate(Route.viewer, {
+        guideId: guide.id,
+        procedureId: procedure.id,
+        stepIndex: 0,
+        mode: LearnMode.selfGuided,
+      });
+    };
+    const target = globalThis as { fieldGuideOpenFraming?: () => void };
+    target.fieldGuideOpenFraming = open;
+    return () => {
+      if (target.fieldGuideOpenFraming === open) {
+        delete target.fieldGuideOpenFraming;
+      }
+    };
+  }, [context, navigation]);
   return (
-    <NavigationContainer theme={NAVIGATION_THEME}>
+    <NavigationContainer theme={NAVIGATION_THEME} ref={navigation}>
       <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
         <Stack.Screen name={Route.library}>
           {props => <LibraryRoute {...props} {...context} />}

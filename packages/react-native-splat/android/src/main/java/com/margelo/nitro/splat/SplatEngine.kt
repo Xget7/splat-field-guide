@@ -17,6 +17,7 @@ internal object SplatEngine {
   external fun dolly(id: Long, factor: Float)
   external fun frame(id: Long, bounds: FloatArray, seconds: Float, from: FloatArray?)
   external fun limits(id: Long, values: FloatArray?)
+  external fun highlightLook(id: Long, tintRgb: Long, values: FloatArray?)
   external fun highlight(id: Long, labels: ShortArray)
   external fun reveal(id: Long, seconds: Float)
   external fun pick(id: Long, x: Float, y: Float): Int

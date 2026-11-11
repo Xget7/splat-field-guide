@@ -1,6 +1,8 @@
 #include "splat/formats/PartLabels.h"
 
 #include <cstring>
+#include <limits>
+#include <stdexcept>
 #include <string>
 
 namespace splat {
@@ -32,7 +34,10 @@ std::uint32_t readU32(const std::uint8_t* p) {
 }  // namespace
 
 Result<std::vector<std::uint16_t>> decodePartLabels(const std::uint8_t* data, std::size_t size) {
-  using namespace part_labels;
+  using part_labels::kBytesPerLabel;
+  using part_labels::kHeaderBytes;
+  using part_labels::kMagic;
+  using part_labels::kVersion;
   if (data == nullptr || size < kHeaderBytes || std::memcmp(data, kMagic, sizeof(kMagic)) != 0) {
     return Error{ErrorCode::unsupportedFormat, "not a part labels file"};
   }
@@ -44,7 +49,8 @@ Result<std::vector<std::uint16_t>> decodePartLabels(const std::uint8_t* data, st
                                                    " bytes per label"};
   }
   const std::uint32_t count = readU32(data + kCountOffset);
-  if (readU32(data + kReservedOffset) != 0 || (size - kHeaderBytes) / kBytesPerLabel != count || (size - kHeaderBytes) % kBytesPerLabel != 0) {
+  if (readU32(data + kReservedOffset) != 0 || (size - kHeaderBytes) / kBytesPerLabel != count ||
+      (size - kHeaderBytes) % kBytesPerLabel != 0) {
     return Error{ErrorCode::corrupt, "part labels file of " + std::to_string(size) + " bytes for " +
                                          std::to_string(count) + " labels"};
   }
@@ -54,7 +60,12 @@ Result<std::vector<std::uint16_t>> decodePartLabels(const std::uint8_t* data, st
 }
 
 std::vector<std::uint8_t> encodePartLabels(const std::vector<std::uint16_t>& labels) {
-  using namespace part_labels;
+  using part_labels::kBytesPerLabel;
+  using part_labels::kHeaderBytes;
+  using part_labels::kMagic;
+  using part_labels::kVersion;
+  if (labels.size() > std::numeric_limits<uint32_t>::max())
+    throw std::length_error("part label count exceeds u32");
   std::vector<std::uint8_t> bytes(kHeaderBytes, 0);
   std::memcpy(bytes.data(), kMagic, sizeof(kMagic));
   putU16(bytes.data() + kVersionOffset, kVersion);
@@ -65,6 +76,17 @@ std::vector<std::uint8_t> encodePartLabels(const std::vector<std::uint16_t>& lab
     bytes.push_back(static_cast<std::uint8_t>(label >> 8));
   }
   return bytes;
+}
+
+Result<std::vector<std::uint16_t>> decodePartLabels(const std::uint8_t* data, std::size_t size,
+                                                    std::size_t expectedCount) {
+  auto decoded = decodePartLabels(data, size);
+  if (!decoded) return decoded.error();
+  if (decoded.value().size() != expectedCount)
+    return Error{ErrorCode::corrupt, "part label node count mismatch: expected " +
+                                         std::to_string(expectedCount) + ", got " +
+                                         std::to_string(decoded.value().size())};
+  return decoded;
 }
 
 }  // namespace splat

@@ -131,3 +131,9 @@ Original ONNX/FluidAudio source and license records above describe retired imple
 Miris preparation receipts remain in `../splat-tools`.
 Before distribution, retain dataset redistribution terms, accepted part mappings, authored sources and runtime hashes with the delivered pack.
 Retired resources retain their existing notices until removed from the build.
+
+## Course demonstration image
+
+`apps/field-guide/src/features/library/assets/assembly-line.jpg` is an unchanged copy of the project-supplied Miris teaching image `../splat-tools/data/analysis/miris-pilot/teaching-02/jpg/factory_chnk04_v01_factory_chnk04_ra06_v01.0007.jpg`.
+It depicts the approximate reference recreation, not a certified installation photograph.
+Source ownership and redistribution clearance must be retained with the preparation receipts before external distribution; this UI change does not establish a third-party license grant.

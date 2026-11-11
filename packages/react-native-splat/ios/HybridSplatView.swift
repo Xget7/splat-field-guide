@@ -5,7 +5,7 @@ import UIKit
 /// Props arrive on the main thread; methods arrive on their calling thread.
 final class HybridSplatView: HybridSplatViewSpec {
   private enum Prop {
-    case source, highlight, cameraLimits, revealSeconds
+    case source, highlight, highlightLook, cameraLimits, revealSeconds
   }
 
   private static let partLabels = 1.0...65535.0
@@ -33,6 +33,10 @@ final class HybridSplatView: HybridSplatViewSpec {
 
   var highlight: [Double] = [] {
     didSet { changed.insert(.highlight) }
+  }
+
+  var highlightLook: HighlightLook? {
+    didSet { changed.insert(.highlightLook) }
   }
 
   var cameraLimits: CameraLimits? {
@@ -96,6 +100,17 @@ final class HybridSplatView: HybridSplatViewSpec {
     if changed.contains(.revealSeconds) {
       let seconds = Float(revealSeconds ?? 0)
       loop.post { engine in sfg_set_reveal(engine.handle, seconds) }
+    }
+    // Set before the labels so a first highlight already uses the host's look.
+    if changed.contains(.highlightLook) {
+      let look = highlightLook.map(sfg_highlight_look.init)
+      loop.post { engine in
+        let accepted = withOptionalPointer(to: look) { sfg_set_highlight_look(engine.handle, $0) }
+        if !accepted {
+          SplatInstrumentation.logger.error(
+            "highlightLook refused: tint not 0xRRGGBB or a value outside its range")
+        }
+      }
     }
     if changed.contains(.highlight) {
       let labels = partLabels(highlight)

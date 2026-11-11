@@ -7,8 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(SPLAT_CORE_BUILD_TESTS "Build splat_core unit tests" ${PROJECT_IS_TOP_LEVEL})
-option(SPLAT_CORE_BUILD_TOOLS "Build splat_lod_build, which prepares a pack's LOD tree" ${PROJECT_IS_TOP_LEVEL})
-option(SPLAT_CORE_PORTABLE_SHA256 "Use vendored SHA-256 without platform crypto" ${ANDROID})
+option(SPLAT_CORE_BUILD_TOOLS "Build splat-convert, ply2spz, splat-tile, splat_lod_build and splat_collider" ${PROJECT_IS_TOP_LEVEL})
 # "thread" or "address" (address implies undefined). Off by default; CI runs both.
 set(SPLAT_CORE_SANITIZE "" CACHE STRING "Sanitizer for splat_core and its tests")
 
@@ -25,41 +24,40 @@ include(cmake/dependencies.cmake)
 find_package(Threads REQUIRED)
 
 add_library(splat_core STATIC
-  src/filtering/Compaction.cpp
-  src/filtering/Haze.cpp
-  src/filtering/Sparse.cpp
-  src/formats/FrameTransform.cpp
-  src/formats/PartLabels.cpp
   src/formats/SplatDecoder.cpp
+  src/formats/PartLabels.cpp
   src/formats/SpzDecoder.cpp
+  src/formats/FrameTransform.cpp
   src/formats/SpzFrame.cpp
-  src/io/MappedFile.cpp
-  src/loading/Sha256.cpp
-  src/loading/SplatWorldLoader.cpp
-  src/lod/LodFile.cpp
-  src/lod/LodSelection.cpp
-  src/lod/LodTree.cpp
-  src/math/Covariance.cpp
+  src/formats/GlbDecoder.cpp
+  src/formats/GlbEncoder.cpp
+  src/navigation/Collider.cpp
+  src/navigation/CharacterController.cpp
+  src/navigation/ColliderBuilder.cpp
+  src/sorting/SpatialOrder.cpp
   src/math/SymmetricEigen.cpp
+  src/math/Covariance.cpp
+  src/lod/LodTree.cpp
+  src/lod/LodSelection.cpp
+  src/lod/LodFile.cpp
+  src/io/MappedFile.cpp
+  src/loading/LoadCost.cpp
+  src/loading/SplatWorldLoader.cpp
+  src/sorting/VisibilityPlanner.cpp
+  src/diagnostics/TimingSummary.cpp
+  src/tiles/Tileset.cpp
+  src/tiles/TileBuilder.cpp
+  src/tiles/TreeChunker.cpp
+  src/tiles/SlabAllocator.cpp
+  src/tiles/TileScheduler.cpp
+  src/tiles/TileLoader.cpp
+  src/tiles/TiledWorld.cpp
+  src/tiles/TileStreamer.cpp
 )
 target_include_directories(splat_core PUBLIC include)
+target_include_directories(splat_core SYSTEM PRIVATE third_party/picosha2)
 find_package(ZLIB REQUIRED)  # the SPZ gzip container is inflated here, with a ceiling
-target_link_libraries(splat_core PRIVATE spz ZLIB::ZLIB PUBLIC Threads::Threads)
-if(SPLAT_CORE_PORTABLE_SHA256)
-  target_compile_definitions(splat_core PRIVATE SPLAT_CORE_PORTABLE_SHA256)
-  target_include_directories(splat_core SYSTEM PRIVATE vendor/picosha2)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
-    set(SPLAT_CORE_ARM_SHA256 ON)
-    target_sources(splat_core PRIVATE src/loading/Sha256Arm.cpp)
-    target_compile_definitions(splat_core PRIVATE SPLAT_CORE_ARM_SHA256)
-    # The baseline code must run on CPUs without crypto instructions.
-    set_source_files_properties(src/loading/Sha256Arm.cpp PROPERTIES
-      COMPILE_OPTIONS "-march=armv8-a+crypto")
-  endif()
-elseif(NOT APPLE)
-  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
-  target_link_libraries(splat_core PRIVATE OpenSSL::Crypto)
-endif()
+target_link_libraries(splat_core PRIVATE spz nlohmann_json::nlohmann_json ZLIB::ZLIB PUBLIC Threads::Threads)
 target_compile_options(splat_core PRIVATE
   $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>
 )

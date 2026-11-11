@@ -114,7 +114,7 @@ const pack = {
         },
   ),
 };
-const catalog = catalogFor(pack);
+const catalog = catalogFor([pack]);
 const VIEWPORT = { width: 300, height: 400 };
 // About the step on screen, so it names no other part to move to.
 const PUSH_IN_QUESTION = 'Why does this step matter?';
@@ -436,7 +436,7 @@ describe('viewer screen', () => {
         },
       },
     };
-    await mount({ guideId: authored.packId }, catalogFor(authored));
+    await mount({ guideId: authored.packId }, catalogFor([authored]));
     expect(native().props.cameraLimits).toEqual({
       minAzimuth: Math.PI / 2,
       maxAzimuth: (3 * Math.PI) / 2,

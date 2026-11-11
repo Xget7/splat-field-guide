@@ -110,6 +110,12 @@ using namespace margelo::nitro::splat::views;
           : !newViewProps.highlight.hasSameValue(oldViewProps->highlight)) {
       swiftPart.setHighlight(newViewProps.highlight.get());
     }
+    // highlightLook: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.highlightLook.isProvided()
+          : !newViewProps.highlightLook.hasSameValue(oldViewProps->highlightLook)) {
+      swiftPart.setHighlightLook(newViewProps.highlightLook.get());
+    }
     // cameraLimits: optional
     if (oldViewProps == nullptr
           ? newViewProps.cameraLimits.isProvided()

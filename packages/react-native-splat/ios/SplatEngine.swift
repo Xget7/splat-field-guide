@@ -96,6 +96,16 @@ extension sfg_view_direction {
   }
 }
 
+extension sfg_highlight_look {
+  init(_ look: HighlightLook) {
+    // An out-of-range colour maps past 0xFFFFFF so the adapter rejects it rather than wrapping.
+    let rgb = look.tintRgb.isFinite && look.tintRgb >= 0 && look.tintRgb <= 0xFFFFFF
+      ? UInt32(look.tintRgb) : UInt32.max
+    self.init(tint_rgb: rgb, tint_amount: Float(look.tintAmount),
+      part_brightness: Float(look.partBrightness), other_brightness: Float(look.otherBrightness))
+  }
+}
+
 extension sfg_camera_limits {
   init(_ limits: CameraLimits) {
     self.init(

@@ -50,11 +50,11 @@ if (tool === 'xcrun' && args[0] === 'libtool') {
     };
     // The builder copies these headers after the fake compilation.
     for (const relative of [
-      'splatkit-ios/module.modulemap',
-      'splatkit-engine/include/splatkit/sfg.h',
-      'splatkit-ios/Sources/SplatKitCore/include/splatkit/sfg_metal.h',
+      'adapter/ios/module.modulemap',
+      'adapter/include/sfg/sfg.h',
+      'adapter/ios/include/sfg/sfg_metal.h',
     ]) {
-      const file = path.join(fixture, 'engine', relative);
+      const file = path.join(fixture, relative);
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, 'header');
     }

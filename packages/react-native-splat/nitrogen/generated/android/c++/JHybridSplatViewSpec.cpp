@@ -9,6 +9,8 @@
 
 // Forward declaration of `SplatSource` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatSource; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
 // Forward declaration of `SplatError` to properly resolve imports.
@@ -26,8 +28,10 @@ namespace margelo::nitro::splat { struct Vec3; }
 #include "JSplatSource.hpp"
 #include <string>
 #include <vector>
-#include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
 #include <optional>
+#include "JHighlightLook.hpp"
+#include "CameraLimits.hpp"
 #include "JCameraLimits.hpp"
 #include <functional>
 #include "JFunc_void.hpp"
@@ -105,6 +109,15 @@ namespace margelo::nitro::splat {
       __array->setRegion(0, __size, highlight.data());
       return __array;
     }());
+  }
+  std::optional<HighlightLook> JHybridSplatViewSpec::getHighlightLook() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JHighlightLook>()>("getHighlightLook");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(__result->toCpp()) : std::nullopt;
+  }
+  void JHybridSplatViewSpec::setHighlightLook(const std::optional<HighlightLook>& highlightLook) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JHighlightLook> /* highlightLook */)>("setHighlightLook");
+    method(_javaPart, highlightLook.has_value() ? JHighlightLook::fromCpp(highlightLook.value()) : nullptr);
   }
   std::optional<CameraLimits> JHybridSplatViewSpec::getCameraLimits() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JCameraLimits>()>("getCameraLimits");

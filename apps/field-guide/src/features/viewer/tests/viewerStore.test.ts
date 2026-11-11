@@ -15,7 +15,7 @@ import { progressTargetFor } from '../domain/viewerState';
 import { createViewerStore, type VoicePort } from '../state/viewerStore';
 
 const pack = fixturePack();
-const guide = findReadyGuide(catalogFor(pack), pack.packId)!;
+const guide = findReadyGuide(catalogFor([pack]), pack.packId)!;
 const COOLANT = 'check-coolant';
 const COOLANT_STEPS = pack.procedures.find(item => item.id === COOLANT)!.steps
   .length;

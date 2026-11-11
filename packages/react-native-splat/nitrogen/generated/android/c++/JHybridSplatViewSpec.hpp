@@ -54,6 +54,8 @@ namespace margelo::nitro::splat {
     void setSource(const SplatSource& source) override;
     std::vector<double> getHighlight() override;
     void setHighlight(const std::vector<double>& highlight) override;
+    std::optional<HighlightLook> getHighlightLook() override;
+    void setHighlightLook(const std::optional<HighlightLook>& highlightLook) override;
     std::optional<CameraLimits> getCameraLimits() override;
     void setCameraLimits(const std::optional<CameraLimits>& cameraLimits) override;
     std::optional<double> getRevealSeconds() override;

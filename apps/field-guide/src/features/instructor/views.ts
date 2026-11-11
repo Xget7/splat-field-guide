@@ -23,3 +23,4 @@ export {
   useVoiceStatus,
   useVoiceRuntime,
 } from './state/instructorHooks';
+export { OfflinePreparation } from './ui/OfflinePreparation';

@@ -12,6 +12,7 @@
 
 #include "HybridSplatViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
+#include "HybridBundledPacksSpecSwift.hpp"
 
 @interface ReactNativeSplatAutolinking : NSObject
 @end
@@ -33,6 +34,13 @@
     "SplatDiagnostics",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridSplatDiagnosticsSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createSplatDiagnostics();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "BundledPacks",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridBundledPacksSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createBundledPacks();
       return hybridObject;
     }
   );

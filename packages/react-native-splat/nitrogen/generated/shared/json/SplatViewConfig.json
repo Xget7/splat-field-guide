@@ -6,6 +6,7 @@
   "validAttributes": {
     "source": true,
     "highlight": true,
+    "highlightLook": true,
     "cameraLimits": true,
     "revealSeconds": true,
     "onReady": true,

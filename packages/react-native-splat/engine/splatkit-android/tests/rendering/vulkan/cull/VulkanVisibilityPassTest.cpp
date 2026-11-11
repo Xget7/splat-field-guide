@@ -6,24 +6,21 @@
 #include <numeric>
 #include <set>
 #include <utility>
+#include "../../../../../splatkit-engine/src/labels/LabelStyleUpload.h"
 
 #include "rendering/vulkan/cull/VulkanVisibilityPass.h"
 #include "rendering/vulkan/frame/VulkanCameraProjection.h"
 #include "rendering/vulkan/layout/VulkanShStorage.h"
 #include "splat/math/Half.h"
-#include "splatkit/guide/GuideLayout.h"
+#include "splatkit/labels/LabelStyles.h"
 #include "splatkit/rendering/GpuLayout.h"
 #include "support/VulkanTestContext.h"
 
 namespace {
 using splatkit::CameraUniform;
 using splatkit::GpuSplat;
-using splatkit::GuideUniform;
 using splatkit::KeyBits;
 using splatkit::kFramesInFlight;
-using splatkit::kLabelCount;
-using splatkit::LabelStyles;
-using splatkit::makeGuideUniform;
 using splatkit::packSh;
 using splatkit::packSplats;
 using splatkit::ProjectedSplat;
@@ -63,36 +60,17 @@ std::unique_ptr<VulkanBuffer> upload(const test::VulkanTestContext& gpu,
   require(buffer->upload(values.empty() ? &zero : values.data(), bytes), "input upload");
   return buffer;
 }
-// Field Guide's label stream: label i is halfword i & 1 of word i >> 1, little-endian.
-std::vector<uint32_t> labelWords(const std::vector<uint16_t>& labels) {
-  std::vector<uint32_t> words((labels.size() + 1) / 2, 0);
-  for (size_t i = 0; i < labels.size(); ++i)
-    words[i / 2] |= static_cast<uint32_t>(labels[i]) << (16 * (i % 2));
-  return words;
-}
-constexpr uint32_t kFixtureSplats = 300;
-// No reveal running: everything is drawn, as captured.
-constexpr float kNoReveal = std::numeric_limits<float>::infinity();
-
 struct Fixture {
   explicit Fixture(const test::VulkanTestContext& gpu)
-      : splats(upload(gpu, source(kFixtureSplats))),
-        labels(upload(gpu, labelWords(std::vector<uint16_t>(kFixtureSplats, 0)))),
+      : splats(upload(gpu, source(300))),
         uniforms(VulkanBuffer::hostVisible(*gpu.context, sizeof(CameraUniform),
-                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)),
-        guide(VulkanBuffer::hostVisible(*gpu.context, sizeof(GuideUniform),
-                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
-    require(uniforms != nullptr && guide != nullptr, "uniform allocation");
+                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) {
+    require(uniforms != nullptr, "uniform allocation");
     setCamera(camera());
-    setGuide(makeGuideUniform(nullptr, kNoReveal, 0));
   }
   void setCamera(const CameraUniform& cam) const {
     std::memcpy(uniforms->mapped(), &cam, sizeof(cam));
     uniforms->flush(0, sizeof(cam));
-  }
-  void setGuide(const std::unique_ptr<GuideUniform>& g) const {
-    std::memcpy(guide->mapped(), g.get(), sizeof(GuideUniform));
-    guide->flush(0, sizeof(GuideUniform));
   }
   VulkanVisibilityPass::Input input() const {
     VulkanVisibilityPass::Input in;
@@ -100,14 +78,10 @@ struct Fixture {
     in.cameraBytes = uniforms->size();
     in.splats = splats->handle();
     in.splatsBytes = splats->size();
-    in.sourceCount = kFixtureSplats;
-    in.labels = labels->handle();
-    in.labelsBytes = labels->size();
-    in.guide = guide->handle();
-    in.guideBytes = guide->size();
+    in.sourceCount = 300;
     return in;
   }
-  std::unique_ptr<VulkanBuffer> splats, labels, uniforms, guide;
+  std::unique_ptr<VulkanBuffer> splats, uniforms;
 };
 struct Result {
   uint32_t count = 0, status = 0;
@@ -368,19 +342,6 @@ void testDescriptorRejection(const Gpu& gpu, VulkanVisibilityPass& pass, const F
     bad.candidatesBytes = indexBuffer->size();
     bad.candidateCountBytes = 3;
     require(!pass.encode(cmd, 0, bad), "reject undersized count descriptor");
-    // 300 labels take 150 words.
-    bad = in;
-    bad.labelsBytes = 149 * 4;
-    require(!pass.encode(cmd, 0, bad), "reject a label stream shorter than the source");
-    bad = in;
-    bad.labels = VK_NULL_HANDLE;
-    require(!pass.encode(cmd, 0, bad), "reject a missing label stream");
-    bad = in;
-    bad.guideBytes = sizeof(GuideUniform) - 4;
-    require(!pass.encode(cmd, 0, bad), "reject an undersized guide");
-    bad = in;
-    bad.guide = VK_NULL_HANDLE;
-    require(!pass.encode(cmd, 0, bad), "reject a missing guide");
     require(!pass.encode(cmd, kFramesInFlight, in), "reject invalid slot");
     require(!pass.encode(VK_NULL_HANDLE, 0, in), "reject null command");
   });
@@ -520,137 +481,6 @@ void testProjectedRecord(const Gpu& gpu, VulkanVisibilityPass& pass, const Fixtu
   std::puts("PASS projected record: centre, half axes, colour with SH, opacity, radius, source");
 }
 
-// Field Guide's part labels and styles, read beside the splat records. These are the cases of
-// MetalVisibilityPassTest under the same names.
-
-// An opaque splat of the given colour, one unit across, at (x, y, z).
-GpuSplat guideSplat(float x, float y, float z, uint32_t rgba8 = 0xff000000u) {
-  GpuSplat splat{};
-  splat.position[0] = x;
-  splat.position[1] = y;
-  splat.position[2] = z;
-  splat.rgba8 = rgba8;
-  const uint32_t one = splat::toHalf(1.0f);
-  splat.cov[0] = one;
-  splat.cov[1] = one << 16;
-  splat.cov[2] = one << 16;
-  return splat;
-}
-
-// The projected splats of `source` labelled `labels` (the fixture's zeros when empty) under
-// `styles` and the reveal, by source splat. The fixture's guide is left as found.
-std::vector<ProjectedSplat> projectGuided(const Gpu& gpu, VulkanVisibilityPass& pass,
-                                          const Fixture& f, const std::vector<GpuSplat>& source,
-                                          const std::vector<uint16_t>& labels = {},
-                                          const LabelStyles* styles = nullptr,
-                                          float revealLevel = kNoReveal, float revealBand = 0) {
-  const auto n = static_cast<uint32_t>(source.size());
-  require(pass.reserve(n), "guided output capacity");
-  auto splats = upload(gpu, source);
-  auto stream = upload(gpu, labelWords(labels));
-  auto in = f.input();
-  in.splats = splats->handle();
-  in.splatsBytes = splats->size();
-  in.sourceCount = n;
-  if (!labels.empty()) {
-    in.labels = stream->handle();
-    in.labelsBytes = stream->size();
-  }
-  f.setGuide(makeGuideUniform(styles, revealLevel, revealBand));
-  auto result = run(gpu, pass, in);
-  f.setGuide(makeGuideUniform(nullptr, kNoReveal, 0));
-  require(result.status == 0, "no visibility failure");
-  std::sort(result.projected.begin(), result.projected.end(),
-            [](const ProjectedSplat& a, const ProjectedSplat& b) { return a.index < b.index; });
-  return result.projected;
-}
-
-void testReadsTheLabelOfEachSplatPastAWordBoundary(const Gpu& gpu, VulkanVisibilityPass& pass,
-                                                   const Fixture& f) {
-  // Five black splats labelled 1 to 5; style k tints toward red by k/5, so the fifth splat's
-  // label sits in the third word of the stream.
-  constexpr uint32_t kSplats = 5;
-  const std::vector<GpuSplat> source(kSplats, guideSplat(0, 0, -2));
-  std::vector<uint16_t> labels(kSplats);
-  LabelStyles styles{};
-  for (uint32_t i = 0; i < kSplats; ++i) {
-    labels[i] = i == kSplats - 1 ? 65535 : static_cast<uint16_t>(256 + i);
-    styles[labels[i]].tint[0] = 1;
-    styles[labels[i]].tintAmount = static_cast<float>(i + 1) / kSplats;
-  }
-  const auto projected = projectGuided(gpu, pass, f, source, labels, &styles);
-  require(projected.size() == kSplats, "every labelled splat drawn");
-  for (uint32_t i = 0; i < kSplats; ++i) {
-    require(projected[i].index == i, "projected by source splat");
-    const auto [red, green] = halves(projected[i].color0);
-    requireNear(red, static_cast<float>(i + 1) / kSplats, 1e-3f, "red from the splat's own label");
-    require(green == 0, "no green from the tint");
-    require(halves(projected[i].color1).second == 1, "opacity unchanged");
-  }
-  std::puts("PASS reads the label of each splat past a word boundary");
-}
-
-void testCullsAPartWhoseOpacityIsZero(const Gpu& gpu, VulkanVisibilityPass& pass,
-                                      const Fixture& f) {
-  LabelStyles styles{};
-  styles[2].opacity = 0;
-  const auto projected =
-      projectGuided(gpu, pass, f, std::vector<GpuSplat>(2, guideSplat(0, 0, -2)), {1, 2}, &styles);
-  require(projected.size() == 1 && projected[0].index == 0, "the hidden part is culled");
-  std::puts("PASS culls a part whose opacity is zero");
-}
-
-void testDrawsUnlabelledCloudsWithIdentityStyles(const Gpu& gpu, VulkanVisibilityPass& pass,
-                                                 const Fixture& f) {
-  // Every style but the first tints and dims; an unlabelled cloud only ever takes the first.
-  constexpr uint32_t kRed = 0xff0000ffu, kGreen = 0xff00ff00u, kBlue = 0xffff0000u;
-  const std::vector<GpuSplat> source = {guideSplat(0, 0, -2, kRed), guideSplat(0, 0, -2, kGreen),
-                                        guideSplat(0, 0, -2, kBlue)};
-  LabelStyles styles{};
-  for (size_t k = 1; k < kLabelCount; ++k) {
-    styles[k].tint[0] = styles[k].tint[1] = styles[k].tint[2] = 0.5f;
-    styles[k].tintAmount = 1;
-    styles[k].brightness = 0.5f;
-  }
-  const auto projected = projectGuided(gpu, pass, f, source, {}, &styles);
-  require(projected.size() == 3, "every unlabelled splat drawn");
-  const float expected[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  for (uint32_t i = 0; i < 3; ++i) {
-    const auto [red, green] = halves(projected[i].color0);
-    const auto [blue, opacity] = halves(projected[i].color1);
-    require(red == expected[i][0] && green == expected[i][1] && blue == expected[i][2] &&
-                opacity == 1,
-            "an unlabelled splat keeps its captured colour");
-  }
-  std::puts("PASS draws unlabelled clouds with identity styles");
-}
-
-void testClipsAboveTheRevealLevel(const Gpu& gpu, VulkanVisibilityPass& pass, const Fixture& f) {
-  const std::vector<GpuSplat> source = {guideSplat(0, 0, -10), guideSplat(0, 2, -10)};
-  require(projectGuided(gpu, pass, f, source).size() == 2, "no reveal draws both");
-  constexpr float kLevel = 1;
-  const auto projected = projectGuided(gpu, pass, f, source, {}, nullptr, kLevel);
-  require(projected.size() == 1 && projected[0].index == 0, "the splat above the level is clipped");
-  require(projectGuided(gpu, pass, f, source, {}, nullptr,
-                        std::numeric_limits<float>::quiet_NaN())
-              .empty(),
-          "a NaN level draws nothing");
-  std::puts("PASS clips above the reveal level");
-}
-
-void testGlowsInTheRevealBandUnderTheLevel(const Gpu& gpu, VulkanVisibilityPass& pass,
-                                           const Fixture& f) {
-  // At the level the band peaks in the reveal tint; a band's height below it is as captured.
-  const std::vector<GpuSplat> source = {guideSplat(0, 1, -10), guideSplat(0, -1, -10)};
-  constexpr float kLevel = 1, kBand = 2;
-  const auto projected = projectGuided(gpu, pass, f, source, {}, nullptr, kLevel, kBand);
-  require(projected.size() == 2, "both splats under the level drawn");
-  require(halves(projected[0].color1).first > 0.5f, "the splat at the level glows blue");
-  require(halves(projected[1].color0).first == 0 && halves(projected[1].color1).first == 0,
-          "the splat a band below is as captured");
-  std::puts("PASS glows in the reveal band under the level");
-}
-
 // The degree-3 z term reads a late SH word and the second record's independent scale.
 void testDegree3Color(const Gpu& gpu, VulkanVisibilityPass& pass, const Fixture& f) {
   splat::SplatCloud cloud;
@@ -693,12 +523,296 @@ void testDegree3Color(const Gpu& gpu, VulkanVisibilityPass& pass, const Fixture&
   std::puts("PASS degree 3 projected colour and per-record SH stride");
 }
 
+std::unique_ptr<VulkanVisibilityPass> labelledPass(const Gpu& gpu, uint32_t capacity) {
+  const auto pipelines = VulkanVisibilityPass::Pipelines::compile(*gpu.context, true);
+  require(pipelines && pipelines->partLabels, "compile labelled pipeline family");
+  auto created = VulkanVisibilityPass::create(*gpu.context, pipelines);
+  require(static_cast<bool>(created), "create labelled pass");
+  auto pass = std::move(created.value());
+  require(pass->reserve(capacity), "reserve labelled output");
+  return pass;
+}
+// The palette and state table as the world uploads them for a frame.
+std::unique_ptr<VulkanBuffer> styleTable(const Gpu& gpu, const splatkit::LabelStyles& styles) {
+  std::vector<uint32_t> bytes(splatkit::labelStyleBytes(styles.states().size()) / sizeof(uint32_t));
+  splatkit::LabelStyleUpload revision;
+  require(revision.copy(bytes.data(), styles.states().size(), &styles), "copy state revision");
+  return upload(gpu, bytes);
+}
+void withLabels(VulkanVisibilityPass::Input& in, const VulkanBuffer& labels,
+                const VulkanBuffer& styles) {
+  in.labels = labels.handle();
+  in.labelsBytes = labels.size();
+  in.styles = styles.handle();
+  in.stylesBytes = styles.size();
+}
+
+void testLabels(const Gpu& gpu, const Fixture& f) {
+  const auto pass = labelledPass(gpu, 300);
+  const auto labels = upload(gpu, std::vector<uint32_t>(150, 0xffffffffu));
+  splatkit::LabelStyles styles(65536);
+  auto states = styles.states();
+  states[65535] = 1;
+  styles.setStates(states);
+  auto palette = styles.palette();
+  palette[1].tint[1] = 1;
+  palette[1].tintAmount = 1;
+  styles.setPalette(palette);
+  const auto table = styleTable(gpu, styles);
+  auto in = f.input();
+  withLabels(in, *labels, *table);
+  const auto result = run(gpu, *pass, in);
+  require(result.count == 300 && result.status == 0, "labelled survivors");
+  for (const auto& p : result.projected) {
+    require(p.color0 == (uint32_t{splat::toHalf(1)} << 16), "full-width label style lookup");
+  }
+}
+
+// Shared by the style and reveal cases: records at depth 5 seen head on.
+constexpr float kStyledZ = -5;
+constexpr float kStyledVariance = 0.01f;
+constexpr float kStyledAlpha = 0.5f;
+constexpr float kStyledRgb[3] = {0.2f, 0.4f, 0.6f};
+// Half-precision colour after the shader's colour maths, gamma round trips included.
+constexpr float kStyledTolerance = 3e-3f;
+constexpr float kDisplayGamma = 2.2f;           // splat_projection.glsl
+constexpr float kQuadMinAlpha = 2.0f / 255.0f;  // splat_footprint.glsl
+
+float unorm8(float v) {
+  return std::lround(v * 255) / 255.0f;
+}
+splat::SplatCloud styledCloud(const std::vector<float>& heights) {
+  splat::SplatCloud cloud;
+  for (const float y : heights) {
+    cloud.positions.insert(cloud.positions.end(), {0, y, kStyledZ});
+    cloud.covariances.insert(cloud.covariances.end(),
+                             {kStyledVariance, 0, 0, kStyledVariance, 0, kStyledVariance});
+    cloud.colors.insert(cloud.colors.end(), std::begin(kStyledRgb), std::end(kStyledRgb));
+    cloud.alphas.push_back(kStyledAlpha);
+  }
+  return cloud;
+}
+struct Rgba {
+  float rgb[3];
+  float alpha;
+};
+Rgba unstyled() {
+  return {{unorm8(kStyledRgb[0]), unorm8(kStyledRgb[1]), unorm8(kStyledRgb[2])},
+          unorm8(kStyledAlpha)};
+}
+// visibility_body.glsl: the colour is mixed toward the tint and scaled in the encoded space.
+Rgba styled(Rgba c, const splatkit::LabelStyle& style) {
+  for (int i = 0; i < 3; ++i)
+    c.rgb[i] = (c.rgb[i] + (style.tint[i] - c.rgb[i]) * style.tintAmount) * style.brightness;
+  c.alpha *= style.opacity;
+  return c;
+}
+// splat_projection.glsl revealGlow: the glow eases in over the band below the level.
+Rgba glowing(Rgba c, const splatkit::RevealUniform& reveal, float height) {
+  const float ramp = std::clamp(1 - (reveal.level - height) / reveal.band, 0.0f, 1.0f);
+  const float glow = ramp * ramp;
+  for (int i = 0; i < 3; ++i)
+    c.rgb[i] = (c.rgb[i] + (reveal.tint[i] - c.rgb[i]) * reveal.tintAmount * glow) *
+               (1 + reveal.brightnessBoost * glow);
+  return c;
+}
+void requireColour(const ProjectedSplat& p, const Rgba& expected, bool linear, const char* what) {
+  const auto [red, green] = halves(p.color0);
+  const auto [blue, opacity] = halves(p.color1);
+  const float got[3] = {red, green, blue};
+  for (int c = 0; c < 3; ++c) {
+    const float want = linear ? std::pow(expected.rgb[c], kDisplayGamma) : expected.rgb[c];
+    requireNear(got[c], want, kStyledTolerance, what);
+  }
+  requireNear(opacity, expected.alpha, kStyledTolerance, what);
+}
+bool sameRecord(const ProjectedSplat& a, const ProjectedSplat& b) {
+  return a.center[0] == b.center[0] && a.center[1] == b.center[1] && a.axis1 == b.axis1 &&
+         a.axis2 == b.axis2 && a.color0 == b.color0 && a.color1 == b.color1 &&
+         a.radius == b.radius && a.index == b.index;
+}
+const ProjectedSplat& record(const Result& result, uint32_t source) {
+  for (const auto& p : result.projected)
+    if (p.index == source) return p;
+  throw std::runtime_error("source record missing");
+}
+
+// Each record's label picks its state from its own half of the packed word, and the state's
+// tint, brightness and opacity apply; opacity under the quad cutoff hides the record.
+void testLabelStyles(const Gpu& gpu, const Fixture& f) {
+  enum State : uint32_t { kPlain, kTinted, kPartial, kHidden, kFaintCulled, kFaintKept };
+  constexpr uint16_t kTintedLabel = 1;
+  constexpr uint16_t kPartialLabel = 300;
+  constexpr uint16_t kHiddenLabel = 40000;
+  constexpr uint16_t kFaintCulledLabel = 7;
+  constexpr uint16_t kFaintKeptLabel = 8;
+  // Neighbours in a word differ, and words 0 and 3 swap the same pair of labels.
+  const std::vector<uint16_t> labels{
+      kTintedLabel,      kPartialLabel,   kHiddenLabel,  0,
+      kFaintCulledLabel, kFaintKeptLabel, kPartialLabel, kTintedLabel};
+  const std::vector<State> expected{kTinted,      kPartial,   kHidden,  kPlain,
+                                    kFaintCulled, kFaintKept, kPartial, kTinted};
+  auto cloud = styledCloud(std::vector<float>(labels.size(), 0));
+  cloud.labels = labels;
+  auto splats = upload(gpu, packSplats(cloud));
+  auto words = upload(gpu, splatkit::packLabels(cloud));
+
+  splatkit::LabelStyles styles(kHiddenLabel + 1);
+  auto states = styles.states();
+  states[kTintedLabel] = kTinted;
+  states[kPartialLabel] = kPartial;
+  states[kHiddenLabel] = kHidden;
+  states[kFaintCulledLabel] = kFaintCulled;
+  states[kFaintKeptLabel] = kFaintKept;
+  styles.setStates(states);
+  auto palette = styles.palette();
+  palette[kTinted].tint[1] = 1;
+  palette[kTinted].tintAmount = 1;
+  palette[kPartial].tint[0] = 1;
+  palette[kPartial].tintAmount = 0.25f;
+  palette[kPartial].brightness = 0.5f;
+  palette[kPartial].opacity = 0.6f;
+  palette[kHidden].opacity = 0;
+  // Peak alpha 128/255 times these lands either side of the 2/255 quad cutoff.
+  palette[kFaintCulled].opacity = 0.01f;
+  palette[kFaintKept].opacity = 0.02f;
+  styles.setPalette(palette);
+  require(unorm8(kStyledAlpha) * palette[kFaintCulled].opacity < kQuadMinAlpha &&
+              unorm8(kStyledAlpha) * palette[kFaintKept].opacity > kQuadMinAlpha,
+          "faint opacities straddle the quad cutoff");
+  const auto table = styleTable(gpu, styles);
+
+  const auto pass = labelledPass(gpu, static_cast<uint32_t>(labels.size()));
+  auto in = f.input();
+  in.splats = splats->handle();
+  in.splatsBytes = splats->size();
+  in.sourceCount = static_cast<uint32_t>(labels.size());
+  withLabels(in, *words, *table);
+  for (const bool linear : {false, true}) {
+    CameraUniform cam = camera();
+    cam.outputLinear = linear ? 1 : 0;
+    f.setCamera(cam);
+    const auto result = run(gpu, *pass, in);
+    membership(result, {0, 1, 3, 5, 6, 7});
+    for (const auto& p : result.projected)
+      requireColour(p, styled(unstyled(), palette[expected[p.index]]), linear,
+                    linear ? "linear-output label style" : "label style");
+  }
+  f.setCamera(camera());
+  std::puts("PASS label halves pick their own state; tint, brightness, opacity and hiding apply");
+}
+
+constexpr float kRevealLevel = 0.1f;
+constexpr float kRevealBand = 0.4f;
+splatkit::RevealUniform midSweep() {
+  splatkit::RevealUniform reveal;
+  reveal.level = kRevealLevel;
+  reveal.band = kRevealBand;
+  reveal.tintAmount = 0.8f;
+  reveal.brightnessBoost = 0.5f;
+  reveal.tint[0] = 0;
+  reveal.tint[1] = 1;
+  reveal.tint[2] = 0;
+  return reveal;
+}
+Result runReveal(const Gpu& gpu, const VulkanVisibilityPass& pass, const Fixture& f,
+                 const VulkanVisibilityPass::Input& in, const splatkit::RevealUniform& reveal) {
+  CameraUniform cam = camera();
+  cam.reveal = reveal;
+  f.setCamera(cam);
+  auto result = run(gpu, pass, in);
+  f.setCamera(camera());
+  return result;
+}
+
+// Mid-sweep, records above the level are culled, the band below it glows toward the tint and
+// records under the band are untouched. Idle leaves every record as it was.
+void testReveal(const Gpu& gpu, VulkanVisibilityPass& pass, const Fixture& f) {
+  // Above the level, at it, two in the band, one under the band, and a NaN height.
+  const std::vector<float> heights{
+      0.4f, 0.2f, kRevealLevel, 0.0f, -0.2f, -0.4f, std::numeric_limits<float>::quiet_NaN()};
+  constexpr uint32_t kUnderBand = 5;
+  auto splats = upload(gpu, packSplats(styledCloud(heights)));
+  require(pass.reserve(static_cast<uint32_t>(heights.size())), "reveal output capacity");
+  auto in = f.input();
+  in.splats = splats->handle();
+  in.splatsBytes = splats->size();
+  in.sourceCount = static_cast<uint32_t>(heights.size());
+
+  const auto idle = runReveal(gpu, pass, f, in, {});
+  membership(idle, {0, 1, 2, 3, 4, 5});
+  for (const auto& p : idle.projected) requireColour(p, unstyled(), false, "idle colour");
+  const auto reveal = midSweep();
+  const auto sweep = runReveal(gpu, pass, f, in, reveal);
+  membership(sweep, {2, 3, 4, 5});
+  for (const auto& p : sweep.projected) {
+    if (p.index == kUnderBand) {
+      require(sameRecord(p, record(idle, p.index)), "a record under the band is untouched");
+    } else {
+      requireColour(p, glowing(unstyled(), reveal, heights[p.index]), false, "reveal glow");
+    }
+  }
+  const auto restored = runReveal(gpu, pass, f, in, {});
+  membership(restored, {0, 1, 2, 3, 4, 5});
+  for (const auto& p : restored.projected)
+    require(sameRecord(p, record(idle, p.index)),
+            "an idle reveal after a sweep restores every record");
+  std::puts("PASS reveal culls above the level, glows in the band and idles to the same records");
+}
+
+// The reveal applies after the label style: a hidden part stays hidden in the band, and a
+// styled part glows from its styled colour.
+void testRevealWithLabels(const Gpu& gpu, const Fixture& f) {
+  enum State : uint32_t { kPlain, kHidden, kPartial };
+  constexpr uint16_t kHiddenLabel = 2;
+  constexpr uint16_t kPartialLabel = 3;
+  const std::vector<float> heights{0.4f, 0.0f, 0.0f, -0.4f, -0.4f, 0.0f};
+  const std::vector<uint16_t> labels{kPartialLabel, kHiddenLabel,  kPartialLabel,
+                                     kHiddenLabel,  kPartialLabel, 0};
+  auto cloud = styledCloud(heights);
+  cloud.labels = labels;
+  auto splats = upload(gpu, packSplats(cloud));
+  auto words = upload(gpu, splatkit::packLabels(cloud));
+  splatkit::LabelStyles styles(kPartialLabel + 1);
+  auto states = styles.states();
+  states[kHiddenLabel] = kHidden;
+  states[kPartialLabel] = kPartial;
+  styles.setStates(states);
+  auto palette = styles.palette();
+  palette[kHidden].opacity = 0;
+  palette[kPartial].tint[2] = 1;
+  palette[kPartial].tintAmount = 0.5f;
+  palette[kPartial].brightness = 0.8f;
+  palette[kPartial].opacity = 0.7f;
+  styles.setPalette(palette);
+  const auto table = styleTable(gpu, styles);
+  const auto pass = labelledPass(gpu, static_cast<uint32_t>(heights.size()));
+  auto in = f.input();
+  in.splats = splats->handle();
+  in.splatsBytes = splats->size();
+  in.sourceCount = static_cast<uint32_t>(heights.size());
+  withLabels(in, *words, *table);
+  const auto reveal = midSweep();
+  const auto result = runReveal(gpu, *pass, f, in, reveal);
+  membership(result, {2, 4, 5});
+  for (const auto& p : result.projected) {
+    const auto style = palette[labels[p.index] == kPartialLabel ? kPartial : kPlain];
+    requireColour(p, glowing(styled(unstyled(), style), reveal, heights[p.index]), false,
+                  "reveal glow over a label style");
+  }
+  std::puts("PASS reveal composes with hidden and styled label states");
+}
+
 void tests(const Gpu& gpu) {
   auto created = VulkanVisibilityPass::create(*gpu.context);
   require(static_cast<bool>(created), "create subgroup visibility pass");
   auto pass = std::move(created.value());
   const Fixture f(gpu);
   require(pass->reserve(300), "reserve output");
+  require(!pass->pipelines()->partLabels, "default pipeline family remains unlabelled");
+  testLabels(gpu, f);
+  testLabelStyles(gpu, f);
+  testRevealWithLabels(gpu, f);
   testPrefix(gpu, *pass, f);
   testSparseIndexed(gpu, *pass, f);
   testIndexedLod(gpu, *pass, f);
@@ -709,12 +823,8 @@ void tests(const Gpu& gpu) {
   testQuadExtent(gpu, *pass, f);
   testCameraCutoff(gpu, *pass, f);
   testProjectedRecord(gpu, *pass, f);
-  testReadsTheLabelOfEachSplatPastAWordBoundary(gpu, *pass, f);
-  testCullsAPartWhoseOpacityIsZero(gpu, *pass, f);
-  testDrawsUnlabelledCloudsWithIdentityStyles(gpu, *pass, f);
-  testClipsAboveTheRevealLevel(gpu, *pass, f);
-  testGlowsInTheRevealBandUnderTheLevel(gpu, *pass, f);
   testDegree3Color(gpu, *pass, f);
+  testReveal(gpu, *pass, f);
 }
 }  // namespace
 

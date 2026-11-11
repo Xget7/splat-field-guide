@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { framingAuditDebug } from '../viewport/useFramingAudit';
 import {
   useAgentStatus,
   useInstructorMode,
@@ -90,6 +92,7 @@ interface Props {
 
 /** What the app is running on right now, read from the same events the UI reacts to. */
 export function DevPanel({ pack, loadedMs }: Props) {
+  const [auditStatus, setAuditStatus] = useState('Check framing');
   const mode = useInstructorMode();
   const agent = useAgentStatus();
   const network = useNetwork();
@@ -139,6 +142,33 @@ export function DevPanel({ pack, loadedMs }: Props) {
       <Text style={styles.title} accessibilityRole="header">
         {DevCopy.title}
       </Text>
+      {__DEV__ && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={auditStatus}
+          disabled={auditStatus === 'Checking framing...'}
+          onPress={async () => {
+            const audit = framingAuditDebug();
+            if (!audit) {
+              setAuditStatus('Framing unavailable');
+              return;
+            }
+            setAuditStatus('Checking framing...');
+            try {
+              await audit.run();
+              setAuditStatus(
+                `Framing: ${
+                  audit.report.steps.filter(step => step.occluded).length
+                } occluded`,
+              );
+            } catch (error) {
+              setAuditStatus(String(error));
+            }
+          }}
+        >
+          <Text style={styles.value}>{auditStatus}</Text>
+        </Pressable>
+      )}
       {sections.map(section => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.heading}>{section.title}</Text>

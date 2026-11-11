@@ -5,6 +5,7 @@ import type { SplatViewMethods, SplatViewProps } from './SplatView.nitro';
 export type {
   Bounds,
   CameraLimits,
+  HighlightLook,
   PartLabel,
   SplatError,
   SplatErrorCode,
@@ -20,3 +21,5 @@ export const SplatView = getHostComponent<SplatViewProps, SplatViewMethods>(
   'SplatView',
   () => SplatViewConfig,
 );
+
+export { getBundledPacks, type BundledPackManifest } from './bundledPacks';

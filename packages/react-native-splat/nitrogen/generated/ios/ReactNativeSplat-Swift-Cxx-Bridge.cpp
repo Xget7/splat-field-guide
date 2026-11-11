@@ -8,6 +8,7 @@
 #include "ReactNativeSplat-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
+#include "HybridBundledPacksSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
@@ -15,6 +16,22 @@
 
 namespace margelo::nitro::splat::bridge::swift {
 
+  // pragma MARK: std::shared_ptr<HybridBundledPacksSpec>
+  std::shared_ptr<HybridBundledPacksSpec> create_std__shared_ptr_HybridBundledPacksSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeSplat::HybridBundledPacksSpec_cxx swiftPart = ReactNativeSplat::HybridBundledPacksSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::splat::HybridBundledPacksSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridBundledPacksSpec_(std__shared_ptr_HybridBundledPacksSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::splat::HybridBundledPacksSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridBundledPacksSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridBundledPacksSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeSplat::HybridBundledPacksSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
   // pragma MARK: std::shared_ptr<HybridSplatDiagnosticsSpec>
   std::shared_ptr<HybridSplatDiagnosticsSpec> create_std__shared_ptr_HybridSplatDiagnosticsSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     ReactNativeSplat::HybridSplatDiagnosticsSpec_cxx swiftPart = ReactNativeSplat::HybridSplatDiagnosticsSpec_cxx::fromUnsafe(swiftUnsafePointer);
@@ -30,7 +47,7 @@ namespace margelo::nitro::splat::bridge::swift {
     ReactNativeSplat::HybridSplatDiagnosticsSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
-
+  
   // pragma MARK: std::function<void()>
   Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeSplat::Func_void::fromUnsafe(swiftClosureWrapper);
@@ -38,7 +55,7 @@ namespace margelo::nitro::splat::bridge::swift {
       swiftClosure.call();
     };
   }
-
+  
   // pragma MARK: std::function<void(const SplatError& /* error */)>
   Func_void_SplatError create_Func_void_SplatError(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeSplat::Func_void_SplatError::fromUnsafe(swiftClosureWrapper);
@@ -46,7 +63,7 @@ namespace margelo::nitro::splat::bridge::swift {
       swiftClosure.call(error);
     };
   }
-
+  
   // pragma MARK: std::function<void(double /* result */)>
   Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeSplat::Func_void_double::fromUnsafe(swiftClosureWrapper);
@@ -54,7 +71,7 @@ namespace margelo::nitro::splat::bridge::swift {
       swiftClosure.call(result);
     };
   }
-
+  
   // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
   Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = ReactNativeSplat::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
@@ -62,7 +79,7 @@ namespace margelo::nitro::splat::bridge::swift {
       swiftClosure.call(error);
     };
   }
-
+  
   // pragma MARK: std::shared_ptr<HybridSplatViewSpec>
   std::shared_ptr<HybridSplatViewSpec> create_std__shared_ptr_HybridSplatViewSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     ReactNativeSplat::HybridSplatViewSpec_cxx swiftPart = ReactNativeSplat::HybridSplatViewSpec_cxx::fromUnsafe(swiftUnsafePointer);

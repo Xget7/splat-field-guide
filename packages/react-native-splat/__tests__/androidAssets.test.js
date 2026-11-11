@@ -31,6 +31,21 @@ test('Android defaults to no pack, with explicit verified pack selection availab
     ])
       assert.ok(notices.includes(title));
     assert.doesNotMatch(notices, /Kokoro model/);
+    const engineRoot = path.resolve(__dirname, '../engine');
+    const shippedLicenses = [
+      ['LICENSE', 'SplatKit.txt'],
+      [
+        'splatkit-android/src/main/resources/META-INF/LICENSE-splatkit-android.txt',
+        'SplatKit-Android.txt',
+      ],
+      ['splat-core/third_party/picosha2/LICENSE', 'PicoSHA2.txt'],
+    ];
+    for (const [source, shipped] of shippedLicenses) {
+      assert.equal(
+        fs.readFileSync(path.join(destination, 'licenses', shipped), 'utf8'),
+        fs.readFileSync(path.join(engineRoot, source), 'utf8'),
+      );
+    }
     const manifest = JSON.parse(
       fs.readFileSync(
         path.resolve(

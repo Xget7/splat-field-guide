@@ -1,0 +1,194 @@
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#extension GL_GOOGLE_include_directive : require
+
+// Projects each candidate once for the draw: a survivor's record goes to projected[base + rank],
+// its camera-depth key to depthKeys[base + rank] and base + rank to values, which the radix sort
+// orders before projected.vert reads the records. Workgroups have 128 invocations; subgroup
+// width is device-reported, not 32.
+layout(local_size_x = 128) in;
+
+#define SH_BINDING 8
+#include "rendering/vulkan/layout/splat_projection.glsl"
+
+layout(std430, set = 0, binding = 1) readonly buffer Splats { Splat splats[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer Values { uint values[]; };
+layout(std430, set = 0, binding = 3) writeonly buffer DepthKeys { uint depthKeys[]; };
+layout(std430, set = 0, binding = 4) buffer Count { uint count; };
+layout(std430, set = 0, binding = 5) buffer Status { uint status; };
+layout(std430, set = 0, binding = 6) readonly buffer Candidates { uint candidates[]; };
+layout(std430, set = 0, binding = 7) readonly buffer CandidateCount { uint candidateCount; };
+layout(std430, set = 0, binding = 9) writeonly buffer Projected { ProjectedSplat projected[]; };
+
+layout(push_constant) uniform Constants {
+  uint sourceCount;
+  uint capacity;
+  uint dispatchGroupsX;
+  uint candidateCapacity;
+  uint mode;  // prefix=0, indexed=1, ranges=2
+  uint rangeCount;
+  uint keyMode;  // low16=1, descending=2
+} constants;
+
+bool finiteFloat(float x) { return !isnan(x) && !isinf(x); }
+bool finiteVec2(vec2 v) { return finiteFloat(v.x) && finiteFloat(v.y); }
+bool finiteVec3(vec3 v) { return finiteFloat(v.x) && finiteFloat(v.y) && finiteFloat(v.z); }
+bool finiteVec4(vec4 v) {
+  return finiteFloat(v.x) && finiteFloat(v.y) && finiteFloat(v.z) && finiteFloat(v.w);
+}
+
+#ifdef SPLATKIT_PART_LABELS
+struct PartStyle { vec3 tint; float tintAmount; float brightness; float opacity; vec2 reserved; };
+layout(std430, set = 0, binding = 10) readonly buffer Labels { uint labelWords[]; };
+layout(std430, set = 0, binding = 11) readonly buffer Styles { PartStyle palette[10]; uint states[]; };
+#endif
+bool visible(Splat s, uint index, out uint key, out ProjectedSplat record) {
+  key = 0u;
+  if (!finiteFloat(s.px) || !finiteFloat(s.py) || !finiteFloat(s.pz)) return false;
+  vec2 c0 = unpackHalf2x16(s.cov0);
+  vec2 c1 = unpackHalf2x16(s.cov1);
+  vec2 c2 = unpackHalf2x16(s.cov2);
+  if (!finiteVec2(c0) || !finiteVec2(c1) || !finiteVec2(c2)) return false;
+
+  SplatView v;
+  if (!projectSplat(s, v)) return false;
+  // projectSplat's comparisons pass some non-finite values; none may reach the draw.
+  if (!finiteFloat(v.alpha) || !finiteVec3(v.viewPos) || !finiteVec4(v.clip) || v.clip.w <= 0.0 ||
+      !finiteVec3(v.covariance) || !finiteVec2(v.axis1) || !finiteVec2(v.axis2) ||
+      !finiteFloat(v.radius))
+    return false;
+
+  // A covariance-derived view-space depth interval makes near-plane handling conservative.
+  mat3 source = mat3(c0.x, c0.y, c1.x,
+                     c0.y, c1.y, c2.x,
+                     c1.x, c2.x, c2.y);
+  vec3 viewZ = vec3(cam.view[0][2], cam.view[1][2], cam.view[2][2]);
+  float depthSigma = sqrt(max(dot(viewZ, source * viewZ), 0.0));
+  float depthExtent = v.radius * depthSigma;
+  if (v.viewPos.z - depthExtent > -cam.nearPlane || v.viewPos.z + depthExtent < -cam.farPlane)
+    return false;
+
+  float depth = -v.viewPos.z;
+  if (!finiteFloat(depth) || depth <= 0.0) return false;
+  key = floatBitsToUint(depth);
+  if ((constants.keyMode & 1u) != 0u) {
+    // Float steps above the near plane, 2^11 at a time: at most 2^-12 of the depth, so close
+    // layers keep distinct keys (SplatVisibility.metal). Projection validated on the CPU.
+    uint steps = floatBitsToUint(max(depth, cam.nearPlane)) - floatBitsToUint(cam.nearPlane);
+    key = min(steps >> 11u, 65535u);
+  }
+  if ((constants.keyMode & 2u) != 0u)
+    key = (constants.keyMode & 1u) != 0u ? 65535u - key : ~key;
+  record = packProjected(s, index, v);
+#ifdef SPLATKIT_PART_LABELS
+  uint label = (labelWords[index >> 1u] >> ((index & 1u) * 16u)) & 65535u;
+  uint state = states[label];
+  PartStyle style = palette[state];
+  if (style.tintAmount != 0 || style.brightness != 1 || style.opacity != 1) {
+  vec2 rg = unpackHalf2x16(record.color0), ba = unpackHalf2x16(record.color1);
+  vec3 rgb = vec3(rg, ba.x);
+  if (cam.outputLinear == 1u) rgb = pow(rgb, vec3(1.0 / 2.2));
+  rgb = mix(rgb, style.tint, style.tintAmount) * style.brightness;
+  if (cam.outputLinear == 1u) rgb = pow(rgb, vec3(2.2));
+  record.color0 = packHalf2x16(rgb.rg);
+  record.color1 = packHalf2x16(vec2(rgb.b, ba.y * style.opacity));
+  if (ba.y * style.opacity < QUAD_MIN_ALPHA) return false;
+  }
+#endif
+  revealGlow(s.py, record);
+  return true;
+}
+
+// Validate each range once, including records a malformed prefix ordering might make the
+// binary search skip. Range count <= dispatch bound, so every record gets an invocation.
+bool validRange(uint r) {
+  uint offset = candidates[4u*r], length = candidates[4u*r+1u], end = candidates[4u*r+2u];
+  uint start = r == 0u ? 0u : candidates[4u*(r-1u)+2u];
+  if (length == 0u || end <= start || end-start != length ||
+      offset > constants.sourceCount || length > constants.sourceCount-offset) return false;
+  if (r > 0u) {
+    uint previousOffset = candidates[4u*(r-1u)], previousCount = candidates[4u*(r-1u)+1u];
+    if (previousOffset > constants.sourceCount || previousCount > constants.sourceCount-previousOffset ||
+        offset < previousOffset+previousCount) return false;
+  }
+  return true;
+}
+
+// Resolve logical candidates without touching source records until their index is checked.
+bool resolveCandidate(uint logical, out uint source, inout uint errors) {
+  source = 0u;
+  uint total = constants.candidateCapacity;
+  if (constants.mode == 1u) {
+    total = candidateCount;
+    if (total > constants.candidateCapacity) { errors |= 4u; return false; }
+  }
+  if (constants.mode == 2u && constants.rangeCount > 0u &&
+      candidates[(constants.rangeCount - 1u) * 4u + 2u] != total) {
+    errors |= 8u; return false;
+  }
+  if (logical >= total) return false;
+  if (constants.mode == 0u) source = logical;
+  else if (constants.mode == 1u) source = candidates[logical];
+  else {
+    uint low = 0u, high = constants.rangeCount;
+    while (low < high) {
+      uint middle = low + (high - low) / 2u;
+      if (candidates[middle * 4u + 2u] <= logical) low = middle + 1u; else high = middle;
+    }
+    if (low >= constants.rangeCount) { errors |= 8u; return false; }
+    uint offset = candidates[low * 4u], length = candidates[low * 4u + 1u];
+    uint end = candidates[low * 4u + 2u];
+    uint start = low == 0u ? 0u : candidates[(low - 1u) * 4u + 2u];
+    if (length == 0u || end <= start || end - start != length || logical < start ||
+        offset > constants.sourceCount || length > constants.sourceCount - offset) {
+      errors |= 8u; return false;
+    }
+    if (low > 0u) {
+      uint previousOffset = candidates[(low - 1u) * 4u];
+      uint previousCount = candidates[(low - 1u) * 4u + 1u];
+      if (previousOffset > constants.sourceCount ||
+          previousCount > constants.sourceCount - previousOffset ||
+          offset < previousOffset + previousCount) { errors |= 8u; return false; }
+    }
+    source = offset + logical - start;
+  }
+  if (source >= constants.sourceCount) { errors |= 2u; return false; }
+  return true;
+}
+
+void main() {
+  uint groupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * constants.dispatchGroupsX;
+  uint logical = groupIndex * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
+  // Uniform workgroup exit: indexed LOD usually fills only a fraction of its capacity.
+  // Keep group zero for empty-input diagnostics, and never hide invalid counts.
+  if (constants.mode == 1u && groupIndex > 0u &&
+      candidateCount <= constants.candidateCapacity &&
+      groupIndex * gl_WorkGroupSize.x >= candidateCount) return;
+  uint sourceIndex = 0u, errors = 0u, key = 0u;
+  if (constants.mode == 2u && logical < constants.rangeCount && !validRange(logical)) errors |= 8u;
+  bool candidate = resolveCandidate(logical, sourceIndex, errors);
+  bool keep = false;
+  ProjectedSplat record;
+  if (candidate) keep = visible(splats[sourceIndex], sourceIndex, key, record);
+
+  // All tail lanes participate. Only the elected lane performs global atomics, including
+  // failure publication. Invalid indices/counts and overflow fail the whole frame closed.
+  uint rank = subgroupExclusiveAdd(keep ? 1u : 0u);
+  uint survivors = subgroupAdd(keep ? 1u : 0u);
+  uint failures = subgroupOr(errors);
+  uint base = 0u;
+  if (subgroupElect()) {
+    if (survivors != 0u) {
+      base = atomicAdd(count, survivors);
+      if (base > constants.capacity || survivors > constants.capacity - base) failures |= 1u;
+    }
+    if (failures != 0u) atomicOr(status, failures);
+  }
+  base = subgroupBroadcastFirst(base);
+  if (keep && base < constants.capacity && base + rank < constants.capacity) {
+    values[base + rank] = base + rank;
+    depthKeys[base + rank] = key;
+    projected[base + rank] = record;
+  }
+}

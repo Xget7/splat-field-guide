@@ -44,6 +44,7 @@ import {
   Color,
   HAIRLINE,
   Motion,
+  PartHighlight,
   Radius,
   Space,
   Type,
@@ -54,6 +55,7 @@ import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
 import { isCurrentPick } from '../../domain/pickInputs';
 import { NO_SIZE } from '../../domain/screenGeometry';
 import { useGuideFraming } from './useGuideFraming';
+import { useFramingAudit } from './useFramingAudit';
 
 const RADIANS_PER_POINT = 0.01;
 const PAN_ACTIVATION_POINTS = 8;
@@ -90,7 +92,7 @@ export function SplatViewport(props: Props) {
 
 function Viewport({
   pack,
-  session,
+  session: guideSession,
   frameRequest,
   closeUp,
   accessibilityLabel,
@@ -108,6 +110,12 @@ function Viewport({
   const [settlement, setSettlement] = useState(0);
   const reducedMotion = useReducedMotion();
   const materialize = !reducedMotion;
+  const auditSession = useFramingAudit(
+    __DEV__ && ready ? view : null,
+    pack,
+    size,
+  );
+  const session = auditSession ?? guideSession;
   const highlight = useMemo(
     () => [...highlightFor(session, pack)],
     [session, pack],
@@ -185,14 +193,14 @@ function Viewport({
     setReady(false);
     setError(failure.message);
   }, []);
-  const activeView = ready ? view : null;
+  const activeView = ready && auditSession === null ? view : null;
   const { boxes, viewport } = useProjectedParts(activeView, parts, size);
   const projection = useMemo(
     () => ({ ids: parts.map(part => part.id), boxes, viewport }),
     [parts, boxes, viewport],
   );
   useGuideFraming(
-    activeView,
+    auditSession === null ? activeView : null,
     session,
     pack,
     frameRequest,
@@ -314,6 +322,7 @@ function Viewport({
             style={styles.root}
             source={source}
             highlight={highlight}
+            highlightLook={PartHighlight}
             cameraLimits={limits}
             revealSeconds={
               materialize ? Motion.reveal / MS_PER_SECOND : undefined

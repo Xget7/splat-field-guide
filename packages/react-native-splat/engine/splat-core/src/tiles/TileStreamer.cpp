@@ -1,0 +1,93 @@
+#include "splat/tiles/TileStreamer.h"
+
+#include <algorithm>
+#include <utility>
+
+namespace splat {
+namespace {
+
+SplatDecodeOptions decodeOptions(const TiledWorld& world) {
+  SplatDecodeOptions options;
+  options.sourceFrame = world.sourceFrame;
+  return options;
+}
+
+}  // namespace
+
+TileStreamer::TileStreamer(TiledWorld world, const StreamOptions& options)
+    : world_(std::move(world)),
+      scheduler_(world_.tileset, options.residency),
+      loader_(decodeOptions(world_), options.loaderThreads) {}
+
+std::vector<std::uint32_t> TileStreamer::pinned() const {
+  std::vector<std::uint32_t> out(shown_);
+  for (const Retired& r : retired_) out.insert(out.end(), r.tiles.begin(), r.tiles.end());
+  std::sort(out.begin(), out.end());
+  out.erase(std::unique(out.begin(), out.end()), out.end());
+  return out;
+}
+
+TileStreamer::Step TileStreamer::update(const TileView& view, std::uint64_t completedFrame) {
+  Step step;
+  while (!retired_.empty() && retired_.front().lastFrame <= completedFrame) {
+    retired_.pop_front();
+  }
+  for (TileLoader::Loaded& loaded : loader_.take()) {
+    if (scheduler_.state(loaded.tile) != TileState::loading) continue;  // dropped meanwhile
+    if (!loaded.cloud) {
+      scheduler_.markFailed(loaded.tile);
+      step.failed.push_back(loaded.tile);
+      continue;
+    }
+    arrived_[loaded.tile] = std::make_unique<SplatCloud>(std::move(loaded.cloud.value()));
+  }
+
+  TileScheduler::Plan plan = scheduler_.plan(view, pinned());
+  std::vector<TileLoader::Request> queue;
+  for (const TileScheduler::Load& load : plan.load) {
+    if (arrived_.count(load.tile)) continue;  // read already, waiting for its upload
+    queue.push_back({load.tile, world_.tilePath(load.tile), load.priority});
+  }
+  for (const std::uint32_t tile : loader_.setQueue(std::move(queue))) scheduler_.markAbsent(tile);
+
+  for (const auto& [tile, cloud] : arrived_) {
+    step.arrived.push_back({tile, scheduler_.offset(tile), cloud.get()});
+  }
+  step.loading = loader_.pending();
+  // A worker can finish between take() and pending(). The plan still includes that
+  // uncommitted tile, so a display link must not sleep on the worker count alone.
+  step.workPending = !plan.load.empty() || !retired_.empty();
+
+  if (plan.draw != drawn_) {
+    drawn_ = std::move(plan.draw);
+    ranges_.clear();
+    drawnSplats_ = 0;
+    for (const std::uint32_t tile : drawn_) {
+      const std::uint32_t count = world_.tileset->tiles[tile].count;
+      ranges_.push_back({scheduler_.offset(tile), count});
+      drawnSplats_ += count;
+    }
+    step.drawChanged = true;
+  }
+  return step;
+}
+
+void TileStreamer::commit(std::uint32_t tile) {
+  auto it = arrived_.find(tile);
+  if (it == arrived_.end()) return;
+  arrived_.erase(it);
+  scheduler_.markResident(tile);
+}
+
+void TileStreamer::fail(std::uint32_t tile) {
+  arrived_.erase(tile);
+  scheduler_.markAbsent(tile);
+}
+
+void TileStreamer::drawnNow(std::uint64_t submittedFrames) {
+  if (drawn_ == shown_) return;
+  retired_.push_back({submittedFrames, std::move(shown_)});
+  shown_ = drawn_;
+}
+
+}  // namespace splat

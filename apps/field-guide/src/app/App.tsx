@@ -6,12 +6,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Color } from '../ui/theme';
 import { createAppInstructor } from './startup/instructor';
+import { loadAppPacks } from './startup/packs';
+import { PackErrorScreen } from './startup/PackErrorScreen';
 import { createAppProgress } from './startup/progress';
 
 function App() {
   // Created during the first render, so screens below already find it in the store.
   const [instructor] = useState(createAppInstructor);
   const [progress] = useState(createAppProgress);
+  const [packs] = useState(loadAppPacks);
   useEffect(() => {
     instructor.start();
     return () => instructor.stop();
@@ -20,7 +23,11 @@ function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <StatusBar barStyle="light-content" />
-        <RootNavigator progress={progress} />
+        {packs.ok ? (
+          <RootNavigator packs={packs.packs} progress={progress} />
+        ) : (
+          <PackErrorScreen message={packs.message} />
+        )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

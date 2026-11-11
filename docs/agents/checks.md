@@ -11,7 +11,9 @@ Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROI
 After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
 For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
 Debug needs reachable Metro; Release bundles JavaScript.
-While connected, choose Prepare offline in the instructor and wait for the verified model set to finish before airplane-mode tests.
+While connected, let automatic startup preparation finish and verify Models ready before local inference tests in airplane mode.
+Check the course's separate offline availability in Downloads; verified voice and AI models do not install its scene, manual or modules.
+Check pause/retry, offline startup without files and recovery when the route returns using fake transfers before a real download.
 Allow microphone access separately.
 A fresh installation without those files cannot provide local voice or generated answers.
 
@@ -20,7 +22,9 @@ A fresh installation without those files cannot provide local voice or generated
 `nice -n 19 scripts/prepare.sh` prepares dependencies, native frameworks, locked Gems and Pods without downloading guide content.
 An optional `--manifest <file> --pack <archive>` validates and caches an explicit pack; it does not activate or select that pack for the app.
 Packaging requires `nice -n 19 scripts/package-pack.sh --manifest <file> --pack <directory> --out <archive>`.
-Both platform bundles select no packs by default; installation and activation remain pending.
+Both platform bundles select no packs by default.
+Set FIELD_GUIDE_PACKS to space-separated <packId>/<packVersion> entries under data/pack when building, for example FIELD_GUIDE_PACKS=miris-pilot/1.
+Startup reads those bundled manifests through the native BundledPacks object and the existing consumer parser; remote installation and activation remain pending.
 Track the replacement in [tasks](../../TASKS.md).
 After an engine source change, prepare before installing Pods; `packages/react-native-splat/scripts/build-ios-engine.sh --force` forces an engine rebuild.
 Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so the locked Bundler, CocoaPods and xcodeproj apply.
@@ -49,20 +53,20 @@ A stripped-extension fallback is not validation of the complete pack, and archiv
 
 ## Native engine
 
-The GPU-independent C++/C interface, from root:
+The GPU-independent engine and app-owned C adapter, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
-nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
-nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
+nice -n 19 cmake -S packages/react-native-splat/adapter -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSFG_BUILD_TESTS=ON
+nice -n 19 cmake --build build/tests --parallel 2
+nice -n 19 ctest --test-dir build/tests --output-on-failure
 ```
 
-Add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the configure step to exercise Android hashing on the host.
+This includes the imported core and engine suites and the adapter contract tests, using upstream portable SHA-256.
 
-Metal and the shared core on the Mac, from root:
+Metal, the iOS adapter and the shared core on the Mac, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
+nice -n 19 cmake -S packages/react-native-splat/adapter/ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release -DSFG_METAL_BUILD_TESTS=ON
 nice -n 19 cmake --build packages/react-native-splat/build/checks --parallel 2
 nice -n 19 ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 ```
@@ -107,6 +111,10 @@ From root, build with at most three workers:
 JAVA_HOME=$(/usr/libexec/java_home -v 17) GRADLE_USER_HOME="$PWD/.work/gradle" nice -n 19 apps/field-guide/android/gradlew -p apps/field-guide/android :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --max-workers=3
 ```
 
+The React Native library links SplatKit's public `splatkit_vulkan` renderer target through `adapter/android`, without building the SDK's separate Kotlin JNI facade.
+The app assets carry the imported SplatKit license, Android third-party notice bundle and PicoSHA2 license.
+Set `ANDROID_HOME` to the installed SDK or provide its path in the ignored `apps/field-guide/android/local.properties` before building.
+
 Use an API 36 arm64 tablet emulator with 6 GB RAM and host GPU rendering; software SwiftShader previously stalled during upload.
 Use Argent when available for device interaction and keep other sessions' devices and servers untouched.
 For an owned Debug Metro, reverse its port with `adb -s <serial> reverse tcp:<port> tcp:<port>`.
@@ -143,3 +151,16 @@ The agent key needs agent/workspace write, pronunciation dictionary read/write a
 Use the same `AGENT_LLM_SECRET` on both sides and configure the returned `AGENT_ID` on the Worker.
 Plan and sync require an explicit validated manifest; use reviewed Miris content before deployment.
 For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload` exports locally; signing needs a configured team and account.
+
+## Development framing audit
+
+In a Debug viewer, open Dev and choose Check framing to audit every procedure target at the current viewport size.
+The audit owns framing and highlights until it finishes; avoid procedure or layout changes during the run.
+It uses the guide context distance and home direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
+A visible fraction below 0.3 is flagged, including targets entirely off-screen; an assembly accepts its own and descendant labels.
+These are projected-box occupancy scores, so sparse geometry can score low even without another part in front.
+Each target is logged as a FRAMING_AUDIT JSON line, followed by FRAMING_AUDIT_REPORT for the full report.
+The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` and `globalThis.fieldGuideFraming.report`; retrieve the latter with CDP Runtime.evaluate using returnByValue.
+For screenshots, await `globalThis.fieldGuideFraming.showStep(procedureId, zeroBasedStepIndex)` and then call `restore()` when finished.
+From the library, `globalThis.fieldGuideOpenFraming()` opens the first bundled guide for debugger-driven audits.
+Release builds expose neither the audit action nor the debugger hooks.

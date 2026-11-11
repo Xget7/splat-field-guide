@@ -19,11 +19,11 @@ public final class ReactNativeSplatAutolinking {
       return __cxxWrapped.getCxxPart()
     }()
   }
-
+  
   public static func isSplatViewRecyclable() -> Bool {
     return HybridSplatView.self is any RecyclableView.Type
   }
-
+  
   public static func createSplatDiagnostics() -> bridge.std__shared_ptr_HybridSplatDiagnosticsSpec_ {
     let hybridObject = HybridSplatDiagnostics()
     return { () -> bridge.std__shared_ptr_HybridSplatDiagnosticsSpec_ in
@@ -31,8 +31,20 @@ public final class ReactNativeSplatAutolinking {
       return __cxxWrapped.getCxxPart()
     }()
   }
-
+  
   public static func isSplatDiagnosticsRecyclable() -> Bool {
     return HybridSplatDiagnostics.self is any RecyclableView.Type
+  }
+  
+  public static func createBundledPacks() -> bridge.std__shared_ptr_HybridBundledPacksSpec_ {
+    let hybridObject = HybridBundledPacks()
+    return { () -> bridge.std__shared_ptr_HybridBundledPacksSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isBundledPacksRecyclable() -> Bool {
+    return HybridBundledPacks.self is any RecyclableView.Type
   }
 }

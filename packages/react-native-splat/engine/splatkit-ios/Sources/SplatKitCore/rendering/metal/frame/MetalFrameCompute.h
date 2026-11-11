@@ -30,6 +30,7 @@ namespace splatkit {
 // frame loop must outlive it. Encode only; draw() commits what is returned.
 class MetalFrameCompute {
  public:
+  bool prepareLabels() { return gpuSort_ && visibility_.createLabelPipelines(); }
   MetalFrameCompute(id<MTLDevice> device, id<MTLCommandQueue> queue, id<MTLLibrary> library,
                     MetalFrameLoop& frameLoop);
 
@@ -64,8 +65,7 @@ class MetalFrameCompute {
   uint32_t slot() const { return static_cast<uint32_t>(frames_ % kFramesInFlight); }
   void advance() { ++frames_; }
 
-  // Writes the camera of `frame` into the slot's uniforms, for a frame drawn at `extent`, and
-  // its part styles and reveal into the slot's guide.
+  // Writes the camera of `frame` into the slot's uniforms, for a frame drawn at `extent`.
   void updateCamera(const SplatRenderer::Frame& frame, uint32_t slot, Extent extent,
                     bool outputLinear);
   // Encode only: draw() commits these in dependency order after validation succeeds. Selection
@@ -76,8 +76,6 @@ class MetalFrameCompute {
                                                const MetalWorld& world);
 
   id<MTLBuffer> uniforms(uint32_t slot) const { return uniforms_[slot]; }
-  // Field Guide: the slot's GuideUniform.
-  id<MTLBuffer> guide(uint32_t slot) const { return guides_[slot]; }
   // The projections and the sorted order into them, and the slot's indirect draw arguments.
   id<MTLBuffer> projected() const { return visibility_.projected(); }
   id<MTLBuffer> order() const { return sort_.order(); }
@@ -97,6 +95,7 @@ class MetalFrameCompute {
   float lodPixels() const { return lodThreshold_.pixels(); }
 
  private:
+  std::array<RevealUniform, kFramesInFlight> revealCache_{};
   // What the selection and sort completion handlers write, with the frame loop's failure latch
   // they set. The handlers hold a share of it: Metal documents no order between one command
   // buffer's handlers and another's, so a handler can still be running after the render
@@ -123,7 +122,6 @@ class MetalFrameCompute {
   id<MTLLibrary> library_ = nil;
   MetalFrameLoop& frameLoop_;
   std::array<id<MTLBuffer>, kFramesInFlight> uniforms_{};
-  std::array<id<MTLBuffer>, kFramesInFlight> guides_{};
   MetalVisibilityPass visibility_;
   MetalRadixSort sort_;
   bool gpuSort_ = false;

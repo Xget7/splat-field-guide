@@ -10,8 +10,14 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `Bounds` to properly resolve imports.
 namespace margelo::nitro::splat { struct Bounds; }
+// Forward declaration of `BundledPackManifest` to properly resolve imports.
+namespace margelo::nitro::splat { struct BundledPackManifest; }
 // Forward declaration of `CameraLimits` to properly resolve imports.
 namespace margelo::nitro::splat { struct CameraLimits; }
+// Forward declaration of `HighlightLook` to properly resolve imports.
+namespace margelo::nitro::splat { struct HighlightLook; }
+// Forward declaration of `HybridBundledPacksSpec` to properly resolve imports.
+namespace margelo::nitro::splat { class HybridBundledPacksSpec; }
 // Forward declaration of `HybridSplatDiagnosticsSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
@@ -31,7 +37,10 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 
 // Include C++ defined types
 #include "Bounds.hpp"
+#include "BundledPackManifest.hpp"
 #include "CameraLimits.hpp"
+#include "HighlightLook.hpp"
+#include "HybridBundledPacksSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
@@ -60,6 +69,8 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
+// Forward declaration of `HybridBundledPacksSpec_cxx` to properly resolve imports.
+namespace ReactNativeSplat { class HybridBundledPacksSpec_cxx; }
 // Forward declaration of `HybridSplatDiagnosticsSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.

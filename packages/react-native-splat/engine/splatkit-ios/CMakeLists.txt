@@ -1,22 +1,22 @@
 cmake_minimum_required(VERSION 3.22)
 project(splatkit_ios LANGUAGES C CXX OBJCXX)
 
-# For iOS, scripts/build-ios-engine.sh in the React Native package configures this with the
-# iOS toolchain flags for devices and the simulator and packages the result as the
-# XCFramework the pod vendors. On a Mac it builds the tests and tools.
+# Configure for a device with the iOS toolchain flags, e.g.
+#   cmake -S packages/splatkit-ios -B build/ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS \
+#         -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0
+# scripts/build-ios.sh does exactly that and leaves the static libraries where the
+# dev app and the Swift package pick them up.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# The Metal code runs on a Mac too, so its tests and tools are a macOS build of this package.
+# The Metal code runs on a Mac too, so its tests are a macOS build of this package.
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
   set(SPLATKIT_IOS_BUILD_TESTS OFF)
-  set(SPLATKIT_IOS_BUILD_TOOLS OFF)
 else()
   option(SPLATKIT_IOS_BUILD_TESTS "Build splatkit_ios unit tests (macOS)" ${PROJECT_IS_TOP_LEVEL})
-  option(SPLATKIT_IOS_BUILD_TOOLS "Build splat_snapshot (macOS)" ${PROJECT_IS_TOP_LEVEL})
 endif()
 set(SPLATKIT_ENGINE_BUILD_TESTS ${SPLATKIT_IOS_BUILD_TESTS} CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../splatkit-engine splatkit-engine)
@@ -31,9 +31,16 @@ splatkit_embed_text(splatkit_ios_shaders
   ${SPLATKIT_METAL_DIR}
 )
 
+splatkit_embed_text(splatkit_ios_backdrop
+  ${SPLATKIT_METAL_DIR}/backdrop/SplatBackdrop.metal
+  BackdropShaderSource
+  ${SPLATKIT_METAL_DIR}
+)
+
 add_library(splatkit_ios STATIC
-  Sources/SplatKitCore/rendering/metal/MetalSplatRenderer.mm
   Sources/SplatKitCore/rendering/metal/backdrop/MetalBackdrop.mm
+  Sources/SplatKitCore/diagnostics/SKPngWriter.mm
+  Sources/SplatKitCore/rendering/metal/MetalSplatRenderer.mm
   Sources/SplatKitCore/rendering/metal/cull/MetalVisibilityPass.mm
   Sources/SplatKitCore/rendering/metal/device/MetalContext.mm
   Sources/SplatKitCore/rendering/metal/diagnostics/MetalFrameCapture.mm
@@ -46,11 +53,12 @@ add_library(splatkit_ios STATIC
   Sources/SplatKitCore/rendering/metal/selection/MetalLodSelection.mm
   Sources/SplatKitCore/rendering/metal/sort/MetalRadixSort.mm
   Sources/SplatKitCore/rendering/metal/world/MetalWorld.mm
-  Sources/SplatKitCore/sfg/sfg_metal.mm
+  Sources/SplatKitCore/engine/SKSplatEngine.mm
+  Sources/SplatKitCore/engine/SKTypeConversions.mm
 )
 target_include_directories(splatkit_ios
-  PUBLIC Sources/SplatKitCore Sources/SplatKitCore/include
-  PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded
+  PUBLIC Sources/SplatKitCore/include
+  PRIVATE Sources/SplatKitCore ${CMAKE_CURRENT_BINARY_DIR}/embedded
 )
 target_compile_options(splatkit_ios PRIVATE -Wall -Wextra -Werror -fobjc-arc)
 target_link_libraries(splatkit_ios PUBLIC splatkit_engine
@@ -61,13 +69,7 @@ find_library(SPLATKIT_METALFX_FRAMEWORK MetalFX)
 if(SPLATKIT_METALFX_FRAMEWORK)
   target_link_libraries(splatkit_ios PUBLIC "-framework MetalFX")
 endif()
-add_dependencies(splatkit_ios splatkit_ios_shaders)
-
-if(SPLATKIT_IOS_BUILD_TOOLS)
-  add_executable(splat_snapshot tools/splat_snapshot.mm)
-  target_link_libraries(splat_snapshot PRIVATE splatkit_ios)
-  target_compile_options(splat_snapshot PRIVATE -Wall -Wextra -Werror -fobjc-arc)
-endif()
+add_dependencies(splatkit_ios splatkit_ios_shaders splatkit_ios_backdrop)
 
 if(SPLATKIT_IOS_BUILD_TESTS)
   enable_testing()

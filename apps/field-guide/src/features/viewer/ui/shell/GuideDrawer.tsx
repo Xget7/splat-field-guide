@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Icon, IconName } from '../../../../ui/Icon';
-import { Color, MIN_TOUCH, Radius, Space, Type } from '../../../../ui/theme';
+import { Color, Radius, Space, Type } from '../../../../ui/theme';
 import type { CardContent, StepRow } from '../../../guide';
 import { StepControls, StepControlsSites } from '../StepControls';
 import { StepList } from '../StepList';
@@ -76,10 +76,10 @@ export function GuideDrawer({
 
 const styles = StyleSheet.create({
   procedure: {
-    minHeight: MIN_TOUCH,
+    minHeight: 48,
     marginHorizontal: Space.lg,
     marginBottom: Space.lg,
-    paddingHorizontal: Space.md,
+    paddingHorizontal: Space.lg,
     paddingVertical: Space.sm,
     flexDirection: 'row',
     alignItems: 'center',

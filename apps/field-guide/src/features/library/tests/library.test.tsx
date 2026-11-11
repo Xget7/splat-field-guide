@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor, type ReadyGuide } from '../../pack/catalog';
@@ -18,7 +19,7 @@ jest.mock('react-native-nitro-modules', () => ({
 }));
 
 const pack = fixturePack();
-const catalog = catalogFor(pack);
+const catalog = catalogFor([pack]);
 const guide = catalog[0] as ReadyGuide;
 const progress = {
   guideId: pack.packId,
@@ -137,11 +138,107 @@ describe('Library screen', () => {
     ).toHaveLength(0);
   });
 
+  test('course questions stay explicit about unavailable answers', async () => {
+    await mount();
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    expect(node('course-send').props.disabled).toBe(true);
+    await act(() => input.props.onChangeText('Where is the A5 axis motor?'));
+    await press('course-send');
+    const texts = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(texts).toContain('Where is the A5 axis motor?');
+    expect(texts).toContain('Course answers are not connected yet.');
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  test('explore opens the available tour directly in 3D', async () => {
+    await mount();
+    await press('course-explore');
+    expect(onOpen).toHaveBeenCalledWith({
+      guideId: pack.packId,
+      procedureId: pack.procedures[0].id,
+      stepIndex: 0,
+      mode: LearnMode.selfGuided,
+    });
+    expect(onOpenGuide).not.toHaveBeenCalled();
+  });
+
+  test('source navigation preserves the submitted question and unfinished draft', async () => {
+    await mount();
+    const input = () =>
+      renderer.root
+        .findAllByProps({ testID: 'course-question' })
+        .find(item => typeof item.props.onChangeText === 'function')!;
+    const pressLabel = async (accessibilityLabel: string) => {
+      const control = renderer.root
+        .findAllByProps({ accessibilityLabel })
+        .find(item => typeof item.props.onPress === 'function')!;
+      await act(() => control.props.onPress());
+    };
+    await act(() => input().props.onChangeText('Where is the A5 axis motor?'));
+    await press('course-send');
+    await act(() => input().props.onChangeText('What does it drive?'));
+    await pressLabel('Open source document, KR QUANTEC extra.pdf');
+    await pressLabel('Assistant');
+    expect(input().props.value).toBe('What does it drive?');
+    expect(
+      renderer.root.findAllByType(Text).map(item => item.props.children),
+    ).toContain('Where is the A5 axis motor?');
+  });
+
   test('the discarded spatial assembly entry is absent', async () => {
     await mount();
     expect(
       renderer.root.findAllByProps({ testID: 'open-ar-assembly' }),
     ).toHaveLength(0);
+  });
+
+  test('course offline availability is distinct from an available scene', async () => {
+    await mount();
+    const downloads = renderer.root
+      .findAllByProps({
+        accessibilityLabel: 'Course downloads',
+      })
+      .find(item => typeof item.props.onPress === 'function')!;
+    await act(() => downloads.props.onPress());
+    const texts = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(texts).toContain('Not available offline');
+    expect(texts).toContain('3D scene');
+    expect(texts).toContain('Available');
+    expect(texts).toContain('Manual & course modules');
+    expect(texts).toContain('Not downloaded');
+    expect(texts).not.toContain('Offline ready');
+  });
+
+  test('global Downloads and Help do not inherit course navigation', async () => {
+    await mount();
+    const select = async (label: string) => {
+      const control = renderer.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(item => typeof item.props.onPress === 'function')!;
+      await act(() => control.props.onPress());
+    };
+    for (const destination of ['Downloads', 'Help']) {
+      await select(destination);
+      expect(
+        renderer.root.findAllByProps({ accessibilityRole: 'tablist' }),
+      ).toHaveLength(0);
+      expect(
+        renderer.root.findAllByProps({ testID: 'course-breadcrumb' }),
+      ).toHaveLength(0);
+    }
+    await select('Courses');
+    expect(
+      renderer.root.findAllByProps({ accessibilityRole: 'tablist' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-breadcrumb' }).length,
+    ).toBeGreaterThan(0);
   });
 
   test('saved progress opens the same step from the row and its play button', async () => {

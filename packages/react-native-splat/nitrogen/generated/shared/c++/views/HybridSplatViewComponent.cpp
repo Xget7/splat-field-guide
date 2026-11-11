@@ -22,6 +22,7 @@ namespace margelo::nitro::splat::views {
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
     source(nitro::ReactProp<SplatSource>::fromRawValue("SplatView", "source", rawProps, sourceProps.source)),
     highlight(nitro::ReactProp<std::vector<double>>::fromRawValue("SplatView", "highlight", rawProps, sourceProps.highlight)),
+    highlightLook(nitro::ReactProp<std::optional<HighlightLook>>::fromRawValue("SplatView", "highlightLook", rawProps, sourceProps.highlightLook)),
     cameraLimits(nitro::ReactProp<std::optional<CameraLimits>>::fromRawValue("SplatView", "cameraLimits", rawProps, sourceProps.cameraLimits)),
     revealSeconds(nitro::ReactProp<std::optional<double>>::fromRawValue("SplatView", "revealSeconds", rawProps, sourceProps.revealSeconds)),
     onReady(nitro::ReactProp<std::function<void()>>::fromRawValue("SplatView", "onReady", rawProps, sourceProps.onReady)),
@@ -32,6 +33,7 @@ namespace margelo::nitro::splat::views {
     switch (hashString(propName)) {
       case hashString("source"): return true;
       case hashString("highlight"): return true;
+      case hashString("highlightLook"): return true;
       case hashString("cameraLimits"): return true;
       case hashString("revealSeconds"): return true;
       case hashString("onReady"): return true;

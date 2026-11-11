@@ -34,27 +34,33 @@ abstract class HybridSplatViewSpec: HybridView() {
   @set:DoNotStrip
   @set:Keep
   abstract var source: SplatSource
-
+  
   @get:DoNotStrip
   @get:Keep
   @set:DoNotStrip
   @set:Keep
   abstract var highlight: DoubleArray
-
+  
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
+  abstract var highlightLook: HighlightLook?
+  
   @get:DoNotStrip
   @get:Keep
   @set:DoNotStrip
   @set:Keep
   abstract var cameraLimits: CameraLimits?
-
+  
   @get:DoNotStrip
   @get:Keep
   @set:DoNotStrip
   @set:Keep
   abstract var revealSeconds: Double?
-
+  
   abstract var onReady: () -> Unit
-
+  
   private var onReady_cxx: Func_void
     @Keep
     @DoNotStrip
@@ -66,9 +72,9 @@ abstract class HybridSplatViewSpec: HybridView() {
     set(value) {
       onReady = value
     }
-
+  
   abstract var onError: (error: SplatError) -> Unit
-
+  
   private var onError_cxx: Func_void_SplatError
     @Keep
     @DoNotStrip
@@ -85,23 +91,23 @@ abstract class HybridSplatViewSpec: HybridView() {
   @DoNotStrip
   @Keep
   abstract fun orbit(dAzimuth: Double, dElevation: Double): Unit
-
+  
   @DoNotStrip
   @Keep
   abstract fun dolly(factor: Double): Unit
-
+  
   @DoNotStrip
   @Keep
   abstract fun frame(bounds: Bounds, seconds: Double, from: ViewDirection?): Unit
-
+  
   @DoNotStrip
   @Keep
   abstract fun pick(x: Double, y: Double): Promise<Double>
-
+  
   @DoNotStrip
   @Keep
   abstract fun project(points: ArrayBuffer, out: ArrayBuffer): Double
-
+  
   @DoNotStrip
   @Keep
   abstract fun drawnDirection(): ViewDirection?
