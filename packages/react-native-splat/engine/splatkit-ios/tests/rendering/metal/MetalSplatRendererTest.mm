@@ -16,10 +16,15 @@ namespace {
 // Each test process runs one case; restoring the methods also keeps later in-process cases safe.
 class BackdropResources {
  public:
+  static inline int gLibraries = 0;
+  static inline bool gFailLibrary = false;
+  static inline IMP gOriginalLibrary = nullptr;
+  Method libraryMethod;
   static inline int gPipelines = 0;
   static inline int gTextures = 0;
   static inline bool gFailPipeline = false;
   static inline bool gFailTexture = false;
+  static inline bool gFailDepth = false;
   static inline IMP gOriginalPipeline = nullptr;
   static inline IMP gOriginalTexture = nullptr;
   BackdropResources(const BackdropResources&) = delete;
@@ -37,6 +42,7 @@ class BackdropResources {
     return reinterpret_cast<Function>(gOriginalPipeline)(device, selector, descriptor, error);
   }
   static id texture(id device, SEL selector, MTLTextureDescriptor* descriptor) {
+    if (gFailDepth && descriptor.pixelFormat == MTLPixelFormatDepth16Unorm) return nil;
     if (descriptor.pixelFormat == MTLPixelFormatRGBA16Float && descriptor.width <= 32 &&
         descriptor.height <= 32) {
       ++gTextures;
@@ -45,10 +51,24 @@ class BackdropResources {
     using Function = id (*)(id, SEL, MTLTextureDescriptor*);
     return reinterpret_cast<Function>(gOriginalTexture)(device, selector, descriptor);
   }
+  static id library(id device, SEL selector, NSString* source, MTLCompileOptions* options,
+                    NSError** error) {
+    if ([source containsString:@"backdropPush"]) {
+      ++gLibraries;
+      if (gFailLibrary) return nil;
+    }
+    using Function = id (*)(id, SEL, NSString*, MTLCompileOptions*, NSError**);
+    return reinterpret_cast<Function>(gOriginalLibrary)(device, selector, source, options, error);
+  }
   BackdropResources() {
+    gLibraries = 0;
+    gFailLibrary = false;
+    gFailDepth = false;
     gPipelines = gTextures = 0;
     gFailPipeline = gFailTexture = false;
     const Class device = object_getClass(MTLCreateSystemDefaultDevice());
+    libraryMethod = class_getInstanceMethod(device, @selector(newLibraryWithSource:options:error:));
+    gOriginalLibrary = method_setImplementation(libraryMethod, reinterpret_cast<IMP>(library));
     pipelineMethod =
         class_getInstanceMethod(device, @selector(newRenderPipelineStateWithDescriptor:error:));
     textureMethod = class_getInstanceMethod(device, @selector(newTextureWithDescriptor:));
@@ -57,6 +77,7 @@ class BackdropResources {
     gOriginalTexture = method_setImplementation(textureMethod, reinterpret_cast<IMP>(texture));
   }
   ~BackdropResources() {
+    method_setImplementation(libraryMethod, gOriginalLibrary);
     method_setImplementation(pipelineMethod, gOriginalPipeline);
     method_setImplementation(textureMethod, gOriginalTexture);
   }
@@ -202,7 +223,7 @@ TEST_F(MetalSplatRendererTest, SceneBackdropFillsOpaqueAndTogglesWithoutChanging
   settings.gain = 1;
   ASSERT_TRUE(renderer->setSceneBackdrop(settings, nullptr));
   capture(&dark);
-  EXPECT_LT(dark[center + 2], 3);
+  EXPECT_NEAR(dark[center + 2], 13, 2);
   frame.reveal = {};
   LabelStyles styles(2);
   auto palette = styles.palette();
@@ -210,7 +231,7 @@ TEST_F(MetalSplatRendererTest, SceneBackdropFillsOpaqueAndTogglesWithoutChanging
   styles.setPalette(palette);
   frame.labelStyles = &styles;
   capture(&dark);
-  EXPECT_LT(dark[center + 2], 3);
+  EXPECT_NEAR(dark[center + 2], 13, 2);
   frame.labelStyles = nullptr;
   ASSERT_TRUE(renderer->setSceneBackdrop({}, nullptr));
   capture(&restored);
@@ -295,12 +316,14 @@ TEST_F(MetalSplatRendererTest, SceneBackdropAllocatesOnlyOnEnableAndResize) {
   std::vector<uint8_t> reference;
   std::vector<uint8_t> actual;
   capture(&reference);
+  EXPECT_EQ(BackdropResources::gLibraries, 0);
   EXPECT_EQ(BackdropResources::gPipelines, 0);
   EXPECT_EQ(BackdropResources::gTextures, 0);
   SceneBackdrop settings;
   settings.enabled = true;
   ASSERT_TRUE(renderer->setSceneBackdrop(settings, nullptr));
   capture(&actual);
+  EXPECT_EQ(BackdropResources::gLibraries, 1);
   EXPECT_EQ(BackdropResources::gPipelines, 4);
   EXPECT_EQ(BackdropResources::gTextures, 3);
   capture(&actual);
@@ -312,6 +335,7 @@ TEST_F(MetalSplatRendererTest, SceneBackdropAllocatesOnlyOnEnableAndResize) {
   EXPECT_EQ(BackdropResources::gTextures, 7);
   capture(&actual);
   EXPECT_EQ(BackdropResources::gTextures, 7);
+  EXPECT_EQ(BackdropResources::gLibraries, 1);
   EXPECT_EQ(BackdropResources::gPipelines, 4);
 }
 
@@ -826,6 +850,75 @@ TEST_F(MetalSplatRendererTest, DestroyingTheRendererWithFramesInFlightDoesNotCra
     for (uint32_t i = 0; i < kFramesInFlight; ++i) ASSERT_TRUE(renderer->draw(frame));
     renderer.reset();
   }
+}
+
+}  // namespace
+}  // namespace splatkit
+
+namespace splatkit {
+namespace {
+TEST_F(MetalSplatRendererTest, EmptyBackdropUsesConfiguredBackground) {
+  auto renderer = MetalSplatRenderer::create();
+  ASSERT_NE(renderer, nullptr);
+  auto layer = [CAMetalLayer layer];
+  layer.drawableSize = CGSizeMake(64, 64);
+  renderer->setLayer(layer);
+  renderer->setDrawableSize(64, 64);
+  RenderPolicy policy;
+  policy.backgroundColor = {0.2, 0.4, 0.6};
+  ASSERT_TRUE(renderer->applyRenderPolicy(policy, nullptr));
+  SceneBackdrop settings;
+  settings.enabled = true;
+  ASSERT_TRUE(renderer->setSceneBackdrop(settings, nullptr));
+  auto done = dispatch_semaphore_create(0);
+  std::vector<uint8_t> pixels;
+  renderer->captureNextFrame([&](std::vector<uint8_t> image, uint32_t, uint32_t) {
+    pixels = std::move(image);
+    dispatch_semaphore_signal(done);
+  });
+  ASSERT_TRUE(renderer->draw({}));
+  ASSERT_EQ(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+  ASSERT_EQ(pixels.size(), 64u * 64u * 4u);
+  for (size_t i = 0; i < pixels.size(); i += 4) {
+    EXPECT_NEAR(pixels[i], 153, 2);
+    EXPECT_NEAR(pixels[i + 1], 102, 2);
+    EXPECT_NEAR(pixels[i + 2], 51, 2);
+    EXPECT_EQ(pixels[i + 3], 255);
+  }
+}
+
+TEST_F(MetalSplatRendererTest, DepthAllocationFailureCanRetryWithoutLatching) {
+  const BackdropResources resources;
+  auto renderer = MetalSplatRenderer::create();
+  ASSERT_NE(renderer, nullptr);
+  auto layer = [CAMetalLayer layer];
+  layer.drawableSize = CGSizeMake(64, 64);
+  renderer->setLayer(layer);
+  renderer->setDrawableSize(64, 64);
+  SplatRenderer::Frame frame;
+  BackdropResources::gFailDepth = true;
+  EXPECT_FALSE(renderer->draw(frame));
+  EXPECT_FALSE(renderer->gpuFailed());
+  BackdropResources::gFailDepth = false;
+  EXPECT_TRUE(renderer->draw(frame));
+}
+
+TEST_F(MetalSplatRendererTest, BackdropCompileFailureRejectsEnableAndCanRetry) {
+  const BackdropResources resources;
+  auto renderer = MetalSplatRenderer::create();
+  ASSERT_NE(renderer, nullptr);
+  EXPECT_EQ(BackdropResources::gLibraries, 0);
+  EXPECT_EQ(BackdropResources::gPipelines, 0);
+  SceneBackdrop settings;
+  settings.enabled = true;
+  BackdropResources::gFailLibrary = true;
+  std::string reason;
+  EXPECT_FALSE(renderer->setSceneBackdrop(settings, &reason));
+  EXPECT_FALSE(reason.empty());
+  EXPECT_FALSE(renderer->gpuFailed());
+  BackdropResources::gFailLibrary = false;
+  EXPECT_TRUE(renderer->setSceneBackdrop(settings, &reason));
+  EXPECT_TRUE(reason.empty());
 }
 
 }  // namespace

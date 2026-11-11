@@ -64,7 +64,7 @@ internal class SplatEngine(cacheDir: String) {
 
     /** Wire IDs match the shared engine's first four events and AndroidEngine's frame event. */
     enum class Event(val nativeId: Int) {
-        WORLD_READY(0), WORLD_FAILED(1), COLLIDER_READY(2), COLLIDER_FAILED(3), WORLD_FRAME_READY(4);
+        WORLD_READY(0), WORLD_FAILED(1), COLLIDER_READY(2), COLLIDER_FAILED(3), WORLD_FRAME_READY(4), GPU_FAILED(5);
 
         companion object {
             fun fromNative(kind: Int): Event? = entries.firstOrNull { it.nativeId == kind }

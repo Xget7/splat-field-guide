@@ -1,6 +1,7 @@
 #pragma once
 
 #import <Metal/Metal.h>
+#include <array>
 #include "splatkit/rendering/SceneBackdrop.h"
 
 namespace splatkit {
@@ -24,7 +25,8 @@ class MetalBackdrop {
   // Prepare before changing the splat pass, so failures retain the original fixed background.
   bool prepare(id<MTLDevice> device, id<MTLLibrary> library, id<MTLTexture> scene);
   // Composite under premultiplied scene coverage in the same command buffer as the splats.
-  bool encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene, const SceneBackdrop& settings);
+  bool encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene, const SceneBackdrop& settings,
+              const std::array<float, 3>& background);
 
  private:
   // Sized from the scene, reallocated only when its size changes.

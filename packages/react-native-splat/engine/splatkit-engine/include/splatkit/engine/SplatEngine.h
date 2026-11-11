@@ -83,6 +83,7 @@ class SplatEngine {
   // False before publication, leaving the output unchanged.
   bool drawnDirection(ViewDirection& out) const;
   // Render thread. Applies to the next successfully uploaded world; zero seconds disables it.
+  // Reject the whole request unless every value meets the RevealSettings bounds.
   bool setReveal(const RevealSettings& settings);
 
   // Decodes an SPZ world. Thread safe. Errors are reported and leave the current world.
@@ -108,6 +109,7 @@ class SplatEngine {
 
   // Any thread. Supersedes decoding, pending uploads and completion events.
   // Legacy calls retain last-completion ordering within the current reservation.
+  // A callback selected before supersession may finish afterward without blocking rendering.
   uint64_t beginLoad();
   bool loadWorld(uint64_t request, const std::uint8_t* data, std::size_t size,
                  const std::uint8_t* labels = nullptr, std::size_t labelsSize = 0,
@@ -140,10 +142,12 @@ class SplatEngine {
   void setCameraAnchor(splat::Vec3 point);
   bool orbit(float deltaAzimuth, float deltaElevation);
   bool dolly(float deltaRadius);
+  // Accepted limits cancel automatic rotation and framing, then clamp the pose immediately.
   bool setOrbitLimits(const WalkCamera::OrbitLimits& limits) {
     return camera_.setOrbitLimits(limits);
   }
   // Direction angles are radians. Holds through resize until a dolly or pose replaces it.
+  // Explicit framing replaces automatic rotation and any previous framing motion.
   bool frameBounds(const splat::Bounds& bounds, float durationSeconds,
                    std::optional<ViewDirection> from = std::nullopt);
   // Normalized view coordinates, top-left (0, 0), bottom-right (1, 1). False on a miss.
@@ -188,7 +192,7 @@ class SplatEngine {
       redrawNeeded_ = true;
       return true;
     }
-    if (reason != nullptr) *reason = "Scene backdrop is supported only on Metal";
+    if (reason != nullptr) *reason = "Scene backdrop is unsupported by this renderer";
     return false;
   }
   void setSpatialUpscaling(bool enabled) { renderer_->setSpatialUpscaling(enabled); }
@@ -288,13 +292,15 @@ class SplatEngine {
   bool streamingPending_ = false;
   std::optional<splat::Bounds> requestedBounds_;
   Extent requestedExtent_;
-  // Serializes acceptance with upload and callbacks, including reentrant reservations.
-  std::recursive_mutex loadMutex_;
+  // Serializes reservations with upload and event selection, never host callbacks.
+  std::mutex loadMutex_;
   uint64_t uploadedLoad_ = 0;
   bool finishLoad(uint64_t request,
                   const splat::Result<splat::SplatWorldLoader::WorldReport>& report);
   RevealSettings revealSettings_;
+  bool updateReveal(float wallSeconds);
   Reveal reveal_;
+  bool revealDrawn_ = false;
   bool pollGpuEvents();
   bool gpuFailureReported_ = false;
   bool worldFramePending_ = false;

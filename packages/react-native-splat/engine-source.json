@@ -1,5 +1,5 @@
 {
-  "revision": "0809328dc49d2ea369448fd859dd466089f8cf57",
+  "revision": "67b0e9cefe67cf8d95c577db1f98988c9ff51a7a",
   "files": {
     ".clang-format": {
       "sha256": "fc7883e10e83d18c0d4a8111e1e23a0d07c0479eb32eedaf2de3761f4ae35636",
@@ -30,7 +30,7 @@
       "executable": false
     },
     "splat-core/include/splat/core/Result.h": {
-      "sha256": "42855b823af7078cd674ee15ee23443c4b2a1b34084bb66c01013e1a1c0337fe",
+      "sha256": "dde46f3b7610c645a264a5657a0832540da96098e69606f02fbb8b6c04a07787",
       "executable": false
     },
     "splat-core/include/splat/diagnostics/Stopwatch.h": {
@@ -86,7 +86,7 @@
       "executable": false
     },
     "splat-core/include/splat/loading/SplatWorldLoader.h": {
-      "sha256": "a4a2eb9729e08d4bafe10a8be50bcc845eccb64574d6e2669f84374893b9af52",
+      "sha256": "91ddd5b4f8a238012a25e635808d7f3bf9103e600d9a8cd6ab8f3627600afcc7",
       "executable": false
     },
     "splat-core/include/splat/lod/LodFile.h": {
@@ -214,7 +214,7 @@
       "executable": false
     },
     "splat-core/src/loading/SplatWorldLoader.cpp": {
-      "sha256": "46b6a2742ae59873f47c949639650998e29568748c36bf1eb60a99e9ce4afdde",
+      "sha256": "1a6953f588091dd625df99ed99fc2befff2fd7ed46a1d68f7c2e1be08a9c5455",
       "executable": false
     },
     "splat-core/src/lod/LodFile.cpp": {
@@ -290,7 +290,7 @@
       "executable": false
     },
     "splat-core/tests/CMakeLists.txt": {
-      "sha256": "b0cadaac3a7b25b9fbb63bec3c19e08cf56625747d101eace1b1736c8b17da9f",
+      "sha256": "d5b87cadb25b6b89d78231e6af95965d2c8e2ac389ec2ef50ab1cc2d5f9212c4",
       "executable": false
     },
     "splat-core/tests/diagnostics/TimingSummaryTest.cpp": {
@@ -330,7 +330,7 @@
       "executable": false
     },
     "splat-core/tests/loading/SplatWorldLoaderTest.cpp": {
-      "sha256": "0ed5463082180dd5694f9aa8eaa02da43df5ac7ccba83cd1be00fafee3cff29d",
+      "sha256": "10226cb11016cdc4d34851f3d6055feb00c8325487e2af3f1a71d43a8c0dc966",
       "executable": false
     },
     "splat-core/tests/lod/LabelledLodTreeTest.cpp": {
@@ -478,7 +478,7 @@
       "executable": false
     },
     "splatkit-android/README.md": {
-      "sha256": "8fce42a837bd77dfe97c5a79709b2ac70e83d0e4fda71a5cea47460dce8c4d94",
+      "sha256": "cec3181de9cf24e489c1fd66292f4fb6b01082becfe7ce3cbdf051723d76141a",
       "executable": false
     },
     "splatkit-android/build.gradle.kts": {
@@ -518,11 +518,15 @@
       "executable": false
     },
     "splatkit-android/src/main/cpp/engine/AndroidEngine.cpp": {
-      "sha256": "70664959e270c035a8448a99c214781bada7f638b68963f4b4437501352373b0",
+      "sha256": "077987285f2f9ba01e56e3ecc6edc826febcac6c918c126632adb90a5811e553",
       "executable": false
     },
     "splatkit-android/src/main/cpp/engine/AndroidEngine.h": {
-      "sha256": "10a5bce23a3cc13138bfdd9a1cba6e736f7c97070d4c012625210ef1ba00e840",
+      "sha256": "2916acbd517bd0ae83133be605be3c43c59569407697bc3f07b555671610315b",
+      "executable": false
+    },
+    "splatkit-android/src/main/cpp/engine/AndroidEventMapping.h": {
+      "sha256": "ce9b061854758c9a2f5ed9059daac74cca54bf4c0f4ac95cb888f06a29cd7b6e",
       "executable": false
     },
     "splatkit-android/src/main/cpp/engine/TraceSection.h": {
@@ -542,11 +546,11 @@
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/VulkanSplatRenderer.cpp": {
-      "sha256": "c21cb2bc45b277feb3fb98e830f1c696cc6e2150a0d05170908fd9fb9247d8e0",
+      "sha256": "5fb29592602953dbd5dbbad097f0796f44cb48b5672b04e7f52ee8c1517bc2bf",
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/VulkanSplatRenderer.h": {
-      "sha256": "d467877f8501ee672af184744462e0365a1f5a20fa818de279f675b50819e183",
+      "sha256": "b47355238a687435666ca1ef390e493769acdd5bcc16126e3dd01780cba56078",
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/cull/VulkanVisibilityPass.cpp": {
@@ -666,11 +670,15 @@
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/presentation/VulkanFrameLoop.cpp": {
-      "sha256": "458242165b30fdc6229b8c944eecb3ccd35d9e468b84e87b84249297d3a720fe",
+      "sha256": "c6636005345c6f2827caec5a77444b9e1385ee2c7614486f73183ac95efd7f39",
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/presentation/VulkanFrameLoop.h": {
       "sha256": "ac1ac55ef3fc08513d5c031a7a937841e39fa6e85cba0cf4b7a33c4334d6b64e",
+      "executable": false
+    },
+    "splatkit-android/src/main/cpp/rendering/vulkan/presentation/VulkanPresentationFailure.h": {
+      "sha256": "b40f54330975f9dba8a4fed0b214c1a4fb847027a04702adf2b136d9d6fe3cc7",
       "executable": false
     },
     "splatkit-android/src/main/cpp/rendering/vulkan/presentation/VulkanRenderPass.h": {
@@ -806,7 +814,7 @@
       "executable": false
     },
     "splatkit-android/src/main/kotlin/com/splatkit/SplatSurfaceView.kt": {
-      "sha256": "c8b61efe1ee4efac2887ddc2efa29ef47a406b0c03eb9134c80c9714162a4205",
+      "sha256": "652e30614ebbec61c87663f2012338ece4ee10528fb1ae97e08623655a739694",
       "executable": false
     },
     "splatkit-android/src/main/kotlin/com/splatkit/WorldPoint.kt": {
@@ -822,7 +830,7 @@
       "executable": false
     },
     "splatkit-android/src/main/kotlin/com/splatkit/engine/SplatEngine.kt": {
-      "sha256": "29970f41078cc8387360043c2fca29802d6a3c7687e5b59206bcce5d0d36c1a9",
+      "sha256": "6e41031807f1d84d65233ee7945d94a557ed9f810fae674b3e6ddc7c0e31769d",
       "executable": false
     },
     "splatkit-android/src/main/kotlin/com/splatkit/input/MotionInput.kt": {
@@ -854,7 +862,7 @@
       "executable": false
     },
     "splatkit-android/src/test/kotlin/com/splatkit/SplatEventTest.kt": {
-      "sha256": "c8425c7ecaf7e1a1a685696a1d45d987d0401d158aed7898df987938661dbdbc",
+      "sha256": "3edca0d03b84da05fdc695b98c27f97145edc5ecc98b89a368e1f79b3dcc52a1",
       "executable": false
     },
     "splatkit-android/src/test/kotlin/com/splatkit/SplatStatsTest.kt": {
@@ -902,7 +910,7 @@
       "executable": false
     },
     "splatkit-android/tests/rendering/vulkan/presentation/WorldFrameCompletionTest.cpp": {
-      "sha256": "a1ce4b307c7a6ffce3b69b7ff6cfe5c42fe32a33cd741b9d141f2f5e381ae58d",
+      "sha256": "5bb91451f8aa78fbf31866dcfe420e8e5634da6d56ad1eba741de4c933fa7f0d",
       "executable": false
     },
     "splatkit-android/tests/rendering/vulkan/raster/VulkanSplatPipelineTest.cpp": {
@@ -942,7 +950,7 @@
       "executable": false
     },
     "splatkit-engine/include/splatkit/camera/WalkCamera.h": {
-      "sha256": "abebf58acd64877b030dbabd9bbf5aeef4946cc1957f2ff59f960664e0a62e14",
+      "sha256": "ac27668618838ff28ab812f176edfb9bd1432edddc5da23ca62e267b601f0ef8",
       "executable": false
     },
     "splatkit-engine/include/splatkit/diagnostics/Benchmark.h": {
@@ -954,7 +962,7 @@
       "executable": false
     },
     "splatkit-engine/include/splatkit/engine/SplatEngine.h": {
-      "sha256": "bc6a84b653012a58259f19c3d4af5b7e10c4819de19c44fe4e3584c6b15dc1f0",
+      "sha256": "2aa907cf36bfc4a27dbb1642334d28ea5acdb35dc2e8baaa318d92524a3a4955",
       "executable": false
     },
     "splatkit-engine/include/splatkit/highlight/Highlight.h": {
@@ -994,7 +1002,7 @@
       "executable": false
     },
     "splatkit-engine/include/splatkit/reveal/Reveal.h": {
-      "sha256": "42bd5148d8190f13b5e9f7a26197911d281de7cd8d67702a75b39778fdad7767",
+      "sha256": "067391e1d12b754a96a4fe303383bc3219ed0f2286456a487fb8bc5dc9360881",
       "executable": false
     },
     "splatkit-engine/src/Log.cpp": {
@@ -1006,7 +1014,7 @@
       "executable": false
     },
     "splatkit-engine/src/camera/WalkCamera.cpp": {
-      "sha256": "6b9967958ac3b334298dee62b730e3b5e3c59768bb242854f2ece0c771473459",
+      "sha256": "f96e32c84e8ef3da27beef1c9faaa6b46a17ece0ca5df5186d9fef6de4fbae29",
       "executable": false
     },
     "splatkit-engine/src/diagnostics/Benchmark.cpp": {
@@ -1018,7 +1026,7 @@
       "executable": false
     },
     "splatkit-engine/src/engine/SplatEngine.cpp": {
-      "sha256": "cc8fd75656aab2046157fbbff417f95f5f67fac8df2d92f299b4f28d4a65b173",
+      "sha256": "b63e616d2474597d8acdd96f13d0bc79d3e725264c93f295b1325f26f3ed9c7a",
       "executable": false
     },
     "splatkit-engine/src/highlight/Highlight.cpp": {
@@ -1050,7 +1058,7 @@
       "executable": false
     },
     "splatkit-engine/tests/CMakeLists.txt": {
-      "sha256": "1bcd66c62cabbd62251962a5d9701da32930188a55c7df8d77cd5eba68641aec",
+      "sha256": "d110ea4cd61e29fb596157587a1a7c2d68968a0287c8e47134a610100c9f80fe",
       "executable": false
     },
     "splatkit-engine/tests/camera/LensTest.cpp": {
@@ -1058,7 +1066,7 @@
       "executable": false
     },
     "splatkit-engine/tests/camera/WalkCameraTest.cpp": {
-      "sha256": "2af9e15fe92f6c73604848ca5ab133b64ac07eabb5672e0a1a1e6e5a663cdfc7",
+      "sha256": "1ea8cf1852f57980d8f0dbeae217c87176b26cd96d7c152eb56576f17f4af7d1",
       "executable": false
     },
     "splatkit-engine/tests/diagnostics/BenchmarkTest.cpp": {
@@ -1074,7 +1082,7 @@
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineDrawnFrameTest.cpp": {
-      "sha256": "812b3dd95af37434c83e4ab27ae37faccc8c94b644b0417126d2bcf542d4848d",
+      "sha256": "ff42b2009e25898e69cfd9237e6112fabd45b5e83fe9651d6455524fca52a4c2",
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineLensTest.cpp": {
@@ -1082,11 +1090,15 @@
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineMemoryTest.cpp": {
-      "sha256": "17036cb318a800a7fdc60869d3bdaafe00d29f26da8e1b91ea2ea3297ada7a5c",
+      "sha256": "51341788116bb5c2c1456d3740107043044e732296e148fbd2f057ee4c90cc95",
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEnginePolicyTest.cpp": {
-      "sha256": "73743aac6c564e902cefa5daf4d8f8ca160604a82802c3d36ef98965b01f93f3",
+      "sha256": "84b585681cb00d38b562a1e13c27aeb8b22640fff3ef0cbc77c8c2e18a9f7101",
+      "executable": false
+    },
+    "splatkit-engine/tests/engine/SplatEngineRevealTest.cpp": {
+      "sha256": "ae98d682b7527ffac68ba7fa0d8f22fa28d9883b95661398e03c2ab9767db2e6",
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineStreamingTest.cpp": {
@@ -1098,7 +1110,7 @@
       "executable": false
     },
     "splatkit-engine/tests/labels/LabelStylesTest.cpp": {
-      "sha256": "50ad95eab14f263a1fcd8b19661aafca4d9c472122f03c6e63134b1491066035",
+      "sha256": "6a465cba3c1cc7f714abb51455d6eb195ace01d11c95b62291473682b77a841e",
       "executable": false
     },
     "splatkit-engine/tests/loading/LoadReportLogTest.cpp": {
@@ -1126,7 +1138,7 @@
       "executable": false
     },
     "splatkit-engine/tests/reveal/RevealTest.cpp": {
-      "sha256": "8916178d1e4586fe277eae3d0b3d774b0c7215a48a3483f025184f6a114714be",
+      "sha256": "cc52780544adc9bb43540a113488f5d74357f7b1f4dac602f8ec679d406f3e08",
       "executable": false
     },
     "splatkit-engine/tests/support/StubRenderer.h": {
@@ -1134,11 +1146,11 @@
       "executable": false
     },
     "splatkit-ios/CMakeLists.txt": {
-      "sha256": "e8c31d034371e20fb5694907d850918ea4fabd48ed6784bbd9258c0b63738a8c",
+      "sha256": "3410a257fce673157d8247c7e74a3e0748b78ddabdaf1721244454eb876ec4b1",
       "executable": false
     },
     "splatkit-ios/README.md": {
-      "sha256": "a10b6f3a63bfd6d183c1e88c176739eeb2198a2a715ef6ae80a85e5bcd3297c1",
+      "sha256": "850e850b5e5ad8ccae2a10c0b8d535d2fa404ff7c915db908c9fb164bef22c0e",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/CameraPose.swift": {
@@ -1158,7 +1170,7 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/SplatMetalView.swift": {
-      "sha256": "49a57e3200d4b1d234c7d449d47a03b440fce0b725c877dea2a74636eb3d9f98",
+      "sha256": "239e4f869a5ef83b0b8631bcbb2dc704957512ea6f82ef5f776ee448d179ce3c",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/SplatStats.swift": {
@@ -1166,7 +1178,7 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/SplatViewDelegate.swift": {
-      "sha256": "f052ad3576dd61a0b74a2442527a860a7d25f010e108da4b9269ca9ff91e8b06",
+      "sha256": "013dc4be5ec4a453b303751594d367c349efbb7ea2751bbd8ad1580d55254709",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/engine/RenderThread.swift": {
@@ -1189,8 +1201,12 @@
       "sha256": "8510a2bd86395f16bbcf602911ef8a1caf60aec465644db545b4388014a2ff91",
       "executable": false
     },
+    "splatkit-ios/Sources/SplatKitCore/engine/SKEventMapping.h": {
+      "sha256": "bf3e3ae5a2fc3c42bdf60fc3bab84def7f577cd18efda64550a5f75e4ae2679f",
+      "executable": false
+    },
     "splatkit-ios/Sources/SplatKitCore/engine/SKSplatEngine.mm": {
-      "sha256": "493c4b068c4515f58f74e2bae8d992a3dd80c0c0050533b7399afd66101d3f63",
+      "sha256": "4f13de4f6a833b74ee73e0d93cbe4dcf12e95b40063aecd8e2b6827b32a4a090",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/engine/SKTypeConversions.h": {
@@ -1202,7 +1218,7 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/include/SplatKit/SKSplatEngine.h": {
-      "sha256": "94db9da332508fd4c7c61fe121a069ca4f2a477ab45f8a94cf5d315b41ebcee1",
+      "sha256": "37780b73bb21e28a66845cbe06b1b04dc3557007caba088df66e3612e5c39dc4",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/include/module.modulemap": {
@@ -1210,23 +1226,23 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/MetalSplatRenderer.h": {
-      "sha256": "b40ea40f499f702deb3a16a0a4976195697ac4fdd0feb460f53e54386754062d",
+      "sha256": "9c501c57a88607c68920110bfb1fb55d7c3307f3e51c9af6ccea131d2d02c6fa",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/MetalSplatRenderer.mm": {
-      "sha256": "6c90c6dcfd64203bea9490cb604a912f3a3156ee5d4f10176758262f349eced0",
+      "sha256": "e94d9cb81d407062aa18b2b23a8e39af6df67704582dd7fb223fa14699c8e2d0",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/backdrop/MetalBackdrop.h": {
-      "sha256": "f07dbaeabd2a03687136b37d44aed84fb3efb52d8abafb052f182d276f8049b7",
+      "sha256": "23c2ee0aad02364024e64dea58e709954983f86ad35b3971e59dd0565b4cd654",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/backdrop/MetalBackdrop.mm": {
-      "sha256": "6cbcf396923cb22dc162bfe62fd1bfe55969822fb8ac04eedf038beb8ea6f6bd",
+      "sha256": "47cba8332b2ceaeca241f506cc287210af35ca2627d606feef25cadbeb4191ea",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/backdrop/SplatBackdrop.metal": {
-      "sha256": "8565e4ac579457b26ffe31ccd5c56a2c55324f45d363be4bf0fb5603df6652d6",
+      "sha256": "38e0b9997c3e6405b6122b569558fff9c08f9c4f48a1006cd5b214696aa743f1",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/cull/MetalVisibilityPass.h": {
@@ -1258,7 +1274,7 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/device/Splat.metal": {
-      "sha256": "f5f741d175d239b86cacf04afaa892f17d1e9394b3510eda72227b2138094049",
+      "sha256": "282936d489bab271a984ae470c92e278c85a1e223b59515471fa193b80d2d716",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/rendering/metal/diagnostics/MetalFrameCapture.h": {
@@ -1410,7 +1426,7 @@
       "executable": false
     },
     "splatkit-ios/tests/engine/SKSplatEngineTest.mm": {
-      "sha256": "5f89f2a437d996740b587a2d423aee931e6dfe21005dff2f87c6c8654c448b7a",
+      "sha256": "ae68f507d20c38205691af0e12341be7c3391ea4312dc92ff07ec0abd4f44dda",
       "executable": false
     },
     "splatkit-ios/tests/engine/SKTypeConversionsTest.mm": {
@@ -1418,7 +1434,7 @@
       "executable": false
     },
     "splatkit-ios/tests/rendering/metal/MetalSplatRendererTest.mm": {
-      "sha256": "9f13a0b98f7486db401988b707e512f42db9e12c46a4fd11c62050d8616954df",
+      "sha256": "ed2451f250320e32c1f730250011cd0d14f2f2ef9dc9fd3fdf1410feae9b09e4",
       "executable": false
     },
     "splatkit-ios/tests/rendering/metal/cull/MetalVisibilityPassTest.mm": {
@@ -1438,7 +1454,7 @@
       "executable": false
     },
     "splatkit-ios/tests/rendering/metal/presentation/MetalFrameLoopTest.mm": {
-      "sha256": "30353c6522c4b8596f96c9a5d361e927ab2d13b6ba656291fc66df97db1ec480",
+      "sha256": "42f5b4834e5c7d8bdb5208dac4f23269f656dc1f10e57586322a3c1e55533a75",
       "executable": false
     },
     "splatkit-ios/tests/rendering/metal/presentation/MetalRenderTargetTest.mm": {

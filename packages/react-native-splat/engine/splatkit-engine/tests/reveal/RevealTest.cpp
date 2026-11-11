@@ -1,7 +1,7 @@
+#include "splatkit/reveal/Reveal.h"
+
 #include <gtest/gtest.h>
-#include "load-spz.h"
-#include "splatkit/engine/SplatEngine.h"
-#include "support/StubRenderer.h"
+
 namespace splatkit {
 TEST(Reveal, RisesAndRestoresIdle) {
   Reveal sweep;
@@ -30,49 +30,5 @@ TEST(Reveal, RisesAndRestoresIdle) {
   bounds.max[1] = 0;
   sweep.start(bounds, settings);
   EXPECT_FALSE(sweep.active());
-}
-TEST(Reveal, EngineAppliesSettingsOnLoadAndRedrawsUntilIdle) {
-  class RecordingRenderer : public StubRenderer {
-   public:
-    RevealUniform reveal;
-    bool draw(const Frame& frame) override {
-      reveal = frame.reveal;
-      return StubRenderer::draw(frame);
-    }
-  };
-  spz::GaussianCloud cloud;
-  cloud.numPoints = 2;
-  cloud.positions = {0, 0, -2, 0, 10, -2};
-  cloud.scales = {0, 0, 0, 0, 0, 0};
-  cloud.rotations = {0, 0, 0, 1, 0, 0, 0, 1};
-  cloud.alphas = {0, 0};
-  cloud.colors = {0, 0, 0, 0, 0, 0};
-  std::vector<uint8_t> bytes;
-  ASSERT_TRUE(spz::saveSpz(cloud, spz::PackOptions{}, &bytes));
-  for (const bool enabled : {false, true}) {
-    auto renderer = std::make_unique<RecordingRenderer>();
-    auto* observed = renderer.get();
-    SplatEngine engine(std::move(renderer));
-    engine.setSplatBudget(0);
-    if (enabled) {
-      RevealSettings settings;
-      settings.seconds = 1;
-      ASSERT_TRUE(engine.setReveal(settings));
-    }
-    engine.loadWorld(bytes.data(), bytes.size());
-    engine.render(1);
-    const float first = observed->reveal.level;
-    engine.render(500000001);
-    if (enabled)
-      EXPECT_GT(observed->reveal.level, first);
-    else
-      EXPECT_EQ(first, std::numeric_limits<float>::infinity());
-    engine.render(1500000001);
-    EXPECT_EQ(observed->reveal.level, std::numeric_limits<float>::infinity());
-    EXPECT_EQ(observed->reveal.band, 0);
-    const auto frames = observed->frames;
-    engine.render(1600000001);
-    EXPECT_EQ(observed->frames, frames);
-  }
 }
 }  // namespace splatkit

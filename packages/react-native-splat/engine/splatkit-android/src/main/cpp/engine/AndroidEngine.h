@@ -27,7 +27,7 @@ class AndroidEngine {
 
   SplatEngine& engine() { return *engine_; }
   // The event kind after the shared engine's four, as Kotlin's SplatEngine.Event numbers it.
-  static constexpr int kWorldFrameReady = static_cast<int>(SplatEngine::Event::colliderFailed) + 1;
+  static constexpr int kWorldFrameReady = 4;
   static_assert(kWorldFrameReady == 4);
   using EventSink = std::function<void(int, const std::string&, uint32_t)>;
   void setEventSink(EventSink sink);

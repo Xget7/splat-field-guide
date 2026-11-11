@@ -33,18 +33,18 @@ fragment float4 backdropReduce(BlitVertex in [[stage_in]], texture2d<float> scen
 // Pull-push fill: the coarsest level's mean colour, refined level by level wherever there is
 // coverage, so every pixel takes the colour of the nearest captured surface.
 fragment float4 backdropPush(BlitVertex in [[stage_in]], texture2d<float> pyramid [[texture(0)]],
-                             constant packed_float3& adjustments [[buffer(0)]]) {
+                             constant float* adjustments [[buffer(0)]]) {
   constexpr sampler levelSampler(filter::linear, mip_filter::nearest, address::clamp_to_edge);
   const int top = int(pyramid.get_num_mip_levels()) - 1;
   const float4 mean = pyramid.sample(levelSampler, in.uv, level(float(top)));
-  if (mean.a < kBackdropEmpty) return float4(0, 0, 0, 1);
+  if (mean.a < kBackdropEmpty) return float4(adjustments[3], adjustments[4], adjustments[5], 1);
   float3 color = mean.rgb / mean.a;
   for (int lod = top - 1; lod >= kBackdropFinestLevel; --lod) {
     const float4 covered = pyramid.sample(levelSampler, in.uv, level(float(lod)));
     color = covered.rgb + (1.0 - covered.a) * color;
   }
-  const float falloff = 1.0 - adjustments.z * smoothstep(0.2, 0.75, length(in.uv - 0.5));
-  color = mix(float3(dot(color, kLuma)), color, adjustments.x) * adjustments.y * falloff;
+  const float falloff = 1.0 - adjustments[2] * smoothstep(0.2, 0.75, length(in.uv - 0.5));
+  color = mix(float3(dot(color, kLuma)), color, adjustments[0]) * adjustments[1] * falloff;
   return float4(color, 1);
 }
 
@@ -61,10 +61,19 @@ fragment float4 backdropBlur(BlitVertex in [[stage_in]], texture2d<float> source
 }
 
 // The backdrop under the splats, dithered so its slow gradients do not band in 8 bits. The blend
-// keeps it to the coverage the splats left.
+// keeps it to the coverage the splats left. The 16F intermediate retains this one-LSB
+// dither for the eventual 8-bit drawable; it is not quantized to 8 bits here.
 fragment float4 backdropUnder(BlitVertex in [[stage_in]], texture2d<float> backdrop [[texture(0)]]) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   const float3 back = backdrop.sample(linearSampler, in.uv).rgb;
   const float noise = fract(52.9829189 * fract(dot(in.position.xy, float2(0.06711056, 0.00583715))));
   return float4(back + (noise - 0.5) / 255.0, 1);
+}
+
+vertex BlitVertex backdropVertex(uint vertexId [[vertex_id]]) {
+  const float2 corners[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
+  BlitVertex out;
+  out.position = float4(corners[vertexId], 0, 1);
+  out.uv = float2(corners[vertexId].x * 0.5 + 0.5, 0.5 - corners[vertexId].y * 0.5);
+  return out;
 }

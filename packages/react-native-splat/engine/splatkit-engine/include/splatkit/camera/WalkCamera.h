@@ -37,7 +37,9 @@ class WalkCamera {
     float elevation = 0;
   };
   bool needsUpdate() const;
+  // Accepted limits cancel automatic rotation and framing, then clamp the pose immediately.
   bool setOrbitLimits(const OrbitLimits& limits);
+  // Explicit framing replaces automatic rotation and any previous framing motion.
   bool frameBounds(const splat::Bounds& bounds, const Lens& lens, Extent extent,
                    float durationSeconds, std::optional<ViewDirection> from = std::nullopt);
 
@@ -136,6 +138,7 @@ class WalkCamera {
   OrbitLimits limits_;
   std::optional<Framing> framing_;
   void clampOrbit();
+  bool azimuthPinned(float direction) const;
   void teleported() {
     if (teleport_) teleport_();
   }

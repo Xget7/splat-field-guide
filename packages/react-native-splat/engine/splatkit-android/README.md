@@ -145,3 +145,5 @@ done)
 The writable device working directory also lets the pipeline-cache test create its temporary file.
 Each test exits 0 on success; `splatkit_vulkan_buffer_test` and `splatkit_vulkan_upload_pressure_test` accept `--small` for a device with little memory, which skips their large cases.
 
+
+Terminal GPU failures emit public event 5 (GPU_FAILED / gpuFailed), distinct from world load failure and GPU-completed frame readiness (4).

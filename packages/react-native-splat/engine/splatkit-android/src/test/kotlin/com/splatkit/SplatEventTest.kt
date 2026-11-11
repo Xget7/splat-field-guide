@@ -12,12 +12,13 @@ class SplatEventTest {
             SplatEngine.Event.COLLIDER_READY,
             SplatEngine.Event.COLLIDER_FAILED,
             SplatEngine.Event.WORLD_FRAME_READY,
+            SplatEngine.Event.GPU_FAILED,
         )
         expected.forEachIndexed { id, event ->
             assertEquals(id, event.nativeId)
             assertSame(event, SplatEngine.Event.fromNative(id))
         }
-        listOf(-1, 5, Int.MIN_VALUE, Int.MAX_VALUE).forEach {
+        listOf(-1, 6, Int.MIN_VALUE, Int.MAX_VALUE).forEach {
             assertNull(SplatEngine.Event.fromNative(it))
         }
     }
@@ -25,6 +26,7 @@ class SplatEventTest {
     @Test fun uploadAndGpuCompletionReachDifferentListenerCallbacks() {
         val calls = mutableListOf<String>()
         val listener = object : SplatSurfaceView.Listener {
+            override fun onGpuFailed(message: String) { calls += "gpu:$message" }
             override fun onWorldReady(splatCount: Int) { calls += "upload:$splatCount" }
             override fun onWorldFrameReady(splatCount: Int) { calls += "frame:$splatCount" }
             override fun onWorldFailed(message: String) { calls += "world:$message" }
@@ -37,7 +39,8 @@ class SplatEventTest {
         dispatchSplatEvent(listener, SplatEngine.Event.WORLD_FAILED, "decode", 0)
         dispatchSplatEvent(listener, SplatEngine.Event.COLLIDER_READY, "", 0)
         dispatchSplatEvent(listener, SplatEngine.Event.COLLIDER_FAILED, "collide", 0)
-        assertEquals(listOf("upload:123", "frame:123", "world:decode", "collider", "collider:collide"), calls)
+        dispatchSplatEvent(listener, SplatEngine.Event.GPU_FAILED, "lost", 0)
+        assertEquals(listOf("upload:123", "frame:123", "world:decode", "collider", "collider:collide", "gpu:lost"), calls)
     }
 
     @Test fun existingListenerCanOmitFrameCallback() {

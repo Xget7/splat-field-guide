@@ -16,6 +16,7 @@ enum class ErrorCode {
   unreadable,          // a file that cannot be opened, is empty, or cannot be mapped
   insufficientMemory,  // a load the process could not hold without being ended for memory
   labelsMismatch,
+  superseded,  // a newer load reservation replaced this request
 };
 
 struct Error {

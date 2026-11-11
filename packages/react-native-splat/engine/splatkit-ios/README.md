@@ -124,3 +124,5 @@ Stats: `loadedSplatCount` counts source splats; `drawnSplatCount` counts complet
 `loadedShDegree` is the harmonics degree the world holds on the GPU, the ceiling for what `shDegree` draws.
 Command timings overlap; HUD sort includes visibility/radix.
 [Phone measurements](../../docs/BENCHMARKS.md) record settings, evidence and visual limitations.
+
+Terminal GPU failures emit public event 5 (GPU_FAILED / gpuFailed), distinct from world load failure and GPU-completed frame readiness (4).

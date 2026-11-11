@@ -4,4 +4,3 @@
 #include "../cull/PrepareIndirect.metalh"
 #include "../sort/SplatRadixSort.metal"
 #include "../selection/SplatLOD.metal"
-#include "../backdrop/SplatBackdrop.metal"

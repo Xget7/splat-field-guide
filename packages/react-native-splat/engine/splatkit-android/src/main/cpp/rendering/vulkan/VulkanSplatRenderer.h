@@ -49,7 +49,7 @@ class VulkanSplatRenderer final : public SplatRenderer {
   // True when a surface with pipelines is up.
   bool gpuFailed() override {
     frameLoop_.completedSubmission();
-    return failed_ || frameLoop_.gpuFailed();
+    return frameLoop_.gpuFailed();
   }
   bool ready() const override { return surface_.ready() && splats_; }
   // The target's size with a render scale, else the swapchain's.
@@ -86,7 +86,6 @@ class VulkanSplatRenderer final : public SplatRenderer {
   const std::string& deviceDescription() const override { return ctx_.deviceDescription(); }
 
  private:
-  bool failed_ = false;
   bool readyForFrame(const Frame& frame);
   bool createPipelines();
   void rebuildPipelinesIfNeeded();

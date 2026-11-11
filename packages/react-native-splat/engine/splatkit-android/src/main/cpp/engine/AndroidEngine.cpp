@@ -1,4 +1,5 @@
 #include "engine/AndroidEngine.h"
+#include "engine/AndroidEventMapping.h"
 
 #include <android/log.h>
 
@@ -50,7 +51,8 @@ void AndroidEngine::setEventSink(EventSink sink) {
           awaitingWorldFrame_ = true;
           worldFrameSplatCount_ = count;
         }
-        if (eventSink_) eventSink_(static_cast<int>(event), message, count);
+        const auto mapped = publicEvent(event);
+        if (eventSink_ && mapped) eventSink_(*mapped, message, count);
       });
 }
 

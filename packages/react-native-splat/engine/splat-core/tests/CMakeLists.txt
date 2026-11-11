@@ -67,3 +67,5 @@ target_compile_definitions(splat_core_memory_tests PRIVATE
 include(GoogleTest)
 gtest_discover_tests(splat_core_tests)
 gtest_discover_tests(splat_core_memory_tests)
+
+target_include_directories(splat_core_tests SYSTEM PRIVATE ../third_party/picosha2)

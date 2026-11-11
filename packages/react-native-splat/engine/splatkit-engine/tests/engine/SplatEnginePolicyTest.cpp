@@ -62,7 +62,7 @@ TEST(SplatEnginePolicy, SceneBackdropReachesTheRendererAndReportsUnsupported) {
   SplatEngine unsupported(std::make_unique<StubRenderer>());
   std::string reason;
   EXPECT_FALSE(unsupported.setSceneBackdrop(settings, &reason));
-  EXPECT_NE(reason.find("Metal"), std::string::npos);
+  EXPECT_NE(reason.find("unsupported"), std::string::npos);
 }
 
 TEST(SplatEnginePolicy, BackgroundColorAppliesOnTheNextRedrawAndRejectsInvalidChannels) {

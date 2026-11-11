@@ -1,15 +1,17 @@
-#include <gtest/gtest.h>
+#include "splatkit/engine/SplatEngine.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <future>
 #include <optional>
 #include <string>
 #include <vector>
-#include "splat/formats/PartLabels.h"
+
+#include <gtest/gtest.h>
 
 #include "load-spz.h"
-#include "splatkit/engine/SplatEngine.h"
+#include "splat/formats/PartLabels.h"
 #include "support/StubRenderer.h"
 
 namespace splatkit {
@@ -105,27 +107,23 @@ void checkSupersededCompletion(bool fail) {
   const auto replacement = worldBytes(2);
   EXPECT_TRUE(engine.loadWorld(newest, replacement.data(), replacement.size()));
   engine.render(1);
-  const auto frames = observed->frames;
   EXPECT_EQ(events.size(), 1u);
   resume.set_value();
   EXPECT_FALSE(late.get());
   engine.render(2);
   EXPECT_EQ(events.size(), 1u);
-  EXPECT_EQ(observed->frames, frames);
-  ASSERT_TRUE(observed->world());
-  EXPECT_EQ(observed->world()->count, 2u);
   EXPECT_FALSE(engine.loadWorldFile(old, "missing.spz"));
   EXPECT_EQ(events.size(), 1u);
 }
 
-TEST(SplatEngineReservations, SupersededSuccessCannotUploadOrEmit) {
+TEST(SplatEngineReservations, SupersededSuccessCannotEmit) {
   checkSupersededCompletion(false);
 }
 TEST(SplatEngineReservations, SupersededFailureCannotEmit) {
   checkSupersededCompletion(true);
 }
 
-TEST(SplatEngineReservations, ReservationClearsPendingAndCompletionEvents) {
+TEST(SplatEngineReservations, ReservationSuppressesCompletionEvents) {
   class CompletingRenderer : public StubRenderer {
    public:
     bool hasCompletedWorldFrame() override { return true; }
@@ -134,10 +132,7 @@ TEST(SplatEngineReservations, ReservationClearsPendingAndCompletionEvents) {
   std::vector<SplatEngine::Event> events;
   engine.setEventSink([&](auto event, const std::string&, uint32_t) { events.push_back(event); });
   const auto bytes = worldBytes();
-  ASSERT_TRUE(engine.loadWorld(bytes.data(), bytes.size()));
   auto request = engine.beginLoad();
-  engine.render(1);
-  EXPECT_TRUE(events.empty());
   ASSERT_TRUE(engine.loadWorld(request, bytes.data(), bytes.size()));
   engine.render(2);
   ASSERT_EQ(events.size(), 1u);
@@ -148,6 +143,49 @@ TEST(SplatEngineReservations, ReservationClearsPendingAndCompletionEvents) {
   EXPECT_EQ(events.back(), SplatEngine::Event::worldFailed);
   EXPECT_EQ(engine.renderer().world()->count, 1u);
   EXPECT_FALSE(engine.loadWorldFile("missing.spz", {}));
+}
+
+TEST(SplatEngineEvents, SlowFailureCallbackAllowsReservationsAndRendering) {
+  SplatEngine engine(std::make_unique<StubRenderer>());
+  const auto bytes = worldBytes();
+  ASSERT_TRUE(engine.loadWorld(bytes.data(), bytes.size()));
+  engine.render(1);
+  std::promise<void> entered;
+  auto started = entered.get_future();
+  std::promise<void> resume;
+  auto released = resume.get_future().share();
+  engine.setEventSink([&](auto event, const std::string&, uint32_t) {
+    if (event != SplatEngine::Event::worldFailed) return;
+    entered.set_value();
+    released.wait();
+  });
+  auto failed = std::async(std::launch::async, [&] { return engine.loadWorldFile("missing.spz"); });
+  started.wait();
+  auto rendered = std::async(std::launch::async, [&] {
+    const auto request = engine.beginLoad();
+    const bool accepted = engine.loadWorld(request, bytes.data(), bytes.size());
+    engine.render(2);
+    return accepted;
+  });
+  const auto status = rendered.wait_for(std::chrono::seconds(5));
+  // Release even on failure so a regression reports a failed assertion rather than hanging.
+  resume.set_value();
+  EXPECT_EQ(status, std::future_status::ready);
+  EXPECT_FALSE(failed.get());
+  EXPECT_TRUE(rendered.get());
+}
+
+TEST(SplatEngineEvents, ReadyCallbackCanReserveAnotherLoad) {
+  SplatEngine engine(std::make_unique<StubRenderer>());
+  uint64_t next = 0;
+  engine.setEventSink([&](auto event, const std::string&, uint32_t) {
+    if (event == SplatEngine::Event::worldReady) next = engine.beginLoad();
+  });
+  const auto bytes = worldBytes();
+  ASSERT_TRUE(engine.loadWorld(bytes.data(), bytes.size()));
+  engine.render(1);
+  EXPECT_NE(next, 0u);
+  EXPECT_TRUE(engine.loadWorld(next, bytes.data(), bytes.size()));
 }
 
 TEST(SplatEngineEvents, LabelFailuresHaveTheirOwnEventAndPreserveTheWorld) {

@@ -92,6 +92,41 @@ Result<SplatWorldLoader::MemoryUse> SplatWorldLoader::admit(const Result<LoadCos
   return Error{ErrorCode::insufficientMemory, message};
 }
 
+std::uint64_t SplatWorldLoader::beginLoad() {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  auto request = ++currentLoad_;
+  if (request == 0) request = ++currentLoad_;
+  pendingWorld_.reset();
+  return request;
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::finishRequest(
+    std::uint64_t request, Result<WorldReport> report) const {
+  if (request != currentLoad()) return Error{ErrorCode::superseded, "Load superseded"};
+  return report;
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(
+    std::uint64_t request, const std::uint8_t* data, std::size_t size, const std::uint8_t* labels,
+    std::size_t labelsSize, const LoadOptions& options) {
+  if (request != currentLoad()) return Error{ErrorCode::superseded, "Load superseded"};
+  return finishRequest(request, loadWorldRequest(request, data, size, labels, labelsSize, options));
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(std::uint64_t request,
+                                                                      const std::string& path,
+                                                                      const std::string& labelsPath,
+                                                                      const LoadOptions& options) {
+  if (request != currentLoad()) return Error{ErrorCode::superseded, "Load superseded"};
+  return finishRequest(request, loadWorldFileRequest(request, path, labelsPath, options));
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFile(
+    std::uint64_t request, const std::string& path) {
+  if (request != currentLoad()) return Error{ErrorCode::superseded, "Load superseded"};
+  return finishRequest(request, loadTiledWorldFileRequest(request, path));
+}
+
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
                                                                   std::size_t size,
                                                                   const LoadOptions& options) {
@@ -100,9 +135,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uin
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path,
                                                                       const LoadOptions& options) {
-  auto file = MappedFile::open(path);
-  if (!file) return file.error();
-  return loadWorld(file.value().data(), file.value().size(), options);
+  return loadWorldFile(currentLoad(), path, {}, options);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
@@ -122,7 +155,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uin
                                                                   const std::uint8_t* labels,
                                                                   std::size_t labelsSize,
                                                                   const LoadOptions& options) {
-  return loadWorldRequest(currentLoad_.load(), data, size, labels, labelsSize, options);
+  return loadWorld(currentLoad(), data, size, labels, labelsSize, options);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldRequest(
@@ -216,15 +249,13 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadLodWorldRequest(
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path) {
-  auto file = MappedFile::open(path);
-  if (!file) return file.error();
-  return loadWorld(file.value().data(), file.value().size());
+  return loadWorldFile(currentLoad(), path);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path,
                                                                       const std::string& labelsPath,
                                                                       const LoadOptions& options) {
-  return loadWorldFileRequest(currentLoad_.load(), path, labelsPath, options);
+  return loadWorldFile(currentLoad(), path, labelsPath, options);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFileRequest(
@@ -243,7 +274,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFileRequest(
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFile(
     const std::string& path) {
-  return loadTiledWorldFileRequest(currentLoad_.load(), path);
+  return loadTiledWorldFile(currentLoad(), path);
 }
 
 Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFileRequest(

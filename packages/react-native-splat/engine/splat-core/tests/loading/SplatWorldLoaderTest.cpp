@@ -1,13 +1,16 @@
 #include "splat/loading/SplatWorldLoader.h"
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <optional>
 #include <random>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <picosha2.h>
 
 #include "load-spz.h"
 #include "splat/formats/GlbEncoder.h"
@@ -444,4 +447,104 @@ TEST(SplatWorldLoader, LabelledFileOptionsCountLeavesAndEmptyBracesSelectOptions
   EXPECT_FALSE(loader.loadWorldFile(file.string(), sidecar.string(), options));
   EXPECT_EQ(loader.takeWorld()->sourceCount, 50u);
   EXPECT_TRUE(loader.loadWorldFile(file.string(), {}));
+}
+
+namespace splat {
+namespace {
+
+void checkLoaderCompletion(bool fail, bool supersede) {
+  SplatWorldLoader loader;
+  std::promise<void> entered;
+  auto started = entered.get_future();
+  std::promise<void> resume;
+  auto released = resume.get_future().share();
+  std::atomic<bool> first{true};
+  loader.setMemoryGuard({[&]() -> std::optional<std::uint64_t> {
+                           if (!first.exchange(false)) return std::nullopt;
+                           entered.set_value();
+                           released.wait();
+                           return fail ? std::optional<std::uint64_t>{0} : std::nullopt;
+                         },
+                         [](const LoadCost&) { return 0; }});
+  const auto old = loader.currentLoad();
+  const auto bytes = encodeSpz(1);
+  auto late = std::async(std::launch::async,
+                         [&] { return loader.loadWorld(old, bytes.data(), bytes.size()); });
+  started.wait();
+  const auto newest = supersede ? loader.beginLoad() : loader.currentLoad();
+  const auto replacement = encodeSpz(2);
+  EXPECT_TRUE(loader.loadWorld(newest, replacement.data(), replacement.size()));
+  resume.set_value();
+  const auto result = late.get();
+  if (supersede) {
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::superseded);
+  } else {
+    EXPECT_TRUE(result);
+  }
+  auto pending = loader.takeWorld();
+  ASSERT_NE(pending, nullptr);
+  EXPECT_EQ(pending->sourceCount, supersede ? 2u : 1u);
+}
+
+TEST(SplatWorldLoader, SupersededDecodeCannotReplaceNewerPendingWorld) {
+  checkLoaderCompletion(false, true);
+}
+TEST(SplatWorldLoader, SupersededFailureReturnsSuperseded) {
+  checkLoaderCompletion(true, true);
+}
+TEST(SplatWorldLoader, LegacyGenerationKeepsLastCompletionOrdering) {
+  checkLoaderCompletion(false, false);
+}
+TEST(SplatWorldLoader, ReservationDropsPendingWorldAndRejectsStaleFileRequests) {
+  SplatWorldLoader loader;
+  const auto bytes = encodeSpz(1);
+  ASSERT_TRUE(loader.loadWorld(bytes.data(), bytes.size()));
+  const auto old = loader.currentLoad();
+  const auto newest = loader.beginLoad();
+  EXPECT_NE(newest, old);
+  EXPECT_EQ(loader.currentLoad(), newest);
+  EXPECT_EQ(loader.takeWorld(), nullptr);
+  const auto file = loader.loadWorldFile(old, "missing.spz");
+  ASSERT_FALSE(file);
+  EXPECT_EQ(file.error().code, ErrorCode::superseded);
+  const auto tiles = loader.loadTiledWorldFile(old, "missing.json");
+  ASSERT_FALSE(tiles);
+  EXPECT_EQ(tiles.error().code, ErrorCode::superseded);
+  ASSERT_TRUE(loader.loadWorld(newest, bytes.data(), bytes.size()));
+  const auto stale = loader.loadWorld(old, bytes.data(), bytes.size());
+  ASSERT_FALSE(stale);
+  EXPECT_EQ(stale.error().code, ErrorCode::superseded);
+  EXPECT_NE(loader.takeWorld(), nullptr);
+}
+
+}  // namespace
+}  // namespace splat
+
+TEST(SplatWorldLoader, FileIdentitySpansHashChunks) {
+  const auto bytes = splat::encodeSpz(20000);
+  ASSERT_GT(bytes.size(), 64u * 1024u);
+  const splat::TempPath file("identity-chunks.spz");
+  {
+    std::ofstream out(file.path(), std::ios::binary);
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+  }
+  std::array<std::uint8_t, 32> digest{};
+  picosha2::hash256(bytes.begin(), bytes.end(), digest.begin(), digest.end());
+  splat::SplatWorldLoader loader;
+  splat::SplatWorldLoader::LoadOptions options;
+  options.expectedSha256 = digest;
+  ASSERT_TRUE(loader.loadWorldFile(file.string(), {}, options));
+  ASSERT_NE(loader.takeWorld(), nullptr);
+  // Change a byte in the second hashing chunk while retaining the original identity.
+  {
+    std::fstream out(file.path(), std::ios::binary | std::ios::in | std::ios::out);
+    out.seekp(64 * 1024);
+    out.put(static_cast<char>(bytes[64 * 1024] ^ 1));
+  }
+  const auto mismatch = loader.loadWorldFile(file.string(), {}, options);
+  ASSERT_FALSE(mismatch);
+  EXPECT_EQ(mismatch.error().message, "World SHA-256 mismatch");
+  EXPECT_FALSE(loader.takeWorld());
 }

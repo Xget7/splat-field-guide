@@ -45,7 +45,7 @@ bool MetalBackdrop::create(id<MTLDevice> device, id<MTLLibrary> library,
   format_ = sceneFormat;
   NSError* error = nil;
   MTLRenderPipelineDescriptor* const desc = [[MTLRenderPipelineDescriptor alloc] init];
-  desc.vertexFunction = [library newFunctionWithName:@"blitVertex"];
+  desc.vertexFunction = [library newFunctionWithName:@"backdropVertex"];
   const auto fullScreen = [&](NSString* fragment, MTLPixelFormat format) {
     desc.fragmentFunction = [library newFunctionWithName:fragment];
     desc.colorAttachments[0].pixelFormat = format;
@@ -112,7 +112,7 @@ bool MetalBackdrop::prepare(id<MTLDevice> device, id<MTLLibrary> library, id<MTL
 }
 
 bool MetalBackdrop::encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene,
-                           const SceneBackdrop& settings) {
+                           const SceneBackdrop& settings, const std::array<float, 3>& background) {
   if (under_ == nil || scene == nil || scene.pixelFormat != format_) return false;
   if (!ensureTextures(scene.width, scene.height)) return false;
   // Pull: average the scene into the pyramid's finest level, then down its mip chain.
@@ -125,7 +125,8 @@ bool MetalBackdrop::encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene,
   [mips generateMipmapsForTexture:pyramid_];
   [mips endEncoding];
   // Push: fill from the coarsest level down, then soften the fill in two separable passes.
-  const float adjustments[3] = {settings.saturation, settings.gain, settings.vignette};
+  const float adjustments[6] = {settings.saturation, settings.gain, settings.vignette,
+                                background[0],       background[1], background[2]};
   encodePass(cmd, push_, pyramid_, backdrop_, adjustments, sizeof(adjustments));
   const float across[2] = {settings.blurSpacing / backdrop_.width, 0};
   const float down[2] = {0, settings.blurSpacing / backdrop_.height};

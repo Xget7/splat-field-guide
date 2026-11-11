@@ -43,20 +43,7 @@ class MetalSplatRenderer final : public SplatRenderer, public SceneBackdropRende
   // The layer's size in pixels. Rebuilds the offscreen target if there is one.
   void setDrawableSize(uint32_t width, uint32_t height);
 
-  bool setSceneBackdrop(const SceneBackdrop& settings, std::string* reason) override {
-    if (!settings.valid()) {
-      if (reason != nullptr) *reason = "Invalid scene backdrop settings";
-      return false;
-    }
-    if (settings.enabled && !compute_->gpuSort()) {
-      if (reason != nullptr) *reason = "Scene backdrop requires offscreen Metal compositing";
-      return false;
-    }
-    backdropSettings_ = settings;
-    if (!settings.enabled && activeBackdrop_ != nullptr) activeBackdrop_->releaseTextures();
-    if (reason != nullptr) reason->clear();
-    return true;
-  }
+  bool setSceneBackdrop(const SceneBackdrop& settings, std::string* reason) override;
   void setRenderScale(float scale) override;
   float renderScale() const override { return surface_->renderScale(); }
   void setSpatialUpscaling(bool enabled) override;
@@ -134,6 +121,8 @@ class MetalSplatRenderer final : public SplatRenderer, public SceneBackdropRende
   std::unique_ptr<MetalContext> context_;
   MetalFrameLoop frameLoop_{kFramesInFlight};
   MetalSplatPipeline pipeline_;
+  std::array<float, 3> backdropBackground_{0.05f, 0.05f, 0.08f};
+  id<MTLLibrary> backdropLibrary_ = nil;
   SceneBackdrop backdropSettings_;
   std::map<MTLPixelFormat, std::unique_ptr<MetalBackdrop>> backdrops_;
   MetalBackdrop* activeBackdrop_ = nullptr;

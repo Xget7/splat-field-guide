@@ -7,6 +7,13 @@
 
 namespace splatkit {
 struct RevealSettings {
+  // Inclusive bounds: zero disables duration; colours and shares are normalized.
+  static constexpr float kMinValue = 0;
+  static constexpr float kMaxSeconds = 10;
+  static constexpr float kMaxTint = 1;
+  static constexpr float kMaxTintAmount = 1;
+  static constexpr float kMaxBrightnessBoost = 1;
+  static constexpr float kMaxBandShare = 1;
   float seconds = 0;
   float tint[3] = {1, 1, 1};
   float tintAmount = 0.5f;

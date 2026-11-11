@@ -1,13 +1,14 @@
-#include <gtest/gtest.h>
+#include "splatkit/engine/SplatEngine.h"
 
 #include <atomic>
 #include <cmath>
 #include <thread>
 
+#include <gtest/gtest.h>
+
 #include "load-spz.h"
 #include "splat/formats/GlbEncoder.h"
 #include "splat/formats/PartLabels.h"
-#include "splatkit/engine/SplatEngine.h"
 #include "support/StubRenderer.h"
 
 namespace splatkit {
@@ -20,11 +21,15 @@ class QueryRenderer : public StubRenderer {
   bool completed = true;
   bool rebuild = false;
   uint32_t revision = 0;
+  RevealUniform reveal;
   Extent drawExtent() const override { return extent; }
   uint32_t generation() const override { return revision; }
   bool surfaceRebuildPending() const override { return rebuild; }
   bool hasCompletedWorldFrame() override { return completed; }
-  bool draw(const Frame& frame) override { return accept && StubRenderer::draw(frame); }
+  bool draw(const Frame& frame) override {
+    reveal = frame.reveal;
+    return accept && StubRenderer::draw(frame);
+  }
   uint64_t completedFrames() override { return completed ? frames : 0; }
 };
 
@@ -79,7 +84,7 @@ TEST(SplatEngineDrawnFrame, PendingLoadCompletionRevealHighlightAndCamera) {
   engine.render(1'000'000'000);
   EXPECT_TRUE(engine.needsFrame());
   gpu->completed = true;
-  engine.render(1'016'000'000);
+  for (int i = 1; i <= 20; ++i) engine.render(1'000'000'000 + i * 1'000'000LL + i * 16'000'000LL);
   EXPECT_FALSE(engine.needsFrame());
   const uint16_t label = 1;
   engine.highlightParts(&label, 1);
@@ -99,6 +104,55 @@ TEST(SplatEngineDrawnFrame, PendingLoadCompletionRevealHighlightAndCamera) {
   EXPECT_TRUE(engine.needsFrame());
   engine.startBenchmark(1);
   EXPECT_TRUE(engine.needsFrame());
+}
+
+TEST(SplatEngineDrawnFrame, OrbitStopsAtAzimuthLimit) {
+  for (const bool continuous : {false, true}) {
+    SplatEngine engine(std::make_unique<QueryRenderer>());
+    loadLabelled(engine);
+    engine.render(1);
+    WalkCamera::OrbitLimits limits;
+    limits.minAzimuth = -0.1f;
+    limits.maxAzimuth = 0.1f;
+    ASSERT_TRUE(engine.setOrbitLimits(limits));
+    if (continuous) {
+      CameraRequest request;
+      request.mode = CameraMode::Orbit;
+      request.orbitRadiansPerSecond = 1;
+      ASSERT_TRUE(engine.applyCameraRequest(request).accepted);
+    } else {
+      ASSERT_TRUE(engine.startOrbitAnimation(90, 10, false));
+    }
+    for (int i = 1; i <= 20; ++i) engine.render(i * 100'000'000LL);
+    EXPECT_FALSE(engine.needsFrame());
+    EXPECT_FALSE(engine.render(3'000'000'000));
+  }
+}
+
+TEST(SplatEngineDrawnFrame, NewLoadReplacesUndrawnWorld) {
+  auto renderer = std::make_unique<QueryRenderer>();
+  auto* gpu = renderer.get();
+  SplatEngine engine(std::move(renderer));
+  std::vector<SplatEngine::Event> events;
+  engine.setEventSink([&](auto event, const std::string&, uint32_t) { events.push_back(event); });
+  RevealSettings settings;
+  settings.seconds = 1;
+  settings.tintAmount = 0.2f;
+  ASSERT_TRUE(engine.setReveal(settings));
+  loadLabelled(engine);
+  engine.beginLoad();
+  settings.tintAmount = 0.8f;
+  ASSERT_TRUE(engine.setReveal(settings));
+  loadLabelled(engine);
+  EXPECT_TRUE(events.empty());
+  ASSERT_TRUE(engine.render(1));
+  EXPECT_FLOAT_EQ(gpu->reveal.tintAmount, 0.8f);
+  const float first = gpu->reveal.level;
+  engine.render(16'000'001);
+  EXPECT_GT(gpu->reveal.level, first);
+  engine.render(32'000'001);
+  EXPECT_EQ(events, (std::vector<SplatEngine::Event>{SplatEngine::Event::worldReady,
+                                                     SplatEngine::Event::worldFrameReady}));
 }
 
 TEST(SplatEngineDrawnFrame, ColliderWaitingForUploadWakesAnIdleScene) {

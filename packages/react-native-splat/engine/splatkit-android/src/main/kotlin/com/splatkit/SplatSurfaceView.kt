@@ -36,6 +36,7 @@ internal fun dispatchSplatEvent(
     when (event) {
         SplatEngine.Event.WORLD_READY -> listener.onWorldReady(splatCount)
         SplatEngine.Event.WORLD_FRAME_READY -> listener.onWorldFrameReady(splatCount)
+        SplatEngine.Event.GPU_FAILED -> listener.onGpuFailed(message)
         SplatEngine.Event.WORLD_FAILED -> listener.onWorldFailed(message)
         SplatEngine.Event.COLLIDER_READY -> listener.onColliderReady()
         SplatEngine.Event.COLLIDER_FAILED -> listener.onColliderFailed(message)
@@ -125,6 +126,7 @@ class SplatSurfaceView @JvmOverloads constructor(
         fun onWorldReady(splatCount: Int) {}
         /** The GPU completed a frame drawing this world. Does not guarantee display scanout. */
         fun onWorldFrameReady(splatCount: Int) {}
+        fun onGpuFailed(message: String) {}
         /** The bytes were not a readable SPZ, or the GPU refused them; the previous world stays. */
         fun onWorldFailed(message: String) {}
         /** Walk mode is on. */

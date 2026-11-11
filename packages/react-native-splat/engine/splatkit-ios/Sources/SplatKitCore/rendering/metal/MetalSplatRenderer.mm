@@ -1,4 +1,5 @@
 #include "rendering/metal/MetalSplatRenderer.h"
+#include "BackdropShaderSource.h"
 
 #include <algorithm>
 #include <mutex>
@@ -9,6 +10,35 @@
 #include "splatkit/rendering/LodThreshold.h"
 
 namespace splatkit {
+bool MetalSplatRenderer::setSceneBackdrop(const SceneBackdrop& settings, std::string* reason) {
+  if (!settings.valid()) {
+    if (reason != nullptr) *reason = "Invalid scene backdrop settings";
+    return false;
+  }
+  if (settings.enabled && !compute_->gpuSort()) {
+    if (reason != nullptr) *reason = "Scene backdrop requires offscreen Metal compositing";
+    return false;
+  }
+  if (settings.enabled && backdropLibrary_ == nil) {
+    NSError* error = nil;
+    MTLCompileOptions* options = [MTLCompileOptions new];
+    options.languageVersion = MTLLanguageVersion2_3;
+    options.preprocessorMacros = @{@"SPLAT_QUAD_MIN_ALPHA" : @(kQuadMinAlpha)};
+    backdropLibrary_ = [context_->device() newLibraryWithSource:@(BackdropShaderSource)
+                                                        options:options
+                                                          error:&error];
+    if (backdropLibrary_ == nil) {
+      if (reason != nullptr)
+        *reason = error.localizedDescription.UTF8String ?: "Backdrop compilation failed";
+      return false;
+    }
+  }
+  backdropSettings_ = settings;
+  if (!settings.enabled && activeBackdrop_ != nullptr) activeBackdrop_->releaseTextures();
+  if (reason != nullptr) reason->clear();
+  return true;
+}
+
 namespace {
 
 // The residency range reported to the adapters.
@@ -49,7 +79,6 @@ void MetalSplatRenderer::setLayer(CAMetalLayer* layer) {
             built;
   }
   if (!built) {
-    frameLoop_.failureLatch()->store(true);
     LOGE("rendering stopped: no pipelines");
     surface_->setLayer(nil);
   }
@@ -73,7 +102,6 @@ void MetalSplatRenderer::setLinearBlending(bool linear) {
   const bool pipelinesReady =
       pipeline_.create(context_->device(), context_->library(), surface_->targetFormat());
   if (!blitReady || !pipelinesReady) {
-    frameLoop_.failureLatch()->store(true);
     LOGE("rendering stopped: no pipelines");
     surface_->setLayer(nil);
   }
@@ -119,6 +147,8 @@ DeviceCapabilities MetalSplatRenderer::deviceCapabilities() const {
 bool MetalSplatRenderer::applyRenderPolicy(const RenderPolicy& policy, std::string* reason) {
   if (!compute_->configure(policy, reason)) return false;
   pipeline_.setBackgroundColor(policy.backgroundColor);
+  std::copy(policy.backgroundColor.begin(), policy.backgroundColor.end(),
+            backdropBackground_.begin());
   return true;
 }
 
@@ -193,14 +223,14 @@ void MetalSplatRenderer::encodeScene(id<MTLCommandBuffer> cmd, id<MTLTexture> dr
     if (activeBackdrop_ != nullptr && activeBackdrop_ != backdrop.get())
       activeBackdrop_->releaseTextures();
     activeBackdrop_ = backdrop.get();
-    fill = activeBackdrop_->prepare(context_->device(), context_->library(), colour);
+    fill = activeBackdrop_->prepare(context_->device(), backdropLibrary_, colour);
   }
   pipeline_.setTransparentBackground(fill);
   pipeline_.encode(cmd, surface_->target(), drawable, compute_->uniforms(slot), world_.get(),
                    frame.shDegree,
                    {compute_->projected(), compute_->order(), compute_->drawArguments(slot)},
                    drawCount, gpuOrder);
-  if (fill) activeBackdrop_->encode(cmd, colour, backdropSettings_);
+  if (fill) activeBackdrop_->encode(cmd, colour, backdropSettings_, backdropBackground_);
 }
 
 bool MetalSplatRenderer::draw(const Frame& frame) {
@@ -245,7 +275,6 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
   id<MTLCommandBuffer> sort =
       gpuOrder ? compute_->encodeVisibilityAndSort(frame, slot, *world_) : nil;
   if (gpuOrder && sort == nil) {
-    frameLoop_.failureLatch()->store(true);
     // Selection has only been encoded, so no GPU work can still use this slot.
     frameLoop_.release();
     return false;
@@ -254,7 +283,6 @@ bool MetalSplatRenderer::draw(const Frame& frame) {
   id<MTLCommandBuffer> cmd = [context_->queue() commandBuffer];
   id<MTLTexture> colour = surface_->target().colorOr(drawable.texture);
   if (cmd == nil || !surface_->ensureDepth(colour.width, colour.height)) {
-    frameLoop_.failureLatch()->store(true);
     frameLoop_.release();
     return false;
   }

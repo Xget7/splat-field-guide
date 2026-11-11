@@ -1,11 +1,20 @@
-#include <gtest/gtest.h>
-#include "splatkit/highlight/Highlight.h"
 #include "splatkit/labels/LabelStyles.h"
-#include "splatkit/rendering/GpuLayout.h"
+
+#include <stdexcept>
+
+#include <gtest/gtest.h>
+
+TEST(LabelStyles, RejectsWrongCountsAndPaletteIndices) {
+  constexpr std::size_t kWorldLabels = 45;
+  splatkit::LabelStyles styles(kWorldLabels);
+  EXPECT_FALSE(styles.validFor(kWorldLabels - 1));
+  auto states = styles.states();
+  states.back() = splatkit::kStyleStates;
+  EXPECT_THROW(styles.setStates(states), std::invalid_argument);
+}
+
 namespace splatkit {
 TEST(LabelStyles, PacksWideLabelsWithoutChangingExistingRecords) {
-  EXPECT_EQ(sizeof(GpuSplat), 32u);
-  EXPECT_EQ(sizeof(ProjectedSplat), 32u);
   EXPECT_EQ(sizeof(LabelStyle), 32u);
   EXPECT_EQ(offsetof(LabelStyle, opacity), 20u);
   splat::SplatCloud cloud;
@@ -18,12 +27,3 @@ TEST(LabelStyles, PacksWideLabelsWithoutChangingExistingRecords) {
   EXPECT_TRUE(packLabels(cloud).empty());
 }
 }  // namespace splatkit
-
-TEST(LabelStyles, RejectsWrongCountsAndPaletteIndices) {
-  constexpr std::size_t kWorldLabels = 45;
-  splatkit::LabelStyles styles(kWorldLabels);
-  EXPECT_FALSE(styles.validFor(kWorldLabels - 1));
-  auto states = styles.states();
-  states.back() = splatkit::kStyleStates;
-  EXPECT_THROW(styles.setStates(states), std::invalid_argument);
-}

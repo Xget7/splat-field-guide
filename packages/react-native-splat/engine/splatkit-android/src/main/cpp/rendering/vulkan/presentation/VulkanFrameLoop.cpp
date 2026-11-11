@@ -1,6 +1,7 @@
 #include "rendering/vulkan/presentation/VulkanFrameLoop.h"
 
 #include <algorithm>
+#include "rendering/vulkan/presentation/VulkanPresentationFailure.h"
 
 #include "splatkit/Log.h"
 
@@ -97,7 +98,7 @@ VulkanFrameLoop::Status VulkanFrameLoop::beginFrame(const VulkanSwapchain& swapc
   if (acquired == VK_ERROR_OUT_OF_DATE_KHR) return Status::swapchainOutOfDate;
   if (acquired != VK_SUCCESS && acquired != VK_SUBOPTIMAL_KHR) {
     LOGE("vkAcquireNextImageKHR failed: %d", acquired);
-    completionFailed_ = true;
+    completionFailed_ = terminalPresentationFailure(acquired);
     return Status::error;
   }
 
@@ -166,7 +167,7 @@ VulkanFrameLoop::Status VulkanFrameLoop::endFrame(const VulkanSwapchain& swapcha
   // compares the transform and the extents to decide on a rebuild.
   if (presented == VK_SUBOPTIMAL_KHR) return Status::swapchainSuboptimal;
   if (presented != VK_SUCCESS) {
-    completionFailed_ = true;
+    completionFailed_ = terminalPresentationFailure(presented);
     LOGE("vkQueuePresentKHR failed: %d", presented);
     return Status::error;
   }
