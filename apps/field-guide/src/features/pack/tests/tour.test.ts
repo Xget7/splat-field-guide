@@ -25,7 +25,7 @@ describe('tourOf', () => {
     });
   });
 
-  it('orders the parts left to right as the home camera sees them', () => {
+  it('orders machines left to right while keeping their parts with them', () => {
     // Home at azimuth 0 looks down -Z, so left to right is +X; ties keep the manifest's order.
     expect(tour.steps.map(step => step.id)).toEqual([
       'coolant-reservoir',
@@ -38,8 +38,65 @@ describe('tourOf', () => {
       'intake-manifold',
     ]);
     const fromBehind = tourOf(seenFrom(180)).steps.map(step => step.id);
-    expect(fromBehind[0]).toBe('intake-manifold');
+    expect(fromBehind.slice(0, 3)).toEqual([
+      'engine',
+      'valve-cover',
+      'intake-manifold',
+    ]);
     expect(fromBehind[fromBehind.length - 1]).toBe('coolant-reservoir');
+  });
+
+  it('introduces each machine before its parts and never interleaves another machine', () => {
+    const reference = pack.parts[0];
+    const parts = [
+      {
+        ...reference,
+        id: 'roof-base',
+        parent: 'roof',
+        anchor: [0, 0, 0] as const,
+      },
+      {
+        ...reference,
+        id: 'rear-housing',
+        parent: 'rear',
+        anchor: [1, 0, 0] as const,
+      },
+      {
+        ...reference,
+        id: 'roof-column',
+        parent: 'roof',
+        anchor: [2, 0, 0] as const,
+      },
+      { ...reference, id: 'roof', parent: null, anchor: [0, 0, 0] as const },
+      { ...reference, id: 'rear', parent: null, anchor: [1, 0, 0] as const },
+    ];
+    expect(tourOf({ ...pack, parts }).steps.map(step => step.id)).toEqual([
+      'roof',
+      'roof-base',
+      'roof-column',
+      'rear',
+      'rear-housing',
+    ]);
+  });
+
+  it('follows supplied support and carries links within a machine without following proximity into another one', () => {
+    const reference = pack.parts[0];
+    const parts = [
+      { ...reference, id: 'tool', parent: 'roof' },
+      { ...reference, id: 'arm', parent: 'roof' },
+      { ...reference, id: 'base', parent: 'roof' },
+      { ...reference, id: 'roof', parent: null },
+      { ...reference, id: 'rear', parent: null },
+    ];
+    const evidence = { kind: 'authored' as const, source: 'Example chain' };
+    const relations = [
+      { type: 'supports' as const, from: 'base', to: 'arm', evidence },
+      { type: 'carries' as const, from: 'arm', to: 'tool', evidence },
+      { type: 'adjacent' as const, from: 'arm', to: 'rear', evidence },
+    ];
+    expect(
+      tourOf({ ...pack, parts, relations }).steps.map(step => step.id),
+    ).toEqual(['roof', 'base', 'arm', 'tool', 'rear']);
   });
 
   it('is the first procedure of a parsed pack', () => {

@@ -207,3 +207,19 @@ Stable IDs and prior names remain search aliases; robot summaries are one senten
 This content-only refresh is sourced at `splat-tools` revision `0eb3eb0`, with local manifest SHA-256 `94822c182756dca390816bffc9edfecc4ed40f65f0f177e71b937da5f9aa2c7b`.
 Full consumer validation, 24 preparation tests, 128 subtests and four role-retrieval checks pass; the prior optional parser skip and LOD tool prerequisite remain unchanged.
 No app code, geometry, accepted masks or stable IDs changed; the updated pack has not been installed or visually accepted on a device.
+
+## Machine ownership and cited relationships
+
+A regression reproduces the screenshot's interleaving of components from different robots when the generated tour globally sorts by camera position.
+The tour now presents each machine before its components and follows supplied stationary-support and carrying links within the machine.
+Short local component names retain stable IDs and legacy aliases; flat search shows the owning machine and accepts owner-plus-part queries.
+KUKA mechanical relations preserve MA KR QUANTEC-2 K+P V6 (26.01.2024), sec. 2.2, pp. 16-17 and sec. 9.9, p. 353, Fig. 9-63 in each edge's source, with an applicability ledger in `splat-tools/content/miris-pilot/cell.md`.
+Stationary bases use `supports`; image-only hose routing uses `routes`, without media or flow claims.
+Turtle also retains ordered procedure steps, cautions and stable component references; these links express learning order rather than a recovered production dependency.
+The exact local manifest SHA-256 is `a2d51b4f71fcc8d1d1f4814c1c150d415e1600526f4a24ee8bb97e3db8915b77`, with the preceding geometry and label files preserved.
+The vectors in `teaching-02/vectors-relations-v3` preserve the previous visual comparison values while using independently authored operator summaries; the declared preprocessing identity records the visual-text override.
+Checks pass 840 app tests, lint/types, ten pack-tooling tests, 28 preparation tests and 128 subtests, full consumer validation and production iOS JavaScript bundling.
+The existing optional preparation skip and unrelated LOD-builder CLI prerequisite remain unchanged.
+Both existing iPads reject acquisition with `DEVICE_IN_USE`, and their sessions were preserved.
+The new `Miris relationship QA` iPad Air 13-inch M3 simulator, `BC7C5D9B-7843-4221-8964-AA5C953F097B`, was created, but T3 still omits it after discovery and rejects `device_open` with `No device ... on This machine`; it has not been booted or visually accepted.
+The app at `apps/field-guide/ios/build/relationship-ui/FieldGuide.app` is prepared with the exact validated pack for the pending simulator installation; no physical acceptance is claimed.

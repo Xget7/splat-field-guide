@@ -76,11 +76,15 @@ export function PartList({
   const rows = useMemo(() => {
     if (filter !== '') {
       return parts
-        .filter(
-          part =>
-            part.name.toLowerCase().includes(filter) ||
-            part.aliases.some(alias => alias.toLowerCase().includes(filter)),
-        )
+        .filter(part => {
+          const owners = [...ancestorsOf(part.id, byId)].map(
+            id => byId.get(id)?.name ?? '',
+          );
+          const text = [part.name, ...part.aliases, ...owners]
+            .join(' ')
+            .toLowerCase();
+          return filter.split(/\s+/).every(word => text.includes(word));
+        })
         .map(part => ({ part, depth: 0 }));
     }
     const visible: PartRow[] = [];
@@ -101,7 +105,7 @@ export function PartList({
       visit(root, 0);
     }
     return visible;
-  }, [parts, roots, children, expanded, filter]);
+  }, [parts, roots, children, expanded, filter, byId]);
 
   const toggle = (id: PartId) => {
     setExpanded(previous => {
@@ -132,6 +136,9 @@ export function PartList({
           const current = part.id === selected;
           const branch = filter === '' && children.has(part.id);
           const open = expanded.has(part.id);
+          const ownerId = [...ancestorsOf(part.id, byId)].at(-1);
+          const owner =
+            ownerId === undefined ? undefined : byId.get(ownerId)?.name;
           return (
             <View
               key={part.id}
@@ -144,7 +151,9 @@ export function PartList({
               <Pressable
                 testID={`part-row-${part.id}`}
                 accessibilityRole="button"
-                accessibilityLabel={part.name}
+                accessibilityLabel={
+                  owner ? `${owner}: ${part.name}` : part.name
+                }
                 accessibilityHint={SELECT_HINT}
                 accessibilityState={{ selected: current }}
                 onPress={() => onSelect(part.id)}
@@ -158,12 +167,19 @@ export function PartList({
                   size={GLYPH_SIZE}
                   color={current ? Color.accent : Color.secondaryText}
                 />
-                <Text
-                  numberOfLines={1}
-                  style={[styles.name, current && styles.nameCurrent]}
-                >
-                  {part.name}
-                </Text>
+                <View style={styles.labels}>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.name, current && styles.nameCurrent]}
+                  >
+                    {part.name}
+                  </Text>
+                  {filter !== '' && owner && (
+                    <Text numberOfLines={1} style={styles.owner}>
+                      {owner}
+                    </Text>
+                  )}
+                </View>
               </Pressable>
               {branch && (
                 <Pressable
@@ -227,7 +243,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.control,
   },
   pressed: { backgroundColor: Color.pressed },
-  name: { ...Type.callout, flex: 1, color: Color.text },
+  labels: { flex: 1 },
+  owner: { ...Type.caption, color: Color.secondaryText },
+  name: { ...Type.callout, color: Color.text },
   nameCurrent: { fontFamily: Font.semiBold },
   empty: {
     ...Type.callout,

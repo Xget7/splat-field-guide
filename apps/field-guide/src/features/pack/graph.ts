@@ -70,12 +70,16 @@ export function neighbours(pack: Pack, partId: PartId): readonly Part[] {
 
 function linked(
   pack: Pack,
-  type: RelationType,
+  type: RelationType | readonly RelationType[],
   partId: PartId,
   direction: RelationDirection,
 ): PartId[] {
   return pack.relations
-    .filter(relation => relation.type === type)
+    .filter(relation =>
+      typeof type === 'string'
+        ? relation.type === type
+        : type.includes(relation.type),
+    )
     .filter(relation =>
       direction === RelationDirection.outgoing
         ? relation.from === partId
@@ -87,7 +91,7 @@ function linked(
 }
 
 /**
- * The kinematic chain through the part, from the carrying root to the tip.
+ * The support and kinematic chain through the part, from the stationary root to the tip.
  * Upwards it follows the first carrier in manifest order; downwards it continues while each
  * link carries exactly one part, so a branch ends the chain instead of choosing a side.
  */
@@ -101,14 +105,14 @@ export function chainThrough(pack: Pack, partId: PartId): readonly Part[] {
   for (
     let carrier = linked(
       pack,
-      RelationType.carries,
+      [RelationType.carries, RelationType.supports],
       partId,
       RelationDirection.incoming,
     )[0];
     carrier !== undefined && !seen.has(carrier);
     carrier = linked(
       pack,
-      RelationType.carries,
+      [RelationType.carries, RelationType.supports],
       carrier,
       RelationDirection.incoming,
     )[0]
@@ -119,7 +123,7 @@ export function chainThrough(pack: Pack, partId: PartId): readonly Part[] {
   for (let tip = partId; ; ) {
     const carried = linked(
       pack,
-      RelationType.carries,
+      [RelationType.carries, RelationType.supports],
       tip,
       RelationDirection.outgoing,
     );

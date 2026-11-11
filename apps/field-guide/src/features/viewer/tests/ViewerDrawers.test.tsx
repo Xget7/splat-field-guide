@@ -179,6 +179,49 @@ describe('viewer rail and drawers', () => {
     expect(props.onNext).toHaveBeenCalledTimes(1);
   });
 
+  test('search keeps identically named components attached to their machines', async () => {
+    const reference = fixturePack().parts[0];
+    const parts = [
+      { ...reference, id: 'roof', name: 'Roof welder', parent: null },
+      { ...reference, id: 'rear', name: 'Rear-body welder', parent: null },
+      { ...reference, id: 'roof-base', name: 'Base', parent: 'roof' },
+      { ...reference, id: 'rear-base', name: 'Base', parent: 'rear' },
+    ];
+    await mount(
+      <ExploreDrawer
+        topInset={20}
+        bottomInset={34}
+        parts={parts}
+        selected={null}
+        onSelect={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    await act(() =>
+      renderer.root
+        .findByProps({ testID: 'part-search' })
+        .props.onChangeText('base'),
+    );
+    expect(button('part-row-roof-base').props.accessibilityLabel).toBe(
+      'Roof welder: Base',
+    );
+    expect(button('part-row-rear-base').props.accessibilityLabel).toBe(
+      'Rear-body welder: Base',
+    );
+    expect(
+      button('part-row-roof-base')
+        .findAllByType(Text)
+        .map(node => node.props.children),
+    ).toContain('Roof welder');
+    await act(() =>
+      renderer.root
+        .findByProps({ testID: 'part-search' })
+        .props.onChangeText('roof base'),
+    );
+    expect(has('part-row-roof-base')).toBe(true);
+    expect(has('part-row-rear-base')).toBe(false);
+  });
+
   test('Explore reveals the selected branch and searches hidden descendants by alias', async () => {
     const pack = fixturePack();
     const valve = pack.parts.find(part => part.id === 'valve-cover')!;

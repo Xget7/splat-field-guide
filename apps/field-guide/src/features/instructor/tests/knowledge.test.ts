@@ -26,3 +26,21 @@ test('instructions are strict structured rules followed by every note and guided
     'Check the coolant level: Step engine-cold Caution: Only with the engine cold. Step locate Step read-level',
   );
 });
+
+test('a visible routed hose connection does not claim media flow', () => {
+  const pack = fixturePack();
+  const relation = {
+    type: 'routes' as const,
+    from: 'coolant-reservoir',
+    to: 'engine',
+    evidence: {
+      kind: 'authored' as const,
+      source: 'Visible route, media unknown',
+    },
+  };
+  const instructions = cloudInstructions({ ...pack, relations: [relation] });
+  expect(instructions).toContain(
+    'routes to Engine (Visible route, media unknown)',
+  );
+  expect(instructions).not.toContain('feeds Engine');
+});

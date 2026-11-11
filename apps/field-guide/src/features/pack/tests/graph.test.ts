@@ -93,6 +93,35 @@ describe('component graph', () => {
     expect(chainThrough(pack, 'horn')).toEqual([]);
   });
 
+  it('keeps stationary support distinct while following the mechanical chain', () => {
+    const pack = packWith([
+      ['supports', 'battery', 'engine'],
+      ['carries', 'engine', 'valve-cover'],
+    ]);
+    expect(ids(chainThrough(pack, 'valve-cover'))).toEqual([
+      'battery',
+      'engine',
+      'valve-cover',
+    ]);
+    expect(relationsOf(pack, 'battery')[0].relation.type).toBe('supports');
+    const manifest = fixtureCopy();
+    manifest.relations = [
+      {
+        type: 'supports',
+        from: 'engine',
+        to: 'valve-cover',
+        evidence: AUTHORED,
+      },
+      {
+        type: 'carries',
+        from: 'valve-cover',
+        to: 'engine',
+        evidence: AUTHORED,
+      },
+    ];
+    expect(parsePack(manifest).ok).toBe(false);
+  });
+
   it('walks feeds upstream in flow order and downstream, surviving a loop', () => {
     const pack = packWith([
       ['feeds', 'power-steering-reservoir', 'coolant-reservoir'],
