@@ -201,3 +201,9 @@ The preparation run skips one optional Turtle parser check and excludes the pre-
 The unsigned iOS Simulator Debug build passes, and its bundled pack passes full consumer validation with the exact final manifest digest.
 Device verification is blocked by `DEVICE_IN_USE` on the Field Guide iPad after one bounded retry; no other session was reused or closed, and physical acceptance remains open.
 The refresh command preserves the existing representation while rebuilding content, graph and vector references; surrounding factory objects still require accepted segmentation before they can be selected.
+
+Robot display names now lead with function: Chassis welder, Door-frame welder, Roof welder and Rear-body welder.
+Stable IDs and prior names remain search aliases; robot summaries are one sentence and learning steps start with their action, with the example qualification retained once at the beginning.
+This content-only refresh is sourced at `splat-tools` revision `0eb3eb0`, with local manifest SHA-256 `94822c182756dca390816bffc9edfecc4ed40f65f0f177e71b937da5f9aa2c7b`.
+Full consumer validation, 24 preparation tests, 128 subtests and four role-retrieval checks pass; the prior optional parser skip and LOD tool prerequisite remain unchanged.
+No app code, geometry, accepted masks or stable IDs changed; the updated pack has not been installed or visually accepted on a device.
