@@ -114,6 +114,7 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
                const sfg_view_direction* SFG_NULLABLE from);
 
 // Highlights fade between label sets and dim the rest; no labels restore captured styles.
+// A set outlives world loads: it styles the current world and each one loaded after it.
 void sfg_set_highlight(sfg_engine* engine, const uint16_t* SFG_NULLABLE labels, size_t count);
 // Reveal duration uses seconds for a bottom-up sweep; zero shows the world immediately.
 void sfg_set_reveal(sfg_engine* engine, float seconds);

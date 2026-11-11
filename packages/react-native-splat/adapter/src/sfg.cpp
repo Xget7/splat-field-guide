@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "splatkit/engine/SplatEngine.h"
 #include "sfg/sfg_platform.h"
@@ -25,6 +26,12 @@ struct sfg_engine {
     const float middle = (low + high) / 2;
     return std::clamp(middle + std::remainder(angle - middle, kFullTurn), low, high);
   }
+  // The host's highlight is a standing request sent with its first props, while the engine
+  // scopes a highlight to the world it was made on and refuses one before a world exists.
+  // Render thread only.
+  std::vector<uint16_t> highlight;
+  bool worldLoaded = false;
+  void applyHighlight() { engine->highlightParts(highlight.data(), highlight.size()); }
   std::mutex callbackMutex;
   sfg_event_callback callback = nullptr;
   void* context = nullptr;
@@ -84,7 +91,11 @@ sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
                                   const std::string& message, uint32_t count) {
     // Enter the default orbit after upload without making its anchor explicit, so
     // subsequent worlds and surface size changes still get automatic framing.
-    if (event == SplatEngine::Event::worldReady) host->engine->orbit(0, 0);
+    if (event == SplatEngine::Event::worldReady) {
+      host->engine->orbit(0, 0);
+      host->worldLoaded = true;
+      if (!host->highlight.empty()) host->applyHighlight();
+    }
     if (const auto mapped = toC(event)) host->emit(*mapped, message, count);
   });
   return result.release();
@@ -227,7 +238,9 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
 }
 
 void sfg_set_highlight(sfg_engine* engine, const uint16_t* labels, size_t count) {
-  engineOf(engine).highlightParts(labels, labels != nullptr ? count : 0);
+  if (labels == nullptr) count = 0;
+  engine->highlight.assign(labels, labels + count);
+  if (engine->worldLoaded) engine->applyHighlight();
 }
 
 void sfg_set_reveal(sfg_engine* engine, float seconds) {

@@ -313,6 +313,22 @@ TEST_F(SfgTest, HighlightsAndClearsParts) {
   EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, 0.0f);
 }
 
+TEST_F(SfgTest, AHighlightOutlivesTheWorldsLoadedAfterIt) {
+  const uint16_t part = 1;
+  sfg_set_highlight(engine, &part, 1);
+  const std::string world = writeFile("pair.lodsplat", pairBytes());
+  const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 1, 0}));
+  // The host sets its highlight with its first props, before the world it describes exists.
+  ASSERT_TRUE(loadReserved(engine, world.c_str(), labels.c_str()));
+  settle();
+  ASSERT_NE(renderer->last.labelStyles, nullptr);
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);
+  ASSERT_TRUE(loadReserved(engine, world.c_str(), labels.c_str()));
+  settle();
+  ASSERT_NE(renderer->last.labelStyles, nullptr);
+  EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);
+}
+
 }  // namespace
 }  // namespace splatkit
 
