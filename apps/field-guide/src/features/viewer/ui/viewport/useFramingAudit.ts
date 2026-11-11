@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SplatViewSpec } from 'react-native-splat';
 import { directionFor, framingFor, type SessionState } from '../../../guide';
-import type { Pack } from '../../../pack/pack';
+import type { FrameDirection, Pack } from '../../../pack/pack';
 import {
   guideFrameBounds,
   FRAME_SECONDS,
@@ -24,6 +24,7 @@ type AuditRow = Awaited<ReturnType<typeof measureFraming>> & {
   stepIndex: number;
   partId: string;
   label: number;
+  viewDirection: FrameDirection;
 };
 interface FramingAuditDebug {
   run: (directionMode?: 'prepared' | 'home') => Promise<void>;
@@ -137,7 +138,15 @@ export function useFramingAudit(
                   pack,
                 );
                 check();
+                const direction =
+                  directionMode === 'home'
+                    ? pack.camera.home
+                    : directionFor(state, pack);
                 const row = {
+                  viewDirection: {
+                    azimuth: direction.azimuth,
+                    elevation: direction.elevation,
+                  },
                   procedure: procedure.title,
                   procedureId: procedure.id,
                   stepIndex,
