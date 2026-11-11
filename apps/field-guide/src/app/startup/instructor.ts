@@ -1,9 +1,7 @@
-import { Platform } from 'react-native';
 import config from '../../../instructor.config.json';
 import {
   createInstructor,
   instructorStore,
-  OfflineVoices,
   type Instructor,
 } from '../../features/instructor';
 import { createPlatform } from '../platform';
@@ -16,8 +14,6 @@ export function createAppInstructor(): Instructor {
   const instructor = createInstructor({
     platform: createPlatform(),
     proxyUrl: config.proxyUrl,
-    offlineVoice:
-      Platform.OS === 'ios' ? OfflineVoices.kokoro : OfflineVoices.system,
     store: instructorStore,
   });
   instructorStore.getState().attach(instructor);

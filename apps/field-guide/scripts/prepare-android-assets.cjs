@@ -6,15 +6,7 @@ const PACK_ROOT = path.join(ROOT, 'data/pack');
 const FONT_ROOT = path.resolve(__dirname, '../assets/fonts');
 const NOTICE_SEPARATOR =
   '========================================================================';
-const IOS_ONLY_NOTICES = new Set([
-  'ONNX Runtime',
-  'ONNX Runtime dependencies',
-  'Kokoro model, af_heart voice and phoneme configuration',
-  'FluidAudio frontend',
-  'Misaki English lexicon',
-  'English BART G2P weights, vocabulary and compiled CoreML resources',
-  'SocketRocket',
-]);
+const IOS_ONLY_NOTICES = new Set(['SocketRocket']);
 
 function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
   fs.rmSync(destination, { recursive: true, force: true });

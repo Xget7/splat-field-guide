@@ -1,0 +1,1 @@
+export const MAX_LOCAL_REPLY_TOKENS = 384;

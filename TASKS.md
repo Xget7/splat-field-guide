@@ -62,6 +62,20 @@ Component graph navigation, supplied-vector ranking and connection-grounded inst
 The current exported manifest and publication receipt provide handoff evidence; acceptance of regenerated content and loading installed vectors remain open.
 Source checks passed 66 app suites with 811 tests, lint, types and nine pack tooling tests; no device, build or physical check was run.
 
+## Local inference migration
+
+The local recognition, synthesis and answer adapters now use ExecuTorch 0.11.0 on both platforms, with CPU Whisper Base English, Kokoro and Qwen2.5 1.5B Instruct.
+Offline preparation is an explicit instructor action; pinned files are verified before inference and checked again after restart without a network request.
+The initial model set is about 1.8 GB and supports `en-US`; it is separate from the Miris scene pack.
+The native Apple Foundation Models, platform recognition/TTS and ONNX frontend implementations have been removed.
+Physical acceptance of recognition in factory noise, technical part names without vocabulary biasing, pronunciation, answer grounding, interruption, restart offline, memory and thermal behaviour remains open.
+Validation passed 67 app suites with 815 tests, 21 local capability tests, ten pack-tooling tests, app/package lint and TypeScript checks, deterministic regeneration of 32 Nitro output files, production JavaScript bundling, an unsigned arm64 iOS Simulator Debug build and an Android arm64 Debug build.
+The pre-existing Homebrew Node dylib mismatch required a temporary official Node 26 binary for checks and builds; the original local Xcode environment was restored.
+No model inference or microphone interaction was run on a simulator or physical device, and no paid provider call or deployment was made.
+Follow-up cleanup removed about 180 MB of obsolete Kokoro/ONNX/CoreML resources and Swift probe output, the unused recognition-hint builder, system-recognizer installation flags and the single-choice voice configuration.
+The remaining speech interfaces prepare the installed models and listen or speak directly; voice activation cannot initiate a model download.
+Cleanup checks passed 66 app suites with 812 tests, 21 local capability tests, app/package lint and TypeScript checks and production JavaScript bundling.
+
 ## Runtime cleanup
 
 - [x] Remove discarded demo content, AR product paths, unrelated catalog entries and standalone benchmark screens, including their callers, assets and source records.

@@ -1,3 +1,4 @@
+import { OfflinePreparation } from './OfflinePreparation';
 import { StyleSheet, Text } from 'react-native';
 import { Color, Type } from '../../../ui/theme';
 import { NoticeTone, type Notice } from '../domain/modeView';
@@ -59,12 +60,15 @@ export function ModeArea() {
       }
     : null;
   if (banner === null) {
-    return null;
+    return <OfflinePreparation />;
   }
   return (
-    <ModeBanner contentKey={banner.contentKey} ruleColor={banner.ruleColor}>
-      {banner.content}
-    </ModeBanner>
+    <>
+      <OfflinePreparation />
+      <ModeBanner contentKey={banner.contentKey} ruleColor={banner.ruleColor}>
+        {banner.content}
+      </ModeBanner>
+    </>
   );
 }
 

@@ -235,9 +235,6 @@ export function fakePlatform(options: FakePlatformOptions = {}) {
     prepare: jest.fn<ReturnType<SpeechInput['prepare']>, [string]>(
       async () => 'available',
     ),
-    install: jest.fn<ReturnType<SpeechInput['install']>, [string]>(
-      async () => 'available',
-    ),
     listen: jest.fn<
       ReturnType<SpeechInput['listen']>,
       Parameters<SpeechInput['listen']>
@@ -248,7 +245,7 @@ export function fakePlatform(options: FakePlatformOptions = {}) {
     prepare: jest.fn<
       ReturnType<SpeechOutput['prepare']>,
       Parameters<SpeechOutput['prepare']>
-    >(async voice => voice),
+    >(async () => {}),
     speak: jest.fn<
       ReturnType<SpeechOutput['speak']>,
       Parameters<SpeechOutput['speak']>
@@ -318,7 +315,7 @@ export function fakePlatform(options: FakePlatformOptions = {}) {
     network,
     appState,
     /** Reports a microphone level to the latest listen call. */
-    emitLevel: (level: number) => input.listen.mock.calls.at(-1)?.[4]?.(level),
+    emitLevel: (level: number) => input.listen.mock.calls.at(-1)?.[3]?.(level),
     /** Reports a spoken word range to the latest speak call. */
     emitWord: (location: number, length: number) =>
       output.speak.mock.calls.at(-1)?.[2]?.(location, length),

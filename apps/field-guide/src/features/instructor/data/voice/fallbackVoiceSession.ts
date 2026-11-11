@@ -38,11 +38,7 @@ export function createFallbackVoiceSession({
   // The question a dropped conversation left unanswered, kept apart from the viewer's updates until it is asked again.
   let recovering: string | null = null;
   const current = (id: number) => running && generation === id;
-  async function startFallback(
-    id: number,
-    question: string | null,
-    automatic = false,
-  ) {
+  async function startFallback(id: number, question: string | null) {
     if (!current(id)) {
       return;
     }
@@ -51,7 +47,6 @@ export function createFallbackVoiceSession({
       {
         ...context,
         pendingQuestion: question ?? pending,
-        allowSpeechInstall: automatic ? false : context.allowSpeechInstall,
       },
       events,
     );
@@ -67,7 +62,7 @@ export function createFallbackVoiceSession({
   }
   async function recoverOnDevice(id: number, question: string | null) {
     try {
-      await startFallback(id, question, true);
+      await startFallback(id, question);
     } catch {
       if (current(id)) {
         running = false;

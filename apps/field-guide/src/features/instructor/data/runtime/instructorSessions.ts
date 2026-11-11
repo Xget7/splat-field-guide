@@ -11,8 +11,6 @@ import {
   type ModeStatus,
 } from '../../domain/mode/modeTypes';
 import type { ExchangeIds } from '../../domain/turn/exchange';
-import { recognitionHintsFor } from '../../domain/voice/recognitionHints';
-import { SpeechVoice } from '../../domain/voice/voiceCopy';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import {
   VoiceStartFailure,
@@ -37,7 +35,6 @@ import type { InstructorForeground } from './instructorForeground';
 export interface InstructorSessionsOptions {
   readonly platform: Platform;
   readonly proxy: ProxyClient | null;
-  readonly offlineVoice: SpeechVoice;
   readonly ids: ExchangeIds;
   readonly foreground: InstructorForeground;
   readonly modes: Pick<
@@ -57,7 +54,6 @@ export interface InstructorSessionsOptions {
 export function createInstructorSessions({
   platform,
   proxy,
-  offlineVoice,
   ids,
   foreground,
   modes,
@@ -177,10 +173,8 @@ export function createInstructorSessions({
     };
   }
   function connectionFor(status: ModeStatus, guide: Pack): VoiceConnection {
-    const pipeline = (voice: SpeechVoice): VoiceConnection => ({
+    const pipeline = (): VoiceConnection => ({
       session: createPipelineVoiceSession({
-        voice,
-        hints: recognitionHintsFor(guide),
         input: platform.speechInput,
         output: platform.speechOutput,
         timers,
@@ -188,11 +182,8 @@ export function createInstructorSessions({
       }),
       questions: null,
     });
-    if (status.mode === InstructorMode.offline) {
-      return own(pipeline(offlineVoice));
-    }
-    if (!connection.available()) {
-      return own(pipeline(SpeechVoice.system));
+    if (status.mode === InstructorMode.offline || !connection.available()) {
+      return own(pipeline());
     }
     const primary = createAgentVoiceSession({
       pack: guide,
@@ -204,7 +195,7 @@ export function createInstructorSessions({
     const fallback = createFallbackVoiceSession({
       primary,
       primaryQuestions: primary,
-      fallback: pipeline(SpeechVoice.system).session,
+      fallback: pipeline().session,
       onPrimaryFailure: primaryFailure,
       onFallbackStarted: () => {
         modes.voiceStarted(VoiceSource.device);

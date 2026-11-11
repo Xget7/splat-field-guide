@@ -12,42 +12,6 @@ import NitroModules
 public final class ReactNativeOnDeviceAutolinking {
   public typealias bridge = margelo.nitro.ondevice.bridge.swift
 
-  public static func createSpeechInput() -> bridge.std__shared_ptr_HybridSpeechInputSpec_ {
-    let hybridObject = HybridSpeechInput()
-    return { () -> bridge.std__shared_ptr_HybridSpeechInputSpec_ in
-      let __cxxWrapped = hybridObject.getCxxWrapper()
-      return __cxxWrapped.getCxxPart()
-    }()
-  }
-  
-  public static func isSpeechInputRecyclable() -> Bool {
-    return HybridSpeechInput.self is any RecyclableView.Type
-  }
-  
-  public static func createSpeechOutput() -> bridge.std__shared_ptr_HybridSpeechOutputSpec_ {
-    let hybridObject = HybridSpeechOutput()
-    return { () -> bridge.std__shared_ptr_HybridSpeechOutputSpec_ in
-      let __cxxWrapped = hybridObject.getCxxWrapper()
-      return __cxxWrapped.getCxxPart()
-    }()
-  }
-  
-  public static func isSpeechOutputRecyclable() -> Bool {
-    return HybridSpeechOutput.self is any RecyclableView.Type
-  }
-  
-  public static func createLanguageModel() -> bridge.std__shared_ptr_HybridLanguageModelSpec_ {
-    let hybridObject = HybridLanguageModel()
-    return { () -> bridge.std__shared_ptr_HybridLanguageModelSpec_ in
-      let __cxxWrapped = hybridObject.getCxxWrapper()
-      return __cxxWrapped.getCxxPart()
-    }()
-  }
-  
-  public static func isLanguageModelRecyclable() -> Bool {
-    return HybridLanguageModel.self is any RecyclableView.Type
-  }
-  
   public static func createNetworkMonitor() -> bridge.std__shared_ptr_HybridNetworkMonitorSpec_ {
     let hybridObject = HybridNetworkMonitor()
     return { () -> bridge.std__shared_ptr_HybridNetworkMonitorSpec_ in
@@ -58,17 +22,5 @@ public final class ReactNativeOnDeviceAutolinking {
   
   public static func isNetworkMonitorRecyclable() -> Bool {
     return HybridNetworkMonitor.self is any RecyclableView.Type
-  }
-  
-  public static func createAudioLink() -> bridge.std__shared_ptr_HybridAudioLinkSpec_ {
-    let hybridObject = HybridAudioLink()
-    return { () -> bridge.std__shared_ptr_HybridAudioLinkSpec_ in
-      let __cxxWrapped = hybridObject.getCxxWrapper()
-      return __cxxWrapped.getCxxPart()
-    }()
-  }
-  
-  public static func isAudioLinkRecyclable() -> Bool {
-    return HybridAudioLink.self is any RecyclableView.Type
   }
 }

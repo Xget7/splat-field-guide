@@ -109,12 +109,17 @@ A session is the current position; progress is its saved continuation.
 
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
-Typed answers fall back from the remote proxy to Apple Foundation Models generation to scripted guidance; Android skips Apple generation.
+Typed answers fall back from the remote proxy to ExecuTorch generation to scripted guidance on both iOS and Android.
 Local generation explains supplied pack text and never computes embeddings; Miris hardware acceptance remains open.
 Prompts list the subject's supplied connections with their evidence source, so answers about what a part is connected to stay grounded.
-Apple Foundation Models is the on-device answerer because it ships no weights and answers offline on Apple Intelligence devices; weight-shipping runtimes would add a gigabyte-class model to every install.
-Its 4096-token window holds instructions, prompt and reply together, so the on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, with optional evidence yielding to the budget.
-Required procedure and safety context exceeding the budget fails the turn rather than losing instructions.
+The local flow uses ExecuTorch 0.11.0 for Whisper Base English recognition with VAD, Kokoro synthesis and Qwen2.5 1.5B Instruct generation.
+The initial locale remains `en-US`.
+The Whisper preset has no per-pack vocabulary-bias option.
+CPU XNNPACK is selected for both platforms to avoid sharing the viewer's GPU; memory, thermal behaviour and grounded answer quality still need physical acceptance.
+Recognition, synthesis and answers use separate worklet runtimes so long generation cannot occupy the recognizer's queue.
+The on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, with optional evidence yielding to the budget.
+Required procedure and safety context exceeding the prompt budget fails the turn rather than losing instructions.
+Generation starts a fresh session per answer, uses greedy sampling and reserves 384 reply tokens; cancellation, malformed responses and token-limit stops fail the turn.
 Keep its three concerns behind separate internal interfaces:
 
 - **Turn policy:** [router](../../apps/field-guide/src/features/instructor/domain/router.ts), [turn runner](../../apps/field-guide/src/features/instructor/domain/turn/turnRunner.ts), [grounding](../../apps/field-guide/src/features/instructor/domain/grounding.ts); [turn tests](../../apps/field-guide/src/features/instructor/tests/turnRunner.test.ts).
@@ -147,10 +152,17 @@ A pick returns what the drawn frame shows, after styles and cutaway.
 
 **Owns:** microphone ownership, recognition, synthesis, interruptions and supported local generation.
 **Rule:** cancellation rejects stale callbacks and releases active resources; instructor owns equipment evidence and answer policy.
-iOS uses CPU Kokoro with system fallback; Android uses system voices and has no local generation.
-Fresh-device offline availability depends on prepared system assets.
-**Read:** [lazy entry points](../../packages/react-native-on-device/src/index.ts), [input](../../packages/react-native-on-device/src/SpeechInput.nitro.ts), [output](../../packages/react-native-on-device/src/SpeechOutput.nitro.ts), [audio link](../../packages/react-native-on-device/src/AudioLink.nitro.ts), [generation](../../packages/react-native-on-device/src/LanguageModel.nitro.ts).
-**Verify:** [native capability tests](../../packages/react-native-on-device/__tests__), [device acceptance](../../TASKS.md#acceptance).
+ExecuTorch owns local speech recognition, phonemization, synthesis and answer generation on both platforms.
+`react-native-audio-api` supplies one echo-cancelled microphone/playback module shared with the online PCM audio link.
+The previous native Apple Foundation Models, platform speech and ONNX/Kokoro implementations are removed; a missing local model leaves reading, typing and scripted guidance available.
+The instructor exposes explicit offline preparation with size, progress, cancellation and retry.
+It downloads only the pinned files in `modelAssets.json`, verifies size and SHA-256, and promotes each staged file after verification.
+A complete set must pass verification before any inference factory can obtain local paths.
+Verified files persist in the app's Documents directory; startup verification and inference make no network requests.
+The English part-of-speech tagger is omitted because its upstream Brown Corpus data is not cleared for commercial use; lexicon and neural phonemization remain available.
+Preparing models is separate from downloading or activating a Miris scene pack.
+**Read:** [lazy entry points](../../packages/react-native-on-device/src/index.ts), [capability contracts](../../packages/react-native-on-device/src/capabilities.ts), [model preparation](../../packages/react-native-on-device/src/local/modelStore.ts), [inference](../../packages/react-native-on-device/src/local/inference.ts), [audio](../../packages/react-native-on-device/src/local/audio.ts), [online audio link](../../packages/react-native-on-device/src/AudioLink.ts).
+**Verify:** [capability tests](../../packages/react-native-on-device/__tests__), [device acceptance](../../TASKS.md#acceptance).
 
 ## Online services
 

@@ -1,0 +1,68 @@
+[
+  {
+    "id": "whisper",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-whisper-base.en/resolve/1545fd27aac55b3c4f6f907a11f198fb4d0923d6/xnnpack/whisper_base_en_xnnpack_int8.pte",
+    "bytes": 266793216,
+    "sha256": "40336d2e09fffee484fdef41f34d0dcb55ee24a1627d4dced4002a7ca6e3335b"
+  },
+  {
+    "id": "whisperTokenizer",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-whisper-base.en/resolve/ce992bbcd664f15b2411cbf1db05dc8c56cfe7b6/tokenizer.json",
+    "bytes": 2405679,
+    "sha256": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0"
+  },
+  {
+    "id": "vad",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-fsmn-vad/resolve/5c31b30fe998c798adde26e8cb8ce0a28fa839e3/xnnpack/fsmn_vad_xnnpack_fp32.pte",
+    "bytes": 1827808,
+    "sha256": "9158ab9c3e4986cd213983cae8124e4493d2db54771dec37511a8105251fe2c8"
+  },
+  {
+    "id": "duration",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/xnnpack/standard/duration_predictor_std_xnnpack_fp32.pte",
+    "bytes": 59307208,
+    "sha256": "781a6e6de5c13cf2c97c4a486c766c92c107ff8ac99d7ae8e991bfb81d701334"
+  },
+  {
+    "id": "synthesizer",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/xnnpack/standard/synthesizer_std_xnnpack_fp32.pte",
+    "bytes": 272463344,
+    "sha256": "1f4ce2b8dcf396b1bc0125d7dbccadd79a4c3dc104bb8776dbcc85c482bcd000"
+  },
+  {
+    "id": "lexicon",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/phonemizer/en-us/lexicon.json",
+    "bytes": 6254348,
+    "sha256": "b29e9c13190cf211979e8d9c38258cc1cb8e701e5ca1102a0c1f00acd4f55f8e"
+  },
+  {
+    "id": "phonemizer",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/phonemizer/en-us/phonemizer_en_us.pte",
+    "bytes": 7128528,
+    "sha256": "3b066bc3188d2541b8f991005bfef0936e3b4fc2d27755bf788712e35dc951d1"
+  },
+  {
+    "id": "voice",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/voices/af_heart.bin",
+    "bytes": 522240,
+    "sha256": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b"
+  },
+  {
+    "id": "llm",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/1_5b/xnnpack/qwen_2_5_1_5b_xnnpack_8da4w.pte",
+    "bytes": 1165538560,
+    "sha256": "42cd38c5c14ff07e2ef0d8a528ff8692571dd2657256d3e1f883eb6ecb07fdaa"
+  },
+  {
+    "id": "tokenizer",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/tokenizer.json",
+    "bytes": 7031645,
+    "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539"
+  },
+  {
+    "id": "tokenizerConfig",
+    "url": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/tokenizer_config.json",
+    "bytes": 7305,
+    "sha256": "5b5d4f65d0acd3b2d56a35b56d374a36cbc1c8fa5cf3b3febbbfabf22f359583"
+  }
+]

@@ -23,15 +23,13 @@ beforeEach(() => {
   jest.mocked(model.availability).mockReturnValue('unavailable');
 });
 
-test.each([
-  'deviceNotEligible',
-  'appleIntelligenceNotEnabled',
-  'modelNotReady',
-  'unavailable',
-] as const)('is not ready when the model is %s', availability => {
-  jest.mocked(model.availability).mockReturnValue(availability);
-  expect(deviceAnswerer.isReady()).toBe(false);
-});
+test.each(['modelsMissing', 'unavailable'] as const)(
+  'is not ready when the model is %s',
+  availability => {
+    jest.mocked(model.availability).mockReturnValue(availability);
+    expect(deviceAnswerer.isReady()).toBe(false);
+  },
+);
 
 test('is ready when available, and not when the native module is missing', () => {
   jest.mocked(model.availability).mockReturnValue('available');

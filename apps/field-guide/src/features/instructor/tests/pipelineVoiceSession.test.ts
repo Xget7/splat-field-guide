@@ -27,42 +27,10 @@ const events = () => ({
   ended: jest.fn(),
 });
 
-test('a voice start installs missing recognition through the system prompt port', async () => {
-  const input = speechInput();
-  jest.mocked(input.prepare).mockResolvedValueOnce('unavailable');
-  let prompting = false;
-  jest.mocked(input.install).mockImplementationOnce(async () => {
-    expect(prompting).toBe(true);
-    return 'available';
-  });
-  const session = createPipelineVoiceSession({
-    ...ports,
-    voice: 'system',
-    hints: [],
-    prompt: async request => {
-      prompting = true;
-      try {
-        return await request();
-      } finally {
-        prompting = false;
-      }
-    },
-  });
-  const changed = voiceEvents();
-  await session.start(context, changed);
-  expect(input.install).toHaveBeenCalledTimes(1);
-  expect(input.install).toHaveBeenCalledWith('en-US');
-  expect(changed.listening.mock.calls.at(-1)).toEqual([true]);
-  session.stop();
-});
-
-test('a scheduled or failed install leaves listening unavailable so the user can type', async () => {
+test('missing prepared recognition leaves listening unavailable so the user can type', async () => {
   jest.mocked(speechInput().prepare).mockResolvedValueOnce('unavailable');
-  jest.mocked(speechInput().install).mockResolvedValueOnce('unavailable');
   const session = createPipelineVoiceSession({
     ...ports,
-    voice: 'system',
-    hints: [],
   });
   const changed = voiceEvents();
   await expect(session.start(context, changed)).rejects.toMatchObject({
@@ -76,14 +44,9 @@ test('settles a spoken question and ignores callbacks after stopping', async () 
   const changed = events();
   const session = createPipelineVoiceSession({
     ...ports,
-    voice: 'system',
-    hints: ['Battery'],
   });
   await session.start(context, changed);
-  const [, hints, , turn] = jest
-    .mocked(speechInput().listen)
-    .mock.calls.at(-1)!;
-  expect(hints).toEqual(['Battery']);
+  const [, , turn] = jest.mocked(speechInput().listen).mock.calls.at(-1)!;
   turn('Where is the battery?');
   expect(changed.question).toHaveBeenCalledWith('Where is the battery?');
   session.stop();
@@ -98,11 +61,9 @@ test('filters echo and noise, joins an unfinished question and cancels a stale a
   const changed = events();
   const session = createPipelineVoiceSession({
     ...ports,
-    voice: 'kokoro',
-    hints: [],
   });
   await session.start(context, changed);
-  const [, , partial, turn, , voice] = jest
+  const [, partial, turn, , voice] = jest
     .mocked(speechInput().listen)
     .mock.calls.at(-1)!;
   turn('Uh');
@@ -138,11 +99,9 @@ test('speaks reply and caution with their own ranges and reports spontaneous los
   const changed = events();
   const session = createPipelineVoiceSession({
     ...ports,
-    voice: 'system',
-    hints: [],
   });
   await session.start(context, changed);
-  const stopped = jest.mocked(speechInput().listen).mock.calls.at(-1)![6];
+  const stopped = jest.mocked(speechInput().listen).mock.calls.at(-1)![5];
   jest
     .mocked(speechOutput().speak)
     .mockImplementation(async (_text, _locale, onWord) => onWord(0, 4));

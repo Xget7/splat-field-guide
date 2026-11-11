@@ -15,16 +15,8 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
-#include "JHybridAudioLinkSpec.hpp"
-#include "JFunc_void_std__string.hpp"
-#include "JFunc_void_double.hpp"
-#include "JHybridLanguageModelSpec.hpp"
 #include "JHybridNetworkMonitorSpec.hpp"
 #include "JFunc_void_NetworkPath.hpp"
-#include "JHybridSpeechInputSpec.hpp"
-#include "JFunc_void_bool.hpp"
-#include "JHybridSpeechOutputSpec.hpp"
-#include "JFunc_void_double_double.hpp"
 #include <NitroModules/DefaultConstructableObject.hpp>
 
 namespace margelo::nitro::ondevice {
@@ -35,30 +27,6 @@ int initialize(JavaVM* vm) {
   });
 }
 
-struct JHybridSpeechInputSpecImpl: public jni::JavaClass<JHybridSpeechInputSpecImpl, JHybridSpeechInputSpec::JavaPart> {
-  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/ondevice/HybridSpeechInput;";
-  static std::shared_ptr<JHybridSpeechInputSpec> create() {
-    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridSpeechInputSpecImpl::javaobject()>();
-    jni::local_ref<JHybridSpeechInputSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
-    return javaPart->getJHybridSpeechInputSpec();
-  }
-};
-struct JHybridSpeechOutputSpecImpl: public jni::JavaClass<JHybridSpeechOutputSpecImpl, JHybridSpeechOutputSpec::JavaPart> {
-  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/ondevice/HybridSpeechOutput;";
-  static std::shared_ptr<JHybridSpeechOutputSpec> create() {
-    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridSpeechOutputSpecImpl::javaobject()>();
-    jni::local_ref<JHybridSpeechOutputSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
-    return javaPart->getJHybridSpeechOutputSpec();
-  }
-};
-struct JHybridLanguageModelSpecImpl: public jni::JavaClass<JHybridLanguageModelSpecImpl, JHybridLanguageModelSpec::JavaPart> {
-  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/ondevice/HybridLanguageModel;";
-  static std::shared_ptr<JHybridLanguageModelSpec> create() {
-    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridLanguageModelSpecImpl::javaobject()>();
-    jni::local_ref<JHybridLanguageModelSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
-    return javaPart->getJHybridLanguageModelSpec();
-  }
-};
 struct JHybridNetworkMonitorSpecImpl: public jni::JavaClass<JHybridNetworkMonitorSpecImpl, JHybridNetworkMonitorSpec::JavaPart> {
   static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/ondevice/HybridNetworkMonitor;";
   static std::shared_ptr<JHybridNetworkMonitorSpec> create() {
@@ -67,60 +35,20 @@ struct JHybridNetworkMonitorSpecImpl: public jni::JavaClass<JHybridNetworkMonito
     return javaPart->getJHybridNetworkMonitorSpec();
   }
 };
-struct JHybridAudioLinkSpecImpl: public jni::JavaClass<JHybridAudioLinkSpecImpl, JHybridAudioLinkSpec::JavaPart> {
-  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/ondevice/HybridAudioLink;";
-  static std::shared_ptr<JHybridAudioLinkSpec> create() {
-    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridAudioLinkSpecImpl::javaobject()>();
-    jni::local_ref<JHybridAudioLinkSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
-    return javaPart->getJHybridAudioLinkSpec();
-  }
-};
 
 void registerAllNatives() {
   using namespace margelo::nitro;
   using namespace margelo::nitro::ondevice;
 
   // Register native JNI methods
-  margelo::nitro::ondevice::JHybridAudioLinkSpec::CxxPart::registerNatives();
-  margelo::nitro::ondevice::JFunc_void_std__string_cxx::registerNatives();
-  margelo::nitro::ondevice::JFunc_void_double_cxx::registerNatives();
-  margelo::nitro::ondevice::JHybridLanguageModelSpec::CxxPart::registerNatives();
   margelo::nitro::ondevice::JHybridNetworkMonitorSpec::CxxPart::registerNatives();
   margelo::nitro::ondevice::JFunc_void_NetworkPath_cxx::registerNatives();
-  margelo::nitro::ondevice::JHybridSpeechInputSpec::CxxPart::registerNatives();
-  margelo::nitro::ondevice::JFunc_void_bool_cxx::registerNatives();
-  margelo::nitro::ondevice::JHybridSpeechOutputSpec::CxxPart::registerNatives();
-  margelo::nitro::ondevice::JFunc_void_double_double_cxx::registerNatives();
 
   // Register Nitro Hybrid Objects
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "SpeechInput",
-    []() -> std::shared_ptr<HybridObject> {
-      return JHybridSpeechInputSpecImpl::create();
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "SpeechOutput",
-    []() -> std::shared_ptr<HybridObject> {
-      return JHybridSpeechOutputSpecImpl::create();
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "LanguageModel",
-    []() -> std::shared_ptr<HybridObject> {
-      return JHybridLanguageModelSpecImpl::create();
-    }
-  );
   HybridObjectRegistry::registerHybridObjectConstructor(
     "NetworkMonitor",
     []() -> std::shared_ptr<HybridObject> {
       return JHybridNetworkMonitorSpecImpl::create();
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "AudioLink",
-    []() -> std::shared_ptr<HybridObject> {
-      return JHybridAudioLinkSpecImpl::create();
     }
   );
 }

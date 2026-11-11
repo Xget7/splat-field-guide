@@ -1,3 +1,4 @@
+import type { OfflineModels } from 'react-native-on-device';
 import type { Pack } from '../../pack/pack';
 import type { ModeRequest } from './mode/modeTypes';
 import type { TurnRunner } from './turn/turnRunner';
@@ -9,6 +10,7 @@ import type { VoiceRuntime } from './voice/voiceSession';
  */
 export interface Instructor extends VoiceRuntime {
   readonly turns: TurnRunner;
+  readonly offlineModels?: OfflineModels;
   setPack(pack: Pack): void;
   setInstructorOpen(open: boolean): void;
   setIdle(idle: boolean): void;

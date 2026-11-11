@@ -7,7 +7,6 @@ import {
   createAgentVoiceSession,
   type SessionAgentHandlers,
 } from '../data/voice/agentVoiceSession';
-import { SpeechVoice } from '../domain/voice/voiceCopy';
 import { createExchangeIds } from '../domain/turn/exchange';
 
 const { speechInput, speechOutput, audioLink, timers } =
@@ -22,10 +21,8 @@ const adapters = [
     create: () => ({
       session: createPipelineVoiceSession({
         ...ports,
-        voice: SpeechVoice.system,
-        hints: [],
       }),
-      transcript: () => jest.mocked(speechInput().listen).mock.calls.at(-1)![3],
+      transcript: () => jest.mocked(speechInput().listen).mock.calls.at(-1)![2],
       question: (events: ReturnType<typeof voiceEvents>) => events.question,
     }),
   },

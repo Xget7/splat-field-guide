@@ -5,15 +5,10 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-# Apple Foundation Models require iOS 26 or later.
+# The viewer targets iOS 26 or later.
 IOS_DEPLOYMENT_TARGET = '26.0'
 platform :ios, IOS_DEPLOYMENT_TARGET
 prepare_react_native_project!
-
-# Verify pinned resources before CocoaPods enumerates them.
-unless system('node', File.expand_path('../scripts/fetch-kokoro-models.cjs', __dir__))
-  raise 'Kokoro resources could not be verified; see scripts/fetch-kokoro-models.cjs'
-end
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

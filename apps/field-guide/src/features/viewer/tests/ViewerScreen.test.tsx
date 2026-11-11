@@ -26,11 +26,9 @@ import {
   createInstructor,
   createExchangeIds,
   createTurnRunner,
-  OfflineVoices,
   onDeviceInstructions,
   VoiceHint,
   VOICE_LOCALE,
-  recognitionHintsFor,
   type Instructor,
   type VoiceSessionEvents,
 } from '../../instructor';
@@ -215,7 +213,6 @@ describe('viewer screen', () => {
     instructor = createInstructor({
       platform: device.platform,
       proxyUrl: null,
-      offlineVoice: OfflineVoices.kokoro,
       store: instructorStore,
     });
     instructor.start();
@@ -790,7 +787,7 @@ describe('viewer screen', () => {
       act(async () => debug().ask(question));
     const voiceOn = async () => press('instructor-voice');
     const heard = () => {
-      const [, , partial, turn, level, voice, stopped] = jest
+      const [, partial, turn, level, voice, stopped] = jest
         .mocked(input.listen)
         .mock.calls.at(-1)!;
       return { partial, turn, level, voice, stopped };
@@ -1190,7 +1187,6 @@ describe('viewer screen', () => {
       await voiceOn();
       expect(input.listen).toHaveBeenCalledWith(
         VOICE_LOCALE,
-        recognitionHintsFor(pack),
         expect.any(Function),
         expect.any(Function),
         expect.any(Function),
@@ -1201,7 +1197,7 @@ describe('viewer screen', () => {
       expect(has('instructor-input')).toBe(false);
       const cue = () => node('instructor-cue').props.accessibilityLabel;
       expect(cue()).toMatch(/"next"/);
-      const [, , partial, turn] = jest.mocked(input.listen).mock.calls[0];
+      const [, partial, turn] = jest.mocked(input.listen).mock.calls[0];
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);
       await act(async () => turn('Where is the battery?'));
@@ -1211,7 +1207,6 @@ describe('viewer screen', () => {
         summary,
         VOICE_LOCALE,
         expect.any(Function),
-        'kokoro',
       );
       const stops = jest.mocked(output.stop).mock.calls.length;
       await act(async () => partial(summary.split(' ').slice(0, 3).join(' ')));
@@ -1313,7 +1308,6 @@ describe('viewer screen', () => {
 
     test('unavailable recognition ends voice with a reason', async () => {
       jest.mocked(input.prepare).mockResolvedValue('unavailable');
-      jest.mocked(input.install).mockResolvedValueOnce('unavailable');
       await mount({ mode: LearnMode.instructor });
       await voiceOn();
       expect(input.listen).not.toHaveBeenCalled();
@@ -1411,7 +1405,7 @@ describe('viewer screen', () => {
       expect(text('instructor-reply')).toBe(reply);
       expect(has('instructor-caution-text')).toBe(false);
       expect(jest.mocked(output.speak).mock.calls).toEqual([
-        [reply, VOICE_LOCALE, expect.any(Function), 'kokoro'],
+        [reply, VOICE_LOCALE, expect.any(Function)],
       ]);
     });
 
@@ -1453,7 +1447,6 @@ describe('viewer screen', () => {
         longer,
         VOICE_LOCALE,
         expect.any(Function),
-        'kokoro',
       );
       jest.useRealTimers();
     });
@@ -1481,7 +1474,6 @@ describe('viewer screen', () => {
         spoken,
         VOICE_LOCALE,
         expect.any(Function),
-        'kokoro',
       );
       await act(async () => speech.resolve());
     });
@@ -1650,8 +1642,8 @@ describe('viewer screen', () => {
       await ask('repeat');
       const first = procedure('check-coolant').steps[0];
       expect(jest.mocked(output.speak).mock.calls).toEqual([
-        [first.text, VOICE_LOCALE, expect.any(Function), 'kokoro'],
-        [first.caution, VOICE_LOCALE, expect.any(Function), 'kokoro'],
+        [first.text, VOICE_LOCALE, expect.any(Function)],
+        [first.caution, VOICE_LOCALE, expect.any(Function)],
       ]);
       const speech = deferred<void>();
       jest.mocked(output.speak).mockReturnValueOnce(speech.promise);

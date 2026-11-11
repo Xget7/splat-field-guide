@@ -22,7 +22,6 @@ export {
   TurnEventType,
 } from './domain/turn/exchange';
 export type { Exchange, ExchangeIds, TurnEvent } from './domain/turn/exchange';
-export { recognitionHintsFor } from './domain/voice/recognitionHints';
 export {
   speechTextFor,
   SpokenSection,
@@ -55,5 +54,3 @@ export type {
   InstructorStatus,
   InstructorStore,
 } from './state/instructorStore';
-export { OfflineVoices } from './domain/mode/modeSwitching';
-export type { OfflineVoice } from './domain/mode/modeSwitching';

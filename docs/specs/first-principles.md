@@ -2,7 +2,7 @@
 
 ## Goal and operator
 
-Miris aims to be a state-of-the-art iOS viewer of spatially aware Gaussian splats joined with CAD, manuals and local ML.
+Miris provides spatial intelligence for operators through courses, contextual assistance and interactive 3D training, joining Gaussian splats with CAD, manuals and supported online or local ML on iOS.
 It serves an operator who starts from zero: explain the factory machine by machine, what each machine does, what each piece is, where the manual describes it and how the pieces relate.
 The world is the whole Miris factory cell: robots, fences, gates, light barriers, cabinets and control panels, the car body and its transport, and racks.
 All must be segmented and related by stable ID so an employee starting from zero can follow the car process step by step, machine by machine.
@@ -12,6 +12,55 @@ An on-phone language model explains each part from supplied pack text, generatio
 Manuals and maintenance guidance join parts by ID, and all annotations and relations must be consolidated in the Brick-based `semantic/model.ttl` alongside the manifest.
 This is the product direction, not a claim that CAD, delivery or the complete operator experience already exists.
 Use [architecture](field-guide-design.md) for implementation ownership and [tasks](../../TASKS.md) for integration and physical acceptance.
+
+## Course-first experience and KUKA demonstration
+
+The product reference is the course and assistant experience demonstrated by [Schemata](https://www.schemata.com/), applied to the Miris cell and its KUKA robots using reviewed KUKA manual content.
+Replicate the interaction capabilities with our equipment and evidence, not the reference video's subject matter or unverified claims about its implementation.
+An operator opens the Miris course, sees its modules and can consult the course agent before choosing a module or loading a 3D scene.
+A course organizes learning objectives and modules; an equipment asset identifies the real system; an activity provides exploration, a procedure or practice; a session records the operator's current context and progress.
+A pack distributes versioned content and representations and is not the identity of a course.
+
+The agent's knowledge scope is the whole authorized course: manual passages and figures, modules, procedures, component descriptions, supplied embeddings, explicit relationships and the corresponding 3D representations.
+The planned online backend provides course-scoped retrieval-augmented generation (RAG), with course identity and version retained throughout retrieval and response.
+Preloading course context means making its knowledge available for retrieval, not inserting every document or vector into every model prompt.
+Semantic retrieval finds relevant material; graph queries follow supplied relationships; neither similarity nor generated prose establishes new equipment facts.
+Document and component embeddings must retain their source and compatible vector-space identity, with query encoding outside the phone under the existing preparation boundary.
+Backend RAG, structured manual retrieval and course-wide context are product requirements, not claims about the current instructor implementation.
+
+The assistant remains available within a module or activity and receives the actual selected component, active procedure and current step from application state.
+It answers questions such as "What step am I on?", "What does this component do?" and "Show me the relevant manual diagram" using that state and retrieved evidence.
+It must not infer the operator's current step from conversational history when the application supplies authoritative session state.
+Answers can combine explanatory text, source citations, manual figures or diagrams, suggested follow-up questions and cards that open a module, procedure, source page or 3D view.
+A response may offer several component views or a group selection, with each action resolving to validated course, content-version, scene and stable component references.
+Opening a 3D card loads the matching representation and selects, highlights and frames the referenced components while preserving course and conversation context.
+Generated text alone must never authorize an arbitrary viewer mutation or silently advance a procedure.
+
+The KUKA manual is the documentary foundation for this demonstration, subject to the source and installed-model qualifications below.
+Each manual-backed answer and displayed figure retains the document identity, revision, section and page or figure reference so the operator can open the supporting source.
+Manual processing must preserve the association between figures, captions, passages and component IDs rather than returning an untraceable image or detached text fragment.
+The demo must distinguish a cited original figure from an authored illustration or animation and preserve applicable source and license records for shipped material.
+Missing instructions, unresolved model applicability or absent diagrams remain explicit gaps; no service procedure or maintenance interval is invented to complete the demonstration.
+
+The initial demonstrable journey is course entry, a question about the KUKA equipment, a grounded answer with manual evidence and actionable cards, then contextual exploration of the selected robot or component in 3D.
+Animation, exploded assemblies and interactive simulation extend that journey; their scope and representation choices remain pending in the backlog.
+Online retrieval and local explanation must state their availability accurately; offline access is limited to prepared content and supported local capabilities.
+The visual direction takes inspiration from [Linear](https://mobbin.com/sites/linear-c00c68bf-f93c-4837-acf0-31f4e5b46d02/630e7ab4-28c5-46ae-b1d5-a053e315161e/preview): restrained dark surfaces, clear typography and spacing, subtle controls and purposeful color, with readable evidence and equipment imagery taking priority.
+Use the supplied Linear application screenshot as the palette reference: neutral charcoal with subtle dark gradients, high-contrast text and purposeful saturated accents, without pastel colors.
+Keep names direct, typography readable and hierarchy explicit; omit promotional slogans, decorative uppercase eyebrow text and redundant descriptions or subtitles.
+Course imagery is slightly dimmed and surfaces use soft rounded corners.
+Use a shared 8px spacing scale for layout, component padding, gaps and control sizes; border thickness, typography and small optical icon adjustments are separate from that scale.
+
+## Landscape iPad composition
+
+The primary demo target is an iPad held horizontally, with the experience composed as a spacious application page.
+Design the information hierarchy and navigation for that landscape workspace first, rather than stretching a phone layout across the display.
+Use persistent lateral navigation, a clear course and module context, and columns or adjacent panels where they let the operator read, ask and inspect without losing their place.
+The course page brings together its presentation, modules and agent entry point; an activity page coordinates the 3D scene, procedure and contextual assistant.
+Manual pages and figures must remain legible, with room to inspect evidence alongside the relevant explanation or equipment when the available width permits.
+Panels may collapse or expand as the task changes, preserving the current course, conversation, selection and procedure position.
+Page-like composition describes the experience, not a requirement to replace the native application with a website or WebView.
+Controls remain touch-friendly and available without hover, and the layout adapts to available iPad window width and text size.
 
 ## Facts that determine the design
 
@@ -52,7 +101,7 @@ For example, the inspected pack maps `r01-arm` to label `1`, but neither that nu
 | Relations | Containment, flow, carrying, actuation, proximity and evidence | Endpoint IDs | Authored sources or pipeline measurements | Graph queries and grounded explanations | Graph functions exist; viewer relation navigation is open; hierarchy evidence is exported, with identity uncertainty retained |
 | Process and cell context | Car journey, surrounding equipment and roles | Step and relation endpoints join segmentation IDs | Reviewed cell research and owner confirmation in pipeline | Step-by-step employee explanation | `cell.md` has proposals only; accepted cell segmentation and process confirmation are open |
 | Procedures and maintenance | Ordered instructions and cautions | Procedure step `parts` references stable IDs | Authored pipeline content with manual citations | Guide steps and instructor grounding | 12 authored procedures, three per robot; matching service instructions and Turtle procedure projection are missing |
-| On-device explanation | Grounded generated answers | Selected part ID resolves pack text and connections | Apple Foundation Models on eligible iOS hardware, never an encoder | Instructor answerer seam | Implemented after remote proxy and before scripted fallback; Miris hardware acceptance is open |
+| On-device explanation | Grounded generated answers | Selected part ID resolves pack text and connections | ExecuTorch generation on prepared iOS and Android devices, never a semantic encoder | Instructor answerer seam | Implemented after remote proxy and before scripted fallback; Miris hardware acceptance is open |
 | Manuals and knowledge | Notes, descriptions and manual references | Part ID | Reviewed content and manual processing in pipeline | Part explanations and instructor grounding | Notes and prose citations exist; structured manual references are absent |
 
 The table's implemented fields come from [pack.ts](../../apps/field-guide/src/features/pack/pack.ts), [graph.ts](../../apps/field-guide/src/features/pack/graph.ts) and [partVectors.ts](../../apps/field-guide/src/features/semantic/domain/partVectors.ts).
@@ -195,7 +244,7 @@ Startup still supplies an empty catalog, as recorded in [architecture](field-gui
 - **Validation scope:** `export.py` can fall back to consumer validation with `relations`, `model` and `semantic` stripped after a rejection.
   That fallback cannot establish acceptance of the complete contract, so check the current `publication.json` result against the complete manifest.
 - **Integration:** CAD by ID has no implementation; installed vector loading, pipeline-supplied free-text query vectors, persistent records, viewer relation navigation and mobile delivery/activation are open.
-  Apple Foundation Models answering exists behind the instructor answerer seam, ordered remote proxy, on-device, then scripted.
+  ExecuTorch answering exists behind the instructor answerer seam, ordered remote proxy, on-device, then scripted.
   Its prompt reserves required part/procedure/safety context, then admits physical connections, notes and nearest measured proximity; oversized required evidence fails rather than discarding instructions.
   Existing graph, ranking and generation interfaces do not establish an end-to-end Miris experience; no Miris simulator or device acceptance is recorded.
 

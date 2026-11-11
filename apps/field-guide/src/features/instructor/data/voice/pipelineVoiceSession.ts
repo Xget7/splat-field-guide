@@ -28,7 +28,6 @@ import {
   SpeechPermission,
   SpeechAvailability,
   VOICE_LOCALE,
-  type SpeechVoice,
 } from '../../domain/voice/voiceCopy';
 export { VOICE_LOCALE } from '../../domain/voice/voiceCopy';
 const BARGE_IN_WORDS = 2;
@@ -37,16 +36,12 @@ const joined = (...parts: string[]) =>
   parts.filter(part => part !== '').join(' ');
 
 interface Options {
-  voice: SpeechVoice;
-  hints: string[];
   input: () => SpeechInput;
   output: () => SpeechOutput;
   timers: Timers;
   prompt?: VoicePrompt;
 }
 export function createPipelineVoiceSession({
-  voice,
-  hints,
   input,
   output,
   timers,
@@ -138,7 +133,6 @@ export function createPipelineVoiceSession({
     await input()
       .listen(
         VOICE_LOCALE,
-        hints,
         partial => {
           if (!open() || !hasSpokenWord(partial)) {
             return;
@@ -217,7 +211,7 @@ export function createPipelineVoiceSession({
         // Output preparation can overlap permission and locale preparation.
         try {
           output()
-            .prepare(voice)
+            .prepare()
             .catch(() => {
               if (running && id === lifecycle) {
                 events.hint(VoiceHint.output);
@@ -235,15 +229,9 @@ export function createPipelineVoiceSession({
         if (!running || id !== lifecycle) {
           return;
         }
-        let availability = await input().prepare(VOICE_LOCALE);
+        const availability = await input().prepare(VOICE_LOCALE);
         if (!running || id !== lifecycle) {
           return;
-        }
-        if (
-          availability !== SpeechAvailability.available &&
-          initial.allowSpeechInstall !== false
-        ) {
-          availability = await prompt(() => input().install(VOICE_LOCALE));
         }
         if (availability !== SpeechAvailability.available) {
           throw new VoiceStartError(VoiceStartFailure.unavailable);
@@ -286,29 +274,24 @@ export function createPipelineVoiceSession({
           activeSection = section;
           events.word(null);
           events.speaking(section);
-          await output().speak(
-            text,
-            VOICE_LOCALE,
-            (location, length) => {
-              if (
-                running &&
-                id === generation &&
-                activeSection === section &&
-                Number.isInteger(location) &&
-                Number.isInteger(length) &&
-                location >= 0 &&
-                location < text.length &&
-                length > 0
-              ) {
-                events.word({
-                  section,
-                  location,
-                  length: Math.min(length, text.length - location),
-                });
-              }
-            },
-            voice,
-          );
+          await output().speak(text, VOICE_LOCALE, (location, length) => {
+            if (
+              running &&
+              id === generation &&
+              activeSection === section &&
+              Number.isInteger(location) &&
+              Number.isInteger(length) &&
+              location >= 0 &&
+              location < text.length &&
+              length > 0
+            ) {
+              events.word({
+                section,
+                location,
+                length: Math.min(length, text.length - location),
+              });
+            }
+          });
         }
       } catch {
         if (id === generation) {

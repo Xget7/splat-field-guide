@@ -24,7 +24,7 @@ const config = {
         `${splatLibrary}/(node_modules|build|engine|android/(build|.cxx))/.*`,
       ),
       new RegExp(
-        `${onDeviceLibrary}/(node_modules|build|ios/KokoroResources|android/(build|.cxx))/.*`,
+        `${onDeviceLibrary}/(node_modules|build|android/(build|.cxx))/.*`,
       ),
     ],
   },

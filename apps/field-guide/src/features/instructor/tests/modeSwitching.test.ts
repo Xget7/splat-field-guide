@@ -1,10 +1,8 @@
 import { fakePlatform } from '@tests/platform';
 import {
   createModeSwitching,
-  OfflineVoices,
   SwitchTiming,
   type ModeSwitchingOptions,
-  type OfflineVoice,
 } from '../domain/mode/modeSwitching';
 import { ModeAnnouncement, SwitchLabel } from '../domain/mode/modeCopy';
 import {
@@ -22,16 +20,13 @@ beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
 /** A switcher over the fake platform whose online pieces succeed unless the test says otherwise. */
-function switching(
-  options: Partial<ModeSwitchingOptions> & { offlineVoice?: OfflineVoice } = {},
-) {
+function switching(options: Partial<ModeSwitchingOptions> = {}) {
   const fake = fakePlatform();
   const steps: SwitchStep[] = [];
   const modes = createModeSwitching({
     ...fake.platform,
     input: fake.platform.speechInput,
     output: fake.platform.speechOutput,
-    offlineVoice: OfflineVoices.kokoro,
     device: createDeviceAnswerer(fake.platform.languageModel),
     pack: () => fixturePack(),
     prepareAgent: async () => true,
@@ -117,33 +112,20 @@ test('an offline switch prepares every offline piece and answers from the script
   ).toBe(ModeAnnouncement.script);
 });
 
-test.each([
-  {
-    platform: 'android',
-    offlineVoice: OfflineVoices.system,
-    label: 'Voice: system voice',
-    voice: 'system',
-  },
-  {
-    platform: 'ios',
-    offlineVoice: OfflineVoices.kokoro,
-    label: 'Voice: Kokoro',
-    voice: 'kokoro',
-  },
-] as const)(
-  '$platform names and starts its configured offline voice',
-  async ({ offlineVoice, label, voice }) => {
-    const { modes, steps, fake } = switching({ offlineVoice });
-    const result = modes.begin(InstructorMode.switchingToOffline);
-    await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
-    await result;
-    expect(steps.filter(step => step.piece === SwitchPiece.voice)).toEqual([
-      expect.objectContaining({ state: 'starting', label }),
-      expect.objectContaining({ state: 'ready', label }),
-    ]);
-    expect(fake.output.prepare).toHaveBeenCalledWith(voice);
-  },
-);
+test('an offline switch prepares the local voice and reports its readiness', async () => {
+  const { modes, steps, fake } = switching();
+  const result = modes.begin(InstructorMode.switchingToOffline);
+  await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
+  await result;
+  expect(steps.filter(step => step.piece === SwitchPiece.voice)).toEqual([
+    expect.objectContaining({
+      state: 'starting',
+      label: SwitchLabel.deviceVoice,
+    }),
+    expect.objectContaining({ state: 'ready', label: SwitchLabel.deviceVoice }),
+  ]);
+  expect(fake.output.prepare).toHaveBeenCalledWith();
+});
 
 test('a newer switch or a cancel supersedes the one running', async () => {
   const { modes, steps } = switching();

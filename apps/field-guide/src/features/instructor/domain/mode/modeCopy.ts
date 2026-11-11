@@ -6,8 +6,7 @@ export const SwitchTitle = {
 } as const;
 
 export const SwitchLabel = {
-  kokoro: 'Voice: Kokoro',
-  systemVoice: 'Voice: system voice',
+  noVoice: 'Voice: unavailable, read instead',
   deviceModel: 'Answers: on-device model',
   script: 'Answers: guide script',
   deviceListening: 'Listening: on device',

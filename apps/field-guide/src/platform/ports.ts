@@ -4,6 +4,7 @@ import type {
   LanguageModelSpec,
   SpeechInputSpec,
   SpeechOutputSpec,
+  OfflineModels,
 } from 'react-native-on-device';
 import type { PathInfo } from './connectivity/networkQuality';
 
@@ -19,10 +20,10 @@ export interface Timers {
   every(intervalMs: number, run: () => void): Cancel;
 }
 
-/** Recognises speech: permission, locale preparation and installation, continuous listening and cancel. */
+/** Recognises speech: permission, prepared locale readiness, continuous listening and cancel. */
 export type SpeechInput = Pick<
   SpeechInputSpec,
-  'requestPermission' | 'prepare' | 'install' | 'listen' | 'cancel'
+  'requestPermission' | 'prepare' | 'listen' | 'cancel'
 >;
 
 /** Speaks text with word timing, prepares a voice and stops output. */
@@ -113,6 +114,7 @@ export interface AppStatePort {
 export interface Platform {
   readonly clock: Clock;
   readonly timers: Timers;
+  readonly offlineModels?: () => OfflineModels;
   readonly speechInput: () => SpeechInput;
   readonly speechOutput: () => SpeechOutput;
   readonly audioLink: () => AudioLink;

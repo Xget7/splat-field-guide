@@ -4,7 +4,7 @@ import { fakeVoiceSession, voiceEvents } from '@tests/voiceSession';
 import { INITIAL_SESSION } from '../../guide';
 import { createFallbackVoiceSession } from '../data/voice/fallbackVoiceSession';
 import { createPipelineVoiceSession } from '../data/voice/pipelineVoiceSession';
-import { SpeechVoice, VOICE_LOCALE } from '../domain/voice/voiceCopy';
+import { VOICE_LOCALE } from '../domain/voice/voiceCopy';
 import {
   UtteranceKind,
   utteranceId,
@@ -132,8 +132,6 @@ test.each([VoiceEnd.quota, VoiceEnd.auth])(
       primaryQuestions: primary.questions,
       fallback: createPipelineVoiceSession({
         ...ports,
-        voice: SpeechVoice.system,
-        hints: [],
       }),
       onPrimaryFailure: failure => failures.push(failure),
       networkOffline: () => false,
@@ -158,11 +156,10 @@ test.each([VoiceEnd.quota, VoiceEnd.auth])(
       'Answer to Why check the battery?',
       VOICE_LOCALE,
       expect.any(Function),
-      SpeechVoice.system,
     );
     const nextTranscript = jest
       .mocked(speechInput().listen)
-      .mock.calls.at(-1)![3];
+      .mock.calls.at(-1)![2];
     nextTranscript('Where is the battery?');
     await Promise.resolve();
     expect(changed.question.mock.calls.flat()).toEqual([
@@ -173,7 +170,6 @@ test.each([VoiceEnd.quota, VoiceEnd.auth])(
       'Answer to Where is the battery?',
       VOICE_LOCALE,
       expect.any(Function),
-      SpeechVoice.system,
     );
     expect(primary.open).toBe(false);
     expect(session.questions).toBeNull();

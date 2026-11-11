@@ -2,7 +2,6 @@ import type { Platform } from '../../platform/ports';
 import type { Pack } from '../pack/pack';
 import type { Instructor } from './domain/instructorHandle';
 import { createInstructorModes } from './domain/mode/instructorModes';
-import type { OfflineVoice } from './domain/mode/modeSwitching';
 import { InstructorMode } from './domain/mode/modeTypes';
 import { createExchangeIds } from './domain/turn/exchange';
 import { createTurnRunner } from './domain/turn/turnRunner';
@@ -21,7 +20,6 @@ export interface InstructorOptions {
   readonly platform: Platform;
   /** A null proxy URL runs with on-device answers and voice only. */
   readonly proxyUrl: string | null;
-  readonly offlineVoice: OfflineVoice;
   /** Receives every status the instructor reports. */
   readonly store: InstructorStore;
 }
@@ -29,7 +27,6 @@ export interface InstructorOptions {
 export function createInstructor({
   platform,
   proxyUrl,
-  offlineVoice,
   store,
 }: InstructorOptions): Instructor {
   const { clock, timers } = platform;
@@ -42,12 +39,12 @@ export function createInstructor({
   let started = false;
   let disposed = false;
   let idle = true;
+  let unsubscribeModels: (() => void) | null = null;
   const modes = createInstructorModes({
     clock,
     timers,
     input: platform.speechInput,
     output: platform.speechOutput,
-    offlineVoice,
     device,
     pack: () => pack,
     prepareAgent: () => sessions.prepareAgent(),
@@ -73,7 +70,6 @@ export function createInstructor({
   const sessions = createInstructorSessions({
     platform,
     proxy,
-    offlineVoice: offlineVoice.voice,
     ids,
     foreground,
     modes,
@@ -91,6 +87,9 @@ export function createInstructor({
   const turns = createTurnRunner([cloud, device], ids);
   return {
     turns,
+    get offlineModels() {
+      return platform.offlineModels?.();
+    },
     sessionFor: guide => (disposed ? null : sessions.sessionFor(guide)),
     setPack(value) {
       pack = value;
@@ -111,6 +110,22 @@ export function createInstructor({
         return;
       }
       started = true;
+      const models = platform.offlineModels?.();
+      if (models) {
+        let ready = device.isReady();
+        unsubscribeModels = models.subscribe(() => {
+          const nextReady = device.isReady();
+          if (nextReady === ready) {
+            return;
+          }
+          ready = nextReady;
+          if (started) {
+            modes.refreshDevice();
+            sessions.publish(modes.current());
+          }
+        });
+        models.restore().catch(() => {});
+      }
       foreground.start(active => {
         if (!active) {
           sessions.stop();
@@ -131,6 +146,8 @@ export function createInstructor({
       disposed = true;
       started = false;
       sessions.stop();
+      unsubscribeModels?.();
+      platform.offlineModels?.().release();
       foreground.stop();
       network.stop();
       modes.dispose();

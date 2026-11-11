@@ -97,11 +97,9 @@ jest.mock('react-native-on-device', () => {
   const input = {
     requestPermission: jest.fn(async () => 'granted'),
     prepare: jest.fn(async () => 'available'),
-    install: jest.fn(async () => 'available'),
     listen: jest.fn(
       async (
         _locale,
-        _hints,
         _onPartial,
         _onTurn,
         _onLevel,
@@ -112,8 +110,8 @@ jest.mock('react-native-on-device', () => {
     cancel: jest.fn(),
   };
   const output = {
-    prepare: jest.fn(async voice => voice),
-    speak: jest.fn(async (_text, _locale, _onWord, _voice) => {}),
+    prepare: jest.fn(async () => {}),
+    speak: jest.fn(async (_text, _locale, _onWord) => {}),
     stop: jest.fn(),
   };
   const link = {
@@ -133,7 +131,7 @@ jest.mock('react-native-on-device', () => {
     languageModel: jest.fn(() => model),
     speechInput: jest.fn(() => input),
     speechOutput: jest.fn(() => output),
-    emitLevel: level => input.listen.mock.calls.at(-1)?.[4]?.(level),
+    emitLevel: level => input.listen.mock.calls.at(-1)?.[3]?.(level),
     emitWord: (location, length) =>
       output.speak.mock.calls.at(-1)?.[2]?.(location, length),
   };

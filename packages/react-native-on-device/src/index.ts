@@ -1,39 +1,40 @@
 import { NitroModules, type HybridObject } from 'react-native-nitro-modules';
-import type { AudioLink as AudioLinkSpec } from './AudioLink.nitro';
 import type { NetworkMonitor as NetworkMonitorSpec } from './NetworkMonitor.nitro';
-import type { LanguageModel as LanguageModelSpec } from './LanguageModel.nitro';
-import type { SpeechInput as SpeechInputSpec } from './SpeechInput.nitro';
-import type { SpeechOutput as SpeechOutputSpec } from './SpeechOutput.nitro';
-
+import type { createLocalRuntime } from './local/runtime';
 export type {
   LanguageModel as LanguageModelSpec,
   LanguageModelAvailability,
-} from './LanguageModel.nitro';
-export type {
   SpeechInput as SpeechInputSpec,
   SpeechInputAvailability,
   SpeechPermission,
-} from './SpeechInput.nitro';
-export type {
   SpeechOutput as SpeechOutputSpec,
-  SpeechVoice,
-} from './SpeechOutput.nitro';
-export type { AudioLink as AudioLinkSpec } from './AudioLink.nitro';
+  OfflineModels,
+  OfflineModelStatus,
+} from './capabilities';
+export type { AudioLink as AudioLinkSpec } from './AudioLink';
 export type {
   NetworkMonitor as NetworkMonitorSpec,
   NetworkPath,
   NetworkTransport,
 } from './NetworkMonitor.nitro';
 
-// Created on first use, so importing this package never fails where the native side is absent.
 function lazy<T extends HybridObject<{}>>(name: string): () => T {
   let instance: T | undefined;
   return () => (instance ??= NitroModules.createHybridObject<T>(name));
 }
-
-export const speechInput = lazy<SpeechInputSpec>('SpeechInput');
-export const speechOutput = lazy<SpeechOutputSpec>('SpeechOutput');
-export const languageModel = lazy<LanguageModelSpec>('LanguageModel');
-
-export const audioLink = lazy<AudioLinkSpec>('AudioLink');
+let runtime: ReturnType<typeof createLocalRuntime> | undefined;
+function local() {
+  // Native inference and audio bindings are not touched until a capability is requested.
+  runtime ??= (
+    require('./local/runtime') as {
+      createLocalRuntime: typeof createLocalRuntime;
+    }
+  ).createLocalRuntime();
+  return runtime;
+}
+export const speechInput = () => local().input;
+export const speechOutput = () => local().output;
+export const languageModel = () => local().model;
+export const audioLink = () => local().audioLink;
+export const offlineModels = () => local().models;
 export const networkMonitor = lazy<NetworkMonitorSpec>('NetworkMonitor');

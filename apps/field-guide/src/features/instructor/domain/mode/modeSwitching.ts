@@ -7,11 +7,7 @@ import type {
 } from '../../../../platform/ports';
 import type { Pack } from '../../../pack/pack';
 import type { Answerer } from '../turn/answerer';
-import {
-  SpeechAvailability,
-  SpeechVoice,
-  VOICE_LOCALE,
-} from '../voice/voiceCopy';
+import { SpeechAvailability, VOICE_LOCALE } from '../voice/voiceCopy';
 import {
   UtteranceKind,
   utteranceId,
@@ -35,23 +31,11 @@ export const SwitchTiming = {
   PIECE_TIMEOUT_MS: 8000,
 } as const;
 
-/** The device voice offline mode speaks with, and the switch step that names it. */
-export interface OfflineVoice {
-  readonly voice: SpeechVoice;
-  readonly label: string;
-}
-/** Kokoro runs only on iOS; other platforms speak offline with the system voice. */
-export const OfflineVoices = {
-  kokoro: { voice: SpeechVoice.kokoro, label: SwitchLabel.kokoro },
-  system: { voice: SpeechVoice.system, label: SwitchLabel.systemVoice },
-} as const satisfies Record<string, OfflineVoice>;
-
 export interface ModeSwitchingOptions {
   readonly clock: Clock;
   readonly timers: Timers;
   readonly input: () => SpeechInput;
   readonly output: () => SpeechOutput;
-  readonly offlineVoice: OfflineVoice;
   /** Prepared for offline answers, and the fallback when Claude cannot be reached online. */
   readonly device: Answerer;
   readonly pack: () => Pack | null;
@@ -91,7 +75,7 @@ type Outcome = Partial<Record<SwitchPiece, boolean>>;
 export function createModeSwitching(
   options: ModeSwitchingOptions,
 ): ModeSwitching {
-  const { clock, timers, offlineVoice, device } = options;
+  const { clock, timers, device } = options;
   let switchId = 0;
   let supersede: (() => void) | null = null;
   // Waits are tracked so cancel stops the ones still pending.
@@ -112,11 +96,12 @@ export function createModeSwitching(
       return [
         {
           piece: SwitchPiece.voice,
-          label: offlineVoice.label,
-          fallbackLabel: SwitchLabel.systemVoice,
-          start: async () =>
-            (await options.output().prepare(offlineVoice.voice)) ===
-            offlineVoice.voice,
+          label: SwitchLabel.deviceVoice,
+          fallbackLabel: SwitchLabel.noVoice,
+          start: async () => {
+            await options.output().prepare();
+            return true;
+          },
         },
         {
           piece: SwitchPiece.answers,

@@ -29,7 +29,9 @@ export interface InstructorModesOptions extends ModeSwitchingOptions {
   ) => void;
 }
 
-export type InstructorModes = Omit<ModeController, 'switched'>;
+export type InstructorModes = Omit<ModeController, 'switched'> & {
+  refreshDevice(): void;
+};
 
 /**
  * The instructor's mode: the controller's decisions, an offline start that needs no switch, and
@@ -74,6 +76,17 @@ export function createInstructorModes(
   }
   return {
     current: controller.current,
+    refreshDevice() {
+      const current = controller.current();
+      if (current.mode === InstructorMode.offline) {
+        controller.switched(InstructorMode.offline, {
+          voice: VoiceSource.device,
+          answers: device.isReady()
+            ? AnswerSource.deviceModel
+            : AnswerSource.script,
+        });
+      }
+    },
     request: controller.request,
     setIdle: controller.setIdle,
     agentAvailable: controller.agentAvailable,

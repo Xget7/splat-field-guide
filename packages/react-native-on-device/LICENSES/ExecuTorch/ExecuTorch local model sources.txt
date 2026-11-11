@@ -1,0 +1,59 @@
+Source: src/local/modelAssets.json
+
+whisper
+https://huggingface.co/software-mansion/react-native-executorch-whisper-base.en/resolve/1545fd27aac55b3c4f6f907a11f198fb4d0923d6/xnnpack/whisper_base_en_xnnpack_int8.pte
+SHA-256: 40336d2e09fffee484fdef41f34d0dcb55ee24a1627d4dced4002a7ca6e3335b
+Bytes: 266793216
+
+whisperTokenizer
+https://huggingface.co/software-mansion/react-native-executorch-whisper-base.en/resolve/ce992bbcd664f15b2411cbf1db05dc8c56cfe7b6/tokenizer.json
+SHA-256: 5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0
+Bytes: 2405679
+
+vad
+https://huggingface.co/software-mansion/react-native-executorch-fsmn-vad/resolve/5c31b30fe998c798adde26e8cb8ce0a28fa839e3/xnnpack/fsmn_vad_xnnpack_fp32.pte
+SHA-256: 9158ab9c3e4986cd213983cae8124e4493d2db54771dec37511a8105251fe2c8
+Bytes: 1827808
+
+duration
+https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/xnnpack/standard/duration_predictor_std_xnnpack_fp32.pte
+SHA-256: 781a6e6de5c13cf2c97c4a486c766c92c107ff8ac99d7ae8e991bfb81d701334
+Bytes: 59307208
+
+synthesizer
+https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/xnnpack/standard/synthesizer_std_xnnpack_fp32.pte
+SHA-256: 1f4ce2b8dcf396b1bc0125d7dbccadd79a4c3dc104bb8776dbcc85c482bcd000
+Bytes: 272463344
+
+lexicon
+https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/phonemizer/en-us/lexicon.json
+SHA-256: b29e9c13190cf211979e8d9c38258cc1cb8e701e5ca1102a0c1f00acd4f55f8e
+Bytes: 6254348
+
+phonemizer
+https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/phonemizer/en-us/phonemizer_en_us.pte
+SHA-256: 3b066bc3188d2541b8f991005bfef0936e3b4fc2d27755bf788712e35dc951d1
+Bytes: 7128528
+
+voice
+https://huggingface.co/software-mansion/react-native-executorch-kokoro/resolve/2ec743866088e7d98547bdc8609ac0ca50b2e9a3/voices/af_heart.bin
+SHA-256: d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b
+Bytes: 522240
+
+llm
+https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/1_5b/xnnpack/qwen_2_5_1_5b_xnnpack_8da4w.pte
+SHA-256: 42cd38c5c14ff07e2ef0d8a528ff8692571dd2657256d3e1f883eb6ecb07fdaa
+Bytes: 1165538560
+
+tokenizer
+https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/tokenizer.json
+SHA-256: c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539
+Bytes: 7031645
+
+tokenizerConfig
+https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/ddc28846631f7ab1d3ffcae0e076cd7ef0061f39/tokenizer_config.json
+SHA-256: 5b5d4f65d0acd3b2d56a35b56d374a36cbc1c8fa5cf3b3febbbfabf22f359583
+Bytes: 7305
+
+Whisper Base English, FSMN VAD, Kokoro and Qwen2.5 1.5B exports are published under Apache-2.0.
+The optional Brown Corpus part-of-speech tagger is not downloaded or used.

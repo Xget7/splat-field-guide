@@ -11,11 +11,13 @@ Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROI
 After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
 For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
 Debug needs reachable Metro; Release bundles JavaScript.
-Prepare system speech assets and permissions before airplane-mode tests; Apple generation also needs eligible hardware and a ready model.
+While connected, choose Prepare offline in the instructor and wait for the verified model set to finish before airplane-mode tests.
+Allow microphone access separately.
+A fresh installation without those files cannot provide local voice or generated answers.
 
 ## Prepare
 
-`nice -n 19 scripts/prepare.sh` prepares dependencies, native frameworks, speech assets, locked Gems and Pods without downloading guide content.
+`nice -n 19 scripts/prepare.sh` prepares dependencies, native frameworks, locked Gems and Pods without downloading guide content.
 An optional `--manifest <file> --pack <archive>` validates and caches an explicit pack; it does not activate or select that pack for the app.
 Packaging requires `nice -n 19 scripts/package-pack.sh --manifest <file> --pack <directory> --out <archive>`.
 Both platform bundles select no packs by default; installation and activation remain pending.
@@ -29,14 +31,16 @@ Each unit under `apps/`, `packages/` and `services/` installs with `npm ci` and 
 Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
 `services/instructor-proxy` has no typecheck script; use `npx tsc --noEmit -p .`.
 `services/voice-agent` previews its agent configuration with `npm run plan -- --manifest <file>`.
-The on-device Swift harnesses compile on macOS 26+ and skip on other hosts.
+The on-device package tests exercise preparation, cancellation, speech/answer adapters and audio ownership with fake providers.
+ExecuTorch native libraries are provisioned by its postinstall script; if npm skips dependency scripts, run `nice -n 19 node node_modules/react-native-executorch/scripts/download-libs.js` from `apps/field-guide` before Pods or Gradle.
+The app package selects only the XNNPACK backend and Phonemis library.
 
 ## Mobile pack tooling
 
 From root:
 
 ```sh
-nice -n 19 node --test tests/pack-build.test.cjs tests/mobile-asset-tools.test.cjs
+nice -n 19 node --test tests/pack-build.test.cjs
 ```
 
 Capture-stage and training checks run in the separate `splat-tools` workspace.
@@ -83,7 +87,9 @@ The obsolete demo Maestro flow and its npm command have been removed.
 Future Miris flows must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
 Screenshots and simulator checks do not establish physical performance acceptance.
 No Miris pack opening on a simulator or device is recorded in [tasks](../../TASKS.md).
-Verify grounded Apple Foundation Models answers and the remote/on-device/scripted fallback on eligible hardware using supplied text; no phone encoder is part of this flow.
+Verify grounded ExecuTorch answers and the remote/on-device/scripted fallback on both target platforms using supplied text.
+Test a fresh installation, interrupted model preparation, restart in airplane mode, barge-in, route loss and cancellation while loading or generating.
+No phone semantic encoder is part of this flow.
 
 ## Cleanup
 

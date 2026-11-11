@@ -26,8 +26,6 @@ export interface VoiceContext {
   readonly thinking: boolean;
   /** A model question that has not received any reply text yet. */
   readonly pendingQuestion?: string | null;
-  /** Automatic restarts may check recognition assets but cannot request their installation. */
-  readonly allowSpeechInstall?: boolean;
 }
 export const VoiceStartFailure = {
   permission: 'permission',

@@ -16,8 +16,9 @@ if [ "$#" -gt 0 ]; then
   nice -n 19 node "$ROOT/scripts/pack_archive.cjs" ensure "$@"
 fi
 nice -n 19 bash "$ROOT/packages/react-native-splat/scripts/build-ios-engine.sh"
-nice -n 19 node "$ROOT/apps/field-guide/scripts/fetch-kokoro-models.cjs"
 nice -n 19 npm ci --prefix "$ROOT/apps/field-guide"
+# npm may skip dependency install scripts; provision only the inference backends the app selects.
+INIT_CWD="$ROOT/apps/field-guide" nice -n 19 node "$ROOT/apps/field-guide/node_modules/react-native-executorch/scripts/download-libs.js"
 for package in react-native-splat react-native-on-device; do
   nice -n 19 npm ci --prefix "$ROOT/packages/$package"
 done

@@ -1,7 +1,7 @@
 {
   "name": "react-native-on-device",
   "version": "0.0.1",
-  "description": "On-device speech in and out, and the on-device language model, exposed with Nitro Modules",
+  "description": "ExecuTorch local speech and generation, shared conversation audio, and Nitro network monitoring",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "react-native": "src/index.ts",
@@ -38,5 +38,19 @@
     "react-native": "0.87.1",
     "react-native-nitro-modules": "^0.37.1",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "base64-js": "1.5.1",
+    "react-native-audio-api": "1.0.0",
+    "react-native-blob-util": "0.24.11",
+    "react-native-executorch": "0.11.0"
+  },
+  "react-native-executorch": {
+    "backends": [
+      "xnnpack"
+    ],
+    "libs": [
+      "phonemis"
+    ]
   }
 }

@@ -3,6 +3,7 @@ import {
   audioLink,
   languageModel,
   networkMonitor,
+  offlineModels,
   speechInput,
   speechOutput,
 } from 'react-native-on-device';
@@ -23,6 +24,7 @@ export function createPlatform(): Platform {
         return () => clearInterval(timer);
       },
     },
+    offlineModels,
     speechInput,
     speechOutput,
     audioLink,

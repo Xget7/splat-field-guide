@@ -2,7 +2,6 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Text, type AppStateStatus } from 'react-native';
 import { createInstructor } from '../createInstructor';
-import { OfflineVoices } from '../domain/mode/modeSwitching';
 import { fakePlatform } from '@tests/platform';
 import { fixturePack } from '@tests/fixturePack';
 import { ProxyPath } from '../data/proxy/proxyContract';
@@ -18,7 +17,7 @@ import {
 import type { VoiceRuntime } from '../domain/voice/voiceSession';
 import { ModeArea } from '../ui/ModeArea';
 import { voiceEvents } from '@tests/voiceSession';
-import { SpeechVoice, VOICE_LOCALE } from '../domain/voice/voiceCopy';
+import { VOICE_LOCALE } from '../domain/voice/voiceCopy';
 const context = {
   pack: fixturePack(),
   state: INITIAL_SESSION,
@@ -42,14 +41,13 @@ const signedUrlOrPing = async (address: unknown) =>
     : { status: 204 };
 
 /**
- * Builds the proxied instructor over a fake platform, speaking offline with Kokoro as on iOS. It
+ * Builds the proxied instructor over a fake platform, using the prepared offline voice. It
  * reports to the app-wide store, which the mode area and the voice hook read.
  */
 function instructorOn(platform: Platform) {
   return createInstructor({
     platform,
     proxyUrl: PROXY_URL,
-    offlineVoice: OfflineVoices.kokoro,
     store: instructorStore,
   });
 }
@@ -120,7 +118,6 @@ test.each([
         'Check the battery terminals.',
         VOICE_LOCALE,
         expect.any(Function),
-        SpeechVoice.system,
       );
       expect(instructorStore.getState().mode).toMatchObject({
         mode: 'online',
@@ -178,7 +175,7 @@ function harness(runtime: VoiceRuntime, onAsk = jest.fn()) {
   };
 }
 
-test('an offline switch never installs speech assets, but the next Voice tap may open the model prompt', async () => {
+test('voice retries after the offline models have been prepared', async () => {
   jest.useFakeTimers();
   const fake = fakePlatform({
     fetch: jest.fn(signedUrl) as unknown as Fetch,
@@ -206,19 +203,12 @@ test('an offline switch never installs speech assets, but the next Voice tap may
       await jest.advanceTimersByTimeAsync(600);
     });
     expect(instructorStore.getState().mode.mode).toBe('offline');
-    expect(input.install).not.toHaveBeenCalled();
     expect(h.voice.on).toBe(false);
     expect(h.voice.hint).toBe(
       'On-device speech recognition is unavailable. You can still type.',
     );
-    input.install.mockImplementationOnce(async () => {
-      fake.appState.change('background');
-      expect(instructorStore.getState().voice.foreground).toBe(true);
-      fake.appState.change('active');
-      return 'available';
-    });
+    input.prepare.mockResolvedValue('available');
     await act(async () => h.voice.toggle());
-    expect(input.install).toHaveBeenCalledTimes(1);
     expect(h.voice.on).toBe(true);
     expect(h.voice.open).toBe(true);
   } finally {

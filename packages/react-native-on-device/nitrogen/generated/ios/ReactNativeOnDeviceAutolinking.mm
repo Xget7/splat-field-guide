@@ -10,11 +10,7 @@
 #import "ReactNativeOnDevice-Swift-Cxx-Umbrella.hpp"
 #import <type_traits>
 
-#include "HybridSpeechInputSpecSwift.hpp"
-#include "HybridSpeechOutputSpecSwift.hpp"
-#include "HybridLanguageModelSpecSwift.hpp"
 #include "HybridNetworkMonitorSpecSwift.hpp"
-#include "HybridAudioLinkSpecSwift.hpp"
 
 @interface ReactNativeOnDeviceAutolinking : NSObject
 @end
@@ -26,37 +22,9 @@
   using namespace margelo::nitro::ondevice;
 
   HybridObjectRegistry::registerHybridObjectConstructor(
-    "SpeechInput",
-    []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridSpeechInputSpec> hybridObject = ReactNativeOnDevice::ReactNativeOnDeviceAutolinking::createSpeechInput();
-      return hybridObject;
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "SpeechOutput",
-    []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridSpeechOutputSpec> hybridObject = ReactNativeOnDevice::ReactNativeOnDeviceAutolinking::createSpeechOutput();
-      return hybridObject;
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "LanguageModel",
-    []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridLanguageModelSpec> hybridObject = ReactNativeOnDevice::ReactNativeOnDeviceAutolinking::createLanguageModel();
-      return hybridObject;
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
     "NetworkMonitor",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridNetworkMonitorSpec> hybridObject = ReactNativeOnDevice::ReactNativeOnDeviceAutolinking::createNetworkMonitor();
-      return hybridObject;
-    }
-  );
-  HybridObjectRegistry::registerHybridObjectConstructor(
-    "AudioLink",
-    []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridAudioLinkSpec> hybridObject = ReactNativeOnDevice::ReactNativeOnDeviceAutolinking::createAudioLink();
       return hybridObject;
     }
   );

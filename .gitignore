@@ -1,7 +1,5 @@
 /data/
 /.work/
-packages/react-native-on-device/ios/KokoroResources/
-packages/react-native-on-device/ios/.kokoro-fetch.lock
 # The engine's iOS build and the XCFramework it makes: scripts/build-ios-engine.sh
 packages/react-native-splat/build/
 packages/react-native-splat/ios/Frameworks/

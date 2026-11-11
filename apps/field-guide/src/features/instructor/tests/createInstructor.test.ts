@@ -2,7 +2,7 @@ import { AGENT_METADATA, fakePlatform } from '@tests/platform';
 import { VoiceSource } from '../domain/mode/modeTypes';
 import { AgentState, ConnectionFailure } from '../domain/agent/agentStatus';
 import { UtteranceKind, utteranceId } from '../domain/voice/voiceSession';
-import { SpeechVoice, VOICE_LOCALE } from '../domain/voice/voiceCopy';
+import { VOICE_LOCALE } from '../domain/voice/voiceCopy';
 import {
   createInstructorStore,
   type InstructorStore,
@@ -12,11 +12,7 @@ import { voiceEvents } from '@tests/voiceSession';
 import { fixturePack } from '@tests/fixturePack';
 import { ProxyPath } from '../data/proxy/proxyContract';
 import { createInstructor } from '../createInstructor';
-import {
-  OfflineVoices,
-  SwitchTiming,
-  type OfflineVoice,
-} from '../domain/mode/modeSwitching';
+import { SwitchTiming } from '../domain/mode/modeSwitching';
 import type { Fetch, Platform } from '../../../platform/ports';
 import type { PathInfo } from '../../../platform/connectivity/networkQuality';
 import {
@@ -38,19 +34,17 @@ const signedUrl = async () => ({
   json: async () => ({ signedUrl: 'wss://agent.example/session' }),
 });
 
-/** Builds the instructor over a fake platform; offline speech defaults to Kokoro, as on iOS. */
+/** Builds the instructor over a fake platform; offline speech uses the prepared local model. */
 function instructorOn(
   platform: Platform,
   options: {
     proxyUrl?: string | null;
     store?: InstructorStore;
-    offlineVoice?: OfflineVoice;
   } = {},
 ) {
   return createInstructor({
     platform,
     proxyUrl: options.proxyUrl === undefined ? PROXY_URL : options.proxyUrl,
-    offlineVoice: options.offlineVoice ?? OfflineVoices.kokoro,
     store: options.store ?? createInstructorStore(),
   });
 }
@@ -166,52 +160,45 @@ test('a microphone prompt that settles in the background ends the pending conver
   instructor.stop();
 });
 
-test.each([
-  { offlineVoice: OfflineVoices.system, voice: 'system' },
-  { offlineVoice: OfflineVoices.kokoro, voice: 'kokoro' },
-] as const)(
-  'offline conversations speak with the configured $voice voice',
-  async ({ offlineVoice, voice }) => {
-    const store = createInstructorStore();
-    const fake = fakePlatform({
-      fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
+test('offline conversations use prepared local speech', async () => {
+  const store = createInstructorStore();
+  const fake = fakePlatform({
+    fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
+  });
+  const instructor = instructorOn(fake.platform, { store });
+  try {
+    instructor.start();
+    fake.network.emit(WIFI);
+    fake.network.emit({ ...WIFI, satisfied: false });
+    await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
+    expect(store.getState().mode.mode).toBe('offline');
+    const session = instructor.sessionFor(fixturePack())!.session;
+    await session.start(
+      {
+        pack: fixturePack(),
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+        history: [],
+        thinking: false,
+      },
+      voiceEvents(),
+    );
+    await session.say({
+      id: 'offline-voice',
+      kind: 'notice',
+      reply: 'Offline.',
+      caution: '',
+      stepKey: null,
     });
-    const instructor = instructorOn(fake.platform, { store, offlineVoice });
-    try {
-      instructor.start();
-      fake.network.emit(WIFI);
-      fake.network.emit({ ...WIFI, satisfied: false });
-      await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
-      expect(store.getState().mode.mode).toBe('offline');
-      const session = instructor.sessionFor(fixturePack())!.session;
-      await session.start(
-        {
-          pack: fixturePack(),
-          state: { procedureId: null, stepIndex: 0, selectedPart: null },
-          history: [],
-          thinking: false,
-        },
-        voiceEvents(),
-      );
-      await session.say({
-        id: 'offline-voice',
-        kind: 'notice',
-        reply: 'Offline.',
-        caution: '',
-        stepKey: null,
-      });
-      expect(fake.output.speak).toHaveBeenCalledWith(
-        'Offline.',
-        'en-US',
-        expect.any(Function),
-        voice,
-      );
-      session.stop();
-    } finally {
-      instructor.stop();
-    }
-  },
-);
+    expect(fake.output.speak).toHaveBeenCalledWith(
+      'Offline.',
+      'en-US',
+      expect.any(Function),
+    );
+    session.stop();
+  } finally {
+    instructor.stop();
+  }
+});
 
 test('good network for ten seconds restores agent voice and reuses the prepared signed URL', async () => {
   const store = createInstructorStore();
@@ -458,7 +445,6 @@ test('active quota marks the agent unavailable and keeps this conversation and t
     'Check the battery terminals.',
     VOICE_LOCALE,
     expect.any(Function),
-    SpeechVoice.system,
   );
   expect(voice.questions).toBeNull();
   expect(transport.open).toBe(0);
@@ -507,4 +493,42 @@ test('slow Claude first tokens on a good connection neither weaken the network n
   expect(store.getState().network.quality).toBe('good');
   expect(store.getState().suggestion).toBeNull();
   instructor.stop();
+});
+
+test('offline preparation refreshes answer readiness and releases its subscription on stop', () => {
+  const fake = fakePlatform();
+  jest.mocked(fake.model.availability).mockReturnValue('modelsMissing');
+  const store = createInstructorStore();
+  const listeners = new Set<() => void>();
+  const models = {
+    getSnapshot: () => ({
+      state: 'missing' as const,
+      progress: 0,
+      bytes: 0,
+      error: null,
+    }),
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    restore: jest.fn(async () => {}),
+    prepare: jest.fn(async () => {}),
+    cancel: jest.fn(),
+    release: jest.fn(),
+  };
+  const instructor = instructorOn(
+    { ...fake.platform, offlineModels: () => models },
+    { proxyUrl: null, store },
+  );
+  instructor.start();
+  expect(models.restore).toHaveBeenCalledTimes(1);
+  expect(store.getState().mode.answers).toBe('script');
+  jest.mocked(fake.model.availability).mockReturnValue('available');
+  listeners.forEach(listener => listener());
+  expect(store.getState().mode.answers).toBe('deviceModel');
+  instructor.stop();
+  expect(listeners.size).toBe(0);
+  expect(models.release).toHaveBeenCalledTimes(1);
 });
