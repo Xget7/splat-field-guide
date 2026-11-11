@@ -54,6 +54,8 @@ namespace {
 // Blending a wide view's splats is bound by the pixels they cover; three quarters of the
 // resolution covers about 44% fewer and the upscaler keeps edges sharp on a Retina screen.
 constexpr float kRenderScale = 0.75f;
+// Keep the complete pack; LOD bounds the per-frame selection rather than cropping the world.
+constexpr int kSplatBudget = 1'500'000;
 
 std::optional<sfg_event> toC(SplatEngine::Event event) {
   switch (event) {
@@ -83,6 +85,7 @@ sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
   renderer->setRenderScale(kRenderScale);
   auto result = std::make_unique<sfg_engine>();
   result->engine = std::make_unique<SplatEngine>(std::move(renderer));
+  result->engine->setSplatBudget(kSplatBudget);
   sfg_set_camera_limits(result.get(), nullptr);
   result->engine->setPartPickingEnabled(true);
   result->engine->setDrawnFrameQueriesEnabled(true);
