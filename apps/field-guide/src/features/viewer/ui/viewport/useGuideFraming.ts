@@ -42,7 +42,10 @@ export function useGuideFraming(
 
   useEffect(() => {
     if (view === null || framing === null || width === 0 || height === 0) {
-      framed.current = null;
+      // The dev audit temporarily releases this hook, then restores the guide camera.
+      if (__DEV__) {
+        framed.current = null;
+      }
       return;
     }
     const previous = framed.current;
