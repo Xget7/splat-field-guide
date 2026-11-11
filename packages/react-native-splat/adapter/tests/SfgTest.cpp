@@ -31,6 +31,8 @@ bool loadReserved(sfg_engine* engine, const char* world, const char* labels) {
 }
 constexpr int64_t kVsyncNanos = 16666667;
 constexpr float kTolerance = 1e-4f;
+// The engine keeps the camera 85 degrees from the horizon at most.
+constexpr float kEngineMaxElevation = 1.48352986f;
 constexpr float kFieldGuideRenderScale = 0.75f;
 // SHA-256 of solidPairBytes() and labelBytes({kRootPart, 1, 2}), calculated independently with
 // Python hashlib. The tree is written by hand, so its bytes are the same on every platform.
@@ -465,18 +467,30 @@ TEST_F(SfgTest, RevealUsesHostStyleAndZeroDisablesNextLoad) {
   EXPECT_FALSE(sfg_needs_frame(engine));
 }
 
-// Expected gaps run separately with CTest WILL_FAIL. An upstream fix makes them
-// unexpectedly pass so the adapter cannot silently retain an obsolete limitation.
-TEST_F(SfgTest, ExpectedGapOrbitBeforeLoad) {
-  // Public orbit requires an anchor; applyCameraRequest would mark it explicit and
-  // prevent the engine's default loaded-world framing. Need a default orbit mode API.
-  EXPECT_TRUE(sfg_orbit(engine, 0.1f, 0.1f));
+TEST_F(SfgTest, CameraInputBeforeAWorldChangesNothing) {
+  EXPECT_FALSE(sfg_orbit(engine, 0.1f, 0.1f));
+  EXPECT_FALSE(sfg_dolly(engine, 2));
+  ASSERT_TRUE(loadReserved(engine, writeFile("early.lodsplat", pairBytes()).c_str(), nullptr));
+  draw();
+  sfg_view_direction direction{7, 8};
+  ASSERT_TRUE(sfg_drawn_direction(engine, &direction));
+  EXPECT_NEAR(direction.azimuth, 0, kTolerance);
 }
-TEST_F(SfgTest, ExpectedGapNearPoleAndSmallRadiusLimits) {
-  // WalkCamera imposes 85 degrees and 0.05 metres, narrower than the C contract.
-  // setOrbitLimits must accept every finite non-pole angle and positive radius.
-  const sfg_camera_limits limits{-1, 1, -1.56f, 1.56f, 0.01f, 10};
-  EXPECT_TRUE(sfg_set_camera_limits(engine, &limits));
+TEST_F(SfgTest, LimitsWiderThanTheEngineRangeNarrowToIt) {
+  ASSERT_TRUE(loadReserved(engine, writeFile("wide.lodsplat", pairBytes()).c_str(), nullptr));
+  draw();
+  const sfg_camera_limits wide{-1, 1, -1.56f, 1.56f, 0.01f, 10};
+  ASSERT_TRUE(sfg_set_camera_limits(engine, &wide));
+  ASSERT_TRUE(sfg_orbit(engine, 0, 3));
+  draw();
+  sfg_view_direction direction{};
+  ASSERT_TRUE(sfg_drawn_direction(engine, &direction));
+  EXPECT_NEAR(direction.elevation, kEngineMaxElevation, kTolerance);
+  for (const auto bad : {sfg_camera_limits{-1, 1, 1.5f, 1.56f, 1, 10},
+                         sfg_camera_limits{-1, 1, -1, 1.6f, 1, 10},
+                         sfg_camera_limits{-1, 1, -1, 1, 0, 10},
+                         sfg_camera_limits{-1, 1, -1, 1, 0.01f, 0.02f}})
+    EXPECT_FALSE(sfg_set_camera_limits(engine, &bad));
 }
 TEST_F(SfgTest, WrapsLimitedOrbit) {
   // Equivalent angles must frame identically across the pi boundary.

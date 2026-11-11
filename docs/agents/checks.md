@@ -58,7 +58,6 @@ nice -n 19 ctest --test-dir build/tests --output-on-failure
 ```
 
 This includes the imported core and engine suites and the adapter contract tests, using upstream portable SHA-256.
-`SfgExpectedGap.*` cases assert unmet public API contracts with CTest `WILL_FAIL`; an unexpected pass requires reviewing and removing the gap.
 
 Metal and the shared core on the Mac, from root:
 

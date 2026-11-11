@@ -98,15 +98,15 @@ bool sfg_draw(sfg_engine* engine, int64_t frame_time_nanos);
 // surface.
 bool sfg_needs_frame(const sfg_engine* engine);
 
-// Turns the camera, stopping at its limits and stopping any framing.
-// Expected upstream gap: orbit and dolly return false before an anchor exists.
+// Turns the camera, stopping at its limits and stopping any framing. Orbit and dolly change
+// nothing and return false until a world is loaded, which always opens on its default framing.
 bool sfg_orbit(sfg_engine* engine, float d_azimuth, float d_elevation);
 // A pinch's scale: above one moves closer.
 bool sfg_dolly(sfg_engine* engine, float factor);
-// Reject non-finite, inverted, over-full-turn or pole-crossing limits without changes; NULL
-// restores free orbit.
-// Expected upstream gap: positive radii below 0.05 m and elevations beyond 85 degrees
-// are currently rejected, even though they are valid under this contract.
+// Reject non-finite, inverted, over-full-turn or pole-crossing limits and non-positive radii
+// without changes; NULL restores free orbit. The engine keeps the camera within 85 degrees of
+// the horizon and at least 0.05 m away, so wider limits narrow to that range and limits wholly
+// outside it are rejected.
 bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* SFG_NULLABLE limits);
 // Framing uses from or the current direction when NULL, refits on size changes and holds until a
 // pinch or pose replaces it.

@@ -22,10 +22,5 @@ if(SFG_BUILD_TESTS)
   target_compile_options(sfg_adapter_tests PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>)
   include(GoogleTest)
-  gtest_discover_tests(sfg_adapter_tests TEST_FILTER "-SfgTest.ExpectedGap*")
-  foreach(gap OrbitBeforeLoad NearPoleAndSmallRadiusLimits)
-    add_test(NAME SfgExpectedGap.${gap}
-      COMMAND sfg_adapter_tests --gtest_filter=SfgTest.ExpectedGap${gap})
-    set_tests_properties(SfgExpectedGap.${gap} PROPERTIES WILL_FAIL TRUE LABELS expected-api-gap)
-  endforeach()
+  gtest_discover_tests(sfg_adapter_tests)
 endif()

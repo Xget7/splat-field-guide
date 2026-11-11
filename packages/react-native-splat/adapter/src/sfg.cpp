@@ -1,5 +1,6 @@
 #include "sfg/sfg.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -175,12 +176,11 @@ bool sfg_dolly(sfg_engine* engine, float factor) {
 }
 
 bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* limits) {
+  // Default-constructed limits are the engine's own range: clear of the poles and of the splats.
+  const splatkit::WalkCamera::OrbitLimits engineRange;
   splatkit::WalkCamera::OrbitLimits l;
-  constexpr float kDefaultElevation = 1.4835f;
   constexpr float kDefaultMaxRadius = 1000;
   if (limits == nullptr) {
-    l.minElevation = -kDefaultElevation;
-    l.maxElevation = kDefaultElevation;
     l.maxRadius = kDefaultMaxRadius;
     if (!engineOf(engine).setOrbitLimits(l)) return false;
     engine->azimuthLimits.reset();
@@ -193,11 +193,16 @@ bool sfg_set_camera_limits(sfg_engine* engine, const sfg_camera_limits* limits) 
   for (float value : values) if (!std::isfinite(value)) return false;
   if (limits->min_azimuth < -kFullTurn || limits->max_azimuth > kFullTurn ||
       limits->max_azimuth - limits->min_azimuth > kFullTurn + kTurnSlack) return false;
+  constexpr float kPole = 1.57079632679490f;
+  if (std::abs(limits->min_elevation) >= kPole || std::abs(limits->max_elevation) >= kPole ||
+      limits->min_radius <= 0) return false;
   l.minAzimuth = limits->min_azimuth;
   l.maxAzimuth = limits->max_azimuth;
-  l.minElevation = limits->min_elevation;
-  l.maxElevation = limits->max_elevation;
-  l.minRadius = limits->min_radius;
+  // Authored limits wider than the engine's range narrow to it, so the camera stays inside both;
+  // limits wholly outside it leave nothing and the engine refuses them.
+  l.minElevation = std::max(limits->min_elevation, engineRange.minElevation);
+  l.maxElevation = std::min(limits->max_elevation, engineRange.maxElevation);
+  l.minRadius = std::max(limits->min_radius, engineRange.minRadius);
   l.maxRadius = limits->max_radius;
   if (l.maxAzimuth - l.minAzimuth >= kFullTurn - kTurnSlack) {
     l.minAzimuth = -std::numeric_limits<float>::infinity();
