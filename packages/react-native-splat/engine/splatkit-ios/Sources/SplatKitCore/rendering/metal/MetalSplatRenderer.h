@@ -11,6 +11,7 @@
 #include <vector>
 #include "rendering/metal/backdrop/MetalBackdrop.h"
 
+#include "SplatKit/metal/MetalRenderer.h"
 #include "rendering/metal/device/MetalContext.h"
 #include "rendering/metal/diagnostics/MetalFrameCapture.h"
 #include "rendering/metal/frame/MetalFrameCompute.h"
@@ -19,7 +20,6 @@
 #include "rendering/metal/presentation/MetalSurface.h"
 #include "rendering/metal/raster/MetalSplatPipeline.h"
 #include "rendering/metal/world/MetalWorld.h"
-#include "splatkit/rendering/SplatRenderer.h"
 
 namespace splatkit {
 
@@ -28,7 +28,7 @@ namespace splatkit {
 // and the offscreen target a render scale needs, and the world bound to them. The layer is
 // attached and sized by the view; the world stays through a detach. draw() is the frame
 // script over those parts. Render thread only, except where noted.
-class MetalSplatRenderer final : public SplatRenderer, public SceneBackdropRenderer {
+class MetalSplatRenderer final : public MetalRenderer {
  public:
   // Null when the device has no Metal.
   static std::unique_ptr<MetalSplatRenderer> create();
@@ -39,9 +39,9 @@ class MetalSplatRenderer final : public SplatRenderer, public SceneBackdropRende
 
   // The layer to present to, or nil when the view is going away. The renderer sets its
   // device and pixel format; the view sets its size through `setDrawableSize`.
-  void setLayer(CAMetalLayer* layer);
+  void setLayer(CAMetalLayer* layer) override;
   // The layer's size in pixels. Rebuilds the offscreen target if there is one.
-  void setDrawableSize(uint32_t width, uint32_t height);
+  void setDrawableSize(uint32_t width, uint32_t height) override;
 
   bool setSceneBackdrop(const SceneBackdrop& settings, std::string* reason) override;
   void setRenderScale(float scale) override;
@@ -84,7 +84,7 @@ class MetalSplatRenderer final : public SplatRenderer, public SceneBackdropRende
   using CaptureHandler = MetalFrameCapture::Handler;
   // Hands the next frame's pixels to `handler`, from the GPU's completion thread. One
   // capture at a time; a request while one is pending replaces it.
-  void captureNextFrame(CaptureHandler handler);
+  void captureNextFrame(CaptureHandler handler) override;
   uint64_t submittedFrames() const override { return frameLoop_.submittedFrames(); }
   uint64_t completedFrames() override {
     return frameLoop_.gpuFailed() ? 0 : frameLoop_.completedFrames();

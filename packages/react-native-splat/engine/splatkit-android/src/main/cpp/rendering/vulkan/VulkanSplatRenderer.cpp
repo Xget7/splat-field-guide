@@ -11,6 +11,21 @@
 #include "splatkit/Log.h"
 
 namespace splatkit {
+
+splat::Result<std::unique_ptr<VulkanRenderer>> VulkanRenderer::create(
+    std::string pipelineCachePath) {
+  auto context = VulkanContext::create(std::move(pipelineCachePath));
+  if (!context) return context.error();
+  auto frameLoop = std::make_unique<VulkanFrameLoop>(*context.value());
+  if (!frameLoop->valid()) {
+    return splat::Error{splat::ErrorCode::gpuUnavailable, "frame loop"};
+  }
+  auto renderer = std::make_unique<VulkanSplatRenderer>(*context.value(), *frameLoop);
+  renderer->ownedContext_ = std::move(context.value());
+  renderer->ownedFrameLoop_ = std::move(frameLoop);
+  return std::unique_ptr<VulkanRenderer>(std::move(renderer));
+}
+
 namespace {
 
 // The residency range reported to the adapters.

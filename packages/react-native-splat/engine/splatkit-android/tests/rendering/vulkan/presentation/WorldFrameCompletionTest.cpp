@@ -40,5 +40,8 @@ int main() {
   assert(splatkit::publicEvent(splatkit::SplatEngine::Event::colliderFailed) == 3);
   assert(splatkit::publicEvent(splatkit::SplatEngine::Event::gpuFailed) == 5);
   assert(!splatkit::publicEvent(splatkit::SplatEngine::Event::worldFrameReady));
-  assert(!splatkit::publicEvent(static_cast<splatkit::SplatEngine::Event>(999)));
+  constexpr int kUnknownEvent = 999;
+  // Exercise unknown values in the scoped enum's fixed int representation.
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+  assert(!splatkit::publicEvent(static_cast<splatkit::SplatEngine::Event>(kUnknownEvent)));
 }

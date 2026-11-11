@@ -15,7 +15,7 @@
 #include "rendering/vulkan/raster/VulkanSplatPipeline.h"
 #include "rendering/vulkan/world/VulkanWorld.h"
 #include "splat/formats/SplatCloud.h"
-#include "splatkit/rendering/SplatRenderer.h"
+#include "splatkit/vulkan/VulkanRenderer.h"
 
 namespace splatkit {
 
@@ -23,7 +23,7 @@ namespace splatkit {
 // VulkanSurface's format and the world bound to them. Survives losing and regaining the
 // window, and the world stays through it. A rebuild that fails drops the surface and logs;
 // the view stays blank until the host attaches a surface again. Render thread only.
-class VulkanSplatRenderer final : public SplatRenderer {
+class VulkanSplatRenderer final : public VulkanRenderer {
  public:
   VulkanSplatRenderer(VulkanContext& ctx, VulkanFrameLoop& frameLoop);
   ~VulkanSplatRenderer() override;
@@ -32,9 +32,9 @@ class VulkanSplatRenderer final : public SplatRenderer {
   VulkanSplatRenderer& operator=(const VulkanSplatRenderer&) = delete;
 
   // A new window (takes a reference) or nullptr when the surface is going away.
-  void setWindow(ANativeWindow* window);
+  void setWindow(ANativeWindow* window) override;
   // The window changed size while staying attached. Rebuilds the swapchain if needed.
-  void onSurfaceResized(uint32_t width, uint32_t height);
+  void onSurfaceResized(uint32_t width, uint32_t height) override;
 
   void setRenderScale(float scale) override;
   float renderScale() const override { return surface_.renderScale(); }
@@ -76,7 +76,7 @@ class VulkanSplatRenderer final : public SplatRenderer {
   }
   // Reads the stats of frames the GPU finished, without waiting. Call once per vsync, drawn
   // or not: a still scene draws no later frame whose encode would read them.
-  void collectCompletedFrames();
+  void collectCompletedFrames() override;
   double lastGpuMillis() const override { return frameLoop_.lastGpuMillis(); }
   double lastSortMillis() const override { return compute_ ? compute_->stats().sortMillis : 0; }
   double lastCullMillis() const override { return compute_ ? compute_->stats().cullMillis : 0; }
@@ -99,6 +99,10 @@ class VulkanSplatRenderer final : public SplatRenderer {
       uint32_t budget = VulkanLodSelection::kMaxBudget, bool partLabels = false);
   void adoptWorld(std::unique_ptr<VulkanWorld> world, std::unique_ptr<VulkanFrameCompute> compute);
 
+  friend class VulkanRenderer;
+  // Declared first so GPU resources and the frame loop die before the device.
+  std::unique_ptr<VulkanContext> ownedContext_;
+  std::unique_ptr<VulkanFrameLoop> ownedFrameLoop_;
   VulkanContext& ctx_;
   VulkanFrameLoop& frameLoop_;
   VulkanSurface surface_;

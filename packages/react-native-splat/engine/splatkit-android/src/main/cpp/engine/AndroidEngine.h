@@ -6,16 +6,13 @@
 
 #include <android/native_window.h>
 
-#include "rendering/vulkan/VulkanSplatRenderer.h"
-#include "rendering/vulkan/device/VulkanContext.h"
-#include "rendering/vulkan/presentation/VulkanFrameLoop.h"
 #include "splat/core/Result.h"
 #include "splatkit/engine/SplatEngine.h"
+#include "splatkit/vulkan/VulkanRenderer.h"
 
 namespace splatkit {
 
-// The engine on Android: the Vulkan context and frame loop the renderer needs, the
-// renderer, and the shared engine over it. What the JNI holds.
+// The JNI host wires the public Vulkan renderer under the shared engine.
 class AndroidEngine {
  public:
   // `cacheDir` is the app's cache directory, where the Vulkan pipeline cache is kept.
@@ -48,10 +45,8 @@ class AndroidEngine {
   uint32_t worldFrameSplatCount_ = 0;
   bool benchmarkTraced_ = false;
 
-  std::unique_ptr<VulkanContext> ctx_;
-  std::unique_ptr<VulkanFrameLoop> frameLoop_;
-  VulkanSplatRenderer* renderer_ = nullptr;  // owned by the engine
-  std::unique_ptr<SplatEngine> engine_;      // last: dies first, with the renderer
+  VulkanRenderer* renderer_ = nullptr;   // owned by the engine
+  std::unique_ptr<SplatEngine> engine_;  // last: dies first, with the renderer
 };
 
 }  // namespace splatkit

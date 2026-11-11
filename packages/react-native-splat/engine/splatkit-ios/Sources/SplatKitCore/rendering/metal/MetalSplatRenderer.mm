@@ -10,6 +10,11 @@
 #include "splatkit/rendering/LodThreshold.h"
 
 namespace splatkit {
+
+std::unique_ptr<MetalRenderer> MetalRenderer::create() {
+  return MetalSplatRenderer::create();
+}
+
 bool MetalSplatRenderer::setSceneBackdrop(const SceneBackdrop& settings, std::string* reason) {
   if (!settings.valid()) {
     if (reason != nullptr) *reason = "Invalid scene backdrop settings";

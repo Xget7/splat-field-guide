@@ -23,25 +23,16 @@ void logcatSink(LogLevel level, const char* message) {
 splat::Result<std::unique_ptr<AndroidEngine>> AndroidEngine::create(const std::string& cacheDir) {
   setLogSink(&logcatSink);
   std::unique_ptr<AndroidEngine> host(new AndroidEngine());
-  auto ctx =
-      VulkanContext::create(cacheDir.empty() ? std::string{} : cacheDir + "/" + kPipelineCacheFile);
-  if (!ctx) return ctx.error();
-  host->ctx_ = std::move(ctx.value());
-  host->frameLoop_ = std::make_unique<VulkanFrameLoop>(*host->ctx_);
-  if (!host->frameLoop_->valid()) {
-    return splat::Error{splat::ErrorCode::gpuUnavailable, "frame loop"};
-  }
-  auto renderer = std::make_unique<VulkanSplatRenderer>(*host->ctx_, *host->frameLoop_);
+  auto result = VulkanRenderer::create(cacheDir.empty() ? std::string{}
+                                                        : cacheDir + "/" + kPipelineCacheFile);
+  if (!result) return result.error();
+  auto renderer = std::move(result.value());
   host->renderer_ = renderer.get();
   host->engine_ = std::make_unique<SplatEngine>(std::move(renderer));
   return host;
 }
 
-AndroidEngine::~AndroidEngine() {
-  engine_.reset();
-  frameLoop_.reset();
-  if (ctx_) ctx_->waitIdle();
-}
+AndroidEngine::~AndroidEngine() = default;
 
 void AndroidEngine::setEventSink(EventSink sink) {
   eventSink_ = std::move(sink);
