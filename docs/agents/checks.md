@@ -49,15 +49,16 @@ A stripped-extension fallback is not validation of the complete pack, and archiv
 
 ## Native engine
 
-The GPU-independent C++/C interface, from root:
+The GPU-independent engine and app-owned C adapter, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
-nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
-nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
+nice -n 19 cmake -S packages/react-native-splat/adapter -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSFG_BUILD_TESTS=ON
+nice -n 19 cmake --build build/tests --parallel 2
+nice -n 19 ctest --test-dir build/tests --output-on-failure
 ```
 
-Add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the configure step to exercise Android hashing on the host.
+This includes the imported core and engine suites and the adapter contract tests, using upstream portable SHA-256.
+`SfgExpectedGap.*` cases assert unmet public API contracts with CTest `WILL_FAIL`; an unexpected pass requires reviewing and removing the gap.
 
 Metal and the shared core on the Mac, from root:
 
