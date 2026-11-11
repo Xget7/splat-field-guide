@@ -28,6 +28,10 @@ test('the agent carries the pack, screen variables and owner voice through a sec
   assert.equal(config.conversation_config.tts.model_id, TTS_MODEL_ID);
   assert.equal(config.conversation_config.tts.text_normalisation_type, TEXT_NORMALISATION_TYPE);
   assert.equal(config.conversation_config.asr.user_input_audio_format, INPUT_AUDIO_FORMAT);
+  const keywords = config.conversation_config.asr.keywords;
+  assert.ok(keywords.includes(pack.title));
+  for (const part of pack.parts) assert.ok(keywords.includes(part.name));
+  assert.equal(new Set(keywords).size, keywords.length);
   assert.equal(config.conversation_config.tts.agent_output_audio_format, OUTPUT_AUDIO_FORMAT);
   assert.equal(config.platform_settings.auth.enable_auth, true);
 });
