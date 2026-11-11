@@ -1,14 +1,11 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include <numeric>
 #include <string>
 
 #include "rendering/vulkan/frame/VulkanCameraProjection.h"
 #include "rendering/vulkan/frame/VulkanFrameCompute.h"
-#include "rendering/vulkan/layout/VulkanShaderTypes.h"
-#include "splatkit/guide/GuideLayout.h"
 #include "splatkit/rendering/GpuLayout.h"
 #include "splatkit/rendering/RenderPolicy.h"
 #include "support/VulkanTestContext.h"
@@ -16,7 +13,6 @@
 namespace {
 using splatkit::CameraUniform;
 using splatkit::GpuSplat;
-using splatkit::LabelStyles;
 using splatkit::packSplats;
 using splatkit::ProjectedSplat;
 using splatkit::RenderPolicy;
@@ -31,10 +27,6 @@ constexpr uint32_t kPolicyLeaves = 64;
 // Thresholds far past any node's error either way, so the cut does not hang on the fixture.
 constexpr float kCoarsestPixels = 1e6f;
 constexpr float kFinestPixels = 1e-4f;
-// No reveal running: everything is drawn.
-constexpr float kNoReveal = std::numeric_limits<float>::infinity();
-// Field Guide's label stream needs at least 16 bytes even for a world of few splats.
-constexpr size_t kMinLabelWords = 4;
 
 splat::SplatCloud cloud(uint32_t count) {
   splat::SplatCloud result;
@@ -58,14 +50,9 @@ struct Inputs {
     // Degree 0 worlds never read the harmonics; the binding still needs a buffer.
     sh = VulkanBuffer::deviceLocal(*gpu.context, sizeof(uint32_t),
                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    // Every splat takes label 0, two bytes each, two to a word.
-    const std::vector<uint32_t> words(std::max(kMinLabelWords, (source.count() + 1) / 2), 0);
-    labels = VulkanBuffer::deviceLocal(*gpu.context, words.size() * sizeof(uint32_t),
-                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    require(camera && splats && sh && labels &&
-                splats->upload(packed.data(), packed.size() * sizeof(GpuSplat)) &&
-                labels->upload(words.data(), words.size() * sizeof(uint32_t)),
-            "frame input allocation/upload");
+    require(
+        camera && splats && sh && splats->upload(packed.data(), packed.size() * sizeof(GpuSplat)),
+        "frame input allocation/upload");
     setView(0);
   }
   void setView(float x) const {
@@ -80,13 +67,12 @@ struct Inputs {
     std::memcpy(camera->mapped(), &u, sizeof(u));
     camera->flush(0, sizeof(u));
   }
-  std::unique_ptr<VulkanBuffer> camera, splats, sh, labels;
+  std::unique_ptr<VulkanBuffer> camera, splats, sh;
 };
 
 std::vector<uint32_t> run(const test::VulkanTestContext& gpu, VulkanFrameCompute& pass,
                           const Inputs& inputs, uint32_t slot, uint32_t capacity,
-                          const std::vector<SplatRenderer::Range>& ranges,
-                          float revealLevel = kNoReveal, const LabelStyles* styles = nullptr) {
+                          const std::vector<SplatRenderer::Range>& ranges) {
   const VkDeviceSize orderBytes = std::max(1u, capacity) * 4ull;
   const VkDeviceSize bytes =
       sizeof(VkDrawIndirectCommand) + orderBytes + std::max(1u, capacity) * sizeof(ProjectedSplat);
@@ -97,10 +83,8 @@ std::vector<uint32_t> run(const test::VulkanTestContext& gpu, VulkanFrameCompute
     frame.orderSource = SplatRenderer::OrderSource::gpu;
     frame.ranges = ranges.data();
     frame.rangeCount = static_cast<uint32_t>(ranges.size());
-    frame.revealLevel = revealLevel;
-    frame.labelStyles = styles;
-    auto draw = pass.encode(cmd, slot, inputs.camera->handle(), *inputs.splats, *inputs.labels,
-                            *inputs.sh, 0, frame);
+    auto draw =
+        pass.encode(cmd, slot, inputs.camera->handle(), *inputs.splats, *inputs.sh, 0, frame);
     require(draw.has_value(), "GPU frame encode");
     require(draw->capacity <= std::max(1u, capacity), "draw buffer bound");
     VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
@@ -197,27 +181,16 @@ void tests(const test::VulkanTestContext& gpu) {
     require(pass->stats().drawn == 0, "zero drawn remains zero with a loaded source");
     inputs.setView(0);
     require(run(gpu, *pass, inputs, 0, 257, ranges) == expected, "visibility recovers");
-    // Field Guide: the frame's reveal and part styles reach the slot's guide.
-    constexpr float kBelowEverySplat = -1;
-    require(run(gpu, *pass, inputs, 1, 257, ranges, kBelowEverySplat).empty(),
-            "the frame's reveal clips every splat above it");
-    LabelStyles hidden{};
-    hidden[0].opacity = 0;
-    require(run(gpu, *pass, inputs, 0, 257, ranges, kNoReveal, &hidden).empty(),
-            "the frame's styles hide label 0");
-    require(run(gpu, *pass, inputs, 1, 257, ranges) == expected, "the next frame draws again");
     gpu.submit([&](VkCommandBuffer cmd) {
       SplatRenderer::Frame frame;
       frame.orderSource = SplatRenderer::OrderSource::gpu;
       const SplatRenderer::Range overlap[]{{0, 2}, {1, 2}};
       frame.ranges = overlap;
       frame.rangeCount = 2;
-      require(!pass->encode(cmd, 1, inputs.camera->handle(), *inputs.splats, *inputs.labels,
-                            *inputs.sh, 0, frame),
+      require(!pass->encode(cmd, 1, inputs.camera->handle(), *inputs.splats, *inputs.sh, 0, frame),
               "overlapping residency ranges rejected");
       frame.rangeCount = 0;
-      require(!pass->encode(cmd, 2, inputs.camera->handle(), *inputs.splats, *inputs.labels,
-                            *inputs.sh, 0, frame),
+      require(!pass->encode(cmd, 2, inputs.camera->handle(), *inputs.splats, *inputs.sh, 0, frame),
               "invalid frame slot rejected");
     });
     std::printf("PASS %u-bit visibility/sort/indirect chain, ranges, empty view and diagnostics\n",

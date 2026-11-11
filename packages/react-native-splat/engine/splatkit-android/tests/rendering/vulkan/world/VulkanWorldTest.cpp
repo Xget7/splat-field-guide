@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include "splatkit/highlight/Highlight.h"
 
 #include "rendering/vulkan/layout/VulkanShStorage.h"
 #include "rendering/vulkan/world/VulkanWorld.h"
@@ -42,6 +43,16 @@ void uploadShape(const test::VulkanTestContext& gpu) {
   auto world = VulkanWorld::upload(*gpu.context, cloud(3), 3, true);
   require(world && world->count == 3 && world->shDegree == 0, "upload a degree 0 cloud");
   require(world->splats && world->order && world->sh, "upload creates the three buffers");
+  require(!world->labels, "plain upload has no labels allocation");
+  for (const auto& style : world->styles) require(!style, "plain upload has no style allocation");
+  auto labelled = cloud(3);
+  labelled.labels = {256, 65535, 42};
+  auto labelledWorld = VulkanWorld::upload(*gpu.context, labelled, 0, false);
+  require(labelledWorld && labelledWorld->labels, "optional labels upload");
+  const auto bytes = gpu.readback(*labelledWorld->labels, 2 * sizeof(uint32_t));
+  uint32_t words[2]{};
+  std::memcpy(words, bytes.data(), sizeof(words));
+  require(words[0] == 0xffff0100u && words[1] == 42, "packed uint16 GPU label layout");
   require(world->sh->size() == sizeof(uint32_t), "degree 0 keeps a one uint SH placeholder");
   for (const auto& staging : world->orderStaging)
     require(staging && staging->size() == 3 * sizeof(uint32_t), "CPU order staging per slot");
@@ -143,58 +154,31 @@ void worldInSharedMemory(const test::VulkanTestContext& gpu) {
       "the GPU reads the packed harmonics");
 }
 
-// Field Guide's label stream: the bytes the visibility pass reads, from the mapped memory where
-// the GPU shares it with the CPU, else copied back.
-std::vector<uint8_t> labelBytes(const test::VulkanTestContext& gpu, const VulkanWorld& world,
-                                size_t count) {
-  if (const auto* mapped = static_cast<const uint8_t*>(world.labels->mapped()))
-    return {mapped, mapped + count};
-  return gpu.readback(*world.labels, count);
-}
-
-void replacingTheWorldKeepsEachWorldsLabels(const test::VulkanTestContext& gpu) {
-  auto first = cloud(2);
-  first.labels = {3, 7};
-  auto second = cloud(2);
-  second.labels = {9, 4};
-  auto a = VulkanWorld::upload(*gpu.context, first, 0, false);
-  auto b = VulkanWorld::upload(*gpu.context, second, 0, false);
-  require(a && b && a->labels && b->labels && a->labels->handle() != b->labels->handle(),
-          "each world owns its label stream");
-  b.reset();
-  require(labelBytes(gpu, *a, 4) == std::vector<uint8_t>{3, 0, 7, 0},
-          "a world keeps its labels after another is dropped");
-}
-
-void everyWorldHasALabelStreamEvenWithoutLabels(const test::VulkanTestContext& gpu) {
-  // A bound storage range must be nonzero, and the guide reads whole words.
-  constexpr VkDeviceSize kMinimumBufferBytes = 16;
-  auto empty = VulkanWorld::upload(*gpu.context, cloud(0), 0, false);
-  require(empty && empty->labels && empty->labels->size() >= kMinimumBufferBytes,
-          "an empty world has a label stream");
-  auto unlabelled = VulkanWorld::upload(*gpu.context, cloud(5), 0, false);
-  require(unlabelled && unlabelled->labels->size() >= kMinimumBufferBytes,
-          "an unlabelled world has a label stream");
-  require(labelBytes(gpu, *unlabelled, 8) == std::vector<uint8_t>(8, 0),
-          "an unlabelled world takes label 0 everywhere");
-  auto mismatched = cloud(2);
-  mismatched.labels = {1};
-  require(!VulkanWorld::upload(*gpu.context, mismatched, 0, false),
-          "labels that do not match the splats are rejected");
-}
-
-void tileUpdatesWriteOrClearTheirLabelsAtTheirOffset(const test::VulkanTestContext& gpu) {
-  auto slab = VulkanWorld::createSlab(*gpu.context, 8, 0, false);
-  require(slab && slab->labels && slab->labels->size() >= 8, "a slab has a label per record");
-  auto labelled = cloud(2);
-  labelled.labels = {5, 6};
-  require(slab->uploadTile(1, labelled), "labelled tile");
-  // A tile without labels clears what an earlier tile left in its range.
-  require(slab->uploadTile(5, labelled) && slab->uploadTile(5, cloud(2)), "tile over a tile");
-  require(labelBytes(gpu, *slab, 16) == std::vector<uint8_t>{0, 0, 5, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-          "each tile's labels sit at its offset");
-  labelled.labels = {1};
-  require(!slab->uploadTile(3, labelled), "a tile whose labels do not match is rejected");
+void labels(const test::VulkanTestContext& gpu) {
+  constexpr uint16_t kHighestLabel = 44;
+  auto source = cloud(2);
+  auto plain = VulkanWorld::upload(*gpu.context, source, 0, false);
+  require(plain && !plain->labels && !plain->styles[0], "plain world has no label buffers");
+  source.labels = {0, kHighestLabel};
+  require(!VulkanWorld::upload(*gpu.context, source, 0, true), "reject labelled CPU ordering");
+  auto labelled = VulkanWorld::upload(*gpu.context, source, 0, false);
+  require(labelled && labelled->styles[0]->size() == splatkit::labelStyleBytes(kHighestLabel + 1),
+          "state buffer scales to highest label");
+  splatkit::Highlight highlight(45);
+  labelled->updateStyles(0, &highlight.styles());
+  labelled->updateStyles(0, &highlight.styles());
+  require(labelled->styleUploadBytes(0) == 0, "unchanged frame writes nothing");
+  const uint16_t selected = 44;
+  highlight.set(&selected, 1);
+  labelled->updateStyles(0, &highlight.styles());
+  require(labelled->styleUploadBytes(0) == splatkit::labelStyleBytes(45), "membership upload");
+  highlight.update(splatkit::Highlight::kFadeSeconds / 2);
+  labelled->updateStyles(0, &highlight.styles());
+  require(labelled->styleUploadBytes(0) == splatkit::kPaletteBytes, "fade writes palette only");
+  labelled->updateStyles(0, &highlight.styles());
+  require(labelled->styleUploadBytes(0) == 0, "unchanged fade writes nothing");
+  auto slab = VulkanWorld::createSlab(*gpu.context, 2, 0, false);
+  require(slab && !slab->uploadTile(0, source), "reject labelled tiles");
 }
 
 void orderUpload(const test::VulkanTestContext& gpu) {
@@ -233,14 +217,9 @@ int main() {
     std::puts("PASS tiles in shared memory");
     worldInSharedMemory(gpu);
     std::puts("PASS world in shared memory");
+    labels(gpu);
     orderUpload(gpu);
     std::puts("PASS order upload");
-    replacingTheWorldKeepsEachWorldsLabels(gpu);
-    std::puts("PASS replacing the world keeps each world's labels");
-    everyWorldHasALabelStreamEvenWithoutLabels(gpu);
-    std::puts("PASS every world has a label stream even without labels");
-    tileUpdatesWriteOrClearTheirLabelsAtTheirOffset(gpu);
-    std::puts("PASS tile updates write or clear their labels at their offset");
     gpu.requireValidationClean();
     return 0;
   } catch (const std::exception& e) {

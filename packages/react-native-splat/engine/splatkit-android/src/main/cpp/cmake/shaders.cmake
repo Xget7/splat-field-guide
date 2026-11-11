@@ -1,0 +1,67 @@
+# Compiles GLSL to SPIR-V with the NDK's glslc and embeds each module as a uint32_t array
+# in a generated header, so shaders ship inside libsplatkit.so and need no asset loading.
+#
+# Usage: splatkit_compile_shaders(<interface target> <shader files...>)
+# A shader can live in any job folder; its file name foo.vert becomes
+# `splatkit::shaders::foo_vert` (std::vector-like span).
+
+function(splatkit_compile_shaders target)
+  if(NOT DEFINED ANDROID_NDK OR NOT DEFINED ANDROID_HOST_TAG)
+    message(FATAL_ERROR "splatkit_compile_shaders needs the NDK toolchain")
+  endif()
+  set(glslc "${ANDROID_NDK}/shader-tools/${ANDROID_HOST_TAG}/glslc")
+  set(out_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/shaders")
+  file(MAKE_DIRECTORY "${out_dir}")
+
+  set(headers)
+  foreach(source IN LISTS ARGN)
+    get_filename_component(name "${source}" NAME)
+    string(REPLACE "." "_" symbol "${name}")
+    set(spv "${out_dir}/${name}.spv")
+    set(header "${out_dir}/${symbol}.h")
+    # Includes resolve from the cpp root; the depfile rebuilds a shader when one changes.
+    add_custom_command(
+      OUTPUT "${spv}"
+      COMMAND "${glslc}" -O --target-env=vulkan1.1 -I "${CMAKE_CURRENT_SOURCE_DIR}"
+        -DSPLATKIT_VULKAN_SH8=$<BOOL:${SPLATKIT_VULKAN_SH8}>
+        -MD -MF "${spv}.d" -o "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
+      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}"
+      DEPFILE "${spv}.d"
+      COMMENT "glslc ${source}"
+      VERBATIM
+    )
+    if(name STREQUAL "visibility.comp" AND NOT SPLATKIT_VULKAN_SH8)
+      add_custom_command(OUTPUT "${spv}.verified"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${spv}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_visibility.cmake"
+        COMMAND "${CMAKE_COMMAND}" -E touch "${spv}.verified"
+        DEPENDS "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_visibility.cmake"
+        VERBATIM)
+      list(APPEND headers "${spv}.verified")
+    endif()
+    if(name STREQUAL "labelled_visibility.comp")
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+      add_custom_command(OUTPUT "${spv}.layout-verified"
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_label_layout.py" "${spv}"
+        COMMAND "${CMAKE_COMMAND}" -E touch "${spv}.layout-verified"
+        DEPENDS "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_label_layout.py"
+        VERBATIM)
+      list(APPEND headers "${spv}.layout-verified")
+    endif()
+    add_custom_command(
+      OUTPUT "${header}"
+      COMMAND "${CMAKE_COMMAND}"
+        "-DINPUT=${spv}" "-DOUTPUT=${header}" "-DSYMBOL=${symbol}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake"
+      DEPENDS "${spv}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake"
+      COMMENT "embed ${name}"
+      VERBATIM
+    )
+    list(APPEND headers "${header}")
+  endforeach()
+
+  add_custom_target(${target}_generate DEPENDS ${headers})
+  add_library(${target} INTERFACE)
+  add_dependencies(${target} ${target}_generate)
+  target_include_directories(${target} INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+endfunction()

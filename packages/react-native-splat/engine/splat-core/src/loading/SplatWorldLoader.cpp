@@ -1,119 +1,268 @@
 #include "splat/loading/SplatWorldLoader.h"
+#include "splat/formats/PartLabels.h"
 
+#include <picosha2.h>
 #include <algorithm>
-#include <chrono>
-#include <optional>
-#include <string>
+#include <cstdio>
 #include <utility>
 
-#include "Sha256.h"
-
-#include "splat/formats/PartLabels.h"
+#include "splat/diagnostics/Stopwatch.h"
+#include "splat/formats/GlbDecoder.h"
+#include "splat/formats/SplatDecoder.h"
 #include "splat/io/MappedFile.h"
 #include "splat/lod/LodFile.h"
+#include "splat/sorting/SpatialOrder.h"
 
 namespace splat {
 namespace {
 
-using Clock = std::chrono::steady_clock;
-constexpr std::size_t kSha256Bytes = 32;
-constexpr char kInvalidIdentity[] = "Pack source identity is invalid";
-constexpr char kWorldDigestMismatch[] = "World SHA-256 does not match the pack manifest";
-constexpr char kLabelsDigestMismatch[] = "Part labels SHA-256 does not match the pack manifest";
-constexpr char kSplatCountMismatch[] = "World splat count does not match the pack manifest";
+// A .lodsplat is already a tree, so it draws with a budget even if the caller set none.
+constexpr int kDefaultLodBudget = 1200000;
 
-bool validDigest(const std::string& digest) {
-  return digest.size() == kSha256Bytes * 2 && std::all_of(digest.begin(), digest.end(), [](char c) {
-           return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
-         });
-}
+// Memory a load leaves free beyond its estimate: for what the estimate leaves out (allocator
+// slack, the decoder's small buffers, the renderer's per-frame scratch) and for whatever the
+// app allocates meanwhile.
+constexpr std::uint64_t kMemoryHeadroomBytes = 256ull << 20;
+constexpr double kBytesPerGigabyte = 1e9;
 
-double millisSince(Clock::time_point start) {
-  return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
-}
+// How a world that does not fit can be made to.
+constexpr const char* kSplatFileAdvice = "prepare it as a .lodsplat or a tileset";
+constexpr const char* kLodSplatAdvice = "prepare it as a tileset";
+constexpr const char* kSlabAdvice = "lower the residency budget";
 
 }  // namespace
+
+void SplatWorldLoader::setBudget(int budget) {
+  budget_.store(std::max(budget, 0));
+}
 
 void SplatWorldLoader::setMaxShDegree(int degree) {
   maxShDegree_.store(std::clamp(degree, 0, 3));
 }
 
-Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView world, ByteView labels,
-                                                                  const SourceIdentity* identity) {
+void SplatWorldLoader::setSourceFrame(std::optional<CoordinateFrame> frame) {
+  const std::lock_guard<std::mutex> lock(sourceFrameMutex_);
+  sourceFrame_ = frame;
+}
+
+std::optional<CoordinateFrame> SplatWorldLoader::sourceFrame() const {
+  const std::lock_guard<std::mutex> lock(sourceFrameMutex_);
+  return sourceFrame_;
+}
+
+void SplatWorldLoader::setResidency(std::uint32_t splats) {
+  residency_.store(splats);
+}
+
+void SplatWorldLoader::setMemoryGuard(MemoryGuard guard) {
+  guard_ = std::move(guard);
+}
+
+Result<SplatWorldLoader::MemoryUse> SplatWorldLoader::admit(const Result<LoadCost>& cost,
+                                                            const char* advice) const {
+  // A header the estimate cannot read is left to the decoder, which says what is wrong.
+  if (!cost || !guard_.availableBytes || !guard_.gpuBytes) return MemoryUse{};
+  const std::optional<std::uint64_t> available = guard_.availableBytes();
+  if (!available) return MemoryUse{};
+  const LoadCost& c = cost.value();
+  const std::uint64_t needed =
+      std::max(c.peakBytes, c.residentBytes + guard_.gpuBytes(c)) + kMemoryHeadroomBytes;
+  if (needed <= *available) return MemoryUse{needed, *available};
+  char message[192];
+  std::snprintf(message, sizeof(message),
+                "World needs about %.1f GB of memory to load, but only %.1f GB is free; %s",
+                static_cast<double>(needed) / kBytesPerGigabyte,
+                static_cast<double>(*available) / kBytesPerGigabyte, advice);
+  return Error{ErrorCode::insufficientMemory, message};
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
+                                                                  std::size_t size,
+                                                                  const LoadOptions& options) {
+  if (options.expectedSha256) {
+    if (!data && size != 0) return Error{ErrorCode::corrupt, "Missing world bytes"};
+    picosha2::hash256_one_by_one hash;
+    // Bound the hash library's input scratch independently of world size.
+    constexpr std::size_t kHashChunkBytes = 64 * 1024;
+    for (std::size_t offset = 0; offset < size;) {
+      const auto count = std::min(kHashChunkBytes, size - offset);
+      hash.process(data + offset, data + offset + count);
+      offset += count;
+    }
+    hash.finish();
+    std::array<std::uint8_t, 32> actual{};
+    hash.get_hash_bytes(actual.begin(), actual.end());
+    if (actual != *options.expectedSha256)
+      return Error{ErrorCode::corrupt, "World SHA-256 mismatch"};
+  }
+  return loadWorld(data, size);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path,
+                                                                      const LoadOptions& options) {
+  auto file = MappedFile::open(path);
+  if (!file) return file.error();
+  return loadWorld(file.value().data(), file.value().size(), options);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
+                                                                  std::size_t size) {
+  return loadWorld(data, size, nullptr, 0);
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(const std::uint8_t* data,
+                                                                  std::size_t size,
+                                                                  const std::uint8_t* labels,
+                                                                  std::size_t labelsSize) {
   WorldReport report;
   auto start = Clock::now();
-  if (identity) {
-    if (!validDigest(identity->worldSha256) || !validDigest(identity->labelsSha256) ||
-        identity->expectedSplatCount == 0)
-      return Error{ErrorCode::corrupt, kInvalidIdentity};
-    const auto labelsDigest = detail::sha256(labels);
-    if (!labelsDigest) return labelsDigest.error();
-    if (labelsDigest.value() != identity->labelsSha256)
-      return Error{ErrorCode::labelsMismatch, kLabelsDigestMismatch};
-    const auto worldDigest = detail::sha256(world);
-    if (!worldDigest) return worldDigest.error();
-    if (worldDigest.value() != identity->worldSha256)
-      return Error{ErrorCode::corrupt, kWorldDigestMismatch};
-    report.verificationMillis = millisSince(start);
-    report.verified = true;
-  }
-  start = Clock::now();
-  // The header and the labels are checked before the tree is decoded: they are a small fraction
-  // of the bytes.
-  const auto header = readLodSplatHeader(world.data, world.size);
-  if (!header) return header.error();
-  if (identity && header.value().leafCount != identity->expectedSplatCount)
-    return Error{ErrorCode::corrupt, kSplatCountMismatch};
-  std::vector<std::uint16_t> partLabels;
-  if (!labels.empty()) {
-    auto decodedLabels = decodePartLabels(labels.data, labels.size);
-    if (!decodedLabels) return decodedLabels.error();
-    partLabels = std::move(decodedLabels.value());
-    // Labels counted by the leaves, or for another tree, would style the wrong nodes.
-    if (partLabels.size() != header.value().nodeCount) {
-      return Error{ErrorCode::labelsMismatch,
-                   std::to_string(partLabels.size()) + " part labels for " +
-                       std::to_string(header.value().nodeCount) + " tree nodes"};
+  if (isLodSplat(data, size)) {
+    const int lodBudget = budget() > 0 ? budget() : kDefaultLodBudget;
+    const auto memory =
+        admit(lodSplatLoadCost(data, size, maxShDegree_.load(), lodBudget), kLodSplatAdvice);
+    if (!memory) return memory.error();
+    report.neededBytes = memory.value().needed;
+    report.availableBytes = memory.value().available;
+    auto decoded = decodeLodSplat(data, size, maxShDegree_.load());
+    if (!decoded) return decoded.error();
+    if (labelsSize != 0 || labels != nullptr) {
+      auto decodedLabels = decodePartLabels(labels, labelsSize, decoded.value().nodeCount());
+      if (!decodedLabels) return decodedLabels.error();
+      decoded.value().nodes.labels = std::move(decodedLabels.value());
     }
+    auto world = std::make_unique<World>();
+    world->tree = std::make_unique<LodTree>(std::move(decoded.value()));
+    world->budget = lodBudget;
+    world->sourceCount = world->tree->leafCount;
+    report.splatCount = world->sourceCount;
+    report.nodeCount = world->tree->nodeCount();
+    report.shDegree = world->tree->nodes.shDegree;
+    report.bounds = world->tree->nodes.bounds;
+    report.decodeMillis = millisSince(start);
+    const std::lock_guard<std::mutex> lock(mutex_);
+    pendingWorld_ = std::move(world);
+    return report;
   }
-  auto decoded = decodeLodSplat(world.data, world.size, maxShDegree_.load());
+  SplatDecodeOptions options;
+  options.maxShDegree = maxShDegree_.load();
+  options.sourceFrame = sourceFrame();
+  const auto memory =
+      admit(splatFileLoadCost(data, size, options.maxShDegree, budget()), kSplatFileAdvice);
+  if (!memory) return memory.error();
+  report.neededBytes = memory.value().needed;
+  report.availableBytes = memory.value().available;
+  auto decoded = decodeSplatFile(data, size, options);
   if (!decoded) return decoded.error();
-  auto tree = std::make_unique<LodTree>(std::move(decoded.value()));
-  tree->nodes.labels = std::move(partLabels);
   report.decodeMillis = millisSince(start);
-  report.splatCount = tree->leafCount;
-  report.nodeCount = tree->nodeCount();
-  report.shDegree = tree->nodes.shDegree;
-  report.labelled = !tree->nodes.labels.empty();
-  report.bounds = tree->nodes.bounds;
+  auto cloud = std::make_unique<SplatCloud>(std::move(decoded.value()));
+  if (labelsSize != 0 || labels != nullptr) {
+    auto decodedLabels = decodePartLabels(labels, labelsSize, cloud->count());
+    if (!decodedLabels) return decodedLabels.error();
+    cloud->labels = std::move(decodedLabels.value());
+  }
+  report.splatCount = cloud->count();
+  report.shDegree = cloud->shDegree;
+  report.bounds = cloud->bounds;
+
+  start = Clock::now();
+  reorderSpatially(*cloud);
+  report.reorderMillis = millisSince(start);
+
+  auto world = std::make_unique<World>();
+  world->budget = budget();
+  world->sourceCount = cloud->count();
+  if (world->budget > 0) {
+    start = Clock::now();
+    world->tree = std::make_unique<LodTree>(buildLodTree(std::move(*cloud)));
+    report.nodeCount = world->tree->nodeCount();
+    report.treeMillis = millisSince(start);
+  } else {
+    world->cloud = std::move(cloud);
+  }
 
   const std::lock_guard<std::mutex> lock(mutex_);
-  pendingWorld_ = std::move(tree);
+  pendingWorld_ = std::move(world);
   return report;
 }
 
-Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(
-    const std::string& worldPath, const std::string& labelsPath, const SourceIdentity* identity) {
-  auto world = MappedFile::open(worldPath);
-  if (!world) return world.error();
-  std::optional<MappedFile> labels;
-  if (!labelsPath.empty()) {
-    auto mapped = MappedFile::open(labelsPath);
-    if (!mapped) return mapped.error();
-    labels.emplace(std::move(mapped.value()));
-  }
-  return loadWorld({world.value().data(), world.value().size()},
-                   labels ? ByteView{labels->data(), labels->size()} : ByteView{}, identity);
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(const std::string& path) {
+  auto file = MappedFile::open(path);
+  if (!file) return file.error();
+  return loadWorld(file.value().data(), file.value().size());
 }
 
-std::unique_ptr<LodTree> SplatWorldLoader::takeWorld() {
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorldFile(
+    const std::string& path, const std::string& labelsPath) {
+  if (labelsPath.empty()) return loadWorldFile(path);
+  auto world = MappedFile::open(path);
+  if (!world) return world.error();
+  auto labels = MappedFile::open(labelsPath);
+  if (!labels) return labels.error();
+  return loadWorld(world.value().data(), world.value().size(), labels.value().data(),
+                   labels.value().size());
+}
+
+Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadTiledWorldFile(
+    const std::string& path) {
+  const auto start = Clock::now();
+  auto opened = openTiledWorld(path, sourceFrame());
+  if (!opened) return opened.error();
+  const std::uint32_t residency = residency_.load();
+  const int shDegree = std::min(opened.value().tileset->shDegree, maxShDegree_.load());
+  const auto memory = admit(slabLoadCost(residency, shDegree), kSlabAdvice);
+  if (!memory) return memory.error();
+  auto world = std::make_unique<World>();
+  world->tiles = std::make_unique<TiledWorld>(std::move(opened.value()));
+  world->residency = residency;
+  const Tileset& set = *world->tiles->tileset;
+  world->sourceCount = set.splatCount;
+
+  WorldReport report;
+  report.neededBytes = memory.value().needed;
+  report.availableBytes = memory.value().available;
+  report.splatCount = set.splatCount;
+  report.shDegree = set.shDegree;
+  report.bounds = set.tiles[set.root].bounds;
+  report.tileCount = set.tiles.size();
+  report.decodeMillis = millisSince(start);
+
+  const std::lock_guard<std::mutex> lock(mutex_);
+  pendingWorld_ = std::move(world);
+  return report;
+}
+
+Result<SplatWorldLoader::ColliderReport> SplatWorldLoader::loadCollider(const std::uint8_t* data,
+                                                                        std::size_t size) {
+  const auto start = Clock::now();
+  GlbDecodeOptions options;
+  options.sourceFrame = sourceFrame().value_or(options.sourceFrame);
+  auto decoded = decodeGlb(data, size, options);
+  if (!decoded) return decoded.error();
+  auto collider = std::make_unique<Collider>(decoded.value());
+  ColliderReport report;
+  report.triangleCount = collider->triangleCount();
+  report.millis = millisSince(start);
+
+  const std::lock_guard<std::mutex> lock(mutex_);
+  pendingCollider_ = std::move(collider);
+  return report;
+}
+
+Result<SplatWorldLoader::ColliderReport> SplatWorldLoader::loadColliderFile(
+    const std::string& path) {
+  auto file = MappedFile::open(path);
+  if (!file) return file.error();
+  return loadCollider(file.value().data(), file.value().size());
+}
+
+std::unique_ptr<SplatWorldLoader::World> SplatWorldLoader::takeWorld() {
   const std::lock_guard<std::mutex> lock(mutex_);
   return std::move(pendingWorld_);
 }
 
-bool SplatWorldLoader::hasWorld() const {
+std::unique_ptr<Collider> SplatWorldLoader::takeCollider() {
   const std::lock_guard<std::mutex> lock(mutex_);
-  return pendingWorld_ != nullptr;
+  return std::move(pendingCollider_);
 }
 
 }  // namespace splat

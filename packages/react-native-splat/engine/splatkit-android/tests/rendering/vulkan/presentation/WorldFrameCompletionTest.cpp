@@ -3,6 +3,12 @@
 #include <cassert>
 
 #include "rendering/vulkan/presentation/WorldFrameCompletion.h"
+#include "splatkit/engine/SplatEngine.h"
+
+static_assert(static_cast<int>(splatkit::SplatEngine::Event::worldReady) == 0);
+static_assert(static_cast<int>(splatkit::SplatEngine::Event::worldFailed) == 1);
+static_assert(static_cast<int>(splatkit::SplatEngine::Event::colliderReady) == 2);
+static_assert(static_cast<int>(splatkit::SplatEngine::Event::colliderFailed) == 3);
 
 int main() {
   splatkit::WorldFrameCompletion completion;

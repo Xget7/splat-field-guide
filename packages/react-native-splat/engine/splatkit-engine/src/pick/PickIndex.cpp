@@ -8,7 +8,6 @@ namespace splatkit {
 namespace {
 
 constexpr std::size_t kCovarianceFloats = 6;  // xx, xy, xz, yy, yz, zz
-constexpr std::size_t kLabelCount = 65536;
 constexpr float kCutoffSquared = PickIndex::kSigmaCutoff * PickIndex::kSigmaCutoff;
 // Past this transmittance nothing behind can change which label wins.
 constexpr float kOpaque = PickIndex::kMinAlpha;
@@ -23,10 +22,19 @@ struct Hit {
 // ray: with A the inverse covariance and v from the centre to the origin, it is
 // v.A.v - (d.A.v)^2 / d.A.d. False when the covariance is degenerate.
 bool rayDistanceSquared(const float* c, splat::Vec3 v, splat::Vec3 d, float* out) {
-  const float xx = c[0], xy = c[1], xz = c[2], yy = c[3], yz = c[4], zz = c[5];
+  const float xx = c[0];
+  const float xy = c[1];
+  const float xz = c[2];
+  const float yy = c[3];
+  const float yz = c[4];
+  const float zz = c[5];
   // The adjugate; its product with a vector over the determinant applies the inverse.
-  const float axx = yy * zz - yz * yz, axy = xz * yz - xy * zz, axz = xy * yz - xz * yy;
-  const float ayy = xx * zz - xz * xz, ayz = xy * xz - xx * yz, azz = xx * yy - xy * xy;
+  const float axx = yy * zz - yz * yz;
+  const float axy = xz * yz - xy * zz;
+  const float axz = xy * yz - xz * yy;
+  const float ayy = xx * zz - xz * xz;
+  const float ayz = xy * xz - xx * yz;
+  const float azz = xx * yy - xy * xy;
   const float det = xx * axx + xy * axy + xz * axz;
   if (!(det > 0)) return false;
   const auto apply = [&](splat::Vec3 u) -> splat::Vec3 {
@@ -41,25 +49,46 @@ bool rayDistanceSquared(const float* c, splat::Vec3 v, splat::Vec3 d, float* out
   return true;
 }
 
-}
+}  // namespace
 
 std::shared_ptr<const PickIndex> PickIndex::take(splat::SplatCloud& cloud) {
   std::shared_ptr<PickIndex> index(new PickIndex());
-  if (cloud.labels.empty()) return index;
+  if (cloud.labels.empty() || cloud.labels.size() != cloud.count() ||
+      cloud.alphas.size() != cloud.count() || cloud.positions.size() != cloud.count() * 3 ||
+      cloud.covariances.size() != cloud.count() * 6)
+    return index;
   index->positions_ = std::move(cloud.positions);
   index->covariances_ = std::move(cloud.covariances);
   index->alphas_ = std::move(cloud.alphas);
+  index->labelCount_ = std::size_t{*std::max_element(cloud.labels.begin(), cloud.labels.end())} + 1;
   index->labels_ = std::move(cloud.labels);
   return index;
 }
 
-std::uint16_t PickIndex::pick(const Ray& ray) const {
+std::shared_ptr<const PickIndex> PickIndex::share(std::shared_ptr<const splat::LodTree> tree) {
+  std::shared_ptr<PickIndex> index(new PickIndex());
+  if (tree && !tree->nodes.labels.empty()) {
+    index->labelCount_ =
+        std::size_t{*std::max_element(tree->nodes.labels.begin(), tree->nodes.labels.end())} + 1;
+    index->tree_ = std::move(tree);
+  }
+  return index;
+}
+
+std::uint16_t PickIndex::pick(const Ray& ray, const LabelStyles* styles) const {
+  const auto& labels = tree_ ? tree_->nodes.labels : labels_;
+  const auto& positions = tree_ ? tree_->nodes.positions : positions_;
+  const auto& covariances = tree_ ? tree_->nodes.covariances : covariances_;
+  const auto& alphas = tree_ ? tree_->nodes.alphas : alphas_;
+  if (labels.empty()) return 0;
   std::vector<Hit> hits;
   const splat::Vec3 o = ray.origin;
   const splat::Vec3 d = ray.direction;
-  for (std::size_t i = 0; i < labels_.size(); ++i) {
-    const float* p = &positions_[i * 3];
-    const float* c = &covariances_[i * kCovarianceFloats];
+  for (std::size_t i = 0; i < labels.size(); ++i) {
+    if (tree_ && tree_->layout[i].childCount != 0) continue;
+    if (styles && (*styles)[labels[i]].opacity == 0) continue;
+    const float* p = &positions[i * 3];
+    const float* c = &covariances[i * kCovarianceFloats];
     const splat::Vec3 v{o.x - p[0], o.y - p[1], o.z - p[2]};
     const float along = -splat::dot(v, d);  // the centre's distance along the ray
     if (along <= 0) continue;
@@ -70,14 +99,14 @@ std::uint16_t PickIndex::pick(const Ray& ray) const {
     if (!rayDistanceSquared(c, v, d, &distanceSquared) || distanceSquared > kCutoffSquared) {
       continue;
     }
-    const float alpha = alphas_[i] * std::exp(-0.5f * distanceSquared);
+    const float alpha = alphas[i] * std::exp(-0.5f * distanceSquared);
     if (alpha < kMinAlpha) continue;
-    hits.push_back({splat::dot(v, v), alpha, labels_[i]});
+    hits.push_back({splat::dot(v, v), alpha, labels[i]});
   }
   std::sort(hits.begin(), hits.end(),
             [](const Hit& a, const Hit& b) { return a.depthSquared < b.depthSquared; });
 
-  std::vector<float> weights(kLabelCount, 0);
+  std::vector<float> weights(labelCount_, 0);
   float transmittance = 1;
   for (const Hit& hit : hits) {
     weights[hit.label] += hit.alpha * transmittance;
@@ -86,7 +115,7 @@ std::uint16_t PickIndex::pick(const Ray& ray) const {
   }
   if (1 - transmittance < kMinCoverage) return 0;
   return static_cast<std::uint16_t>(std::max_element(weights.begin(), weights.end()) -
-                                   weights.begin());
+                                    weights.begin());
 }
 
-}
+}  // namespace splatkit

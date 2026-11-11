@@ -1,0 +1,11 @@
+# The JVM resolves the native methods and JNI_OnLoad by name; nothing else in
+# this library is anyone's business. Without this every symbol of zstd, spz,
+# vk-bootstrap and VMA ships as GLOBAL DEFAULT, so a host app carrying its own
+# copy of any of them can have its calls bound to ours, or ours to theirs.
+{
+  global:
+    Java_com_splatkit_*;
+    JNI_OnLoad;
+  local:
+    *;
+};

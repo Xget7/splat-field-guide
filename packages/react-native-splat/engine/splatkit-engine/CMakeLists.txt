@@ -11,6 +11,7 @@ option(SPLATKIT_ENGINE_BUILD_TESTS "Build splatkit_engine unit tests" ${PROJECT_
 # The engine sits on splat-core; a platform package that already added it skips this.
 if(NOT TARGET splat_core)
   set(SPLAT_CORE_BUILD_TESTS ${SPLATKIT_ENGINE_BUILD_TESTS} CACHE BOOL "" FORCE)
+  set(SPLAT_CORE_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../splat-core splat-core)
 endif()
 
@@ -18,16 +19,18 @@ endif()
 # diagnostics and the GPU record layout. A platform supplies a SplatRenderer and a log
 # sink and gets the whole engine.
 add_library(splatkit_engine STATIC
-  src/Log.cpp
-  src/camera/OrbitCamera.cpp
-  src/diagnostics/StatsPublisher.cpp
-  src/engine/SplatEngine.cpp
-  src/guide/GuideLayout.cpp
+  src/labels/LabelStyles.cpp
   src/highlight/Highlight.cpp
-  src/reveal/Reveal.cpp
   src/pick/PickIndex.cpp
+  src/Log.cpp
   src/rendering/GpuLayout.cpp
-  src/sfg/sfg.cpp
+  src/rendering/RenderPolicy.cpp
+  src/camera/Lens.cpp
+  src/camera/WalkCamera.cpp
+  src/diagnostics/Benchmark.cpp
+  src/diagnostics/StatsPublisher.cpp
+  src/loading/LoadReportLog.cpp
+  src/engine/SplatEngine.cpp
 )
 target_include_directories(splatkit_engine PUBLIC include)
 target_link_libraries(splatkit_engine PUBLIC splat_core)

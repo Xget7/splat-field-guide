@@ -1,7 +1,9 @@
 #include "splat/lod/LodTree.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -47,6 +49,12 @@ std::vector<Leaf> huddle(std::vector<std::pair<float, std::uint16_t>> parts, flo
   return leaves;
 }
 
+TEST(LabelledLodTree, RejectsMismatchedLabels) {
+  auto cloud = cloudOf(huddle({{0.9f, 1}, {0.1f, 2}}));
+  cloud.labels.pop_back();
+  EXPECT_THROW(buildLodTree(std::move(cloud)), std::invalid_argument);
+}
+
 TEST(LabelledLodTree, MergedNodesPreserveHighLabels) {
   const auto tree = buildLodTree(cloudOf(huddle({{0.9f, 65535}, {0.1f, 256}})));
   ASSERT_GT(tree.layout[0].childCount, 0u);
@@ -55,9 +63,10 @@ TEST(LabelledLodTree, MergedNodesPreserveHighLabels) {
 
 TEST(LabelledLodTree, LeavesKeepTheirParts) {
   std::vector<Leaf> leaves;
+  leaves.reserve(200);
   for (int i = 0; i < 200; ++i)
-    leaves.push_back({static_cast<float>(i % 7), static_cast<float>(i / 7) * 0.5f, 0, 0.5f,
-                      static_cast<std::uint16_t>(65535 - i % 5)});
+    leaves.push_back({static_cast<float>(i % 7), std::floor(static_cast<float>(i) / 7.0f) * 0.5f, 0,
+                      0.5f, static_cast<std::uint16_t>(65535 - i % 5)});
   const LodTree tree = buildLodTree(cloudOf(leaves));
   ASSERT_EQ(tree.nodes.labels.size(), tree.nodeCount());
   std::size_t checked = 0;

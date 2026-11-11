@@ -1,10 +1,11 @@
 #pragma once
 
 #import <Metal/Metal.h>
+#include "splatkit/rendering/SceneBackdrop.h"
 
 namespace splatkit {
 
-// Field Guide: what shows where the capture has no splats. A capture holds nothing past what
+// What shows where the capture has no splats. A capture holds nothing past what
 // was scanned, so the frame's own colours, spread outward and blurred, stand in for the
 // surroundings instead of a flat background. Render thread only.
 class MetalBackdrop {
@@ -15,11 +16,15 @@ class MetalBackdrop {
   bool create(id<MTLDevice> device, id<MTLLibrary> library, MTLPixelFormat sceneFormat);
   MTLPixelFormat format() const { return format_; }
 
-  // Puts the backdrop under `scene`, which holds premultiplied colour and its coverage; every
-  // pixel is opaque afterwards. Encode it after the splats of the same command buffer. False,
-  // leaving the scene as drawn, before create() succeeded or when the backdrop's textures for
-  // the scene's size could not be allocated.
-  bool encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene);
+  // Release successful allocations when disabled, preserving failed-size and pipeline latches.
+  void releaseTextures() {
+    if (pyramid_ != nil) sceneWidth_ = sceneHeight_ = 0;
+    pyramid_ = backdrop_ = scratch_ = nil;
+  }
+  // Prepare before changing the splat pass, so failures retain the original fixed background.
+  bool prepare(id<MTLDevice> device, id<MTLLibrary> library, id<MTLTexture> scene);
+  // Composite under premultiplied scene coverage in the same command buffer as the splats.
+  bool encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene, const SceneBackdrop& settings);
 
  private:
   // Sized from the scene, reallocated only when its size changes.

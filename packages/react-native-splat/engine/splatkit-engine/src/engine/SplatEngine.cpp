@@ -1,110 +1,71 @@
 #include "splatkit/engine/SplatEngine.h"
 
-#include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <limits>
 #include <utility>
 
-#include "splat/filtering/Compaction.h"
+#include "splat/diagnostics/Stopwatch.h"
+#include "splat/math/Frustum.h"
+#include "splat/tiles/TileStreamer.h"
 #include "splatkit/Log.h"
+#include "splatkit/loading/LoadReportLog.h"
+#include "splatkit/rendering/GpuLayout.h"
 
 namespace splatkit {
 namespace {
 
 // A frame longer than this (a stall, a resume) steps the camera as if it were this long.
 constexpr float kMaxFrameSeconds = 0.1f;
-// A framed box fills at most 1 / this of the view's half width and half height.
-constexpr float kFramingMargin = 1.05f;
-// An aspect below this is treated as this, so a zero-width view still frames.
-constexpr float kMinFramingAspect = 1e-3f;
-// Field Guide draws only from a GPU order, so a renderer without GPU sorting cannot show a world.
-constexpr char kNoGpuSortMessage[] = "renderer lacks GPU sort support";
-// Field Guide ships only trees, which a renderer without GPU selection would draw whole.
-constexpr char kNoGpuLodMessage[] = "renderer lacks GPU level of detail selection";
+// How many pixels the splats a tile hides may cover before the tiles below are wanted.
+constexpr float kTilePixels = 1.0f;
+constexpr float kRadiansPerDegree = static_cast<float>(M_PI) / 180.0f;
+// Decode threads a tiled world streams its tiles with.
+constexpr int kLoaderThreads = 2;
 
-using Clock = std::chrono::steady_clock;
-
-double millisSince(Clock::time_point start) {
-  return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
-}
-
-splat::Vec3 centre(const splat::Bounds& b) {
-  return {(b.min[0] + b.max[0]) * 0.5f, (b.min[1] + b.max[1]) * 0.5f, (b.min[2] + b.max[2]) * 0.5f};
-}
-
-// The closest distance that keeps every corner inside the screen margin and near plane.
-float framingRadius(const splat::Bounds& bounds, Extent extent, SplatEngine::ViewDirection from) {
-  const splat::Vec3 half{(bounds.max[0] - bounds.min[0]) * 0.5f,
-                         (bounds.max[1] - bounds.min[1]) * 0.5f,
-                         (bounds.max[2] - bounds.min[2]) * 0.5f};
-  if (splat::length(half) == 0) return 0;
-  const float aspect = extent.width > 0 && extent.height > 0
-                           ? static_cast<float>(extent.width) / extent.height
-                           : 1.0f;
-  const float tanY = std::tan(SplatEngine::kFieldOfViewRadians * 0.5f);
-  const float tanX = tanY * std::max(aspect, kMinFramingAspect);
-  const float horizontal = std::cos(from.elevation);
-  const splat::Vec3 forward{-horizontal * std::sin(from.azimuth), -std::sin(from.elevation),
-                            -horizontal * std::cos(from.azimuth)};
-  // Match OrbitCamera's view basis so the offsets are the ones the projection sees.
-  const splat::Vec3 right = splat::normalize(splat::cross(forward, {0, 1, 0}));
-  const splat::Vec3 up = splat::cross(right, forward);
-  float radius = 0;
-  for (const float x : {-half.x, half.x}) {
-    for (const float y : {-half.y, half.y}) {
-      for (const float z : {-half.z, half.z}) {
-        const splat::Vec3 p{x, y, z};
-        const float depth = splat::dot(p, forward);
-        radius = std::max({radius, kFramingMargin * std::abs(splat::dot(p, right)) / tanX - depth,
-                           kFramingMargin * std::abs(splat::dot(p, up)) / tanY - depth,
-                           SplatEngine::kNearPlane - depth});
-      }
-    }
-  }
-  return radius;
-}
-
-// Picks read the leaves alone: a merged node stands in for its leaves and would cover the gaps
-// between them. The upload has copied the tree, so its nodes are compacted in place.
-std::shared_ptr<const PickIndex> takeLeafPickIndex(splat::LodTree& tree) {
-  splat::SplatCloud& nodes = tree.nodes;
-  if (nodes.labels.empty()) return PickIndex::take(nodes);
-  // Colours and harmonics are not picked, so they need no compaction.
-  nodes.colors.clear();
-  nodes.sh.clear();
-  std::vector<bool> leaf(tree.layout.size());
-  for (std::size_t i = 0; i < leaf.size(); ++i) leaf[i] = tree.layout[i].childCount == 0;
-  splat::keepSplats(nodes, leaf);
-  return PickIndex::take(nodes);
-}
-
-bool finite(const splat::Bounds& b) {
-  for (int i = 0; i < 3; ++i) {
-    if (!std::isfinite(b.min[i]) || !std::isfinite(b.max[i]) || b.min[i] > b.max[i]) return false;
-  }
-  return true;
-}
+using splat::Clock;
+using splat::millisSince;
 
 }  // namespace
 
-SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer, FileLoader loadFile)
-    : renderer_(std::move(renderer)), loadFile_(std::move(loadFile)) {
-  if (!loadFile_) {
-    loadFile_ = [](const std::string& worldPath, const std::string& labelsPath, int degree,
-                   const splat::SourceIdentity* identity) -> splat::Result<LoadedWorld> {
-      splat::SplatWorldLoader loader;
-      loader.setMaxShDegree(degree);
-      const auto result = loader.loadWorldFile(worldPath, labelsPath, identity);
-      if (!result) return result.error();
-      return LoadedWorld{loader.takeWorld(), result.value()};
-    };
-  }
+SplatEngine::SplatEngine(std::unique_ptr<SplatRenderer> renderer) : renderer_(std::move(renderer)) {
+  // The backend's fallback is the policy in effect until the host sets one.
+  policy_ = renderer_->deviceCapabilities().policy.fallback;
+  loader_.setMemoryGuard({[this] { return renderer_->availableMemory(); }, &gpuWorldBytes});
+  camera_.setTeleportListener([this] { onTeleport(); });
 }
 
-// The renderer goes first: it waits for the GPU, which may still read the world.
+RenderPolicyResolution SplatEngine::setRenderPolicy(const RenderPolicy& requested) {
+  RenderPolicyResolution resolution =
+      resolveRenderPolicy(requested, renderer_->deviceCapabilities().policy);
+  if (!resolution.accepted) {
+    // Report the policy still in effect, not the backend fallback the resolution started from.
+    resolution.effective = policy_;
+    return resolution;
+  }
+  std::string reason;
+  if (!renderer_->applyRenderPolicy(resolution.effective, &reason)) {
+    resolution.accepted = false;
+    resolution.preparationFailed = true;
+    resolution.error = reason.empty() ? "renderer refused the policy" : reason;
+    resolution.warnings.clear();
+    resolution.effective = policy_;
+    return resolution;
+  }
+  policy_ = resolution.effective;
+  redrawNeeded_ = true;
+  return resolution;
+}
+
+void SplatEngine::setMaxShDegree(int degree) {
+  degree = std::clamp(degree, 0, kMaxShDegree);
+  maxShDegree_ = degree;
+  loader_.setMaxShDegree(degree);
+}
+
+// The renderer goes first: it waits for the GPU, which may still read ranges the
+// streamer owns.
 SplatEngine::~SplatEngine() {
   renderer_.reset();
+  streamer_.reset();
 }
 
 void SplatEngine::setShDegree(int degree) {
@@ -114,301 +75,397 @@ void SplatEngine::setShDegree(int degree) {
   redrawNeeded_ = true;
 }
 
-uint64_t SplatEngine::beginLoad() {
-  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  pendingWorld_.reset();
-  return ++currentLoad_;
+// Loading: decode on the calling thread, report, and leave the result for the frame.
+
+void SplatEngine::loadWorld(const std::uint8_t* data, std::size_t size,
+                            const splat::SplatWorldLoader::LoadOptions& options) {
+  reportWorld(loader_.loadWorld(data, size, options));
 }
 
-bool SplatEngine::loadWorld(splat::ByteView world, splat::ByteView labels) {
-  const uint64_t request = beginLoad();
-  splat::SplatWorldLoader loader;
-  loader.setMaxShDegree(maxShDegree_.load());
-  const auto result = loader.loadWorld(world, labels);
-  if (!result) return finishLoad(request, result.error());
-  return finishLoad(request, LoadedWorld{loader.takeWorld(), result.value()});
+void SplatEngine::loadWorldFile(const std::string& path,
+                                const splat::SplatWorldLoader::LoadOptions& options) {
+  reportWorld(loader_.loadWorldFile(path, options));
 }
 
-bool SplatEngine::loadWorldFile(const std::string& worldPath, const std::string& labelsPath) {
-  return loadWorldFile(beginLoad(), worldPath, labelsPath);
+void SplatEngine::loadWorld(const std::uint8_t* data, std::size_t size) {
+  reportWorld(loader_.loadWorld(data, size));
 }
 
-bool SplatEngine::loadWorldFile(uint64_t request, const std::string& worldPath,
-                                const std::string& labelsPath,
-                                const splat::SourceIdentity* identity) {
-  {
-    const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-    if (request == 0 || request != currentLoad_) return false;
-  }
-  return finishLoad(request, loadFile_(worldPath, labelsPath, maxShDegree_.load(), identity));
+void SplatEngine::loadWorld(const std::uint8_t* data, std::size_t size, const std::uint8_t* labels,
+                            std::size_t labelsSize) {
+  reportWorld(loader_.loadWorld(data, size, labels, labelsSize));
 }
-
-bool SplatEngine::finishLoad(uint64_t request, splat::Result<LoadedWorld> result) {
-  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  if (request != currentLoad_) return false;
-  if (!result) return report(result.error());
-  report(result.value().report);
-  pendingWorld_ = std::move(result.value().tree);
+void SplatEngine::loadWorldFile(const std::string& path, const std::string& labelsPath) {
+  reportWorld(loader_.loadWorldFile(path, labelsPath));
+}
+bool SplatEngine::setReveal(const RevealSettings& settings) {
+  if (!std::isfinite(settings.seconds) || settings.seconds < 0 ||
+      !std::isfinite(settings.bandShare) || settings.bandShare < 0 || settings.bandShare > 1 ||
+      !std::isfinite(settings.tintAmount) || settings.tintAmount < 0 || settings.tintAmount > 1 ||
+      !std::isfinite(settings.brightnessBoost) || settings.brightnessBoost < 0)
+    return false;
+  for (const float channel : settings.tint)
+    if (!std::isfinite(channel) || channel < 0) return false;
+  revealSettings_ = settings;
   return true;
 }
 
-bool SplatEngine::hasPendingWorld() const {
-  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  return pendingWorld_ != nullptr;
-}
-
-bool SplatEngine::report(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
-  if (!report) {
-    const splat::Error& error = report.error();
-    LOGE("world load failed: %s", error.message.c_str());
-    emit(
-        error.code == splat::ErrorCode::labelsMismatch ? Event::labelsMismatch : Event::worldFailed,
-        error.message);
-    return false;
-  }
-  const auto& r = report.value();
-  if (r.verified) LOGI("verified pack SHA-256 in %.2f ms", r.verificationMillis);
-  LOGI(
-      "decoded a %s tree of %zu nodes over %zu splats in %.0f ms, sh degree %d, bounds y "
-      "[%.2f, %.2f]",
-      r.labelled ? "labelled" : "unlabelled", r.nodeCount, r.splatCount, r.decodeMillis, r.shDegree,
-      r.bounds.min[1], r.bounds.max[1]);
-  return true;
-}
-
-bool SplatEngine::applyPendingWorld() {
-  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  auto tree = std::move(pendingWorld_);
-  if (!tree) return false;
-  // An upload would succeed and draw empty frames, which would then report the world ready.
-  if (!renderer_->sortsOnGpu()) {
-    LOGE("world load failed: %s", kNoGpuSortMessage);
-    emit(Event::worldFailed, kNoGpuSortMessage);
-    return false;
-  }
-  if (!renderer_->selectsLodOnGpu()) {
-    LOGE("world load failed: %s", kNoGpuLodMessage);
-    emit(Event::worldFailed, kNoGpuLodMessage);
-    return false;
-  }
-  const auto start = Clock::now();
-  if (!renderer_->uploadLodWorld(*tree, kMaxShDegree, kSplatBudget)) {
-    LOGE("world upload failed");
-    emit(Event::worldFailed, "GPU upload failed");
-    return false;
-  }
-  sourceCount_ = static_cast<uint32_t>(tree->leafCount);
-  const splat::Bounds bounds = tree->nodes.bounds;
-  pickIndex_ = takeLeafPickIndex(*tree);
-  if (!poseSet_) {
-    framedBounds_ = bounds;
-    framedExtent_ = {};
-  }
-  uploadedLoad_ = currentLoad_;
-  showing_ = Showing::awaitingDraw;
-  reveal_.start(bounds, revealSeconds_);
-  const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
-  LOGI("uploaded %u splats in %.0f ms, sh degree %d", gpu.count, millisSince(start), gpu.shDegree);
-  return true;
-}
-
-void SplatEngine::reportShown() {
-  const std::lock_guard<std::recursive_mutex> lock(loadMutex_);
-  if (uploadedLoad_ != currentLoad_) {
-    showing_ = Showing::nothing;
+void SplatEngine::highlightParts(const std::uint16_t* labels, std::size_t count) {
+  if (labelCount_ == 0) {
+    if (count) LOGW("highlight request requires a loaded labelled world");
     return;
   }
-  if (showing_ != Showing::awaitingGpu || renderer_->completedFrames() < worldFrame_) return;
-  showing_ = Showing::nothing;
-  LOGI("cloud ready: %u splats", sourceCount_);
-  emit(Event::worldReady, {}, sourceCount_);
+  if (!highlight_ && count == 0) return;
+  if (!highlight_) highlight_ = std::make_unique<Highlight>(labelCount_);
+  highlight_->set(labels, count);
+  redrawNeeded_ = true;
 }
 
-bool SplatEngine::setCameraPose(const OrbitPose& pose) {
-  if (!camera_.setPose(pose)) return false;
-  poseSet_ = true;
+void SplatEngine::loadWorldFile(const std::string& path) {
+  reportWorld(loader_.loadWorldFile(path));
+}
+
+void SplatEngine::loadTiledWorldFile(const std::string& path) {
+  reportWorld(loader_.loadTiledWorldFile(path));
+}
+
+void SplatEngine::loadCollider(const std::uint8_t* data, std::size_t size) {
+  reportCollider(loader_.loadCollider(data, size));
+}
+
+void SplatEngine::loadColliderFile(const std::string& path) {
+  reportCollider(loader_.loadColliderFile(path));
+}
+
+void SplatEngine::reportWorld(const splat::Result<splat::SplatWorldLoader::WorldReport>& report) {
+  if (!report) {
+    LOGE("world load failed: %s", report.error().message.c_str());
+    emit(Event::worldFailed, report.error().message);
+    return;
+  }
+  logWorldReport(report.value());
+}
+
+void SplatEngine::reportCollider(
+    const splat::Result<splat::SplatWorldLoader::ColliderReport>& report) {
+  if (!report) {
+    LOGE("collider load failed: %s", report.error().message.c_str());
+    emit(Event::colliderFailed, report.error().message);
+    return;
+  }
+  logColliderReport(report.value());
+}
+
+// Render thread, once per frame: puts to use what the loader finished decoding on the
+// caller's thread. True when a new world is drawn from now on.
+bool SplatEngine::uploadFinishedLoads() {
+  if (auto collider = loader_.takeCollider()) {
+    camera_.setCollider(std::move(collider));
+    emit(Event::colliderReady);
+  }
+  auto world = loader_.takeWorld();
+  if (!world) return false;
+
+  if (!renderer_->sortsOnGpu()) {
+    LOGE("world load failed: renderer lacks GPU sort support");
+    emit(Event::worldFailed, "renderer lacks GPU sort support");
+    return false;
+  }
+
+  const splat::Bounds worldBounds =
+      world->tiles ? world->tiles->tileset->tiles[world->tiles->tileset->root].bounds
+                   : world->splats().bounds;
+
+  const auto start = Clock::now();
+  if (world->tiles) {
+    const splat::Tileset& set = *world->tiles->tileset;
+    const uint32_t residency = world->residency;
+    if (!renderer_->createSlab(residency, std::min(set.shDegree, maxShDegree_.load()))) {
+      LOGE("slab of %u splats failed", residency);
+      emit(Event::worldFailed, "GPU upload failed");
+      return false;
+    }
+    splat::StreamOptions options;
+    options.residency = residency;
+    options.loaderThreads = kLoaderThreads;
+    streamer_ = std::make_unique<splat::TileStreamer>(std::move(*world->tiles), options);
+  } else {
+    if (world->tree && !renderer_->selectsLodOnGpu()) {
+      LOGE("world load failed: renderer lacks GPU level of detail selection");
+      emit(Event::worldFailed, "renderer lacks GPU level of detail selection");
+      return false;
+    }
+    const bool uploaded = world->tree
+                              ? renderer_->uploadLodWorld(*world->tree, maxShDegree_.load(),
+                                                          static_cast<uint32_t>(world->budget))
+                              : renderer_->uploadWorld(world->splats(), maxShDegree_.load());
+    if (!uploaded) {
+      LOGE("world upload failed");
+      emit(Event::worldFailed, "GPU upload failed");
+      return false;
+    }
+    streamer_.reset();
+  }
+  labelCount_ = !world->tiles && !world->splats().labels.empty()
+                    ? std::size_t{*std::max_element(world->splats().labels.begin(),
+                                                    world->splats().labels.end())} +
+                          1
+                    : 0;
+  preparePartPicking(*world);
+  highlight_.reset();
+  reveal_.start(worldBounds, revealSettings_);
+  sourceCount_ = static_cast<uint32_t>(world->sourceCount);
+  loadedBudget_ = world->budget;
+  planner_.invalidate();
+  drawCount_ = 0;  // the first frustum cull decides what is visible
   framedBounds_.reset();
-  redrawNeeded_ = true;
+  if (!camera_.hasCollider()) {
+    const splat::Vec3 centre{(worldBounds.min[0] + worldBounds.max[0]) * 0.5f,
+                             (worldBounds.min[1] + worldBounds.max[1]) * 0.5f,
+                             (worldBounds.min[2] + worldBounds.max[2]) * 0.5f};
+    framedBounds_ = worldBounds;
+    framedExtent_ = renderer_->drawExtent();
+    camera_.setDefaultAnchor(centre, lens_.framingRadius(worldBounds, framedExtent_));
+  }
+  const GpuWorldInfo gpu = renderer_->world().value_or(GpuWorldInfo{});
+  LOGI("uploaded %u splats in %.0f ms, sh degree %d", gpu.count, millisSince(start), gpu.shDegree);
+  worldFramePending_ = true;
+  emit(Event::worldReady, {}, sourceCount_);
   return true;
 }
 
-bool SplatEngine::setCameraLimits(const OrbitLimits& limits) {
-  if (!camera_.setLimits(limits)) return false;
+// Camera. A teleport needs a fresh sort, not a cull, and its pose is published now
+// rather than at the next frame: a host that sets and reads back before a world exists
+// would otherwise see the previous pose.
+void SplatEngine::onTeleport() {
+  planner_.invalidate();
   redrawNeeded_ = true;
-  return true;
+  publishPose();
+}
+
+void SplatEngine::setCameraPose(const CameraPose& pose) {
+  camera_.setPosition({pose.x, pose.y, pose.z});
+  camera_.setOrientation(pose.yaw, pose.pitch);
+}
+
+void SplatEngine::setCameraLookAt(splat::Vec3 position, splat::Vec3 target, splat::Vec3 up) {
+  camera_.setLookAt(position, target, up);
+}
+
+CameraResolution SplatEngine::applyCameraRequest(const CameraRequest& requested) {
+  return camera_.applyCameraRequest(requested);
+}
+
+void SplatEngine::setCameraAnchor(splat::Vec3 point) {
+  camera_.setAnchor(point);
 }
 
 bool SplatEngine::orbit(float deltaAzimuth, float deltaElevation) {
-  if (!camera_.orbit(deltaAzimuth, deltaElevation)) return false;
-  redrawNeeded_ = true;
-  return true;
+  return camera_.orbit(deltaAzimuth, deltaElevation);
 }
 
-bool SplatEngine::dolly(float factor) {
-  if (!camera_.dolly(factor)) return false;
-  framedBounds_.reset();
-  redrawNeeded_ = true;
-  return true;
+bool SplatEngine::dolly(float deltaRadius) {
+  return camera_.dolly(deltaRadius);
 }
 
-bool SplatEngine::frame(const splat::Bounds& bounds, float seconds,
-                        std::optional<ViewDirection> from) {
-  if (!finite(bounds)) return false;
+bool SplatEngine::focus(float x, float y) {
   const Extent extent = renderer_->drawExtent();
-  OrbitPose to = camera_.pose();
-  if (from) {
-    to.azimuth = from->azimuth;
-    to.elevation = from->elevation;
-    // Fit from the direction the camera's limits will allow.
-    OrbitCamera directed = camera_;
-    if (!directed.setPose(to)) return false;
-    to = directed.pose();
+  if (extent.width == 0 || extent.height == 0) return false;
+  const Lens::TanHalf tan = lens_.tanHalf(extent);
+  return camera_.focus(x, y, tan.x, tan.y, lens_.farPlane);
+}
+
+bool SplatEngine::setLens(const LensSettings& settings) {
+  const std::optional<Lens> lens = Lens::with(settings);
+  if (!lens) return false;
+  lens_ = *lens;
+  if (framedBounds_) {
+    camera_.reframeDefaultAnchor(lens_.framingRadius(*framedBounds_, framedExtent_));
   }
-  to.target = centre(bounds);
-  to.radius = framingRadius(bounds, extent, {to.azimuth, to.elevation});
-  // Nothing is on screen before the view has a size, so there is nothing to ease from.
-  const bool sized = extent.width > 0 && extent.height > 0;
-  if (!camera_.animateTo(to, sized ? seconds : 0)) return false;
-  poseSet_ = true;
-  framedBounds_ = bounds;
-  framedExtent_ = extent;
+  // The projection is not part of what decides a redraw or a new cull.
+  planner_.invalidate();
   redrawNeeded_ = true;
   return true;
 }
 
-// Refit after animation to preserve screen margins when a view changes aspect, especially landscape
-// to portrait.
-void SplatEngine::refit(Extent extent) {
-  if (!framedBounds_ || extent.width == 0 || extent.height == 0 || camera_.animating()) return;
+bool SplatEngine::startOrbitAnimation(float degrees, float degreesPerSecond, bool easeInOut) {
+  return camera_.animateOrbit(degrees * kRadiansPerDegree, degreesPerSecond * kRadiansPerDegree,
+                              easeInOut);
+}
+
+bool SplatEngine::setCharacter(const splat::CharacterSettings& settings) {
+  if (!camera_.setCharacter(settings)) return false;
+  redrawNeeded_ = true;
+  return true;
+}
+
+// A world loaded before the view's final shape, or a phone turned mid-orbit, would
+// otherwise keep a framing for the wrong aspect: too close after landscape to portrait.
+void SplatEngine::reframeDefaultOrbit(Extent extent) {
+  if (!framedBounds_ || extent.width == 0 || extent.height == 0) return;
   if (extent.width == framedExtent_.width && extent.height == framedExtent_.height) return;
   framedExtent_ = extent;
-  OrbitPose pose = camera_.pose();
-  pose.target = centre(*framedBounds_);
-  pose.radius = framingRadius(*framedBounds_, extent, {pose.azimuth, pose.elevation});
-  camera_.setPose(pose);
-  redrawNeeded_ = true;
+  camera_.reframeDefaultAnchor(lens_.framingRadius(*framedBounds_, extent));
 }
 
-void SplatEngine::setHighlight(const std::uint16_t* labels, std::size_t count) {
-  highlight_.set(labels, count);
+void SplatEngine::publishPose() {
+  stats_.publishPose(camera_.position(), camera_.yaw(), camera_.pitch());
 }
 
-splat::Mat4 SplatEngine::projection(Extent extent) const {
-  const float aspect = static_cast<float>(extent.width) / static_cast<float>(extent.height);
-  return splat::Mat4::perspective(kFieldOfViewRadians, aspect, kNearPlane, kFarPlane);
+SplatEngine::FrameCamera SplatEngine::frameCamera(Extent extent) const {
+  FrameCamera c;
+  c.view = camera_.viewMatrix();
+  c.proj = lens_.projection(extent);
+  c.axes.position = camera_.position();
+  c.axes.forward = {-c.view.at(2, 0), -c.view.at(2, 1), -c.view.at(2, 2)};
+  c.axes.up = {c.view.at(1, 0), c.view.at(1, 1), c.view.at(1, 2)};
+  c.axes.tanHalfX = 1.0f / c.proj.at(0, 0);
+  c.axes.tanHalfY = 1.0f / c.proj.at(1, 1);
+  return c;
 }
 
-void SplatEngine::publishView(const SplatRenderer::Frame& frame) {
-  View view;
-  view.view = frame.view;
-  view.cameraToWorld = frame.view.rigidInverse();
-  view.projX = frame.proj.at(0, 0);
-  view.projY = frame.proj.at(1, 1);
-  view.azimuth = camera_.pose().azimuth;
-  view.elevation = camera_.pose().elevation;
-  view.pickIndex = pickIndex_;
-  std::lock_guard<std::mutex> lock(viewMutex_);
-  view_ = std::move(view);
+// Visibility: only the splats inside a widened frustum reach the GPU, which pays per
+// splat it processes. The planner says when the view changed enough to ask again.
+
+void SplatEngine::requestVisible(const FrameCamera& camera, float dt, Extent extent) {
+  auto frustum = planner_.update(camera.axes, dt, lastSort_.cullMillis);
+  // A pixel at unit depth: what a node or a tile may cover on screen before it is refined.
+  const float pixelScale = 2.0f / (camera.proj.at(1, 1) * static_cast<float>(extent.height));
+  if (streamer_) streamTiles(camera, pixelScale, frustum);
 }
 
-SplatEngine::View SplatEngine::publishedView() const {
-  std::lock_guard<std::mutex> lock(viewMutex_);
-  return view_.value_or(View{});
-}
-
-std::uint16_t SplatEngine::pick(float x, float y) const {
-  const View view = publishedView();
-  if (!view.pickIndex || !std::isfinite(x) || !std::isfinite(y)) return 0;
-  // Back through the projection: the point's direction in camera space, looking down -Z.
-  const splat::Vec3 inCamera{(2 * x - 1) / view.projX, (1 - 2 * y) / view.projY, -1};
-  Ray ray;
-  ray.origin = view.cameraToWorld.transformPoint({0, 0, 0});
-  ray.direction = splat::normalize(view.cameraToWorld.transformDirection(inCamera));
-  return view.pickIndex->pick(ray);
-}
-
-std::size_t SplatEngine::project(const float* points, std::size_t count, float* out) const {
-  const View view = publishedView();
-  std::size_t inFront = 0;
-  for (std::size_t i = 0; i < count; ++i) {
-    const splat::Vec3 p =
-        view.view.transformPoint({points[i * 3], points[i * 3 + 1], points[i * 3 + 2]});
-    const float depth = -p.z;
-    float* uv = out + i * 2;
-    if (view.projX == 0 || depth < kNearPlane) {
-      uv[0] = uv[1] = std::numeric_limits<float>::quiet_NaN();
-      continue;
+// Streaming runs every frame: the scheduler plans for the view, tiles that arrived are
+// uploaded into their slab ranges, and the renderer culls and sorts the ranges itself,
+// so a frame redraws only when the set of tiles drawn changed.
+void SplatEngine::streamTiles(const FrameCamera& camera, float pixelScale,
+                              const std::optional<splat::Frustum>& requested) {
+  splat::TileView view;
+  view.frustum = requested ? *requested
+                           : splat::Frustum::make(camera.axes.position, camera.axes.forward,
+                                                  camera.axes.up, camera.axes.tanHalfX,
+                                                  camera.axes.tanHalfY, planner_.marginRadians());
+  view.pixelScaleLimit = pixelScale * kTilePixels;
+  const splat::TileStreamer::Step step = streamer_->update(view, renderer_->completedFrames());
+  for (const auto& arrival : step.arrived) {
+    if (renderer_->uploadTile(arrival.offset, *arrival.cloud)) {
+      streamer_->commit(arrival.tile);
+    } else {
+      LOGE("tile %u upload failed", arrival.tile);
+      streamer_->fail(arrival.tile);
     }
-    uv[0] = (view.projX * p.x / depth + 1) * 0.5f;
-    uv[1] = (1 - view.projY * p.y / depth) * 0.5f;
-    ++inFront;
   }
-  return inFront;
+  for (const uint32_t tile : step.failed) LOGE("tile %u could not be read", tile);
+  if (step.drawChanged) redrawNeeded_ = true;
 }
 
-bool SplatEngine::drawnDirection(float& azimuth, float& elevation) const {
-  const View view = publishedView();
-  if (view.projX == 0) return false;
-  azimuth = view.azimuth;
-  elevation = view.elevation;
-  return true;
+void SplatEngine::takeSortResult() {
+  lastSort_.sortMillis = renderer_->lastSortMillis();
+  lastSort_.cullMillis = renderer_->lastCullMillis();
+  lastSort_.selectMillis = renderer_->lastSelectMillis();
+  lastSort_.selected = streamer_ ? streamer_->drawnSplats() : sourceCount_;
+  drawCount_ = renderer_->lastDrawCount();
+}
+
+// Benchmark and stats.
+
+void SplatEngine::startBenchmark(float seconds) {
+  benchmark_.start(seconds);
+  // Requests non-FIFO presentation; host callbacks can still be vsync-paced.
+  if (benchmark_.pending()) renderer_->setVsync(false);
+}
+
+void SplatEngine::driveBenchmark(float dt, const GpuWorldInfo& world) {
+  if (benchmark_.pending()) {
+    camera_.setMotionEnabled(false);
+    camera_.setOrientation(0.0f, 0.0f);
+    benchmark_.begin(world.count);
+    return;
+  }
+  if (benchmark_.running()) camera_.look(benchmark_.step(dt, renderer_->lastGpuMillis()), 0.0f);
 }
 
 void SplatEngine::publishStats() {
+  takeSortResult();  // reading the renderer's GPU results consumes nothing
   stats_.publish(sample());
 }
 
 StatsPublisher::Sample SplatEngine::sample() const {
   StatsPublisher::Sample s;
   s.gpuMillis = renderer_->lastGpuMillis();
-  s.sortMillis = renderer_->lastSortMillis();
-  s.drawn = renderer_->lastDrawCount();
-  s.sourceSplats = renderer_->world() ? sourceCount_ : 0;
+  s.sortMillis = lastSort_.sortMillis;
+  s.cullMillis = lastSort_.cullMillis;
+  s.selectMillis = lastSort_.selectMillis;
+  s.selected =
+      renderer_->lastSelectedCount() > 0 ? renderer_->lastSelectedCount() : lastSort_.selected;
+  s.drawn = drawCount_;
+  const std::optional<GpuWorldInfo> world = renderer_->world();
+  s.sourceSplats = world ? sourceCount_ : 0;
+  s.gpuSplats = world ? (streamer_ ? streamer_->held() : world->count) : 0;
+  s.shDegree = world ? static_cast<uint32_t>(world->shDegree) : 0;
+  s.walking = camera_.hasCollider();
+  s.motion = camera_.motionEnabled();
   return s;
 }
+
+void SplatEngine::preparePartPicking(splat::SplatWorldLoader::World& world) {
+  picks_.reset();
+  if (!partPickingEnabled_.load() || world.tiles || world.splats().labels.empty()) return;
+  picks_ = world.tree ? PickIndex::share(world.tree) : PickIndex::take(*world.cloud);
+}
+
+// The frame.
 
 float SplatEngine::frameSeconds(int64_t frameTimeNanos) {
   const float dt =
       lastFrameNanos_ == 0 ? 0.0f : static_cast<float>(frameTimeNanos - lastFrameNanos_) * 1e-9f;
   lastFrameNanos_ = frameTimeNanos;
-  return std::clamp(dt, 0.0f, kMaxFrameSeconds);
+  return std::max(dt, 0.0f);
 }
 
-bool SplatEngine::needsFrame() const {
-  if (renderer_->failed()) return !gpuFailureReported_;
-  if (!renderer_->ready()) return false;
-  return redrawNeeded_ || showing_ != Showing::nothing || camera_.animating() ||
-         highlight_.fading() || reveal_.active() || hasPendingWorld() ||
-         renderer_->generation() != lastDrawnGeneration_;
-}
-
-bool SplatEngine::render(int64_t frameTimeNanos) {
-  const bool drawn = step(frameTimeNanos);
-  if (!needsFrame()) lastFrameNanos_ = 0;
-  return drawn;
-}
-
-bool SplatEngine::step(int64_t frameTimeNanos) {
-  if (renderer_->failed()) {
+// Every vsync steps the camera, but the GPU only draws when something visible changed:
+// a still scene costs no GPU time and almost no battery.
+bool SplatEngine::pollGpuEvents() {
+  if (renderer_->gpuFailed()) {
     if (!gpuFailureReported_) {
       gpuFailureReported_ = true;
-      LOGE("the GPU failed; this view draws nothing more");
-      emit(Event::gpuFailed, "The GPU reported an error");
+      worldFramePending_ = false;
+      emit(Event::gpuFailed, "GPU failed; recreate the engine");
     }
     return false;
   }
-  if (!renderer_->ready()) return false;
-  if (applyPendingWorld()) redrawNeeded_ = true;
+  if (gpuFailureReported_) return false;
+  if (worldFramePending_ && renderer_->hasCompletedWorldFrame()) {
+    worldFramePending_ = false;
+    emit(Event::worldFrameReady, {}, sourceCount_);
+  }
+  return renderer_->ready();
+}
+
+void SplatEngine::render(int64_t frameTimeNanos) {
+  if (!pollGpuEvents()) return;
+  if (uploadFinishedLoads()) redrawNeeded_ = true;
 
   const Extent extent = renderer_->drawExtent();
-  const float dt = frameSeconds(frameTimeNanos);
-  if (camera_.update(dt)) redrawNeeded_ = true;
-  // After the step: the frame that ends an animation is the first one free to refit.
-  refit(extent);
-  if (highlight_.update(dt)) redrawNeeded_ = true;
-  if (reveal_.update(dt)) redrawNeeded_ = true;
+  reframeDefaultOrbit(extent);
+  const std::optional<GpuWorldInfo> world = renderer_->world();
+  std::optional<FrameCamera> camera;
+  if (world) {
+    const float wallSeconds = frameSeconds(frameTimeNanos);
+    redrawNeeded_ |= reveal_.update(wallSeconds);
+    if (highlight_ && highlight_->update(wallSeconds)) redrawNeeded_ = true;
+    driveBenchmark(wallSeconds, *world);
+    const float dt = std::min(wallSeconds, kMaxFrameSeconds);
+    if (camera_.update(dt)) redrawNeeded_ = true;
+    camera = frameCamera(extent);
+    publishPose();
+    requestVisible(*camera, dt, extent);
+    takeSortResult();
+    if (benchmark_.running() || camera->view.m != lastDrawnView_.m) redrawNeeded_ = true;
+  }
   const uint32_t generation = renderer_->generation();
-  if (generation != lastDrawnGeneration_) redrawNeeded_ = true;
+  if (generation != lastDrawnGeneration_ || renderer_->surfaceRebuildPending()) {
+    redrawNeeded_ = true;
+  }
   if (renderer_->reportsPresentTimes()) {
     const uint32_t dropped = renderer_->takePresentTimes(&presentTimes_);
     stats_.onPresented(presentTimes_, dropped);
@@ -416,41 +473,39 @@ bool SplatEngine::step(int64_t frameTimeNanos) {
   const auto sampler = [this] { return sample(); };
   if (!redrawNeeded_) {
     stats_.onFrame(frameTimeNanos, false, sampler);
-    reportShown();
-    return false;
+    return;
   }
 
   SplatRenderer::Frame frame;
-  // Field Guide's renderers cull and sort on the GPU, and a single file world is one range.
-  // The renderer copies the ranges while it encodes, so the range lives only as long as the draw.
-  frame.orderSource = SplatRenderer::OrderSource::gpu;
-  SplatRenderer::Range worldRange;
-  if (const auto world = renderer_->world()) {
-    worldRange = {0, world->count};
-    frame.ranges = &worldRange;
-    frame.rangeCount = 1;
+  frame.reveal = reveal_.uniform();
+  frame.labelStyles = highlight_ ? &highlight_->styles() : nullptr;
+  if (camera) {
+    frame.orderSource = SplatRenderer::OrderSource::gpu;
+    // The renderer culls and sorts the ranges itself; the streamer keeps them resident
+    // until the frames that draw them completed.
+    if (streamer_) {
+      ranges_.clear();
+      for (const auto& r : streamer_->ranges()) ranges_.push_back({r.offset, r.count});
+      streamer_->drawnNow(renderer_->submittedFrames());
+    } else {
+      ranges_.assign(1, {0, renderer_->world()->count});
+    }
+    frame.ranges = ranges_.data();
+    frame.rangeCount = static_cast<uint32_t>(ranges_.size());
+    frame.drawCount = drawCount_;
+    frame.shDegree = shDegree_;
+    frame.view = camera->view;
+    frame.proj = camera->proj;
+    frame.cameraPosition = camera->axes.position;
   }
-  frame.shDegree = shDegree_;
-  frame.view = camera_.viewMatrix();
-  frame.proj = projection(extent);
-  frame.cameraPosition = camera_.position();
-  frame.labelStyles = &highlight_.styles();
-  frame.revealLevel = reveal_.level();
-  frame.revealBand = reveal_.band();
   if (!renderer_->draw(frame)) {
     stats_.onFrame(frameTimeNanos, false, sampler);
-    return false;  // The redraw waits for the next frame; FPS must still age to zero.
+    return;  // The redraw waits for the next frame; FPS must still age to zero.
   }
   redrawNeeded_ = false;
+  lastDrawnView_ = camera ? camera->view : splat::Mat4::identity();
   lastDrawnGeneration_ = generation;
-  if (showing_ == Showing::awaitingDraw) {
-    showing_ = Showing::awaitingGpu;
-    worldFrame_ = renderer_->submittedFrames();
-  }
-  publishView(frame);
   stats_.onFrame(frameTimeNanos, true, sampler);
-  reportShown();
-  return true;
 }
 
 }  // namespace splatkit

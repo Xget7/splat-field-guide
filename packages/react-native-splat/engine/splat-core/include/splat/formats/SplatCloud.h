@@ -31,9 +31,9 @@ struct SplatCloud {
   int shDegree = 0;
   // Higher order SH coefficients, (numCoefficients * 3) per splat, empty for degree 0.
   std::vector<float> sh;
-  // Part label per splat, 0 for none; empty when the cloud came without labels.
-  std::vector<std::uint16_t> labels;
   Bounds bounds;
+  // Empty disables part labels; otherwise one uint16 per splat, in the same order.
+  std::vector<std::uint16_t> labels;
 
   std::size_t count() const { return positions.size() / 3; }
 };

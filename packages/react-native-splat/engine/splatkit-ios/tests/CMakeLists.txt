@@ -1,24 +1,29 @@
 add_executable(splatkit_ios_tests
-  MetalContextTest.mm
-  MetalFrameCaptureTest.mm
-  MetalFrameComputeTest.mm
-  MetalFrameLoopTest.mm
-  MetalRadixSortTest.mm
-  MetalRasterTest.mm
-  MetalRenderTargetTest.mm
-  MetalSurfaceTest.mm
-  MetalUpscalerTest.mm
-  MetalVisibilityPassTest.mm
-  MetalWorldTest.mm
-  SfgMetalTest.mm
+  diagnostics/SKPngWriterTest.mm
+  engine/SKSplatEngineTest.mm
+  engine/SKTypeConversionsTest.mm
+  rendering/metal/MetalSplatRendererTest.mm
+  rendering/metal/cull/MetalVisibilityPassTest.mm
+  rendering/metal/device/MetalContextTest.mm
+  rendering/metal/diagnostics/MetalFrameCaptureTest.mm
+  rendering/metal/frame/MetalFrameComputeTest.mm
+  rendering/metal/presentation/MetalFrameLoopTest.mm
+  rendering/metal/presentation/MetalRenderTargetTest.mm
+  rendering/metal/presentation/MetalSurfaceTest.mm
+  rendering/metal/presentation/MetalUpscalerTest.mm
+  rendering/metal/raster/MetalSplatPipelineTest.mm
+  rendering/metal/selection/MetalLodSelectionTest.mm
+  rendering/metal/sort/MetalRadixSortTest.mm
+  rendering/metal/world/MetalWorldTest.mm
 )
-# The engine's test worlds, and spz's headers they write with.
+# spz reaches the link line through the static splat_core; only its headers are added here.
 target_include_directories(splatkit_ios_tests PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../Sources/SplatKitCore
-  ${CMAKE_CURRENT_BINARY_DIR}/../embedded
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../splatkit-engine/tests
+  ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../Sources/SplatKitCore ${CMAKE_CURRENT_BINARY_DIR}/../embedded
   $<TARGET_PROPERTY:spz,INTERFACE_INCLUDE_DIRECTORIES>
 )
+# spz's structs change with its extensions, so its headers need its definitions as well.
+target_compile_definitions(splatkit_ios_tests PRIVATE
+  $<TARGET_PROPERTY:spz,INTERFACE_COMPILE_DEFINITIONS>)
 target_link_libraries(splatkit_ios_tests PRIVATE splatkit_ios GTest::gtest_main)
 target_compile_options(splatkit_ios_tests PRIVATE -Wall -Wextra -Werror -fobjc-arc)
 add_dependencies(splatkit_ios_tests splatkit_ios_shaders)

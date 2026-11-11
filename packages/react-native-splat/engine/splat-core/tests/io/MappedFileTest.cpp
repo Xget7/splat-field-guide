@@ -1,29 +1,26 @@
 #include "splat/io/MappedFile.h"
 
-#include <cstdio>
 #include <fstream>
 #include <string>
 
 #include <gtest/gtest.h>
 
+#include "support/TempPath.h"
+
 namespace splat {
 namespace {
 
+// A file under the test's temp dir with `content`, removed when the test ends.
 class TempFile {
  public:
   explicit TempFile(const std::string& content) {
-    path_ = testing::TempDir() + "/mapped-file-test-" +
-            std::to_string(reinterpret_cast<std::uintptr_t>(this));
-    std::ofstream out(path_, std::ios::binary);
+    std::ofstream out(path_.path(), std::ios::binary);
     out << content;
   }
-  ~TempFile() { std::remove(path_.c_str()); }
-  TempFile(const TempFile&) = delete;
-  TempFile& operator=(const TempFile&) = delete;
-  const std::string& path() const { return path_; }
+  std::string path() const { return path_.string(); }
 
  private:
-  std::string path_;
+  const TempPath path_{"mapped-file-test"};
 };
 
 TEST(MappedFile, MapsTheWholeFile) {
@@ -62,5 +59,5 @@ TEST(MappedFile, MoveHandsOverTheMapping) {
   EXPECT_EQ(assigned.data()[2], 'c');
 }
 
-}
-}
+}  // namespace
+}  // namespace splat

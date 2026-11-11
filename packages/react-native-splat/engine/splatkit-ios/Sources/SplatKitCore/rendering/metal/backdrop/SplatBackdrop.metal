@@ -9,9 +9,6 @@ constant float kBackdropEmpty = 1.0 / 1024.0;
 constant int kBackdropFinestLevel = 2;
 // The backdrop sits behind the capture, so it stays darker and quieter than the capture itself,
 // and darker still toward the corners, like light falling off around a subject.
-constant float kBackdropGain = 0.55;
-constant float kBackdropSaturation = 0.85;
-constant float kBackdropVignette = 0.45;
 constant float3 kLuma = float3(0.2126, 0.7152, 0.0722);
 constant uint kReduceTaps = 4;  // per axis; each bilinear tap averages 2 by 2 texels
 // Weights and offsets of a 9-tap Gaussian folded into 5 bilinear taps.
@@ -35,7 +32,8 @@ fragment float4 backdropReduce(BlitVertex in [[stage_in]], texture2d<float> scen
 
 // Pull-push fill: the coarsest level's mean colour, refined level by level wherever there is
 // coverage, so every pixel takes the colour of the nearest captured surface.
-fragment float4 backdropPush(BlitVertex in [[stage_in]], texture2d<float> pyramid [[texture(0)]]) {
+fragment float4 backdropPush(BlitVertex in [[stage_in]], texture2d<float> pyramid [[texture(0)]],
+                             constant packed_float3& adjustments [[buffer(0)]]) {
   constexpr sampler levelSampler(filter::linear, mip_filter::nearest, address::clamp_to_edge);
   const int top = int(pyramid.get_num_mip_levels()) - 1;
   const float4 mean = pyramid.sample(levelSampler, in.uv, level(float(top)));
@@ -45,8 +43,8 @@ fragment float4 backdropPush(BlitVertex in [[stage_in]], texture2d<float> pyrami
     const float4 covered = pyramid.sample(levelSampler, in.uv, level(float(lod)));
     color = covered.rgb + (1.0 - covered.a) * color;
   }
-  const float falloff = 1.0 - kBackdropVignette * smoothstep(0.2, 0.75, length(in.uv - 0.5));
-  color = mix(float3(dot(color, kLuma)), color, kBackdropSaturation) * kBackdropGain * falloff;
+  const float falloff = 1.0 - adjustments.z * smoothstep(0.2, 0.75, length(in.uv - 0.5));
+  color = mix(float3(dot(color, kLuma)), color, adjustments.x) * adjustments.y * falloff;
   return float4(color, 1);
 }
 
