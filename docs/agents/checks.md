@@ -53,20 +53,20 @@ A stripped-extension fallback is not validation of the complete pack, and archiv
 
 ## Native engine
 
-The GPU-independent C++/C interface, from root:
+The GPU-independent engine and app-owned C adapter, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-engine -B packages/react-native-splat/build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON
-nice -n 19 cmake --build packages/react-native-splat/build/tests --parallel 2
-nice -n 19 ctest --test-dir packages/react-native-splat/build/tests --output-on-failure
+nice -n 19 cmake -S packages/react-native-splat/adapter -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSFG_BUILD_TESTS=ON
+nice -n 19 cmake --build build/tests --parallel 2
+nice -n 19 ctest --test-dir build/tests --output-on-failure
 ```
 
-Add `-DSPLAT_CORE_PORTABLE_SHA256=ON` to the configure step to exercise Android hashing on the host.
+This includes the imported core and engine suites and the adapter contract tests, using upstream portable SHA-256.
 
-Metal and the shared core on the Mac, from root:
+Metal, the iOS adapter and the shared core on the Mac, from root:
 
 ```sh
-nice -n 19 cmake -S packages/react-native-splat/engine/splatkit-ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release
+nice -n 19 cmake -S packages/react-native-splat/adapter/ios -B packages/react-native-splat/build/checks -DCMAKE_BUILD_TYPE=Release -DSFG_METAL_BUILD_TESTS=ON
 nice -n 19 cmake --build packages/react-native-splat/build/checks --parallel 2
 nice -n 19 ctest --test-dir packages/react-native-splat/build/checks --output-on-failure
 ```
@@ -110,6 +110,10 @@ From root, build with at most three workers:
 ```sh
 JAVA_HOME=$(/usr/libexec/java_home -v 17) GRADLE_USER_HOME="$PWD/.work/gradle" nice -n 19 apps/field-guide/android/gradlew -p apps/field-guide/android :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --max-workers=3
 ```
+
+The React Native library links SplatKit's public `splatkit_vulkan` renderer target through `adapter/android`, without building the SDK's separate Kotlin JNI facade.
+The app assets carry the imported SplatKit license, Android third-party notice bundle and PicoSHA2 license.
+Set `ANDROID_HOME` to the installed SDK or provide its path in the ignored `apps/field-guide/android/local.properties` before building.
 
 Use an API 36 arm64 tablet emulator with 6 GB RAM and host GPU rendering; software SwiftShader previously stalled during upload.
 Use Argent when available for device interaction and keep other sessions' devices and servers untouched.

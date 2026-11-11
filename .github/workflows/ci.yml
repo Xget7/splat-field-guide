@@ -52,10 +52,9 @@ jobs:
           (cd services/instructor-proxy && npm test && npx tsc --noEmit -p .)
           (cd services/voice-agent && npm test && npm run typecheck)
       # The runner image already has CMake, Make and zlib, so nothing is downloaded from apt.
-      # Android ships the portable SHA-256 and iOS uses CommonCrypto; no device uses the OpenSSL path.
       - name: Engine
         if: ${{ !cancelled() }}
         run: |
-          cmake -S packages/react-native-splat/engine/splatkit-engine -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSPLATKIT_ENGINE_BUILD_TESTS=ON -DSPLAT_CORE_PORTABLE_SHA256=ON
-          cmake --build build/tests --parallel
-          ctest --test-dir build/tests --output-on-failure
+          nice -n 19 cmake -S packages/react-native-splat/adapter -B build/tests -DCMAKE_BUILD_TYPE=Debug -DSFG_BUILD_TESTS=ON
+          nice -n 19 cmake --build build/tests --parallel 2
+          nice -n 19 ctest --test-dir build/tests --output-on-failure

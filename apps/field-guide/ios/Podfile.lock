@@ -2588,7 +2588,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 269f81deee27a2a9bedb6b2d1088c1ae93de9bd3
   React-mutationobservernativemodule: 877e9f730e0d8175c2e952901b55c170fc3d372f
   react-native-blob-util: 1da49ae553712cfbaac76828a853e9c73515e4ff
-  react-native-executorch: d7737cab1629f0518bc6baae60edd1b409f74d2f
+  react-native-executorch: 436ac552fed0485cf7c3716fbe7b32bb10af60bd
   react-native-safe-area-context: f2bf5d3db254014a48910436c4a58ab0c4e2fe1f
   React-NativeModulesApple: adb1dd8361dff80e9f6652fb3fdbf033cfbe2a89
   React-networking: c00b437c4408f0640ba0d4158357133488521eca
@@ -2627,7 +2627,7 @@ SPEC CHECKSUMS:
   ReactCommon: 749169e12aa3461a3df3656a00e48dbe0456b2d6
   ReactNativeBlur: 4f75e05281f781c9f4002ab1390dcc53a6a8c17b
   ReactNativeDependencies: 94c922c39e0e6150ee9ad05e2ca1946e0ef55783
-  ReactNativeOnDevice: 736a8793b25fc5bc51533c9fb6d0aa0acf28f212
+  ReactNativeOnDevice: 0585b5b159dc6f9baa74fa14d4f2f14ca4948d08
   ReactNativeSplat: d0042a130d48c38683831792d1e20bb5f3d72764
   RNAudioAPI: a41a741a8c428db841b312fc54a370792b85294b
   RNGestureHandler: eb4c031b22e791851742d29384ddcad30f3ee49d

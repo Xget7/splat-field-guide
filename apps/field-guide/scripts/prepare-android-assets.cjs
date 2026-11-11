@@ -26,15 +26,14 @@ function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
     path.join(ROOT, 'packages/react-native-splat/engine/LICENSE'),
     path.join(licenses, 'SplatKit.txt'),
   );
-  const vulkanLicenses = path.join(
+  const vulkanLicense = path.join(
     ROOT,
-    'packages/react-native-splat/engine/splatkit-android/licenses',
+    'packages/react-native-splat/engine/splatkit-android/src/main/resources/META-INF/LICENSE-splatkit-android.txt',
   );
-  for (const file of fs.readdirSync(vulkanLicenses))
-    fs.copyFileSync(path.join(vulkanLicenses, file), path.join(licenses, file));
+  fs.copyFileSync(vulkanLicense, path.join(licenses, 'SplatKit-Android.txt'));
   const hashLicense = path.join(
     ROOT,
-    'packages/react-native-splat/engine/splat-core/vendor/picosha2/LICENSE',
+    'packages/react-native-splat/engine/splat-core/third_party/picosha2/LICENSE',
   );
   fs.copyFileSync(hashLicense, path.join(licenses, 'PicoSHA2.txt'));
   // Shared license texts have one maintained copy, with platform-only sections excluded.
@@ -55,11 +54,7 @@ function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
     'utf8',
   );
   const nativeNotices = [
-    [path.join(vulkanLicenses, 'vk-bootstrap.txt'), 'vk-bootstrap'],
-    [
-      path.join(vulkanLicenses, 'VulkanMemoryAllocator.txt'),
-      'Vulkan Memory Allocator',
-    ],
+    [vulkanLicense, 'SplatKit Android, Vulkan Memory Allocator and third parties'],
     [hashLicense, 'PicoSHA2'],
   ]
     .map(

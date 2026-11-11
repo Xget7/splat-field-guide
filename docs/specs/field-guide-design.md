@@ -157,6 +157,11 @@ Keep its three concerns behind separate internal interfaces:
 **Rule:** reject stale loads; report ready after the accepted first frame; stop rendering when detached and sleep when unchanged.
 The shared C++ core owns behavior; Metal/Vulkan adapters draw, with the current 1.6-million-splat budget.
 SplatKit changes land upstream before integration here.
+The target boundary is SplatKit's public API at a pinned revision, with no app patches to engine sources.
+Pack policy and identity requirements remain app-owned; generic rendering and loading mechanisms belong upstream.
+The source importer in `packages/react-native-splat/scripts/engine-artifact.rb --import-source <repository> <full-commit>` exports committed package files without patching them and records their hashes in `engine-source.json`.
+When that receipt exists, artifact verification also rejects source changes, missing files, extra files and executable-mode changes.
+The current customized engine has not yet migrated to this importer; its native bindings still require the downstream C API.
 Planned emphasis contract, not yet implemented:
 Emphasis is a per-label state in {target, context, hidden} plus a view-dependent cutaway, and the engine owns the style of each state; a target's descendants are targets.
 Highlight state is uploaded when it changes, as a one-byte state per label with a small style palette, not as a full style table every frame.

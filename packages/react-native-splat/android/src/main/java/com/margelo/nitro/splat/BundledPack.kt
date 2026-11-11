@@ -36,8 +36,9 @@ internal object BundledPack {
         }
         matchingTier = true
       }
-      // Labels carry one byte per tree node.
-      require(tier.getJSONObject("labels").getLong("bytes") == tier.getLong("nodeCount") + LABEL_HEADER_BYTES) {
+      // Labels carry one unsigned 16-bit value per tree node.
+      require(tier.getJSONObject("labels").getLong("bytes") ==
+        LABEL_HEADER_BYTES + tier.getLong("nodeCount") * LABEL_BYTES_PER_NODE) {
         "Pack count mismatch"
       }
       for (name in listOf("world", "labels")) {
@@ -88,4 +89,5 @@ internal object BundledPack {
   }
 
   private const val LABEL_HEADER_BYTES = 16L
+  private const val LABEL_BYTES_PER_NODE = 2L
 }

@@ -10,8 +10,6 @@ namespace {
 
 // The backdrop is blurred anyway, so it is filled at a fraction of the scene's resolution.
 constexpr NSUInteger kBackdropDownscale = 8;
-// Blur tap spacing in backdrop texels; wider than one, as the fill it softens is already smooth.
-constexpr float kBackdropBlurSpacing = 1.5f;
 // Half floats keep the averaged coverage the fill weighs colours by.
 constexpr MTLPixelFormat kBackdropFormat = MTLPixelFormatRGBA16Float;
 
@@ -27,11 +25,11 @@ NSUInteger floorPowerOfTwo(NSUInteger value) {
 void encodePass(id<MTLCommandBuffer> cmd, id<MTLRenderPipelineState> pipeline,
                 id<MTLTexture> source, id<MTLTexture> destination, const void* bytes = nullptr,
                 size_t length = 0) {
-  MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
+  MTLRenderPassDescriptor* const pass = [MTLRenderPassDescriptor renderPassDescriptor];
   pass.colorAttachments[0].texture = destination;
   pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
   pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-  id<MTLRenderCommandEncoder> encoder = [cmd renderCommandEncoderWithDescriptor:pass];
+  const id<MTLRenderCommandEncoder> encoder = [cmd renderCommandEncoderWithDescriptor:pass];
   [encoder setRenderPipelineState:pipeline];
   [encoder setFragmentTexture:source atIndex:0];
   if (bytes != nullptr) [encoder setFragmentBytes:bytes length:length atIndex:0];
@@ -46,21 +44,24 @@ bool MetalBackdrop::create(id<MTLDevice> device, id<MTLLibrary> library,
   device_ = device;
   format_ = sceneFormat;
   NSError* error = nil;
-  MTLRenderPipelineDescriptor* desc = [MTLRenderPipelineDescriptor new];
-  desc.vertexFunction = [library newFunctionWithName:@"blitVertex"];
-  auto fullScreen = [&](NSString* fragment, MTLPixelFormat format) {
+  MTLRenderPipelineDescriptor* const desc = [[MTLRenderPipelineDescriptor alloc] init];
+  desc.vertexFunction = [library newFunctionWithName:@"backdropVertex"];
+  const auto fullScreen = [&](NSString* fragment, MTLPixelFormat format) {
     desc.fragmentFunction = [library newFunctionWithName:fragment];
     desc.colorAttachments[0].pixelFormat = format;
-    id<MTLRenderPipelineState> pipeline = [device newRenderPipelineStateWithDescriptor:desc
-                                                                                 error:&error];
+    const id<MTLRenderPipelineState> pipeline =
+        [device newRenderPipelineStateWithDescriptor:desc error:&error];
     if (pipeline == nil) {
       LOGE("%s pipeline: %s", fragment.UTF8String, error.localizedDescription.UTF8String);
     }
     return pipeline;
   };
   reduce_ = fullScreen(@"backdropReduce", kBackdropFormat);
+  if (reduce_ == nil) return false;
   push_ = fullScreen(@"backdropPush", kBackdropFormat);
+  if (push_ == nil) return false;
   blur_ = fullScreen(@"backdropBlur", kBackdropFormat);
+  if (blur_ == nil) return false;
   // Under the splats with the GPU order path's blend, out = (1 - dst.a) * src + dst, so the
   // backdrop shows only where coverage is left.
   desc.colorAttachments[0].blendingEnabled = YES;
@@ -73,22 +74,23 @@ bool MetalBackdrop::create(id<MTLDevice> device, id<MTLLibrary> library,
 }
 
 bool MetalBackdrop::ensureTextures(NSUInteger width, NSUInteger height) {
-  if (pyramid_ != nil && width == sceneWidth_ && height == sceneHeight_) return true;
+  if (width == sceneWidth_ && height == sceneHeight_) return pyramid_ != nil;
   pyramid_ = backdrop_ = scratch_ = nil;
-  sceneWidth_ = sceneHeight_ = 0;
-  MTLTextureDescriptor* desc = [MTLTextureDescriptor
+  sceneWidth_ = width;
+  sceneHeight_ = height;
+  MTLTextureDescriptor* const desc = [MTLTextureDescriptor
       texture2DDescriptorWithPixelFormat:kBackdropFormat
                                    width:(width + kBackdropDownscale - 1) / kBackdropDownscale
                                   height:(height + kBackdropDownscale - 1) / kBackdropDownscale
                                mipmapped:NO];
   desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
   desc.storageMode = MTLStorageModePrivate;
-  id<MTLTexture> backdrop = [device_ newTextureWithDescriptor:desc];
-  id<MTLTexture> scratch = [device_ newTextureWithDescriptor:desc];
+  const id<MTLTexture> backdrop = [device_ newTextureWithDescriptor:desc];
+  const id<MTLTexture> scratch = [device_ newTextureWithDescriptor:desc];
   desc.width = floorPowerOfTwo(desc.width);
   desc.height = floorPowerOfTwo(desc.height);
   desc.mipmapLevelCount = 1 + static_cast<NSUInteger>(std::log2(std::max(desc.width, desc.height)));
-  id<MTLTexture> pyramid = [device_ newTextureWithDescriptor:desc];
+  const id<MTLTexture> pyramid = [device_ newTextureWithDescriptor:desc];
   if (pyramid == nil || backdrop == nil || scratch == nil) {
     LOGE("backdrop %lux%lu failed", static_cast<unsigned long>(desc.width),
          static_cast<unsigned long>(desc.height));
@@ -102,28 +104,40 @@ bool MetalBackdrop::ensureTextures(NSUInteger width, NSUInteger height) {
   return true;
 }
 
-bool MetalBackdrop::encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene) {
+bool MetalBackdrop::prepare(id<MTLDevice> device, id<MTLLibrary> library, id<MTLTexture> scene) {
+  if (scene == nil) return false;
+  if (format_ != scene.pixelFormat) create(device, library, scene.pixelFormat);
+  return reduce_ != nil && push_ != nil && blur_ != nil && under_ != nil &&
+         ensureTextures(scene.width, scene.height);
+}
+
+bool MetalBackdrop::encode(id<MTLCommandBuffer> cmd, id<MTLTexture> scene,
+                           const SceneBackdrop& settings, const std::array<float, 3>& background) {
   if (under_ == nil || scene == nil || scene.pixelFormat != format_) return false;
   if (!ensureTextures(scene.width, scene.height)) return false;
   // Pull: average the scene into the pyramid's finest level, then down its mip chain.
-  const float footprint[2] = {static_cast<float>(scene.width) / pyramid_.width,
-                              static_cast<float>(scene.height) / pyramid_.height};
+  const float footprint[2] = {
+      static_cast<float>(scene.width) / pyramid_.width,
+      static_cast<float>(scene.height) / pyramid_.height,
+  };
   encodePass(cmd, reduce_, scene, pyramid_, footprint, sizeof(footprint));
-  id<MTLBlitCommandEncoder> mips = [cmd blitCommandEncoder];
+  const id<MTLBlitCommandEncoder> mips = [cmd blitCommandEncoder];
   [mips generateMipmapsForTexture:pyramid_];
   [mips endEncoding];
   // Push: fill from the coarsest level down, then soften the fill in two separable passes.
-  encodePass(cmd, push_, pyramid_, backdrop_);
-  const float across[2] = {kBackdropBlurSpacing / backdrop_.width, 0};
-  const float down[2] = {0, kBackdropBlurSpacing / backdrop_.height};
+  const float adjustments[6] = {settings.saturation, settings.gain, settings.vignette,
+                                background[0],       background[1], background[2]};
+  encodePass(cmd, push_, pyramid_, backdrop_, adjustments, sizeof(adjustments));
+  const float across[2] = {settings.blurSpacing / backdrop_.width, 0};
+  const float down[2] = {0, settings.blurSpacing / backdrop_.height};
   encodePass(cmd, blur_, backdrop_, scratch_, across, sizeof(across));
   encodePass(cmd, blur_, scratch_, backdrop_, down, sizeof(down));
 
-  MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
+  MTLRenderPassDescriptor* const pass = [MTLRenderPassDescriptor renderPassDescriptor];
   pass.colorAttachments[0].texture = scene;
   pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
   pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-  id<MTLRenderCommandEncoder> under = [cmd renderCommandEncoderWithDescriptor:pass];
+  const id<MTLRenderCommandEncoder> under = [cmd renderCommandEncoderWithDescriptor:pass];
   under.label = @"Backdrop under the splats";
   [under setRenderPipelineState:under_];
   [under setFragmentTexture:backdrop_ atIndex:0];

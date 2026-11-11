@@ -4,9 +4,7 @@
 #include <cstring>
 
 #include "rendering/metal/device/MetalShaderLibrary.h"
-#include "rendering/metal/guide/MetalGuideBindings.h"
 #include "splatkit/Log.h"
-#include "splatkit/guide/GuideLayout.h"
 
 namespace splatkit {
 
@@ -32,21 +30,51 @@ bool MetalVisibilityPass::create(id<MTLDevice> device, id<MTLLibrary> library, K
 // Only the pipelines depend on the key width; the buffers and the radix scratch are reused.
 bool MetalVisibilityPass::reconfigure(KeyBits depthBits) {
   if (device_ == nil || library_ == nil) return false;
+  const bool hadLabels = labelled_[0] != nil;
   const KeyBits previousBits = depthBits_;
   depthBits_ = depthBits;
-  if (!createPipelines()) {
+  if (!createPipelines() || (hadLabels && !createLabelPipelines())) {
     depthBits_ = previousBits;
     return false;
   }
   return true;
 }
 
+bool MetalVisibilityPass::createLabelPipelines() {
+  if (labelled_[0]) return true;
+  const bool quantized = depthBits_ == KeyBits::Low16;
+  const bool labelled = true;
+  decltype(labelled_) labelPipelines{};
+  decltype(indexedLabelled_) indexedPipelines{};
+  for (int degree = 0; degree < kShDegrees; ++degree) {
+    auto constants = [MTLFunctionConstantValues new];
+    uint32_t value = static_cast<uint32_t>(degree);
+    [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:kFnShDegree];
+    [constants setConstantValue:&quantized type:MTLDataTypeBool atIndex:kFnQuantizedDepth];
+    [constants setConstantValue:&labelled type:MTLDataTypeBool atIndex:kFnPartLabels];
+    bool indexed = false;
+    [constants setConstantValue:&indexed type:MTLDataTypeBool atIndex:kFnIndexedLod];
+    labelPipelines[degree] = metal::pipeline(device_, library_, "visibility", constants);
+    indexed = true;
+    [constants setConstantValue:&indexed type:MTLDataTypeBool atIndex:kFnIndexedLod];
+    indexedPipelines[degree] = metal::pipeline(device_, library_, "visibility", constants);
+    if (!labelPipelines[degree] || !indexedPipelines[degree]) return false;
+  }
+  labelled_ = labelPipelines;
+  indexedLabelled_ = indexedPipelines;
+  return true;
+}
+
 bool MetalVisibilityPass::createPipelines() {
+  labelled_ = {};
+  indexedLabelled_ = {};
   const bool quantized = depthBits_ == KeyBits::Low16;
   bool ok = true;
   for (int degree = 0; degree < kShDegrees; ++degree) {
     MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
     uint32_t value = static_cast<uint32_t>(degree);
+    const bool noLabels = false;
+    [constants setConstantValue:&noLabels type:MTLDataTypeBool atIndex:kFnPartLabels];
     [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:kFnShDegree];
     [constants setConstantValue:&quantized type:MTLDataTypeBool atIndex:kFnQuantizedDepth];
     bool indexed = false;
@@ -71,6 +99,10 @@ std::vector<id<MTLComputePipelineState>> MetalVisibilityPass::pipelines() const 
   std::vector<id<MTLComputePipelineState>> all(visibility_.begin(), visibility_.end());
   all.insert(all.end(), indexedVisibility_.begin(), indexedVisibility_.end());
   all.push_back(prepareDraw_);
+  if (labelled_[0]) {
+    all.insert(all.end(), labelled_.begin(), labelled_.end());
+    all.insert(all.end(), indexedLabelled_.begin(), indexedLabelled_.end());
+  }
   return all;
 }
 
@@ -101,12 +133,17 @@ bool MetalVisibilityPass::reserve(uint32_t capacity, uint32_t activeCapacity) {
 }
 
 bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
-                                        id<MTLBuffer> uniforms, id<MTLBuffer> guide,
-                                        id<MTLBuffer> splats, id<MTLBuffer> labels,
+                                        id<MTLBuffer> uniforms, id<MTLBuffer> splats,
                                         id<MTLBuffer> sh, int shDegree,
                                         const SplatRenderer::Range* ranges, uint32_t rangeCount,
                                         id<MTLBuffer> keys, id<MTLBuffer> indices,
-                                        id<MTLBuffer> activeCount) {
+                                        id<MTLBuffer> activeCount, id<MTLBuffer> labels,
+                                        id<MTLBuffer> styles) {
+  if ((labels != nil) != (styles != nil)) return false;
+  if (labels && (labels.length < size_t{sourceCapacity_} * sizeof(uint16_t) ||
+                 styles.length < kPaletteBytes + sizeof(uint32_t)))
+    return false;
+  if (labels && !labelled_[0]) return false;
   const bool indexed = indices != nil;
   if (indexedOnly_ && !indexed) return false;
   if (indexed != (activeCount != nil)) return false;
@@ -114,7 +151,6 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
       (rangeCount > 0 && ranges == nullptr))
     return false;
   if (keys.length < size_t{capacity_} * sizeof(uint32_t)) return false;
-  if (guide.length < sizeof(GuideUniform) || labels.length < size_t{sourceCapacity_} * sizeof(uint16_t)) return false;
   // Validate before writing slot inputs, so a rejected request cannot corrupt them.
   uint32_t total = 0;
   for (uint32_t i = 0; i < rangeCount; ++i) {
@@ -138,8 +174,13 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
   id<MTLComputeCommandEncoder> cull = [cmd computeCommandEncoder];
   cull.label = @"Splat visibility and projection";
   const int degree = std::clamp(shDegree, 0, kShDegrees - 1);
-  [cull setComputePipelineState:(indexed ? indexedVisibility_
-                                         : visibility_)[static_cast<size_t>(degree)]];
+  [cull setComputePipelineState:(labels ? (indexed ? indexedLabelled_ : labelled_)
+                                        : (indexed ? indexedVisibility_
+                                                   : visibility_))[static_cast<size_t>(degree)]];
+  if (labels) {
+    [cull setBuffer:labels offset:0 atIndex:12];
+    [cull setBuffer:styles offset:0 atIndex:13];
+  }
   [cull setBuffer:uniforms offset:0 atIndex:0];
   [cull setBuffer:splats offset:0 atIndex:1];
   [cull setBuffer:ranges_[slot] offset:0 atIndex:2];
@@ -149,8 +190,6 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
   [cull setBuffer:count_[slot] offset:0 atIndex:7];
   [cull setBuffer:sh offset:0 atIndex:8];
   [cull setBuffer:projected_ offset:0 atIndex:9];
-  [cull setBuffer:labels offset:0 atIndex:kGuideLabelsBuffer];
-  [cull setBuffer:guide offset:0 atIndex:kGuideBuffer];
   if (indexed) {
     [cull setBuffer:indices offset:0 atIndex:10];
     [cull setBuffer:activeCount offset:0 atIndex:11];

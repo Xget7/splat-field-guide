@@ -1,4 +1,4 @@
-# Included by ../CMakeLists.txt, which sets SPLATKIT_ANDROID_CPP_DIR, vma_include and vkb_include.
+# Included by src/main/cpp/CMakeLists.txt, which sets SPLATKIT_ANDROID_CPP_DIR, vma_include and vkb_include.
 set(vulkan_source_dir ${SPLATKIT_ANDROID_CPP_DIR}/rendering/vulkan)
 
 add_library(splatkit_vulkan_test_support STATIC
@@ -20,7 +20,8 @@ target_link_libraries(splatkit_vulkan_test_support PUBLIC
 add_executable(splatkit_vulkan_camera_projection_test
   rendering/vulkan/frame/VulkanCameraProjectionTest.cpp)
 target_include_directories(splatkit_vulkan_camera_projection_test PRIVATE
-  ${SPLATKIT_ANDROID_CPP_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../splat-core/include)
+  ${SPLATKIT_ANDROID_CPP_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../splat-core/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../splatkit-engine/include)
 target_compile_options(splatkit_vulkan_camera_projection_test PRIVATE -Wall -Wextra -Werror)
 
 add_executable(splatkit_vulkan_context_test rendering/vulkan/device/VulkanContextTest.cpp)
@@ -53,15 +54,22 @@ add_executable(splatkit_vulkan_radix_sort_test rendering/vulkan/sort/VulkanRadix
   ${vulkan_source_dir}/sort/VulkanRadixSort.cpp)
 target_link_libraries(splatkit_vulkan_radix_sort_test PRIVATE
   splatkit_vulkan_test_support splatkit_shaders)
+# Also draws a labelled GPU-order frame through the compute passes, as the renderer does.
 add_executable(splatkit_vulkan_splat_pipeline_test rendering/vulkan/raster/VulkanSplatPipelineTest.cpp
   ${vulkan_source_dir}/raster/VulkanSplatPipeline.cpp ${vulkan_source_dir}/world/VulkanWorld.cpp
   ${vulkan_source_dir}/frame/VulkanCameraUniforms.cpp
-  ${vulkan_source_dir}/presentation/VulkanRenderTarget.cpp)
+  ${vulkan_source_dir}/presentation/VulkanRenderTarget.cpp
+  ${vulkan_source_dir}/frame/VulkanFrameCompute.cpp ${vulkan_source_dir}/selection/VulkanLodSelection.cpp
+  ${vulkan_source_dir}/cull/VulkanVisibilityPass.cpp ${vulkan_source_dir}/sort/VulkanRadixSort.cpp)
 target_link_libraries(splatkit_vulkan_splat_pipeline_test PRIVATE
   splatkit_vulkan_test_support splatkit_shaders)
 
 # Building this target links every device test; scripts/lint-cpp.sh does so in CI.
+add_executable(splatkit_vulkan_public_test rendering/vulkan/VulkanRendererPublicTest.cpp)
+target_link_libraries(splatkit_vulkan_public_test PRIVATE splatkit_vulkan)
+
 add_custom_target(splatkit_android_tests DEPENDS
+  splatkit_vulkan_public_test
   splatkit_vulkan_camera_projection_test
   splatkit_vulkan_context_test
   splatkit_vulkan_pipeline_cache_test
@@ -74,3 +82,16 @@ add_custom_target(splatkit_android_tests DEPENDS
   splatkit_vulkan_radix_sort_test
   splatkit_vulkan_splat_pipeline_test
 )
+
+# Give host-only contracts explicit compile commands so lint never borrows the
+# public consumer's deliberately narrower include paths.
+add_executable(splatkit_surface_size_wait_test
+  rendering/vulkan/presentation/SurfaceSizeWaitTest.cpp)
+add_executable(splatkit_world_frame_completion_test
+  rendering/vulkan/presentation/WorldFrameCompletionTest.cpp)
+foreach(test IN ITEMS splatkit_surface_size_wait_test splatkit_world_frame_completion_test)
+  target_include_directories(${test} PRIVATE ${SPLATKIT_ANDROID_CPP_DIR})
+  target_link_libraries(${test} PRIVATE splatkit_engine)
+  target_compile_options(${test} PRIVATE -UNDEBUG)
+  add_dependencies(splatkit_android_tests ${test})
+endforeach()

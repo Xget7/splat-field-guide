@@ -27,9 +27,12 @@ std::vector<std::uint8_t> header(std::uint32_t count) {
           0};  // reserved
 }
 
-std::vector<std::uint8_t> file(std::vector<std::uint16_t> labels) {
+std::vector<std::uint8_t> file(const std::vector<std::uint16_t>& labels) {
   auto bytes = header(static_cast<std::uint32_t>(labels.size()));
-  for (auto label : labels) { bytes.push_back(label & 255); bytes.push_back(label >> 8); }
+  for (auto label : labels) {
+    bytes.push_back(label & 255);
+    bytes.push_back(label >> 8);
+  }
   return bytes;
 }
 
@@ -80,6 +83,21 @@ TEST(PartLabels, RefusesASizeThatDisagreesWithTheCount) {
   bytes = file({1, 2, 3});
   bytes[12] = 1;  // reserved
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::corrupt);
+}
+
+TEST(PartLabels, RejectsNodeCountMismatchAndRoundTripsWideLabels) {
+  const auto bytes = encodePartLabels({0, 256, 65535});
+  const auto labels = decodePartLabels(bytes.data(), bytes.size(), 3);
+  ASSERT_TRUE(labels);
+  EXPECT_EQ(labels.value(), (std::vector<std::uint16_t>{0, 256, 65535}));
+  const auto mismatch = decodePartLabels(bytes.data(), bytes.size(), 2);
+  ASSERT_FALSE(mismatch);
+  EXPECT_NE(mismatch.error().message.find("node count mismatch"), std::string::npos);
+  auto old = bytes;
+  old[4] = old[6] = 1;
+  const auto rejected = decodePartLabels(old.data(), old.size());
+  ASSERT_FALSE(rejected);
+  EXPECT_NE(rejected.error().message.find("version 1"), std::string::npos);
 }
 
 }  // namespace

@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.22)
+project(sfg_vulkan LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Only the renderer target is built; the SDK's Kotlin JNI library stays out of the app.
+add_subdirectory(../../engine/splatkit-android/src/main/cpp splatkit-android EXCLUDE_FROM_ALL)
+add_subdirectory(.. sfg-adapter)
+add_library(sfg_vulkan STATIC sfg_vulkan.cpp)
+target_include_directories(sfg_vulkan PUBLIC include)
+target_link_libraries(sfg_vulkan PUBLIC sfg_adapter PRIVATE splatkit_vulkan android log)

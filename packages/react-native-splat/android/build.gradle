@@ -9,7 +9,13 @@ android {
     defaultConfig {
         minSdkVersion 29
         ndk { abiFilters(*((project.findProperty('reactNativeArchitectures') ?: 'arm64-v8a').tokenize(','))) }
-        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_shared', '-DSPLATKIT_ENGINE_BUILD_TESTS=OFF' } }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared', '-DSPLATKIT_ENGINE_BUILD_TESTS=OFF'
+                // The upstream SDK JNI facade belongs to a different Kotlin API.
+                targets 'reactnativesplat'
+            }
+        }
     }
     externalNativeBuild { cmake { path 'CMakeLists.txt' } }
     buildFeatures { prefab true }

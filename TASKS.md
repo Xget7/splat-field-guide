@@ -156,6 +156,10 @@ Core/C-interface/Metal checks passed 271 tests with two fixture skips; Android r
 Independent source review found no actionable regressions and reran the CPU camera projection check.
 Renderer-level valid-invalid-valid camera recovery across both frame slots still needs Vulkan execution covering clear output, submission, failure state and world-ready timing.
 These native packages are manually integrated snapshots, not dependencies that automatically track upstream.
+The committed-source importer is implemented, but no upstream revision has been imported with it yet.
+Ending the fork still requires upstream reveal/backdrop support, camera/framing compatibility, load identity and failure contracts, native binding migration and native validation.
+The optional-label branch is under concurrent revision and has not been integrated here.
+Import-tool tests do not establish engine integration or physical acceptance.
 
 The instructor/services audit corrected interruption before audio, retryable limiter failures, legacy generation persona, incomplete stream completion, malformed provider resource responses and Worker URL validation before sync mutations.
 Each fix has a regression test that failed before the correction.

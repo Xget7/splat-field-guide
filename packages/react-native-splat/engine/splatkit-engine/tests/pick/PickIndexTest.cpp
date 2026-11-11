@@ -32,6 +32,39 @@ std::uint16_t pick(splat::SplatCloud cloud, const Ray& ray) {
   return PickIndex::take(cloud)->pick(ray);
 }
 
+TEST(PickIndex, HiddenForegroundDoesNotOccludeAndTakeConsumesGeometry) {
+  splat::SplatCloud cloud;
+  add(cloud, {0, 0, -2}, round(0.1f), 0.99f, 1);
+  add(cloud, {0, 0, -4}, round(0.1f), 0.99f, 2);
+  const auto index = PickIndex::take(cloud);
+  EXPECT_TRUE(cloud.positions.empty());
+  EXPECT_TRUE(cloud.labels.empty());
+  LabelStyles styles(3);
+  auto states = styles.states();
+  states[1] = 1;
+  styles.setStates(states);
+  auto palette = styles.palette();
+  palette[1].opacity = 0;
+  styles.setPalette(palette);
+  EXPECT_EQ(index->pick(lookingAt(0, 0), &styles), 2);
+}
+
+TEST(PickIndex, SharesConstTreeAndSkipsInteriorGeometry) {
+  auto tree = std::make_shared<splat::LodTree>();
+  add(tree->nodes, {0, 0, -1}, round(0.1f), 0.99f, 1);
+  add(tree->nodes, {0, 0, -3}, round(0.1f), 0.99f, 2);
+  tree->layout.resize(2);
+  tree->layout[0].childCount = 1;
+  const std::weak_ptr<const splat::LodTree> retained = tree;
+  auto index = PickIndex::share(tree);
+  EXPECT_EQ(tree->nodes.count(), 2u);
+  tree.reset();
+  EXPECT_FALSE(retained.expired());
+  EXPECT_EQ(index->pick(lookingAt(0, 0)), 2);
+  index.reset();
+  EXPECT_TRUE(retained.expired());
+}
+
 TEST(PickIndex, PreservesTheHighestPartLabel) {
   splat::SplatCloud cloud;
   add(cloud, {0, 0, -5}, round(0.1f), 0.99f, 65535);
@@ -90,8 +123,10 @@ TEST(PickIndex, LessThanHalfAPixelCoveredPicksNothing) {
 
 TEST(PickIndex, AnElongatedSplatIsHitAlongItsLengthOnly) {
   // Long in x (sigma 1), thin in y (sigma 0.05), rotated 45 degrees about z.
-  const float along = 1.0f, across = 0.05f * 0.05f;
-  const float mean = (along + across) / 2, half = (along - across) / 2;
+  const float along = 1.0f;
+  const float across = 0.05f * 0.05f;
+  const float mean = (along + across) / 2;
+  const float half = (along - across) / 2;
   splat::SplatCloud cloud;
   add(cloud, {0, 0, -5}, {mean, half, 0, mean, 0, across}, 0.99f, 9);
   EXPECT_EQ(pick(cloud, {{0.5f, 0.5f, 0}, {0, 0, -1}}), 9);   // 0.7 sigma along the length
@@ -121,5 +156,5 @@ TEST(PickIndex, ADegenerateSplatIsSkipped) {
   EXPECT_EQ(pick(cloud, lookingAt(0, 0)), 3);
 }
 
-}
-}
+}  // namespace
+}  // namespace splatkit
