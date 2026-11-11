@@ -101,6 +101,74 @@ describe('prompt', () => {
     ).not.toContain('Connections');
   });
 
+  describe('a part with many connections', () => {
+    const WIRING = 'Wiring diagram';
+    const BOUNDS = 'Lifted bounds';
+    const QUESTION = 'What does the battery do?';
+    const manifest = fixtureCopy();
+    // Proximity comes first in the manifest so the ranking, not the file order, is under test.
+    manifest.relations = [
+      {
+        type: 'adjacent',
+        from: 'battery',
+        to: 'fuse-box',
+        evidence: { kind: 'measured', source: BOUNDS, distance: 0.9 },
+      },
+      {
+        type: 'adjacent',
+        from: 'battery',
+        to: 'power-steering-reservoir',
+        evidence: { kind: 'measured', source: BOUNDS, distance: 0.2 },
+      },
+      {
+        type: 'feeds',
+        from: 'battery',
+        to: 'fuse-box',
+        evidence: { kind: 'authored', source: WIRING },
+      },
+      {
+        type: 'feeds',
+        from: 'battery',
+        to: 'engine',
+        evidence: { kind: 'authored', source: WIRING },
+      },
+    ];
+    const parsed = parsePack(manifest);
+    if (!parsed.ok) {
+      throw new Error(parsed.error.message);
+    }
+    const hub = parsed.pack;
+    const supplied = `feeds Fuse box (${WIRING}); feeds Engine (${WIRING})`;
+
+    test('lists supplied connections before measured proximity, nearest first', () => {
+      expect(
+        promptFor(QUESTION, INITIAL_SESSION, hub, [], PromptNotes.subject),
+      ).toContain(
+        `Connections: ${supplied}; is next to Power steering reservoir (${BOUNDS}); is next to Fuse box (${BOUNDS}).`,
+      );
+    });
+
+    test('a tight budget keeps supplied connections ahead of notes and proximity', () => {
+      const expected = [
+        'Part: Battery',
+        'Notes: Keep sparks away from the terminals.',
+        `Connections: ${supplied}.`,
+        `Question: ${QUESTION}`,
+      ].join('\n');
+      expect(
+        promptFor(
+          QUESTION,
+          INITIAL_SESSION,
+          hub,
+          [],
+          PromptNotes.subject,
+          undefined,
+          expected.length,
+        ),
+      ).toBe(expected);
+    });
+  });
+
   test('a part without notes falls back to its summary', () => {
     expect(
       promptFor(

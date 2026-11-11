@@ -54,7 +54,8 @@ export function relationsOf(
   });
 }
 
-const distanceOf = (relation: Relation): number =>
+/** A relation's measured gap; an unmeasured or authored relation sorts after every measured one. */
+export const measuredDistance = (relation: Relation): number =>
   relation.evidence.kind === EvidenceKind.measured
     ? relation.evidence.distance ?? Infinity
     : Infinity;
@@ -63,7 +64,7 @@ const distanceOf = (relation: Relation): number =>
 export function neighbours(pack: Pack, partId: PartId): readonly Part[] {
   return relationsOf(pack, partId)
     .filter(({ relation }) => relation.type === RelationType.adjacent)
-    .sort((a, b) => distanceOf(a.relation) - distanceOf(b.relation))
+    .sort((a, b) => measuredDistance(a.relation) - measuredDistance(b.relation))
     .map(({ other }) => other);
 }
 

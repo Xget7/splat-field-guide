@@ -1,4 +1,5 @@
-import type { Pack, Part } from '../../pack/pack';
+import { RelationType, type Pack, type Part } from '../../pack/pack';
+import { measuredDistance, type PartRelation } from '../../pack/graph';
 import { SessionEventType, type SessionState } from '../../guide';
 import { TOUR_ID } from '../../pack/tour';
 import {
@@ -117,7 +118,30 @@ export function promptFor(
     // Reject rather than remove a step or the caution that qualifies it.
     throw new Error(EVIDENCE_TOO_LARGE);
   }
-  if (notes === PromptNotes.subject && subject) {
+  const grounded = notes === PromptNotes.subject && subject !== null;
+  // Optional evidence enters in priority order: supplied connections, then notes, then proximity.
+  // Proximity is a measurement of this reconstruction, not a connection, so it yields to notes.
+  const { connected, nearby } = grounded
+    ? rankedConnections(evidence.relations)
+    : { connected: [], nearby: [] };
+  const connections: PartRelation[] = [];
+  const connectionsCost = () =>
+    connections.length === 0 ? 0 : connectionsLine(connections).length + 1;
+  const admitConnections = (candidates: readonly PartRelation[]) => {
+    for (const candidate of candidates) {
+      const before = connectionsCost();
+      connections.push(candidate);
+      const cost = connectionsCost() - before;
+      // Stop at the first that does not fit, so a lower-ranked connection never displaces a higher one.
+      if (connections.length > MAX_CONNECTIONS || used + cost > maxChars) {
+        connections.pop();
+        return;
+      }
+      used += cost;
+    }
+  };
+  admitConnections(connected);
+  if (grounded && subject) {
     const picked: string[] = [];
     let noteChars = evidence.safety?.text.length ?? 0;
     let count = evidence.safety === null ? 0 : 1;
@@ -151,19 +175,14 @@ export function promptFor(
       }
     }
   }
-  if (notes === PromptNotes.subject && evidence.relations.length > 0) {
-    const connections = connectionsLine(
-      evidence.relations.slice(0, MAX_CONNECTIONS),
-    );
+  admitConnections(nearby);
+  if (connections.length > 0) {
     // Connections are optional evidence, so they yield to the budget instead of failing the turn.
-    if (used + connections.length + 1 <= maxChars) {
-      let at = lines.findIndex(line => line.startsWith('Part: ')) + 1;
-      if (lines[at]?.startsWith('Notes: ')) {
-        at += 1;
-      }
-      lines.splice(at, 0, connections);
-      used += connections.length + 1;
+    let at = lines.findIndex(line => line.startsWith('Part: ')) + 1;
+    if (lines[at]?.startsWith('Notes: ')) {
+      at += 1;
     }
+    lines.splice(at, 0, connectionsLine(connections));
   }
   const earlierLines: string[][] = [];
   for (const earlier of [...history].reverse()) {
@@ -180,6 +199,23 @@ export function promptFor(
   }
   lines.push(...earlierLines.flat(), asked);
   return lines.join('\n');
+}
+
+/** Supplied connections keep manifest order; measured proximity follows, nearest first. */
+function rankedConnections(relations: readonly PartRelation[]): {
+  connected: readonly PartRelation[];
+  nearby: readonly PartRelation[];
+} {
+  const isNearby = ({ relation }: PartRelation) =>
+    relation.type === RelationType.adjacent;
+  return {
+    connected: relations.filter(item => !isNearby(item)),
+    nearby: relations
+      .filter(isNearby)
+      .sort(
+        (a, b) => measuredDistance(a.relation) - measuredDistance(b.relation),
+      ),
+  };
 }
 
 const numbersIn = (text: string): string[] =>
