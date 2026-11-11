@@ -10,17 +10,20 @@ float smoothstep(float t) {
   return t * t * (3 - 2 * t);
 }
 
-LabelStyle emphasised() {
+// Palette states 0, 1 and 2 hold these looks whenever no fade is in progress.
+enum Look : std::uint8_t { kCaptured = 0, kEmphasised = 1, kDimmed = 2 };
+
+LabelStyle emphasised(const HighlightLook& look) {
   LabelStyle style;
-  std::copy(std::begin(Highlight::kTint), std::end(Highlight::kTint), style.tint);
-  style.tintAmount = Highlight::kTintAmount;
-  style.brightness = Highlight::kEmphasisBrightness;
+  std::copy(std::begin(look.tint), std::end(look.tint), style.tint);
+  style.tintAmount = look.tintAmount;
+  style.brightness = look.partBrightness;
   return style;
 }
 
-LabelStyle dimmed() {
+LabelStyle dimmed(const HighlightLook& look) {
   LabelStyle style;
-  style.brightness = Highlight::kDimBrightness;
+  style.brightness = look.otherBrightness;
   return style;
 }
 
@@ -46,17 +49,20 @@ void Highlight::set(const std::uint16_t* labels, std::size_t count) {
   if (current_.states().empty()) return;
   auto parts = validParts(labels, count, current_.states().size(), warnedInvalid_);
   if (parts == parts_) return;
-  const std::array<LabelStyle, 3> looks = {LabelStyle{}, emphasised(), dimmed()};
+  const std::array<LabelStyle, 3> looks = {LabelStyle{}, emphasised(look_), dimmed(look_)};
   auto states = current_.states();
   std::array<LabelStyle, kStyleStates> starts{};
   std::array<LabelStyle, kStyleStates> targets{};
+  std::array<std::uint8_t, kStyleStates> targetLooks{};
   std::array<uint32_t, kStyleStates * 3> mapping{};
   mapping.fill(kStyleStates);
   std::size_t used = 0;
   for (std::size_t label = 0; label < states.size(); ++label) {
     const auto old = states[label];
-    const std::size_t target =
-        parts.empty() ? 0 : (std::binary_search(parts.begin(), parts.end(), label) ? 1 : 2);
+    const std::uint8_t target =
+        parts.empty()
+            ? kCaptured
+            : (std::binary_search(parts.begin(), parts.end(), label) ? kEmphasised : kDimmed);
     auto& state = mapping[old * 3 + target];
     if (state == kStyleStates) {
       if (used == kStyleStates) {
@@ -67,6 +73,7 @@ void Highlight::set(const std::uint16_t* labels, std::size_t count) {
       state = static_cast<uint32_t>(used++);
       starts[state] = current_.palette()[old];
       targets[state] = looks[target];
+      targetLooks[state] = target;
       // Tint has no visible contribution at zero amount; keep the coloured endpoint's hue.
       if (starts[state].tintAmount == 0) std::copy_n(targets[state].tint, 3, starts[state].tint);
       if (targets[state].tintAmount == 0) std::copy_n(starts[state].tint, 3, targets[state].tint);
@@ -76,21 +83,28 @@ void Highlight::set(const std::uint16_t* labels, std::size_t count) {
   parts_ = std::move(parts);
   from_ = starts;
   to_ = targets;
+  toLook_ = targetLooks;
   current_.setStates(std::move(states));
   current_.setPalette(from_);
   elapsed_ = 0;
 }
 
+void Highlight::setLook(const HighlightLook& look) {
+  look_ = look;
+  if (parts_.empty()) return;
+  // Retarget the same parts so they fade from where they are to the new look.
+  const auto parts = std::move(parts_);
+  parts_.clear();
+  set(parts.data(), parts.size());
+}
+
 void Highlight::completeTransition() {
   // Bound palette storage under repeated retargeting by completing the oldest fade.
   auto completed = current_.states();
-  for (auto& value : completed) {
-    const auto& look = to_[value];
-    value = look.tintAmount > 0 ? 1 : (look.brightness < 1 ? 2 : 0);
-  }
+  for (auto& value : completed) value = toLook_[value];
   std::array<LabelStyle, kStyleStates> palette{};
-  palette[1] = emphasised();
-  palette[2] = dimmed();
+  palette[kEmphasised] = emphasised(look_);
+  palette[kDimmed] = dimmed(look_);
   current_.setStates(std::move(completed));
   current_.setPalette(palette);
   elapsed_ = kFadeSeconds;

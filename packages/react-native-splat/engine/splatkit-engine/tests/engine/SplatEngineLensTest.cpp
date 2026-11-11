@@ -63,7 +63,7 @@ TEST(SplatEngineLabels, LoadHighlightPickAndReplacementCrossTheRendererInterface
   engine.highlightParts(&selected, 1);
   engine.render(kFrameNanos * 30);
   EXPECT_TRUE(observed->styled);
-  EXPECT_FLOAT_EQ(observed->brightness, Highlight::kEmphasisBrightness);
+  EXPECT_FLOAT_EQ(observed->brightness, HighlightLook{}.partBrightness);
   engine.loadWorld(bytes.data(), bytes.size());
   engine.render(kFrameNanos * 31);
   EXPECT_FALSE(observed->labelled);
@@ -107,6 +107,47 @@ TEST(SplatEngineLabels, HighlightLookFadesRetargetsAndRestoresWithoutDisablingDi
     EXPECT_FLOAT_EQ(style.brightness, 1);
     EXPECT_FLOAT_EQ(style.opacity, 1);
   }
+}
+
+TEST(SplatEngineLabels, HostHighlightLookRestylesPartsAndOutlivesReplacement) {
+  auto renderer = std::make_unique<LabelRecordingRenderer>();
+  auto* observed = renderer.get();
+  SplatEngine engine(std::move(renderer));
+  HighlightLook look;
+  look.tint[0] = 0x2A / 255.0f;
+  look.tint[1] = 0x5B / 255.0f;
+  look.tint[2] = 0xD7 / 255.0f;
+  look.tintAmount = 0.5f;
+  look.partBrightness = 1.2f;
+  look.otherBrightness = 1;
+  auto invalid = look;
+  invalid.tintAmount = 2;
+  EXPECT_FALSE(engine.setHighlightLook(invalid));
+  EXPECT_FLOAT_EQ(engine.highlightLook().tintAmount, HighlightLook{}.tintAmount);
+
+  const auto bytes = pairWorldBytes();
+  const auto labels = splat::encodePartLabels({65535, 1});
+  engine.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size());
+  int64_t now = kFrameNanos;
+  engine.render(now);
+  const uint16_t selected = 65535;
+  engine.highlightParts(&selected, 1);
+  engine.render(now += 250'000'000);
+  EXPECT_FLOAT_EQ(observed->selectedStyle.tintAmount, HighlightLook{}.tintAmount);
+  ASSERT_TRUE(engine.setHighlightLook(look));
+  EXPECT_TRUE(engine.needsFrame());
+  engine.render(now += 250'000'000);
+  EXPECT_FLOAT_EQ(observed->selectedStyle.tintAmount, 0.5f);
+  EXPECT_FLOAT_EQ(observed->selectedStyle.brightness, 1.2f);
+  EXPECT_FLOAT_EQ(observed->selectedStyle.tint[1], 0x5B / 255.0f);
+  EXPECT_FLOAT_EQ(observed->otherStyle.brightness, 1.0f);
+
+  engine.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size());
+  engine.render(now += kFrameNanos);
+  engine.highlightParts(&selected, 1);
+  engine.render(now += 250'000'000);
+  EXPECT_FLOAT_EQ(observed->selectedStyle.tintAmount, 0.5f);
+  EXPECT_FLOAT_EQ(observed->otherStyle.brightness, 1.0f);
 }
 
 TEST(SplatEngineLabels, RejectsEarlyHighlightsAndPreparesTreeLeaves) {

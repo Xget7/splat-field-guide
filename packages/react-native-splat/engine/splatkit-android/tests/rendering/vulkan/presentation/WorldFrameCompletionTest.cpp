@@ -1,6 +1,7 @@
 #include "engine/AndroidEventMapping.h"
 // Host-only test, built with include paths for splatkit-android/src/main/cpp,
-// splatkit-engine/include and splat-core/include. Run without NDEBUG.
+// splatkit-engine/include, splat-core/include and Vulkan headers, and linked
+// with the engine's Log.cpp. Run without NDEBUG.
 #include <cassert>
 #include "rendering/vulkan/presentation/VulkanPresentationFailure.h"
 

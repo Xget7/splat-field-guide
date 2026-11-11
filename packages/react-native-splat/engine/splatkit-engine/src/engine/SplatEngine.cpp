@@ -157,9 +157,19 @@ void SplatEngine::highlightParts(const std::uint16_t* labels, std::size_t count)
     return;
   }
   if (!highlight_ && count == 0) return;
-  if (!highlight_) highlight_ = std::make_unique<Highlight>(labelCount_);
+  if (!highlight_) highlight_ = std::make_unique<Highlight>(labelCount_, highlightLook_);
   highlight_->set(labels, count);
   redrawNeeded_ = true;
+}
+
+bool SplatEngine::setHighlightLook(const HighlightLook& look) {
+  if (!look.valid()) return false;
+  highlightLook_ = look;
+  if (highlight_) {
+    highlight_->setLook(look);
+    redrawNeeded_ = true;
+  }
+  return true;
 }
 
 bool SplatEngine::loadWorldFile(const std::string& path) {

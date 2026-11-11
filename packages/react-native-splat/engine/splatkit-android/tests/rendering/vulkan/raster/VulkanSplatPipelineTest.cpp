@@ -403,11 +403,11 @@ void testLabelledFrame(const Gpu& gpu, const Scene& s) {
   highlight.set(&kPartB, 1);
   highlight.update(splatkit::Highlight::kFadeSeconds);
   const auto highlighted = frame.draw(1, &highlight.styles());
-  const auto& tint = splatkit::Highlight::kTint;
-  const float amount = splatkit::Highlight::kTintAmount;
-  const float emphasis = splatkit::Highlight::kEmphasisBrightness;
-  requireChannel(highlighted[a],
-                 expectedChannel(reference[a], 1, 0, 0, splatkit::Highlight::kDimBrightness),
+  const splatkit::HighlightLook look;
+  const auto& tint = look.tint;
+  const float amount = look.tintAmount;
+  const float emphasis = look.partBrightness;
+  requireChannel(highlighted[a], expectedChannel(reference[a], 1, 0, 0, look.otherBrightness),
                  "the other part dims");
   for (int c = 0; c < 3; ++c)
     requireChannel(highlighted[b + c],

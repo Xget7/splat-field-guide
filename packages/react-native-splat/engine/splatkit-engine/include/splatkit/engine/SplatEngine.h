@@ -118,6 +118,10 @@ class SplatEngine {
                      const LoadOptions& options = {});
   // Render thread. Requests before a labelled world arrives are rejected with a warning.
   void highlightParts(const std::uint16_t* labels, std::size_t count);
+  // Render thread. Restyles current parts with a fade and every later highlight, across loads.
+  // Rejects the whole look unless every value meets the HighlightLook bounds.
+  bool setHighlightLook(const HighlightLook& look);
+  const HighlightLook& highlightLook() const { return highlightLook_; }
   // Picking retains CPU geometry only when explicitly enabled before loading.
   void setPartPickingEnabled(bool enabled) { partPickingEnabled_.store(enabled); }
   // Render thread only, serialized with draws, loads and highlight changes.
@@ -308,6 +312,7 @@ class SplatEngine {
   std::atomic<bool> partPickingEnabled_{false};
   std::shared_ptr<const PickIndex> picks_;
   std::unique_ptr<Highlight> highlight_;
+  HighlightLook highlightLook_;
   std::size_t labelCount_ = 0;
   static constexpr int kMaxShDegree = 3;
   static constexpr int kMinResidency = 100000;

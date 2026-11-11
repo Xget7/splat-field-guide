@@ -8,6 +8,7 @@
 #include "splat/io/MappedFile.h"
 #include "splat/sorting/SpatialOrder.h"
 #include "splatkit/camera/WalkCamera.h"
+#include "splatkit/highlight/Highlight.h"
 
 namespace splatkit {
 namespace {
@@ -159,6 +160,65 @@ TEST_F(MetalSplatRendererTest, RevealClipsAndTintsThenRestoresIdenticalImage) {
   frame.reveal = {};
   capture(&restored);
   EXPECT_EQ(reference, restored);
+}
+
+TEST_F(MetalSplatRendererTest, UndimmedHighlightLeavesOtherPartsPixelIdentical) {
+  auto renderer = MetalSplatRenderer::create();
+  ASSERT_NE(renderer, nullptr);
+  const auto layer = [CAMetalLayer layer];
+  layer.drawableSize = CGSizeMake(64, 64);
+  renderer->setLayer(layer);
+  renderer->setDrawableSize(64, 64);
+  splat::SplatCloud cloud;
+  cloud.positions = {0, 0, -2};
+  cloud.colors = {0.6f, 0.3f, 0.2f};
+  cloud.alphas = {1};
+  cloud.covariances = {0.04f, 0, 0, 0.04f, 0, 0.04f};
+  cloud.labels = {1};
+  ASSERT_TRUE(renderer->uploadWorld(cloud, 0));
+  SplatRenderer::Frame frame;
+  frame.orderSource = SplatRenderer::OrderSource::gpu;
+  const SplatRenderer::Range range{0, 1};
+  frame.ranges = &range;
+  frame.rangeCount = 1;
+  frame.proj = splat::Mat4::perspective(1, 1, 0.1f, 100);
+  const auto capture = [&](std::vector<uint8_t>* out) {
+    auto done = dispatch_semaphore_create(0);
+    renderer->captureNextFrame([&](std::vector<uint8_t> image, uint32_t, uint32_t) {
+      *out = std::move(image);
+      dispatch_semaphore_signal(done);
+    });
+    ASSERT_TRUE(renderer->draw(frame));
+    ASSERT_EQ(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+    ASSERT_EQ(out->size(), 64u * 64u * 4u);
+  };
+  std::vector<uint8_t> reference;
+  capture(&reference);
+  // Highlight another part, so the drawn splat is in the surroundings.
+  HighlightLook look;
+  look.tint[0] = 0x2A / 255.0f;
+  look.tint[1] = 0x5B / 255.0f;
+  look.tint[2] = 0xD7 / 255.0f;
+  look.tintAmount = 0.5f;
+  look.partBrightness = 1.2f;
+  look.otherBrightness = 1;
+  Highlight highlight(2, look);
+  const uint16_t other = 0;
+  highlight.set(&other, 1);
+  while (highlight.update(0.05f)) {
+  }
+  frame.labelStyles = &highlight.styles();
+  std::vector<uint8_t> highlighted;
+  capture(&highlighted);
+  EXPECT_EQ(reference, highlighted);
+  // The same splat as the highlighted part does change, so the styles reach the shader.
+  const uint16_t drawn = 1;
+  highlight.set(&drawn, 1);
+  while (highlight.update(0.05f)) {
+  }
+  std::vector<uint8_t> emphasised;
+  capture(&emphasised);
+  EXPECT_NE(reference, emphasised);
 }
 
 TEST_F(MetalSplatRendererTest, SceneBackdropFillsOpaqueAndTogglesWithoutChangingTheOffImage) {
