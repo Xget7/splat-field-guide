@@ -1,5 +1,5 @@
 {
-  "revision": "1835e2686cae20a96471fcbfbd1dc58cab1245cb",
+  "revision": "a9b99a6fd5eed63faaef2e7c83b8bf770a3a738e",
   "files": {
     ".clang-format": {
       "sha256": "fc7883e10e83d18c0d4a8111e1e23a0d07c0479eb32eedaf2de3761f4ae35636",
@@ -1230,7 +1230,7 @@
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/include/SplatKit/metal/MetalRenderer.h": {
-      "sha256": "55bfc3f9f1964babe703f3f7b32e5c9e39c68b824accf79c9bd12926e0e59451",
+      "sha256": "5a9d02282b3297505af61a0cc4b0c2ed277db632b7bfd60181ffe7d93063d59f",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKitCore/include/module.modulemap": {

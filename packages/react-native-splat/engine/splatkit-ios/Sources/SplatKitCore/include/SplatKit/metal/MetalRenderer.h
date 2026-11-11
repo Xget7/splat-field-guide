@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include "splatkit/rendering/SceneBackdrop.h"
 #include "splatkit/rendering/SplatRenderer.h"
 
 #ifdef __OBJC__
