@@ -107,6 +107,10 @@ From root, build with at most three workers:
 JAVA_HOME=$(/usr/libexec/java_home -v 17) GRADLE_USER_HOME="$PWD/.work/gradle" nice -n 19 apps/field-guide/android/gradlew -p apps/field-guide/android :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --max-workers=3
 ```
 
+The React Native library compiles the imported Vulkan renderer through `adapter/android`, retaining upstream dependency pins and generated shaders without building the SDK's separate Kotlin JNI facade.
+The app assets carry the imported SplatKit license, Android third-party notice bundle and PicoSHA2 license.
+Set `ANDROID_HOME` to the installed SDK or provide its path in the ignored `apps/field-guide/android/local.properties` before building.
+
 Use an API 36 arm64 tablet emulator with 6 GB RAM and host GPU rendering; software SwiftShader previously stalled during upload.
 Use Argent when available for device interaction and keep other sessions' devices and servers untouched.
 For an owned Debug Metro, reverse its port with `adb -s <serial> reverse tcp:<port> tcp:<port>`.

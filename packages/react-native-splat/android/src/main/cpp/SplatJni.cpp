@@ -8,8 +8,8 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
-#include "splatkit/sfg_vulkan.h"
-#include "splatkit/sfg_platform.h"
+#include "sfg/sfg_vulkan.h"
+#include "sfg/sfg_platform.h"
 
 namespace {
 struct Engine {
