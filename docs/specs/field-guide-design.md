@@ -83,6 +83,8 @@ A session is the current position; progress is its saved continuation.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
 Typed answers fall back from Claude to Apple generation to scripted guidance; Android skips Apple generation.
 Prompts list the subject's supplied connections with their evidence source, so answers about what a part is connected to stay grounded.
+Apple Foundation Models is the on-device answerer because it ships no weights and answers offline on Apple Intelligence devices; weight-shipping runtimes would add a gigabyte-class model to every install.
+Its 4096-token window holds instructions, prompt and reply together, so the on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, each yielding to the budget instead of failing the turn.
 Keep its three concerns behind separate internal interfaces:
 
 - **Turn policy:** [router](../../apps/field-guide/src/features/instructor/domain/router.ts), [turn runner](../../apps/field-guide/src/features/instructor/domain/turn/turnRunner.ts), [grounding](../../apps/field-guide/src/features/instructor/domain/grounding.ts); [turn tests](../../apps/field-guide/src/features/instructor/tests/turnRunner.test.ts).
