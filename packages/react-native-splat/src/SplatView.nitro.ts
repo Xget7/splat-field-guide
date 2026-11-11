@@ -4,7 +4,7 @@ import type {
   HybridViewProps,
 } from 'react-native-nitro-modules';
 
-/** 1..255 is a part, 0 is none. */
+/** 1..65535 is a part, 0 is none. */
 export type PartLabel = number;
 
 /** A point in the cloud's frame, metres, +Y up. */

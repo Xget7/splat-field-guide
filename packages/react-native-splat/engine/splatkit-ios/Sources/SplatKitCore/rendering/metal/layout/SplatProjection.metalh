@@ -78,7 +78,7 @@ inline float3 shColor(const device uint* shData, uint index, float3 d) {
 
 // Field Guide: `guide` and `label` style the splat; a splat above the reveal is not drawn.
 inline bool projectSplat(constant Camera& cam, Splat s, uint index, const device uint* shData,
-                         constant Guide& guide, uint label, thread Projected& out) {
+                         const device Guide& guide, uint label, thread Projected& out) {
   if (!guideRevealed(guide, s.py)) return false;
   float4 rgba = unpackUnorm4x8(s.rgba8);
   // Peak opacity sent to rasterization, including LOD's above-one override. A peak below the

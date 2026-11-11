@@ -29,7 +29,7 @@ LabelStyle dimmed() {
 
 }
 
-void Highlight::set(const std::uint8_t* labels, std::size_t count) {
+void Highlight::set(const std::uint16_t* labels, std::size_t count) {
   std::bitset<kLabelCount> parts;
   for (std::size_t i = 0; labels != nullptr && i < count; ++i) parts.set(labels[i]);
   if (parts == parts_) return;

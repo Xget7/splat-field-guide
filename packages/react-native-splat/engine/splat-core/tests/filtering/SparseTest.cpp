@@ -21,7 +21,7 @@ constexpr float kFloaterDistance = 1;
 // So far that the grid at the usual cell size would be hundreds of gigabytes.
 constexpr float kFarDistance = 1000;
 
-void addSplat(SplatCloud& cloud, std::array<float, 3> position, float alpha, std::uint8_t label) {
+void addSplat(SplatCloud& cloud, std::array<float, 3> position, float alpha, std::uint16_t label) {
   for (float p : position) cloud.positions.push_back(p);
   for (float c : {0.0001f, 0.0f, 0.0f, 0.0001f, 0.0f, 0.0001f}) cloud.covariances.push_back(c);
   for (int k = 0; k < 3; ++k) cloud.colors.push_back(alpha);

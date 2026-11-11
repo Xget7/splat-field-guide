@@ -16,11 +16,11 @@ namespace splatkit::test {
 
 // The label stream of a world whose splat i carries labels[i], at least 16 bytes long as the
 // world's own stream is.
-inline id<MTLBuffer> labelStream(const std::vector<uint8_t>& labels) {
-  std::vector<uint8_t> bytes(std::max<size_t>(labels.size(), 16), 0);
+inline id<MTLBuffer> labelStream(const std::vector<uint16_t>& labels) {
+  std::vector<uint16_t> bytes(std::max<size_t>(labels.size(), 8), 0);
   std::copy(labels.begin(), labels.end(), bytes.begin());
   return [Gpu::get().device newBufferWithBytes:bytes.data()
-                                        length:bytes.size()
+                                        length:bytes.size() * sizeof(uint16_t)
                                        options:MTLResourceStorageModeShared];
 }
 
@@ -28,9 +28,9 @@ inline id<MTLBuffer> labelStream(const std::vector<uint8_t>& labels) {
 inline id<MTLBuffer> guideBuffer(const LabelStyles* styles = nullptr,
                                  float revealLevel = std::numeric_limits<float>::infinity(),
                                  float revealBand = 0) {
-  const GuideUniform guide = makeGuideUniform(styles, revealLevel, revealBand);
-  return [Gpu::get().device newBufferWithBytes:&guide
-                                        length:sizeof(guide)
+  const auto guide = makeGuideUniform(styles, revealLevel, revealBand);
+  return [Gpu::get().device newBufferWithBytes:guide.get()
+                                        length:sizeof(GuideUniform)
                                        options:MTLResourceStorageModeShared];
 }
 
@@ -48,7 +48,7 @@ struct VisibilityRig {
            sort.create(Gpu::get().device, Gpu::get().library);
   }
   bool reserve(uint32_t capacity, uint32_t activeCapacity = 0) {
-    unlabelled_ = labelStream(std::vector<uint8_t>(capacity, 0));
+    unlabelled_ = labelStream(std::vector<uint16_t>(capacity, 0));
     return sort.reserve(MetalVisibilityPass::slotsFor(capacity, activeCapacity)) &&
            pass.reserve(capacity, activeCapacity);
   }

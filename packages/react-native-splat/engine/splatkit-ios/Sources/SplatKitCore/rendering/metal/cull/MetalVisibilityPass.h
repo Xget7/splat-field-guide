@@ -46,7 +46,7 @@ class MetalVisibilityPass {
   // false. Invalid ranges fail before encoding any work. Empty ranges produce an empty draw.
   // Caller owns uniforms/source buffers and must keep slot inputs unchanged until this frame
   // completes. Ranges must be disjoint and refer to the reserved source.
-  // Field Guide: `guide` holds the frame's GuideUniform and `labels` one byte per source splat,
+  // Field Guide: `guide` holds the frame's GuideUniform and `labels` two bytes per source splat,
   // read at the visibility pass's guide bindings; smaller buffers return false.
   bool encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot, id<MTLBuffer> uniforms,
                      id<MTLBuffer> guide, id<MTLBuffer> splats, id<MTLBuffer> labels,

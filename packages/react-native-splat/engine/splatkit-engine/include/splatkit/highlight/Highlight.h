@@ -13,7 +13,7 @@ class Highlight {
  public:
   // Empty labels restore captured styles, unselected labels dim, and repeated targets preserve the
   // current fade.
-  void set(const std::uint8_t* labels, std::size_t count);
+  void set(const std::uint16_t* labels, std::size_t count);
 
   // Returns whether styles changed.
   bool update(float dtSeconds);

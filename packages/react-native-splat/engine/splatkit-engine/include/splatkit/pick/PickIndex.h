@@ -24,7 +24,7 @@ class PickIndex {
   static std::shared_ptr<const PickIndex> take(splat::SplatCloud& cloud);
 
   // The label the ray shows, or 0 for an unlabelled part or less than half a covered pixel.
-  std::uint8_t pick(const Ray& ray) const;
+  std::uint16_t pick(const Ray& ray) const;
 
   static constexpr float kSigmaCutoff = 3.0f;
   static constexpr float kMinAlpha = 1.0f / 255.0f;
@@ -36,7 +36,7 @@ class PickIndex {
   std::vector<float> positions_;
   std::vector<float> covariances_;
   std::vector<float> alphas_;
-  std::vector<std::uint8_t> labels_;
+  std::vector<std::uint16_t> labels_;
 };
 
 }

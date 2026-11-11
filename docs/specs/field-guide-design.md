@@ -44,7 +44,13 @@ Startup supplies no pack until real Miris content is integrated; the library sho
 **Owns:** content validation; planned delivery adds verified installation, activation and recovery.
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
-The current schema uses `.lodsplat` and one label byte per tree node, with zero unlabelled and 1-255 available part labels.
+The current schema uses `.lodsplat` and one unsigned 16-bit little-endian label per tree node, with zero unlabelled and 1-65535 available part labels.
+SFGL v2 has ASCII `SFGL` at offset 0, u16 version 2 at offset 4, u16 width 2 at offset 6, u32 node count at offset 8 and u32 reserved zero at offset 12, all integers little-endian.
+The payload starts at offset 16, aligned to two bytes, and contains exactly `nodeCount * 2` bytes without trailing padding.
+Readers reject SFGL v1; regenerate existing packs before packaging.
+GPU label uploads pad to four-byte words, with two labels per word, independently of the file layout.
+Highlighting uses a 65,536-entry storage-buffer style lookup, including zero, to preserve per-label fades across the full range without uniform-buffer limits or changes to captured rendering.
+The lookup occupies 2 MiB plus a 16-byte reveal prefix per frame slot; CPU styles and upload staging live on the heap.
 A part's `parent` is Brick `brick:hasPart`; optional `relations` add `feeds` (`brick:feeds`, media flow), `carries` (kinematic support), `drives` (actuation) and `adjacent` (measured proximity, stored once).
 Each relation names two different known parts, appears once and keeps `authored` or `measured` evidence with a source; `carries` stays acyclic.
 The optional `model` file is the single annotated Brick/Turtle graph alongside the manifest; tooling verifies and bundles its bytes, and the app never parses it.

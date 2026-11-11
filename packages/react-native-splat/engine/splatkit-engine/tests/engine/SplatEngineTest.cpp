@@ -189,7 +189,7 @@ TEST_F(SplatEngineTest, LoadsALabelledTreeAndUploadsItWithTheBudget) {
   load(pairBytes(), labelBytes({kRootPart, 1, 2}));
   ASSERT_TRUE(tick());
   EXPECT_EQ(renderer->uploadedBudget, 1600000u);
-  EXPECT_EQ(renderer->uploadedLabels, (std::vector<uint8_t>{kRootPart, 1, 2}));
+  EXPECT_EQ(renderer->uploadedLabels, (std::vector<uint16_t>{kRootPart, 1, 2}));
   EXPECT_EQ(renderer->world()->count, kPairNodes);
 }
 
@@ -217,7 +217,7 @@ TEST_F(SplatEngineTest, NeedsFramesOnlyWhileThereIsSomethingToDo) {
   EXPECT_TRUE(engine->needsFrame());
   tick();
   EXPECT_FALSE(engine->needsFrame());
-  const uint8_t part = 1;
+  const uint16_t part = 1;
   engine->setHighlight(&part, 1);
   int frames = 0;
   while (engine->needsFrame()) {
@@ -550,7 +550,7 @@ TEST_F(SplatEngineTest, TimeStandsStillWhileTheEngineRests) {
   load(pairBytes(), labelBytes({4, 4, 0}));
   while (engine->needsFrame()) tick();
   vsync += 300;  // the host stops its display link for five seconds
-  const uint8_t part = 4;
+  const uint16_t part = 4;
   engine->setHighlight(&part, 1);
   ASSERT_TRUE(tick());
   EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);  // the fade's first frame
@@ -574,7 +574,7 @@ TEST_F(SplatEngineTest, AHighlightFadesInThenTheEngineIdles) {
   tick();
   ASSERT_NE(renderer->last.labelStyles, nullptr);
   EXPECT_EQ((*renderer->last.labelStyles)[4].tintAmount, 0.0f);
-  const uint8_t part = 4;
+  const uint16_t part = 4;
   engine->setHighlight(&part, 1);
   int drawn = 0;
   while (tick()) ++drawn;

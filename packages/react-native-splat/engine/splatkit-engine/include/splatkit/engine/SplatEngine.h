@@ -86,14 +86,14 @@ class SplatEngine {
   const OrbitPose& cameraPose() const { return camera_.pose(); }
 
   // Render-thread highlights fade between label sets; empty labels show the cloud as captured.
-  void setHighlight(const std::uint8_t* labels, std::size_t count);
+  void setHighlight(const std::uint16_t* labels, std::size_t count);
   // Render-thread reveal duration uses seconds for a bottom-up sweep; zero shows the world
   // immediately.
   void setRevealSeconds(float seconds) { revealSeconds_ = seconds; }
 
   // Worker-thread picking reads the last drawn frame at normalized top-left xy, returns zero for no
   // part and may take milliseconds.
-  std::uint8_t pick(float x, float y) const;
+  std::uint16_t pick(float x, float y) const;
   // Any thread may project last-frame world xyz into normalized top-left xy, with NaN behind the
   // camera and the in-front count returned.
   std::size_t project(const float* points, std::size_t count, float* out) const;

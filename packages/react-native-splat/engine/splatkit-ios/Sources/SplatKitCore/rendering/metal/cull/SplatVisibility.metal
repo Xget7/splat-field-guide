@@ -40,8 +40,8 @@ kernel void visibility(uint t [[thread_position_in_grid]],
                        device Projected* projected [[buffer(9)]],
                        const device uint* activeIndices [[buffer(10), function_constant(kIndexedLOD)]],
                        const device uint* activeCount [[buffer(11), function_constant(kIndexedLOD)]],
-                       const device uchar* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
-                       constant Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
+                       const device ushort* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
+                       const device Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
   const uint total = kIndexedLOD ? activeCount[0] : rangeStarts[rangeCount];
   bool visible = false;
   uint key = 0;

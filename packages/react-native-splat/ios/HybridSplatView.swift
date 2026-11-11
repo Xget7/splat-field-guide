@@ -8,7 +8,7 @@ final class HybridSplatView: HybridSplatViewSpec {
     case source, highlight, cameraLimits, revealSeconds
   }
 
-  private static let partLabels = 1.0...255.0
+  private static let partLabels = 1.0...65535.0
   private static let bytesPerPoint = 3 * MemoryLayout<Float>.size
   private static let bytesPerViewPoint = 2 * MemoryLayout<Float>.size
 
@@ -189,12 +189,12 @@ final class HybridSplatView: HybridSplatViewSpec {
     return resources.appendingPathComponent(path).path
   }
 
-  private func partLabels(_ highlight: [Double]) -> [UInt8] {
+  private func partLabels(_ highlight: [Double]) -> [UInt16] {
     let valid = highlight.filter { Self.partLabels.contains($0) && $0.rounded() == $0 }
     if valid.count != highlight.count {
       SplatInstrumentation.logger.error(
-        "highlight: dropped \(highlight.count - valid.count) values that are not part labels 1-255")
+        "highlight: dropped \(highlight.count - valid.count) values that are not part labels 1-65535")
     }
-    return valid.map { UInt8($0) }
+    return valid.map { UInt16($0) }
   }
 }

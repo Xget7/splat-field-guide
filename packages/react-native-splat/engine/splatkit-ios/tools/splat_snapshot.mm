@@ -37,7 +37,7 @@ struct Options {
   std::string world;
   std::string labels;
   std::string out;
-  std::vector<uint8_t> highlight;
+  std::vector<uint16_t> highlight;
   std::vector<float> pose;
   std::vector<float> bounds;
   std::vector<float> picks;
@@ -72,7 +72,7 @@ std::optional<Options> parse(int argc, char** argv) {
     } else if (flag == "--out") {
       o.out = value;
     } else if (flag == "--highlight") {
-      for (const float label : numbers(value)) o.highlight.push_back(static_cast<uint8_t>(label));
+      for (const float label : numbers(value)) o.highlight.push_back(static_cast<uint16_t>(label));
     } else if (flag == "--pose") {
       o.pose = numbers(value);
     } else if (flag == "--bounds") {
@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
                 pose.target.x, pose.target.y, pose.target.z);
     for (size_t i = 0; i < o.picks.size(); i += 2) {
       const auto start = std::chrono::steady_clock::now();
-      const uint8_t label = engine.pick(o.picks[i], o.picks[i + 1]);
+      const uint16_t label = engine.pick(o.picks[i], o.picks[i + 1]);
       const double millis =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
               .count();

@@ -289,7 +289,7 @@ void SplatEngine::refit(Extent extent) {
   redrawNeeded_ = true;
 }
 
-void SplatEngine::setHighlight(const std::uint8_t* labels, std::size_t count) {
+void SplatEngine::setHighlight(const std::uint16_t* labels, std::size_t count) {
   highlight_.set(labels, count);
 }
 
@@ -316,7 +316,7 @@ SplatEngine::View SplatEngine::publishedView() const {
   return view_.value_or(View{});
 }
 
-std::uint8_t SplatEngine::pick(float x, float y) const {
+std::uint16_t SplatEngine::pick(float x, float y) const {
   const View view = publishedView();
   if (!view.pickIndex || !std::isfinite(x) || !std::isfinite(y)) return 0;
   // Back through the projection: the point's direction in camera space, looking down -Z.

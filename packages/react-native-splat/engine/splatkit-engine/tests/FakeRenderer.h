@@ -78,7 +78,7 @@ class FakeRenderer final : public SplatRenderer {
   std::function<void()> onDestroyed;
   // What the last tree upload handed the GPU.
   uint32_t uploadedBudget = 0;
-  std::vector<uint8_t> uploadedLabels;
+  std::vector<uint16_t> uploadedLabels;
 
  private:
   float scale_ = 1;

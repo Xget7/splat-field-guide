@@ -194,7 +194,7 @@ TEST_F(MetalVisibilityPassTest, RejectsAKeyBufferSmallerThanTheReservation) {
   };
   id<MTLCommandBuffer> cmd = [gpu.queue commandBuffer];
   id<MTLBuffer> guide = guideBuffer();
-  id<MTLBuffer> labels = labelStream(std::vector<uint8_t>(8, 0));
+  id<MTLBuffer> labels = labelStream(std::vector<uint16_t>(8, 0));
   auto project = [&](id<MTLBuffer> keys) {
     return visibility.pass.encodeProject(cmd, 0, input.uniforms, guide, input.splats, labels, nil,
                                          0, &range, 1, keys);
@@ -583,15 +583,15 @@ std::vector<ProjectedSplat> projectGuided(VisibilityRig& rig, const std::vector<
 
 TEST_F(MetalVisibilityPassTest, ReadsTheLabelOfEachSplatPastAWordBoundary) {
   // Five black splats labelled 1 to 5; style k tints toward red by k/5, so the fifth splat's
-  // label sits in the second word of the stream.
+  // label sits in the third word of the stream.
   constexpr uint32_t kSplats = 5;
   std::vector<GpuSplat> source(kSplats, guideSplat(0, 0, -2));
-  std::vector<uint8_t> labels(kSplats);
+  std::vector<uint16_t> labels(kSplats);
   LabelStyles styles{};
   for (uint32_t i = 0; i < kSplats; ++i) {
-    labels[i] = static_cast<uint8_t>(i + 1);
-    styles[i + 1].tint[0] = 1;
-    styles[i + 1].tintAmount = float(i + 1) / kSplats;
+    labels[i] = i == kSplats - 1 ? 65535 : static_cast<uint16_t>(256 + i);
+    styles[labels[i]].tint[0] = 1;
+    styles[labels[i]].tintAmount = float(i + 1) / kSplats;
   }
   ASSERT_TRUE(visibility.reserve(kSplats));
   visibility.labels = labelStream(labels);
@@ -684,11 +684,11 @@ TEST_F(MetalVisibilityPassTest, RejectsALabelStreamOrGuideSmallerThanTheWorld) {
     return visibility.pass.encodeProject(cmd, 0, input.uniforms, guide, input.splats, labels, nil,
                                          0, &range, 1, visibility.sort.keys());
   };
-  EXPECT_FALSE(project(buffer(sizeof(GuideUniform)), buffer(kSplats - 4)));
-  EXPECT_FALSE(project(buffer(sizeof(GuideUniform) - 4), buffer(kSplats)));
-  EXPECT_FALSE(project(nil, buffer(kSplats)));
+  EXPECT_FALSE(project(buffer(sizeof(GuideUniform)), buffer(kSplats * 2 - 4)));
+  EXPECT_FALSE(project(buffer(sizeof(GuideUniform) - 4), buffer(kSplats * 2)));
+  EXPECT_FALSE(project(nil, buffer(kSplats * 2)));
   EXPECT_FALSE(project(buffer(sizeof(GuideUniform)), nil));
-  EXPECT_TRUE(project(buffer(sizeof(GuideUniform)), buffer(kSplats)));
+  EXPECT_TRUE(project(buffer(sizeof(GuideUniform)), buffer(kSplats * 2)));
   [cmd commit];
   [cmd waitUntilCompleted];
   EXPECT_EQ(cmd.status, MTLCommandBufferStatusCompleted);

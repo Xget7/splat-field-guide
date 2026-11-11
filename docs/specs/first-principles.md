@@ -95,7 +95,7 @@ The phone consumes the manifest and never parses Turtle.
   Notes have `topic` and `text`, with at most one note per supported topic.
 - Geometry: `tiers[]` contains `id`, `splatCount`, `nodeCount`, `world` and `labels`.
   Leaves are captured splats after export filtering; node counts also include merged LOD nodes.
-  Each `labels.bin` has a 16-byte SFGL header and one label byte per node, with zero unlabelled and 1-255 available part labels.
+  Each `labels.bin` has a 16-byte SFGL v2 header and one unsigned 16-bit little-endian label per node, with zero unlabelled and 1-65535 available part labels.
 - Relationships: `relations[]` contains `type`, `from`, `to` and `evidence`.
   Evidence contains `kind: authored | measured` and `source`; only measured evidence may also contain non-negative `distance`.
   `parent` separately represents containment.

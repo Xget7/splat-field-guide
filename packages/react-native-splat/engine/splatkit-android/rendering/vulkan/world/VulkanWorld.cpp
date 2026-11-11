@@ -25,7 +25,7 @@ bool hasConsistentArrays(const splat::SplatCloud& cloud) {
 // One byte per record rounded up to whole words, never under the descriptor minimum.
 VkDeviceSize labelStreamBytes(size_t records) {
   constexpr size_t kWord = sizeof(uint32_t);
-  return std::max(VulkanWorld::kMinLabelBytes, VkDeviceSize{(records + kWord - 1) / kWord * kWord});
+  return std::max(VulkanWorld::kMinLabelBytes, VkDeviceSize{(records * 2 + kWord - 1) / kWord * kWord});
 }
 
 std::unique_ptr<VulkanBuffer> createLabels(const VulkanContext& ctx, size_t records) {
@@ -189,11 +189,11 @@ bool VulkanWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) co
   if (n == 0) return true;
   if (offset > count || n > count - offset) return false;
   if (!cloud.labels.empty() && cloud.labels.size() != n) return false;
-  // Vulkan buffers are little-endian, so byte i of the stream is byte i & 3 of word i >> 2, the
+  // Vulkan buffers are little-endian, so byte i of the stream is halfword i & 1 of word i >> 1, the
   // one guideLabel reads. A tile without labels writes zeros, clearing an earlier tile's range.
-  const std::vector<uint8_t> tileLabels =
-      cloud.labels.empty() ? std::vector<uint8_t>(n, 0) : cloud.labels;
-  if (!labels->upload(VkDeviceSize{offset}, tileLabels.data(), n)) return false;
+  const std::vector<uint16_t> tileLabels =
+      cloud.labels.empty() ? std::vector<uint16_t>(n, 0) : cloud.labels;
+  if (!labels->upload(VkDeviceSize{offset} * 2, tileLabels.data(), n * 2)) return false;
   const VkDeviceSize splatOffset = VkDeviceSize{offset} * sizeof(GpuSplat);
   const size_t splatBytes = n * sizeof(GpuSplat);
   if (auto* mapped = static_cast<GpuSplat*>(splats->mapped())) {

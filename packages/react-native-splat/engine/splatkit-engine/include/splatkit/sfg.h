@@ -125,13 +125,13 @@ bool sfg_frame(sfg_engine* engine, const sfg_bounds* bounds, float seconds,
                const sfg_view_direction* SFG_NULLABLE from);
 
 // Highlights fade between label sets and dim the rest; no labels restore captured styles.
-void sfg_set_highlight(sfg_engine* engine, const uint8_t* SFG_NULLABLE labels, size_t count);
+void sfg_set_highlight(sfg_engine* engine, const uint16_t* SFG_NULLABLE labels, size_t count);
 // Reveal duration uses seconds for a bottom-up sweep; zero shows the world immediately.
 void sfg_set_reveal(sfg_engine* engine, float seconds);
 
 // Any worker thread may pick normalized xy in the last drawn frame, returning zero for no part; the
 // work may take milliseconds.
-uint8_t sfg_pick(const sfg_engine* engine, float x, float y);
+uint16_t sfg_pick(const sfg_engine* engine, float x, float y);
 // Any thread may project count world xyz points into last-frame xy, with NaN behind the camera and
 // the in-front count returned.
 size_t sfg_project(const sfg_engine* engine, const float* points, size_t count, float* out_xy);

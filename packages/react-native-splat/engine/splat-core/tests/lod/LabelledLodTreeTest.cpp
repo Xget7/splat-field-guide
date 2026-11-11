@@ -13,7 +13,7 @@ namespace {
 struct Leaf {
   float x, y, z;
   float alpha;
-  std::uint8_t label;
+  std::uint16_t label;
 };
 
 constexpr float kSigma = 0.01f;
@@ -39,7 +39,7 @@ SplatCloud cloudOf(const std::vector<Leaf>& leaves, bool labelled = true) {
 }
 
 // Leaves a few centimetres apart, so one merged node stands in for all of them.
-std::vector<Leaf> huddle(std::vector<std::pair<float, std::uint8_t>> parts, float x = 0,
+std::vector<Leaf> huddle(std::vector<std::pair<float, std::uint16_t>> parts, float x = 0,
                          float y = 0) {
   std::vector<Leaf> leaves;
   for (std::size_t i = 0; i < parts.size(); ++i)
@@ -47,11 +47,17 @@ std::vector<Leaf> huddle(std::vector<std::pair<float, std::uint8_t>> parts, floa
   return leaves;
 }
 
+TEST(LabelledLodTree, MergedNodesPreserveHighLabels) {
+  const auto tree = buildLodTree(cloudOf(huddle({{0.9f, 65535}, {0.1f, 256}})));
+  ASSERT_GT(tree.layout[0].childCount, 0u);
+  EXPECT_EQ(tree.nodes.labels[0], 65535);
+}
+
 TEST(LabelledLodTree, LeavesKeepTheirParts) {
   std::vector<Leaf> leaves;
   for (int i = 0; i < 200; ++i)
     leaves.push_back({static_cast<float>(i % 7), static_cast<float>(i / 7) * 0.5f, 0, 0.5f,
-                      static_cast<std::uint8_t>(i % 5)});
+                      static_cast<std::uint16_t>(65535 - i % 5)});
   const LodTree tree = buildLodTree(cloudOf(leaves));
   ASSERT_EQ(tree.nodes.labels.size(), tree.nodeCount());
   std::size_t checked = 0;
@@ -84,10 +90,10 @@ TEST(LabelledLodTree, AMergedNodeTakesTheHeavierPart) {
   pairs.clusterLeaves = 2;
   const LodTree nested = buildLodTree(cloudOf(leaves), pairs);
   ASSERT_EQ(nested.layout[0].childCount, 3u);
-  std::vector<std::uint8_t> children;
+  std::vector<std::uint16_t> children;
   for (uint32_t k = 0; k < 3; ++k) children.push_back(nested.nodes.labels[1 + k]);
   std::sort(children.begin(), children.end());
-  EXPECT_EQ(children, (std::vector<std::uint8_t>{1, 2, 2}));
+  EXPECT_EQ(children, (std::vector<std::uint16_t>{1, 2, 2}));
   EXPECT_EQ(nested.nodes.labels[0], 1);
 }
 

@@ -64,7 +64,7 @@ Result<SplatWorldLoader::WorldReport> SplatWorldLoader::loadWorld(ByteView world
   if (!header) return header.error();
   if (identity && header.value().leafCount != identity->expectedSplatCount)
     return Error{ErrorCode::corrupt, kSplatCountMismatch};
-  std::vector<std::uint8_t> partLabels;
+  std::vector<std::uint16_t> partLabels;
   if (!labels.empty()) {
     auto decodedLabels = decodePartLabels(labels.data, labels.size);
     if (!decodedLabels) return decodedLabels.error();

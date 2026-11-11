@@ -112,7 +112,7 @@ bool VulkanFrameCompute::initialize(uint32_t sourceCount, const splat::LodTree* 
     readback_[slot] =
         VulkanBuffer::hostVisible(ctx_, kReadbackBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     guides_[slot] =
-        VulkanBuffer::hostVisible(ctx_, sizeof(GuideUniform), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        VulkanBuffer::hostVisible(ctx_, sizeof(GuideUniform), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     if (!ranges_[slot] || !readback_[slot] || !guides_[slot]) return false;
     if (timestampBits_) {
       VkQueryPoolCreateInfo info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
@@ -275,10 +275,10 @@ std::optional<VulkanFrameCompute::Draw> VulkanFrameCompute::encode(
   input.sh = sh.handle();
   input.shBytes = sh.size();
   input.shDegree = shDegree;
-  const GuideUniform guide = makeGuideUniform(frame.labelStyles, frame.revealLevel,
+  const auto guide = makeGuideUniform(frame.labelStyles, frame.revealLevel,
                                               frame.revealBand);
-  std::memcpy(guides_[slot]->mapped(), &guide, sizeof(guide));
-  guides_[slot]->flush(0, sizeof(guide));
+  std::memcpy(guides_[slot]->mapped(), guide.get(), sizeof(GuideUniform));
+  guides_[slot]->flush(0, sizeof(GuideUniform));
   input.labels = labels.handle();
   input.labelsBytes = labels.size();
   input.guide = guides_[slot]->handle();

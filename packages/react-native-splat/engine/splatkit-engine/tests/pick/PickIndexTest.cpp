@@ -17,7 +17,7 @@ Covariance round(float sigma) {
 }
 
 void add(splat::SplatCloud& cloud, splat::Vec3 at, Covariance covariance, float alpha,
-         std::uint8_t label) {
+         std::uint16_t label) {
   cloud.positions.insert(cloud.positions.end(), {at.x, at.y, at.z});
   cloud.covariances.insert(cloud.covariances.end(), covariance.begin(), covariance.end());
   cloud.alphas.push_back(alpha);
@@ -28,8 +28,14 @@ Ray lookingAt(float x, float y) {
   return {{0, 0, 0}, splat::normalize({x, y, -1})};
 }
 
-std::uint8_t pick(splat::SplatCloud cloud, const Ray& ray) {
+std::uint16_t pick(splat::SplatCloud cloud, const Ray& ray) {
   return PickIndex::take(cloud)->pick(ray);
+}
+
+TEST(PickIndex, PreservesTheHighestPartLabel) {
+  splat::SplatCloud cloud;
+  add(cloud, {0, 0, -5}, round(0.1f), 0.99f, 65535);
+  EXPECT_EQ(pick(cloud, lookingAt(0, 0)), 65535);
 }
 
 TEST(PickIndex, ARayThroughAPartPicksItAndOnePastThreeSigmaMisses) {

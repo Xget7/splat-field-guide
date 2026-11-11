@@ -184,9 +184,9 @@ TEST(MetalWorldTest, TileUpdatesWriteOrClearTheirLabelsAtTheirOffset) {
   // A tile without labels clears what an earlier tile left in its range.
   ASSERT_TRUE(world->uploadTile(5, labelled));
   ASSERT_TRUE(world->uploadTile(5, cloud()));
-  const auto* bytes = static_cast<const uint8_t*>(world->labels().contents);
-  const std::vector<uint8_t> written(bytes, bytes + 8);
-  EXPECT_EQ(written, (std::vector<uint8_t>{0, 5, 6, 0, 0, 0, 0, 0}));
+  const auto* bytes = static_cast<const uint16_t*>(world->labels().contents);
+  const std::vector<uint16_t> written(bytes, bytes + 8);
+  EXPECT_EQ(written, (std::vector<uint16_t>{0, 5, 6, 0, 0, 0, 0, 0}));
   labelled.labels = {1};
   EXPECT_FALSE(world->uploadTile(3, labelled));
 }

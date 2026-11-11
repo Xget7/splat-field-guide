@@ -12,7 +12,7 @@ Each frame the GPU does the whole pipeline:
 5. The backdrop fills what the capture leaves empty: the target is averaged into a small mip pyramid, each pixel takes the colour of the nearest covered area (a pull-push fill), two blur passes soften it, and it is drawn under the splats.
 6. A last pass brings the target to the drawable, through the MetalFX spatial scaler when the frame renders below drawable size and the device has it.
 
-Part labels sit in a stream of their own, one byte per tree node beside the records, so the records stay those of upstream SplatKit.
+Part labels sit in a stream of their own, one unsigned 16-bit value per tree node beside the records, so the records stay those of upstream SplatKit.
 
 The shaders are compiled at run time from source embedded by [`cmake/`](cmake), so the library is a plain static archive with no metallib to ship.
 

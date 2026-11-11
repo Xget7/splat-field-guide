@@ -4,7 +4,7 @@
 #ifndef SPLATKIT_VULKAN_GUIDE_BINDINGS_H
 #define SPLATKIT_VULKAN_GUIDE_BINDINGS_H
 
-// The label stream: one byte per splat in the world's splat order, read as uint words.
+// The label stream: two bytes per splat in the world's splat order, read as uint words.
 #define SPLAT_GUIDE_LABELS_BINDING 10
 // The GuideUniform of the frame: the reveal and one style per label.
 #define SPLAT_GUIDE_BINDING 11

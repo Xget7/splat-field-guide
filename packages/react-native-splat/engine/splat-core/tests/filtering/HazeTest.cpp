@@ -11,11 +11,11 @@ namespace {
 constexpr float kTolerance = 1e-5f;
 // Along one axis only, so the diagonal, and with it each share, is this many metres.
 constexpr float kSceneSize = 48;
-constexpr std::uint8_t kPart = 3;
-constexpr std::uint8_t kBackground = 0;
+constexpr std::uint16_t kPart = 3;
+constexpr std::uint16_t kBackground = 0;
 constexpr std::size_t kHarmonics = 9;
 
-void addSplat(SplatCloud& cloud, float sigma, std::uint8_t label, float id) {
+void addSplat(SplatCloud& cloud, float sigma, std::uint16_t label, float id) {
   const float narrow = 0.01f;
   for (float p : {id, 0.0f, 0.0f}) cloud.positions.push_back(p);
   for (float c : {sigma * sigma, 0.0f, 0.0f, narrow, 0.0f, narrow}) cloud.covariances.push_back(c);
@@ -54,8 +54,8 @@ TEST(Haze, RemovesWideSplatsAndWideBackgroundFromACaptureKeepingTheOrder) {
   EXPECT_EQ(splat::removeHaze(cloud), 2u);
   EXPECT_EQ(std::vector<float>(cloud.alphas.begin(), cloud.alphas.begin() + 4),
             (std::vector<float>{1, 3, 5, 6}));
-  EXPECT_EQ(std::vector<std::uint8_t>(cloud.labels.begin(), cloud.labels.begin() + 3),
-            (std::vector<std::uint8_t>{kBackground, kPart, kPart}));
+  EXPECT_EQ(std::vector<std::uint16_t>(cloud.labels.begin(), cloud.labels.begin() + 3),
+            (std::vector<std::uint16_t>{kBackground, kPart, kPart}));
   EXPECT_EQ(cloud.alphas.size(), kept);
   EXPECT_EQ(cloud.positions.size(), kept * 3);
   EXPECT_EQ(cloud.covariances.size(), kept * 6);

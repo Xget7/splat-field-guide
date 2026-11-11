@@ -12,7 +12,7 @@ struct LabelStyle {
   float2 reserved;
 };
 
-constant uint kLabelCount = 256;  // one style per value a label byte can take
+constant uint kLabelCount = 65536;  // one style per unsigned 16-bit label
 
 struct Guide {
   float2 reveal;  // world height drawn up to, and the glowing band under it
@@ -25,24 +25,24 @@ constant float3 kRevealTint = float3(0x0A, 0x6C, 0xFF) / 255.0;
 constant float kRevealTintAmount = 0.85;
 constant float kRevealBoost = 0.9;
 
-// One byte per splat, in the order of the splat records.
-inline uint guideLabel(const device uchar* labels, uint index) {
+// One unsigned 16-bit label per splat, in the order of the splat records.
+inline uint guideLabel(const device ushort* labels, uint index) {
   return labels[index];
 }
 
 // A splat above the reveal level is not drawn. A NaN height fails the comparison, so it is
 // dropped too; with no reveal running the level is +infinity.
-inline bool guideRevealed(constant Guide& g, float y) {
+inline bool guideRevealed(const device Guide& g, float y) {
   return g.reveal.x - y >= 0.0;
 }
 
-inline float guideOpacity(constant Guide& g, uint label) {
+inline float guideOpacity(const device Guide& g, uint label) {
   return g.styles[label].opacity;
 }
 
 // The captured colour mixed toward the part's tint and scaled by its brightness, then lit by the
 // reveal band when the splat is close under the level.
-inline float3 guideColor(constant Guide& g, uint label, float3 rgb, float y) {
+inline float3 guideColor(const device Guide& g, uint label, float3 rgb, float y) {
   const LabelStyle style = g.styles[label];
   rgb = mix(rgb, float3(style.tint), style.tintAmount) * style.brightness;
   if (g.reveal.y > 0.0) {

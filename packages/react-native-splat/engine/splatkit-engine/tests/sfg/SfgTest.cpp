@@ -34,7 +34,7 @@ constexpr float kFieldGuideRenderScale = 0.75f;
 constexpr char kSolidPairSha256[] =
     "4256dedff9e570e2a67bbfa035ffeb5b749fffdd67a5cf5fee6e1101acd11b23";
 constexpr char kPairLabelsSha256[] =
-    "16c0e4987473f593a8cb1e6034eddfbdc8b529f5f1d8a82e1f44ac278cb97557";
+    "94ddf9ec7f5f448cf2f89299fba456e08c68b884c5a383c3e13f523dba569e66";
 // The pair is a three-node tree: its merged root, then its two leaves.
 constexpr uint32_t kPairLeaves = 2;
 // A root label the leaves do not carry, so a pick that hit the root would show.
@@ -426,7 +426,7 @@ TEST_F(SfgTest, HighlightsAndClearsParts) {
   const std::string labels = writeFile("pair.labels.bin", labelBytes({1, 1, 0}));
   ASSERT_TRUE(sfg_load(engine, world.c_str(), labels.c_str()));
   settle();
-  const uint8_t part = 1;
+  const uint16_t part = 1;
   sfg_set_highlight(engine, &part, 1);
   settle();
   EXPECT_EQ((*renderer->last.labelStyles)[1].tintAmount, Highlight::kTintAmount);

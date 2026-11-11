@@ -158,9 +158,9 @@ void MetalFrameCompute::updateCamera(const SplatRenderer::Frame& frame, uint32_t
   u.cameraPosition[1] = frame.cameraPosition.y;
   u.cameraPosition[2] = frame.cameraPosition.z;
   std::memcpy(uniforms_[slot].contents, &u, sizeof(u));
-  const GuideUniform guide =
+  const auto guide =
       makeGuideUniform(frame.labelStyles, frame.revealLevel, frame.revealBand);
-  std::memcpy(guides_[slot].contents, &guide, sizeof(guide));
+  std::memcpy(guides_[slot].contents, guide.get(), sizeof(GuideUniform));
 }
 
 void MetalFrameCompute::adaptLodThreshold() {

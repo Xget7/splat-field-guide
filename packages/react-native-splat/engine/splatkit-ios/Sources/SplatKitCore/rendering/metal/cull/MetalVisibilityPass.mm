@@ -114,7 +114,7 @@ bool MetalVisibilityPass::encodeProject(id<MTLCommandBuffer> cmd, uint32_t slot,
       (rangeCount > 0 && ranges == nullptr))
     return false;
   if (keys.length < size_t{capacity_} * sizeof(uint32_t)) return false;
-  if (guide.length < sizeof(GuideUniform) || labels.length < sourceCapacity_) return false;
+  if (guide.length < sizeof(GuideUniform) || labels.length < size_t{sourceCapacity_} * sizeof(uint16_t)) return false;
   // Validate before writing slot inputs, so a rejected request cannot corrupt them.
   uint32_t total = 0;
   for (uint32_t i = 0; i < rangeCount; ++i) {

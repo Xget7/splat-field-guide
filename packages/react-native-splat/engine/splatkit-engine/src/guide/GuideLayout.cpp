@@ -5,17 +5,17 @@
 namespace splatkit {
 namespace {
 
-constexpr std::size_t kLabelsPerWord = sizeof(uint32_t);
-constexpr uint32_t kBitsPerLabel = 8;
+constexpr std::size_t kLabelsPerWord = sizeof(uint32_t) / sizeof(uint16_t);
+constexpr uint32_t kBitsPerLabel = 16;
 
 }  // namespace
 
-GuideUniform makeGuideUniform(const LabelStyles* styles, float revealLevel, float revealBand) {
+std::unique_ptr<GuideUniform> makeGuideUniform(const LabelStyles* styles, float revealLevel, float revealBand) {
   // Value initialisation gives every style its as-captured defaults and zeroes the pad.
-  GuideUniform guide{};
-  guide.reveal[0] = revealLevel;
-  guide.reveal[1] = revealBand;
-  if (styles != nullptr) std::copy(styles->begin(), styles->end(), guide.styles);
+  auto guide = std::make_unique<GuideUniform>();
+  guide->reveal[0] = revealLevel;
+  guide->reveal[1] = revealBand;
+  if (styles != nullptr) std::copy(styles->begin(), styles->end(), guide->styles);
   return guide;
 }
 

@@ -75,8 +75,8 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
       floatArrayOf(it.minAzimuth.toFloat(), it.maxAzimuth.toFloat(), it.minElevation.toFloat(),
         it.maxElevation.toFloat(), it.minRadius.toFloat(), it.maxRadius.toFloat())
     }
-    val labels = highlight.filter { it.isFinite() && it in 1.0..255.0 && it % 1.0 == 0.0 }
-      .map { it.toInt().toByte() }.toByteArray()
+    val labels = highlight.filter { it.isFinite() && it in 1.0..65535.0 && it % 1.0 == 0.0 }
+      .map { it.toInt().toShort() }.toShortArray()
     val seconds = (revealSeconds ?: 0.0).toFloat()
     val input = source
     post {

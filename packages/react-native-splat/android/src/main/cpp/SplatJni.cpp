@@ -134,10 +134,10 @@ JNIEXPORT void JNICALL JNI_METHOD(limits)(JNIEnv* env, jobject, jlong id, jfloat
   sfg_camera_limits limits{v[0],v[1],v[2],v[3],v[4],v[5]};
   sfg_set_camera_limits(state->handle, &limits);
 }
-JNIEXPORT void JNICALL JNI_METHOD(highlight)(JNIEnv* env, jobject, jlong id, jbyteArray values) {
+JNIEXPORT void JNICALL JNI_METHOD(highlight)(JNIEnv* env, jobject, jlong id, jshortArray values) {
   auto state = engine(id); if (!state) return;
-  std::vector<uint8_t> labels(env->GetArrayLength(values));
-  env->GetByteArrayRegion(values, 0, labels.size(), reinterpret_cast<jbyte*>(labels.data()));
+  std::vector<uint16_t> labels(env->GetArrayLength(values));
+  env->GetShortArrayRegion(values, 0, labels.size(), reinterpret_cast<jshort*>(labels.data()));
   sfg_set_highlight(state->handle, labels.data(), labels.size());
 }
 JNIEXPORT void JNICALL JNI_METHOD(reveal)(JNIEnv*, jobject, jlong id, jfloat seconds) {

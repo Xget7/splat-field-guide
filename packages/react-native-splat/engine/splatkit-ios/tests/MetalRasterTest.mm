@@ -112,8 +112,8 @@ TEST_F(MetalRasterTest, TheBackdropTakesTheCapturesColourAndIsBlackWithoutOne) {
 }
 
 TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
-  constexpr uint8_t kPart = 3;
-  constexpr uint8_t kOtherPart = 4;
+  constexpr uint16_t kPart = 3;
+  constexpr uint16_t kOtherPart = 4;
   constexpr size_t kCenter = (32 * 64 + 32) * 4;  // BGRA
   attach(64, 64);
   auto cloud = redSplat();
@@ -142,8 +142,8 @@ TEST_F(MetalRasterTest, AHighlightTintsItsPartAndDimsTheRest) {
 // With a budget of one node the selection draws the root, which stands for all three leaves and
 // carries the part that holds most of their opacity.
 TEST_F(MetalRasterTest, DrawsAMergedNodeWithItsMajorityStyle) {
-  constexpr uint8_t kPart = 3;
-  constexpr uint8_t kOtherPart = 4;
+  constexpr uint16_t kPart = 3;
+  constexpr uint16_t kOtherPart = 4;
   constexpr uint32_t kOneNode = 1;
   constexpr size_t kCenter = (32 * 64 + 32) * 4;  // BGRA
   attach(64, 64);

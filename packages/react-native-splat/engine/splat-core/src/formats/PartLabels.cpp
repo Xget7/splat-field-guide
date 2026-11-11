@@ -31,7 +31,7 @@ std::uint32_t readU32(const std::uint8_t* p) {
 
 }  // namespace
 
-Result<std::vector<std::uint8_t>> decodePartLabels(const std::uint8_t* data, std::size_t size) {
+Result<std::vector<std::uint16_t>> decodePartLabels(const std::uint8_t* data, std::size_t size) {
   using namespace part_labels;
   if (data == nullptr || size < kHeaderBytes || std::memcmp(data, kMagic, sizeof(kMagic)) != 0) {
     return Error{ErrorCode::unsupportedFormat, "not a part labels file"};
@@ -44,21 +44,26 @@ Result<std::vector<std::uint8_t>> decodePartLabels(const std::uint8_t* data, std
                                                    " bytes per label"};
   }
   const std::uint32_t count = readU32(data + kCountOffset);
-  if (readU32(data + kReservedOffset) != 0 || size - kHeaderBytes != count) {
+  if (readU32(data + kReservedOffset) != 0 || (size - kHeaderBytes) / kBytesPerLabel != count || (size - kHeaderBytes) % kBytesPerLabel != 0) {
     return Error{ErrorCode::corrupt, "part labels file of " + std::to_string(size) + " bytes for " +
                                          std::to_string(count) + " labels"};
   }
-  return std::vector<std::uint8_t>(data + kHeaderBytes, data + size);
+  std::vector<std::uint16_t> labels(count);
+  for (std::size_t i = 0; i < count; ++i) labels[i] = readU16(data + kHeaderBytes + i * 2);
+  return labels;
 }
 
-std::vector<std::uint8_t> encodePartLabels(const std::vector<std::uint8_t>& labels) {
+std::vector<std::uint8_t> encodePartLabels(const std::vector<std::uint16_t>& labels) {
   using namespace part_labels;
   std::vector<std::uint8_t> bytes(kHeaderBytes, 0);
   std::memcpy(bytes.data(), kMagic, sizeof(kMagic));
   putU16(bytes.data() + kVersionOffset, kVersion);
   putU16(bytes.data() + kWidthOffset, kBytesPerLabel);
   putU32(bytes.data() + kCountOffset, static_cast<std::uint32_t>(labels.size()));
-  bytes.insert(bytes.end(), labels.begin(), labels.end());
+  for (const auto label : labels) {
+    bytes.push_back(static_cast<std::uint8_t>(label));
+    bytes.push_back(static_cast<std::uint8_t>(label >> 8));
+  }
   return bytes;
 }
 

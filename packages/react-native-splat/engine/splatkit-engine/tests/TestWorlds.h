@@ -82,7 +82,7 @@ inline std::vector<uint8_t> solidPairBytes() {
 }
 
 // A labels file in node order: for a pair, the root's label and then each leaf's.
-inline std::vector<uint8_t> labelBytes(const std::vector<uint8_t>& labels) {
+inline std::vector<uint8_t> labelBytes(const std::vector<uint16_t>& labels) {
   return splat::encodePartLabels(labels);
 }
 

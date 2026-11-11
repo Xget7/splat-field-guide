@@ -19,9 +19,9 @@ bool validCloud(const splat::SplatCloud& cloud) {
          cloud.alphas.size() == n && (cloud.labels.empty() || cloud.labels.size() == n);
 }
 
-// The label stream holds a byte per splat, padded to the whole words both GPU APIs read.
+// The label stream holds two bytes per splat, padded to the whole words both GPU APIs read.
 size_t labelBytes(size_t count) {
-  return (count + sizeof(uint32_t) - 1) / sizeof(uint32_t) * sizeof(uint32_t);
+  return (count * 2 + sizeof(uint32_t) - 1) / sizeof(uint32_t) * sizeof(uint32_t);
 }
 
 }  // namespace
@@ -78,11 +78,11 @@ bool MetalWorld::uploadTile(uint32_t offset, const splat::SplatCloud& cloud) {
   if (offset > count_ || n > count_ - offset) return false;
   if (n == 0) return true;
   packSplatRange(cloud, 0, n, static_cast<GpuSplat*>(splats_.contents) + offset);
-  auto* labels = static_cast<uint8_t*>(labels_.contents) + offset;
+  auto* labels = static_cast<uint16_t*>(labels_.contents) + offset;
   if (cloud.labels.empty()) {
-    std::memset(labels, 0, n);
+    std::memset(labels, 0, n * sizeof(uint16_t));
   } else {
-    std::memcpy(labels, cloud.labels.data(), n);
+    std::memcpy(labels, cloud.labels.data(), n * sizeof(uint16_t));
   }
   if (shDegree_ == 0) return true;
   const size_t stride = shStride(shDegree_);

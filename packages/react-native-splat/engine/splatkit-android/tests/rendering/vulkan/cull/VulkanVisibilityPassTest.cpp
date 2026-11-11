@@ -63,11 +63,11 @@ std::unique_ptr<VulkanBuffer> upload(const test::VulkanTestContext& gpu,
   require(buffer->upload(values.empty() ? &zero : values.data(), bytes), "input upload");
   return buffer;
 }
-// Field Guide's label stream: label i is byte i & 3 of word i >> 2, little-endian.
-std::vector<uint32_t> labelWords(const std::vector<uint8_t>& labels) {
-  std::vector<uint32_t> words((labels.size() + 3) / 4, 0);
+// Field Guide's label stream: label i is halfword i & 1 of word i >> 1, little-endian.
+std::vector<uint32_t> labelWords(const std::vector<uint16_t>& labels) {
+  std::vector<uint32_t> words((labels.size() + 1) / 2, 0);
   for (size_t i = 0; i < labels.size(); ++i)
-    words[i / 4] |= static_cast<uint32_t>(labels[i]) << (8 * (i % 4));
+    words[i / 2] |= static_cast<uint32_t>(labels[i]) << (16 * (i % 2));
   return words;
 }
 constexpr uint32_t kFixtureSplats = 300;
@@ -77,11 +77,11 @@ constexpr float kNoReveal = std::numeric_limits<float>::infinity();
 struct Fixture {
   explicit Fixture(const test::VulkanTestContext& gpu)
       : splats(upload(gpu, source(kFixtureSplats))),
-        labels(upload(gpu, labelWords(std::vector<uint8_t>(kFixtureSplats, 0)))),
+        labels(upload(gpu, labelWords(std::vector<uint16_t>(kFixtureSplats, 0)))),
         uniforms(VulkanBuffer::hostVisible(*gpu.context, sizeof(CameraUniform),
                                            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)),
         guide(VulkanBuffer::hostVisible(*gpu.context, sizeof(GuideUniform),
-                                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) {
+                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
     require(uniforms != nullptr && guide != nullptr, "uniform allocation");
     setCamera(camera());
     setGuide(makeGuideUniform(nullptr, kNoReveal, 0));
@@ -90,9 +90,9 @@ struct Fixture {
     std::memcpy(uniforms->mapped(), &cam, sizeof(cam));
     uniforms->flush(0, sizeof(cam));
   }
-  void setGuide(const GuideUniform& g) const {
-    std::memcpy(guide->mapped(), &g, sizeof(g));
-    guide->flush(0, sizeof(g));
+  void setGuide(const std::unique_ptr<GuideUniform>& g) const {
+    std::memcpy(guide->mapped(), g.get(), sizeof(GuideUniform));
+    guide->flush(0, sizeof(GuideUniform));
   }
   VulkanVisibilityPass::Input input() const {
     VulkanVisibilityPass::Input in;
@@ -368,9 +368,9 @@ void testDescriptorRejection(const Gpu& gpu, VulkanVisibilityPass& pass, const F
     bad.candidatesBytes = indexBuffer->size();
     bad.candidateCountBytes = 3;
     require(!pass.encode(cmd, 0, bad), "reject undersized count descriptor");
-    // 300 labels take 75 words.
+    // 300 labels take 150 words.
     bad = in;
-    bad.labelsBytes = 74 * 4;
+    bad.labelsBytes = 149 * 4;
     require(!pass.encode(cmd, 0, bad), "reject a label stream shorter than the source");
     bad = in;
     bad.labels = VK_NULL_HANDLE;
@@ -541,7 +541,7 @@ GpuSplat guideSplat(float x, float y, float z, uint32_t rgba8 = 0xff000000u) {
 // `styles` and the reveal, by source splat. The fixture's guide is left as found.
 std::vector<ProjectedSplat> projectGuided(const Gpu& gpu, VulkanVisibilityPass& pass,
                                           const Fixture& f, const std::vector<GpuSplat>& source,
-                                          const std::vector<uint8_t>& labels = {},
+                                          const std::vector<uint16_t>& labels = {},
                                           const LabelStyles* styles = nullptr,
                                           float revealLevel = kNoReveal, float revealBand = 0) {
   const auto n = static_cast<uint32_t>(source.size());
@@ -568,15 +568,15 @@ std::vector<ProjectedSplat> projectGuided(const Gpu& gpu, VulkanVisibilityPass& 
 void testReadsTheLabelOfEachSplatPastAWordBoundary(const Gpu& gpu, VulkanVisibilityPass& pass,
                                                    const Fixture& f) {
   // Five black splats labelled 1 to 5; style k tints toward red by k/5, so the fifth splat's
-  // label sits in the second word of the stream.
+  // label sits in the third word of the stream.
   constexpr uint32_t kSplats = 5;
   const std::vector<GpuSplat> source(kSplats, guideSplat(0, 0, -2));
-  std::vector<uint8_t> labels(kSplats);
+  std::vector<uint16_t> labels(kSplats);
   LabelStyles styles{};
   for (uint32_t i = 0; i < kSplats; ++i) {
-    labels[i] = static_cast<uint8_t>(i + 1);
-    styles[i + 1].tint[0] = 1;
-    styles[i + 1].tintAmount = static_cast<float>(i + 1) / kSplats;
+    labels[i] = i == kSplats - 1 ? 65535 : static_cast<uint16_t>(256 + i);
+    styles[labels[i]].tint[0] = 1;
+    styles[labels[i]].tintAmount = static_cast<float>(i + 1) / kSplats;
   }
   const auto projected = projectGuided(gpu, pass, f, source, labels, &styles);
   require(projected.size() == kSplats, "every labelled splat drawn");

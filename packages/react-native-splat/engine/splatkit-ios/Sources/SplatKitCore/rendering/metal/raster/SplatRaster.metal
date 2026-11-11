@@ -7,8 +7,8 @@ vertex SplatVertex splatVertex(uint vertexId [[vertex_id]], uint instanceId [[in
                                const device Splat* splats [[buffer(1)]],
                                const device uint* order [[buffer(2)]],
                                const device uint* shData [[buffer(3)]],
-                               const device uchar* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
-                               constant Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
+                               const device ushort* labels [[buffer(SPLAT_GUIDE_LABELS_BUFFER)]],
+                               const device Guide& guide [[buffer(SPLAT_GUIDE_BUFFER)]]) {
   uint index = order[instanceId];
   // Without the zero value, the degree-0 specialisation drew nothing on the Apple GPU compiler we
   // tested; the source never reads the uninitialised fields.

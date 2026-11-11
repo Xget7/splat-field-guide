@@ -13,9 +13,9 @@ std::vector<std::uint8_t> header(std::uint32_t count) {
           'F',
           'G',
           'L',  // magic
-          1,
+          2,
           0,  // version
-          1,
+          2,
           0,  // bytes per label
           static_cast<std::uint8_t>(count),
           static_cast<std::uint8_t>(count >> 8),
@@ -27,22 +27,22 @@ std::vector<std::uint8_t> header(std::uint32_t count) {
           0};  // reserved
 }
 
-std::vector<std::uint8_t> file(std::vector<std::uint8_t> labels) {
+std::vector<std::uint8_t> file(std::vector<std::uint16_t> labels) {
   auto bytes = header(static_cast<std::uint32_t>(labels.size()));
-  bytes.insert(bytes.end(), labels.begin(), labels.end());
+  for (auto label : labels) { bytes.push_back(label & 255); bytes.push_back(label >> 8); }
   return bytes;
 }
 
-Result<std::vector<std::uint8_t>> decode(const std::vector<std::uint8_t>& bytes) {
+Result<std::vector<std::uint16_t>> decode(const std::vector<std::uint8_t>& bytes) {
   return decodePartLabels(bytes.data(), bytes.size());
 }
 
 TEST(PartLabels, DecodesOneLabelPerSplat) {
-  auto labels = decode(file({0, 3, 255, 7}));
+  auto labels = decode(file({0, 3, 65535, 256}));
   ASSERT_TRUE(labels.ok()) << labels.error().message;
-  EXPECT_EQ(labels.value(), (std::vector<std::uint8_t>{0, 3, 255, 7}));
+  EXPECT_EQ(labels.value(), (std::vector<std::uint16_t>{0, 3, 65535, 256}));
   // A cloud of 70,000 splats needs the count's upper bytes.
-  labels = decode(file(std::vector<std::uint8_t>(70000, 2)));
+  labels = decode(file(std::vector<std::uint16_t>(70000, 2)));
   ASSERT_TRUE(labels.ok());
   EXPECT_EQ(labels.value().size(), 70000u);
   labels = decode(file({}));
@@ -51,7 +51,7 @@ TEST(PartLabels, DecodesOneLabelPerSplat) {
 }
 
 TEST(PartLabels, EncodesTheFileItDecodes) {
-  const std::vector<std::uint8_t> labels(70000, 9);
+  const std::vector<std::uint16_t> labels(70000, 9);
   EXPECT_EQ(encodePartLabels(labels), file(labels));
   EXPECT_EQ(encodePartLabels({}), file({}));
 }
@@ -61,10 +61,10 @@ TEST(PartLabels, RefusesAnotherFormat) {
   bytes[0] = 'X';
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::unsupportedFormat);
   bytes = file({1, 2});
-  bytes[4] = 2;  // version 2
+  bytes[4] = 1;  // obsolete byte format
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::unsupportedFormat);
   bytes = file({1, 2});
-  bytes[6] = 2;  // two bytes per label
+  bytes[6] = 1;  // obsolete byte width
   EXPECT_EQ(decode(bytes).error().code, ErrorCode::unsupportedFormat);
   EXPECT_EQ(decode({'S', 'F', 'G'}).error().code, ErrorCode::unsupportedFormat);
   EXPECT_EQ(decodePartLabels(nullptr, 0).error().code, ErrorCode::unsupportedFormat);

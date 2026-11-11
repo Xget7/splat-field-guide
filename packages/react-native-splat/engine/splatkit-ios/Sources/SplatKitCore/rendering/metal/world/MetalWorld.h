@@ -32,7 +32,7 @@ class MetalWorld {
   }
   id<MTLBuffer> splats() const { return splats_; }
   id<MTLBuffer> harmonics() const { return sh_; }
-  // Field Guide: one part label byte per splat in record order, zero where a cloud has none,
+  // Field Guide: one unsigned 16-bit part label per splat in record order, zero where a cloud has none,
   // at least 16 bytes. Written at upload and by tiles, read by the visibility pass.
   id<MTLBuffer> labels() const { return labels_; }
   id<MTLBuffer> order() const { return orders_[currentOrder_]; }

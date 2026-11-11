@@ -35,7 +35,7 @@ Annotation drafts, source captures and the running teaching service must be pres
 
 - [ ] Implement secure remote compressed chunk delivery, authenticated manifest trust, on-device processing, verified installation, atomic activation and failure recovery, connecting pack selection to startup.
 - [ ] Add CAD file, node and alignment joins by stable segmentation ID.
-- [ ] Widen node labels beyond one byte in the pack format and renderer before a world needs more than 255 labelled parts.
+- [x] Widen node labels to SFGL v2 unsigned 16-bit values in export, validation, picking and both renderer copies before freezing the installer contract.
 - [ ] Expose supplied relation navigation in the viewer.
 - [x] Implement grounded on-device generation behind the instructor answerer seam, after the remote proxy and before scripted fallback; hardware acceptance remains open.
 - [ ] Integrate WatermelonDB semantic records and TanStack Query API delivery without duplicating persistent records in Zustand.
@@ -127,7 +127,7 @@ The regression crashed before the fix; upstream event tests passed ThreadSanitiz
 Android arm64 engine/test cross-compilation passed; physical checks remain outstanding.
 App fixes cover voice ownership on close/replacement, stale answer and connectivity callbacks, pack directory IDs, non-React public imports and Android keyboard events with listener cleanup.
 The app audit passed 64 suites (752 tests and one snapshot), lint and types; the final keyboard regression rerun passed two tests.
-Runtime tier metadata now requires lowercase SHA-256 digests and label bytes equal to the SFGL header plus node count, matching native readers.
+Runtime tier metadata now requires lowercase SHA-256 digests and label bytes equal to the SFGL v2 header plus twice the node count, matching native readers.
 The follow-up passed 782 app tests, seven pack tooling tests, 49 proxy tests, 12 voice-agent tests, app ESLint and app/service types.
 The event fix is pinned to upstream commit `c857707186c25497df4ad71b03a8f3b4efe1c230`.
 Independent source review found no actionable correctness issues in the stable functional changes; it excluded the ongoing native cleanup and did not independently rerun builds or hardware checks.
@@ -136,3 +136,7 @@ Two clean codegen runs matched 84 files.
 Unsigned iOS Simulator Debug and Android arm64 Debug builds passed, with no discarded AR/semantic resources in either bundle.
 The final integrated app run passed 64 suites, 782 tests, one snapshot, lint, formatting and types.
 Build outputs and temporary tooling were removed; no device interaction or physical acceptance was performed.
+
+SFGL v2 widening passes app tests, app/package lint and types, pack/archive tooling and GPU-independent native tests, including labels 256 and 65535.
+The iOS engine compiles against the simulator SDK without launching a simulator; full app compilation still needs Pods, Metal shader compilation needs the installed Metal Toolchain, and Android and physical-device acceptance remain unverified.
+Pipeline label, tree-export and lifting checks pass with this worktree as `FIELD_GUIDE_ROOT`; the concurrent procedure-content assertion remains outside this label change.

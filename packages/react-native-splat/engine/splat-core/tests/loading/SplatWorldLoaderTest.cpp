@@ -51,7 +51,7 @@ std::size_t nodeCountOf(const std::vector<std::uint8_t>& bytes) {
 
 // A labels.bin for `count` entries, labelling entry i with i % 256.
 std::vector<std::uint8_t> labelBytes(std::size_t count) {
-  std::vector<std::uint8_t> labels(count);
+  std::vector<std::uint16_t> labels(count);
   for (std::size_t i = 0; i < count; ++i) labels[i] = static_cast<std::uint8_t>(i);
   return encodePartLabels(labels);
 }

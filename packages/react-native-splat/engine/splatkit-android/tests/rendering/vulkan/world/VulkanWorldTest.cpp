@@ -162,7 +162,7 @@ void replacingTheWorldKeepsEachWorldsLabels(const test::VulkanTestContext& gpu) 
   require(a && b && a->labels && b->labels && a->labels->handle() != b->labels->handle(),
           "each world owns its label stream");
   b.reset();
-  require(labelBytes(gpu, *a, 4) == std::vector<uint8_t>{3, 7, 0, 0},
+  require(labelBytes(gpu, *a, 4) == std::vector<uint8_t>{3, 0, 7, 0},
           "a world keeps its labels after another is dropped");
 }
 
@@ -191,7 +191,7 @@ void tileUpdatesWriteOrClearTheirLabelsAtTheirOffset(const test::VulkanTestConte
   require(slab->uploadTile(1, labelled), "labelled tile");
   // A tile without labels clears what an earlier tile left in its range.
   require(slab->uploadTile(5, labelled) && slab->uploadTile(5, cloud(2)), "tile over a tile");
-  require(labelBytes(gpu, *slab, 8) == std::vector<uint8_t>{0, 5, 6, 0, 0, 0, 0, 0},
+  require(labelBytes(gpu, *slab, 16) == std::vector<uint8_t>{0, 0, 5, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
           "each tile's labels sit at its offset");
   labelled.labels = {1};
   require(!slab->uploadTile(3, labelled), "a tile whose labels do not match is rejected");

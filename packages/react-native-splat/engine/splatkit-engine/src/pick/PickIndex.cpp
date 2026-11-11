@@ -8,7 +8,7 @@ namespace splatkit {
 namespace {
 
 constexpr std::size_t kCovarianceFloats = 6;  // xx, xy, xz, yy, yz, zz
-constexpr std::size_t kLabelCount = 256;
+constexpr std::size_t kLabelCount = 65536;
 constexpr float kCutoffSquared = PickIndex::kSigmaCutoff * PickIndex::kSigmaCutoff;
 // Past this transmittance nothing behind can change which label wins.
 constexpr float kOpaque = PickIndex::kMinAlpha;
@@ -16,7 +16,7 @@ constexpr float kOpaque = PickIndex::kMinAlpha;
 struct Hit {
   float depthSquared;
   float alpha;
-  std::uint8_t label;
+  std::uint16_t label;
 };
 
 // The squared Mahalanobis distance from the Gaussian's centre to the ray, minimised over the
@@ -53,7 +53,7 @@ std::shared_ptr<const PickIndex> PickIndex::take(splat::SplatCloud& cloud) {
   return index;
 }
 
-std::uint8_t PickIndex::pick(const Ray& ray) const {
+std::uint16_t PickIndex::pick(const Ray& ray) const {
   std::vector<Hit> hits;
   const splat::Vec3 o = ray.origin;
   const splat::Vec3 d = ray.direction;
@@ -77,7 +77,7 @@ std::uint8_t PickIndex::pick(const Ray& ray) const {
   std::sort(hits.begin(), hits.end(),
             [](const Hit& a, const Hit& b) { return a.depthSquared < b.depthSquared; });
 
-  std::array<float, kLabelCount> weights{};
+  std::vector<float> weights(kLabelCount, 0);
   float transmittance = 1;
   for (const Hit& hit : hits) {
     weights[hit.label] += hit.alpha * transmittance;
@@ -85,7 +85,7 @@ std::uint8_t PickIndex::pick(const Ray& ray) const {
     if (transmittance < kOpaque) break;
   }
   if (1 - transmittance < kMinCoverage) return 0;
-  return static_cast<std::uint8_t>(std::max_element(weights.begin(), weights.end()) -
+  return static_cast<std::uint16_t>(std::max_element(weights.begin(), weights.end()) -
                                    weights.begin());
 }
 

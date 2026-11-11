@@ -29,11 +29,11 @@ TEST(Highlight, StartsWithEverySplatAsCaptured) {
 
 TEST(Highlight, EmphasisesItsPartsAndDimsEverythingElse) {
   Highlight highlight;
-  const std::vector<std::uint8_t> labels = {3, 7};
+  const std::vector<std::uint16_t> labels = {256, 65535};
   highlight.set(labels.data(), labels.size());
   finishFade(highlight);
   const LabelStyles& styles = highlight.styles();
-  for (const std::uint8_t label : labels) {
+  for (const std::uint16_t label : labels) {
     EXPECT_EQ(styles[label].tintAmount, Highlight::kTintAmount);
     EXPECT_EQ(styles[label].tint[2], Highlight::kTint[2]);
     EXPECT_EQ(styles[label].brightness, Highlight::kEmphasisBrightness);
@@ -46,7 +46,7 @@ TEST(Highlight, EmphasisesItsPartsAndDimsEverythingElse) {
 
 TEST(Highlight, FadesOverAQuarterSecondThenRests) {
   Highlight highlight;
-  const std::uint8_t label = 5;
+  const std::uint16_t label = 5;
   highlight.set(&label, 1);
   EXPECT_TRUE(highlight.fading());
   ASSERT_TRUE(highlight.update(Highlight::kFadeSeconds / 2));
@@ -60,7 +60,7 @@ TEST(Highlight, FadesOverAQuarterSecondThenRests) {
 
 TEST(Highlight, AnEmptySetFadesBackToTheCapture) {
   Highlight highlight;
-  const std::uint8_t label = 5;
+  const std::uint16_t label = 5;
   highlight.set(&label, 1);
   finishFade(highlight);
   highlight.set(nullptr, 0);
@@ -72,8 +72,8 @@ TEST(Highlight, AnEmptySetFadesBackToTheCapture) {
 
 TEST(Highlight, ANewSetStartsFromWhereTheFadeWas) {
   Highlight highlight;
-  const std::uint8_t first = 5;
-  const std::uint8_t second = 9;
+  const std::uint16_t first = 5;
+  const std::uint16_t second = 9;
   highlight.set(&first, 1);
   ASSERT_TRUE(highlight.update(Highlight::kFadeSeconds / 2));
   const float halfway = highlight.styles()[first].tintAmount;
@@ -87,8 +87,8 @@ TEST(Highlight, ANewSetStartsFromWhereTheFadeWas) {
 
 TEST(Highlight, TheSetItHeadsForAgainChangesNothing) {
   Highlight highlight;
-  const std::vector<std::uint8_t> labels = {3, 7};
-  const std::vector<std::uint8_t> sameParts = {7, 3, 7};
+  const std::vector<std::uint16_t> labels = {256, 65535};
+  const std::vector<std::uint16_t> sameParts = {65535, 256, 65535};
   highlight.set(labels.data(), labels.size());
   ASSERT_TRUE(highlight.update(Highlight::kFadeSeconds / 2));
   highlight.set(sameParts.data(), sameParts.size());  // a re-render sends the parts again
@@ -96,7 +96,7 @@ TEST(Highlight, TheSetItHeadsForAgainChangesNothing) {
   EXPECT_FALSE(highlight.fading());
   highlight.set(sameParts.data(), sameParts.size());
   EXPECT_FALSE(highlight.fading());
-  EXPECT_EQ(highlight.styles()[3].tintAmount, Highlight::kTintAmount);
+  EXPECT_EQ(highlight.styles()[256].tintAmount, Highlight::kTintAmount);
 }
 
 TEST(Highlight, ClearingWhatIsNotHighlightedChangesNothing) {

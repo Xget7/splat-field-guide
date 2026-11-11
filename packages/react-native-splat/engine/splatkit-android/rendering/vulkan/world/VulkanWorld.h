@@ -48,7 +48,7 @@ class VulkanWorld {
   // A placeholder of one uint when the degree is 0, so the
   // descriptor is always valid and the degree 0 pipeline never reads it.
   std::unique_ptr<VulkanBuffer> sh;
-  // Field Guide's label stream: one part label byte per record, packed into uint words
+  // Field Guide's label stream: one unsigned 16-bit part label per record, packed into uint words
   // (packLabels), at least kMinLabelBytes so the descriptor is valid for an empty world. It
   // belongs to the world, so frames still in flight on a replaced world read that world's labels.
   std::unique_ptr<VulkanBuffer> labels;

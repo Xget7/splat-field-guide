@@ -12,16 +12,16 @@ struct LabelStyle {
   vec2 reserved;
 };
 
-const uint kLabelCount = 256u;  // one style per value a label byte can take
+const uint kLabelCount = 65536u;  // one style per unsigned 16-bit label
 
-layout(std140, set = 0, binding = SPLAT_GUIDE_BINDING) uniform Guide {
+layout(std140, set = 0, binding = SPLAT_GUIDE_BINDING) readonly buffer Guide {
   vec2 reveal;  // world height drawn up to, and the glowing band under it
   vec2 pad;
   LabelStyle styles[kLabelCount];
 } guide;
 
-// Vulkan 1.1 does not guarantee 8-bit storage, so the label bytes are read as the words they
-// pack into: byte i & 3 of word i >> 2 is splat i's label.
+// Vulkan 1.1 does not guarantee 16-bit storage, so the label bytes are read as the words they
+// pack into: halfword i & 1 of word i >> 1 is splat i's label.
 layout(std430, set = 0, binding = SPLAT_GUIDE_LABELS_BINDING) readonly buffer GuideLabels {
   uint labelWords[];
 };
@@ -32,7 +32,7 @@ const float kRevealTintAmount = 0.85;
 const float kRevealBoost = 0.9;
 
 uint guideLabel(uint index) {
-  return (labelWords[index >> 2u] >> ((index & 3u) * 8u)) & 0xffu;
+  return (labelWords[index >> 1u] >> ((index & 1u) * 16u)) & 0xffffu;
 }
 
 // A splat above the reveal level is not drawn. A NaN height fails the comparison, so it is

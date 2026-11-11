@@ -45,16 +45,17 @@ test('Android defaults to no pack, with explicit verified pack selection availab
     world.writeUInt32LE(1, 8);
     world.writeUInt32LE(1, 12);
     world.writeUInt32LE(1, 16);
-    const labels = Buffer.alloc(17);
+    const labels = Buffer.alloc(18);
     labels.write('SFGL');
-    labels.writeUInt16LE(1, 4);
-    labels.writeUInt16LE(1, 6);
+    labels.writeUInt16LE(2, 4);
+    labels.writeUInt16LE(2, 6);
     labels.writeUInt32LE(1, 8);
     for (const [name, bytes] of [
       ['world', world],
       ['labels', labels],
     ]) {
       const record = manifest.tiers[0][name];
+      record.bytes = bytes.length;
       record.sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
       fs.mkdirSync(path.dirname(path.join(source, record.path)), {
         recursive: true,

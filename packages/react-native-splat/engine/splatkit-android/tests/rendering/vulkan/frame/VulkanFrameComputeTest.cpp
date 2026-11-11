@@ -58,8 +58,8 @@ struct Inputs {
     // Degree 0 worlds never read the harmonics; the binding still needs a buffer.
     sh = VulkanBuffer::deviceLocal(*gpu.context, sizeof(uint32_t),
                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    // Every splat takes label 0, one byte each, four to a word.
-    const std::vector<uint32_t> words(std::max(kMinLabelWords, (source.count() + 3) / 4), 0);
+    // Every splat takes label 0, two bytes each, two to a word.
+    const std::vector<uint32_t> words(std::max(kMinLabelWords, (source.count() + 1) / 2), 0);
     labels = VulkanBuffer::deviceLocal(*gpu.context, words.size() * sizeof(uint32_t),
                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     require(camera && splats && sh && labels &&
