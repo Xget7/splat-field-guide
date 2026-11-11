@@ -106,8 +106,8 @@ For example, the inspected pack maps `r01-arm` to label `1`, but neither that nu
 | Embeddings | Image/text vectors and vector-space identity | `semantic.rows[].part`, with `kind` | Pipeline encoders | Supplied-vector cosine ranking returns IDs | Part export and ranking exist; installed-file loading and query-vector supply are open |
 | CAD | Geometry and structure reference, alignment | Per ID: CAD file, node inside it, transform to splat frame | External preparation | Joined spatial inspection | Reserved domain place only; no pack fields or implementation yet |
 | Relations | Containment, flow, carrying, actuation, proximity and evidence | Endpoint IDs | Authored sources or pipeline measurements | Graph queries and grounded explanations | Graph functions exist; viewer relation navigation is open; hierarchy evidence is exported, with identity uncertainty retained |
-| Process and cell context | Car journey, surrounding equipment and roles | Step and relation endpoints join segmentation IDs | Reviewed cell research and owner confirmation in pipeline | Step-by-step employee explanation | `cell.md` has proposals only; accepted cell segmentation and process confirmation are open |
-| Procedures and maintenance | Ordered instructions and cautions | Procedure step `parts` references stable IDs | Authored pipeline content with manual citations | Guide steps and instructor grounding | 12 authored procedures, three per robot; matching service instructions and Turtle procedure projection are missing |
+| Process and cell context | Car journey, surrounding equipment and roles | Step and relation endpoints join segmentation IDs | Reviewed cell research and owner confirmation in pipeline | Step-by-step employee explanation | An authored four-robot example cycle exists; non-robot cell segmentation and the actual production cycle remain open |
+| Procedures and maintenance | Ordered instructions and cautions | Procedure step `parts` references stable IDs | Authored pipeline content with manual citations | Guide steps and instructor grounding | One authored example welding cycle and two conditional manual-backed roof-welder service sequences; ordered steps and component joins are projected into Turtle |
 | On-device explanation | Grounded generated answers | Selected part ID resolves pack text and connections | ExecuTorch generation on prepared iOS and Android devices, never a semantic encoder | Instructor answerer seam | Implemented after remote proxy and before scripted fallback; Miris hardware acceptance is open |
 | Manuals and knowledge | Notes, descriptions and manual references | Part ID | Reviewed content and manual processing in pipeline | Part explanations and instructor grounding | Notes and prose citations exist; structured manual references are absent |
 
@@ -231,19 +231,19 @@ Startup still supplies an empty catalog, as recorded in [architecture](field-gui
 
 ## Known gaps
 
-- **Graph parity:** `semantic_model.py` exports identity, classes, summaries, geometry, hierarchy and explicit relation evidence, notes with citation tags, and vector-space/row metadata.
-  It still omits `details`, aliases and procedures, plus the vector normalization flag and file byte count; the single annotated file objective is not yet complete.
+- **Graph parity:** `semantic_model.py` exports identity, classes, summaries, geometry, hierarchy and explicit relation evidence, notes with citation tags, ordered procedures and vector-space/row metadata.
+  It still omits `details` and aliases, plus the vector normalization flag and file byte count; the single annotated file objective is not yet complete.
   Adjacency symmetry is described in prose but not declared as `owl:SymmetricProperty`.
 - **Evidence coverage:** manifest `parent` has no evidence field; Turtle containment statements now carry authored evidence explicitly identifying session identity references as unconfirmed.
-  Some relation sources are visual interpretations or unresolved manual citations; the parser's non-empty source requirement cannot verify them.
+  Mechanical relations retain verified KUKA page references; accessory identity, media and installed variant remain uncertain, and the parser cannot authenticate source attribution.
   Notes carry prose citations rather than structured manual references by ID.
 - **Whole-cell coverage:** `content/miris-pilot/cell.md` records 25 proposed non-robot components, 35 candidate relations and a seven-step plausible process, outside the pack until accepted segmentation and lifting exist.
-  Its proposal IDs are not accepted segmentation mappings; `supports`, `guards`, `monitors`, `stores`, `processes` and `controls` are unsupported proposed relation kinds.
-  Tool function, possibly spot welding, and transport sequence need owner confirmation; no definite emergency stop, signal tower, scanner or HMI was identified in the research register.
-  Session guides disagree on R01/R02 identity, which must be reconciled before extending annotations.
-- **Manual sources:** authored content has 44 parts with notes and 12 maintenance procedures, three per robot, grounded in the available KR QUANTEC extra specification.
+  Its proposal IDs are not accepted segmentation mappings; `guards`, `monitors`, `stores`, `processes` and `controls` remain unsupported proposed relation kinds; `supports` is implemented for the segmented robot bases.
+  The owner confirmed resistance spot welding; the actual transport sequence remains unverified; no definite emergency stop, signal tower, scanner or HMI was identified in the research register.
+  Accepted masks follow authoritative `guide.json`; the reversed R01/R02 assignments in five English guide views must not be used for new annotations.
+- **Manual sources:** authored content has 44 parts with notes, one example welding cycle and two conditional roof-welder maintenance sequences, based primarily on MA KR QUANTEC-2 K+P V6 (26.01.2024).
   The supplied *KR QUANTEC extra, With F and C Variants, Specification*, Spez KR QUANTEC extra V6, 18.06.2015, has 127 pages and no lubrication, oil-change, belt or cable-replacement schedule.
-  Inherited QUANTEC-2 K/P citations, including pages 287 and 353, remain unresolved; matching assembly or operating instructions and installed-model confirmation are prerequisites for part-specific service guidance.
+  MA KR QUANTEC-2 K+P V6 (400 pages) supplies the anatomy and assembly reference, with mechanical relationships checked at pp. 16-17 and electrical layout at p. 353; installed-model confirmation remains a prerequisite for applying service guidance.
 - **Representation ownership:** `Part` embeds `label`, `bounds` and `anchor` directly, while `sources.reconstructionSha256` is optional and no persistent reconstruction mapping is integrated.
   The exporter assigns labels by array order; ID stability across replacement is a rule, not an implemented cross-version identity check.
 - **Provenance handoff:** the export includes `sources.cameras` and `sources.labelClasses`, but the app's `PackSources` omits them.

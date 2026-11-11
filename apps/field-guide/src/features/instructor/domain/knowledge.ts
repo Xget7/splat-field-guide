@@ -8,7 +8,9 @@ import {
 // How a relation reads from the part's side; adjacency is symmetric, so it reads the same.
 const PHRASES: Record<RelationType, Record<RelationDirection, string>> = {
   feeds: { outgoing: 'feeds', incoming: 'is fed by' },
+  routes: { outgoing: 'routes to', incoming: 'has a routed connection from' },
   carries: { outgoing: 'carries', incoming: 'is carried by' },
+  supports: { outgoing: 'supports', incoming: 'is supported by' },
   drives: { outgoing: 'drives', incoming: 'is driven by' },
   adjacent: { outgoing: 'is next to', incoming: 'is next to' },
 };

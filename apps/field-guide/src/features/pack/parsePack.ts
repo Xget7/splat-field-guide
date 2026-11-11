@@ -642,7 +642,10 @@ function checkRelations(
   });
   const carried = new Map<PartId, PartId[]>();
   relations.forEach(relation => {
-    if (relation.type === RelationType.carries) {
+    if (
+      relation.type === RelationType.carries ||
+      relation.type === RelationType.supports
+    ) {
       carried.set(relation.from, [
         ...(carried.get(relation.from) ?? []),
         relation.to,
@@ -651,7 +654,10 @@ function checkRelations(
   });
   // A kinematic chain cannot carry its own base: walk from each carried part back to its carrier.
   relations.forEach((relation, index) => {
-    if (relation.type !== RelationType.carries) {
+    if (
+      relation.type !== RelationType.carries &&
+      relation.type !== RelationType.supports
+    ) {
       return;
     }
     const walked = new Set<PartId>();

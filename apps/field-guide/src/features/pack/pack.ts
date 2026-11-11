@@ -111,8 +111,12 @@ export interface Procedure {
 export const RelationType = {
   /** `brick:feeds`: media flows from `from` into `to`, such as hose to housing to tool. */
   feeds: 'feeds',
+  /** A visible routed connection, without establishing media or flow direction. */
+  routes: 'routes',
   /** `from` mechanically supports and moves `to`, one link of a kinematic chain. */
   carries: 'carries',
+  /** Stationary mechanical support, without implying that the subject moves the object. */
+  supports: 'supports',
   /** The motors of `from` actuate the joint of `to`. */
   drives: 'drives',
   /** Measured proximity on the reconstruction; symmetric and stored once. */
