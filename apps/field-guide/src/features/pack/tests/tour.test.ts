@@ -99,6 +99,11 @@ describe('tourOf', () => {
     ).toEqual(['roof', 'base', 'arm', 'tool', 'rear']);
   });
 
+  it('is for operators and authors no objective', () => {
+    expect(tour.audience).toBe('operator');
+    expect('objective' in tour).toBe(false);
+  });
+
   it('is the first procedure of a parsed pack', () => {
     expect(pack.procedures[0]).toEqual(tour);
   });

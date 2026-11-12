@@ -52,6 +52,7 @@ export function GuideRoute({
       active={active}
       catalog={catalog}
       guideId={guideId}
+      documents={courseDocuments}
       onBack={() => navigation.goBack()}
       onOpen={start => navigation.navigate(Route.viewer, start)}
     />

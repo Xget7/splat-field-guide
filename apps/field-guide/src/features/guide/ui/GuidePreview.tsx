@@ -1,45 +1,59 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { callback } from 'react-native-nitro-modules';
 import { SplatView, type SplatViewSpec } from 'react-native-splat';
 import { sourceFor } from '../../pack/bundledPack';
-import type { Pack } from '../../pack/pack';
-import { framingFor } from '../domain/derive';
-import { IconButton, Button } from '../../../ui/Button';
+import type { Pack, PartId } from '../../pack/pack';
+import { directionFor, framingFor, highlightFor } from '../domain/derive';
+import {
+  CourseButton,
+  CourseIconButton,
+  CourseIconSurface,
+} from './CourseControls';
 import { IconName } from '../../../ui/Icon';
-import { Color, Space, Type } from '../../../ui/theme';
+import {
+  CourseColor as C,
+  CourseType as T,
+  Grid as G,
+} from '../../../ui/courseTokens';
 
 const RADIANS = Math.PI / 180;
 const ORBIT_STEP = Math.PI / 8;
 const PREVIEW_CONTEXT = 1.1;
-const OVERVIEW = { procedureId: null, stepIndex: 0, selectedPart: null };
-const NO_HIGHLIGHT: number[] = [];
+// A single machine needs more room around it than the whole cell to read as part of the cell.
+const FOCUS_CONTEXT = 1.6;
+const FOCUS_SECONDS = 0.4;
+const RECENTER_SECONDS = 0.3;
+
+interface PreviewProps {
+  readonly pack: Pack;
+  /** A machine to frame and highlight; null shows the whole cell. */
+  readonly focus?: PartId | null;
+}
 
 /** The same verified reconstruction used by the activity, with a separate native lifetime. */
-export function GuidePreview({ pack }: { pack: Pack }) {
+export function GuidePreview({ pack, focus = null }: PreviewProps) {
   const [attempt, setAttempt] = useState(0);
   return (
     <PreviewModel
       key={`${pack.packId}:${pack.packVersion}:${attempt}`}
       pack={pack}
+      focus={focus}
       onRetry={() => setAttempt(value => value + 1)}
     />
   );
 }
 
-function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
+function PreviewModel({
+  pack,
+  focus,
+  onRetry,
+}: Required<PreviewProps> & { onRetry: () => void }) {
   const [view, setView] = useState<SplatViewSpec | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [size, setSize] = useState({ width: 0, height: 0 });
   const source = useMemo(() => sourceFor(pack), [pack]);
-  const home = useMemo(
-    () => ({
-      azimuth: pack.camera.home.azimuth * RADIANS,
-      elevation: pack.camera.home.elevation * RADIANS,
-    }),
-    [pack],
-  );
   const limits = useMemo(
     () => ({
       ...pack.camera.limits,
@@ -50,24 +64,48 @@ function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
     }),
     [pack],
   );
-  const bounds = useMemo(() => {
-    const framing = framingFor(OVERVIEW, pack);
+  // The guide's own selection rules decide what a focused machine frames and highlights.
+  const subject = useMemo(
+    () => ({ procedureId: null, stepIndex: 0, selectedPart: focus }),
+    [focus],
+  );
+  const highlight = useMemo(
+    () => [...highlightFor(subject, pack)],
+    [subject, pack],
+  );
+  const target = useMemo(() => {
+    const framing = framingFor(subject, pack);
     if (framing === null) return null;
+    const context = focus === null ? PREVIEW_CONTEXT : FOCUS_CONTEXT;
     const point = (edge: readonly number[]) => {
       const coordinates = edge.map((value, axis) => {
         const centre = (framing.min[axis] + framing.max[axis]) / 2;
-        return centre + (value - centre) * PREVIEW_CONTEXT;
+        return centre + (value - centre) * context;
       });
       return { x: coordinates[0], y: coordinates[1], z: coordinates[2] };
     };
-    return { min: point(framing.min), max: point(framing.max) };
-  }, [pack]);
+    const direction = directionFor(subject, pack);
+    return {
+      bounds: { min: point(framing.min), max: point(framing.max) },
+      from: {
+        azimuth: direction.azimuth * RADIANS,
+        elevation: direction.elevation * RADIANS,
+      },
+    };
+  }, [subject, pack, focus]);
 
+  // The first framing is instant; later focus changes move the camera so the change reads.
+  const framed = useRef(false);
   useEffect(() => {
-    if (ready && view && bounds && size.width > 0 && size.height > 0) {
-      view.frame(bounds, 0, home);
+    if (ready && view && target && size.width > 0 && size.height > 0) {
+      view.frame(
+        target.bounds,
+        framed.current ? FOCUS_SECONDS : 0,
+        target.from,
+      );
+      framed.current = true;
     }
-  }, [ready, view, bounds, home, size]);
+  }, [ready, view, target, size]);
 
   return (
     <View
@@ -86,7 +124,7 @@ function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
         testID="guide-preview-model"
         style={styles.root}
         source={source}
-        highlight={NO_HIGHLIGHT}
+        highlight={highlight}
         cameraLimits={limits}
         hybridRef={callback(native => setView(native))}
         onReady={callback(() => setReady(true))}
@@ -97,7 +135,7 @@ function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
       />
       {!ready && error === '' && (
         <View style={styles.status}>
-          <ActivityIndicator color={Color.accent} />
+          <ActivityIndicator color={C.accent} />
           <Text accessibilityRole="status" style={styles.statusText}>
             Loading 3D preview
           </Text>
@@ -108,22 +146,28 @@ function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
           <Text accessibilityRole="alert" style={styles.statusText}>
             {error}
           </Text>
-          <Button label="Retry preview" onPress={onRetry} />
+          <CourseButton label="Retry preview" onPress={onRetry} />
         </View>
       )}
       {ready && error === '' && (
         <View style={styles.controls}>
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.back}
             accessibilityLabel="Rotate preview left"
             onPress={() => view?.orbit(-ORBIT_STEP, 0)}
           />
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.frame}
             accessibilityLabel="Recenter preview"
-            onPress={() => bounds && view?.frame(bounds, 0.3, home)}
+            onPress={() =>
+              target &&
+              view?.frame(target.bounds, RECENTER_SECONDS, target.from)
+            }
           />
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.next}
             accessibilityLabel="Rotate preview right"
             onPress={() => view?.orbit(ORBIT_STEP, 0)}
@@ -135,28 +179,22 @@ function PreviewModel({ pack, onRetry }: { pack: Pack; onRetry: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Color.canvasTop },
+  root: { flex: 1, backgroundColor: C.surface },
   status: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Space.lg,
-    padding: Space.xl,
-    backgroundColor: Color.canvasTop,
+    gap: G.small,
+    padding: G.medium,
+    backgroundColor: C.surface,
   },
-  statusText: {
-    ...Type.callout,
-    color: Color.secondaryText,
-    textAlign: 'center',
-  },
+  statusText: { ...T.body, color: C.secondary, textAlign: 'center' },
+  // Separate squares over the model, matching the back button, rather than one rounded tray.
   controls: {
     position: 'absolute',
-    bottom: Space.lg,
+    bottom: G.small,
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: Space.sm,
-    padding: Space.xs,
-    borderRadius: 32,
-    backgroundColor: Color.overlay,
+    gap: G.unit,
   },
 });

@@ -14,6 +14,10 @@ function copyDocuments(catalog, source, destination, packs, knowledgeSource = pr
     if (!/^[A-Za-z0-9_+.-]+\.pdf$/.test(document.file)) {
       throw new Error('Invalid document resource name');
     }
+    // Cited pages are printed numbers; the viewer adds this to reach the PDF page.
+    if (!Number.isInteger(document.pageOffset)) {
+      throw new Error(`Document page offset is not an integer: ${document.id}`);
+    }
     const file = path.join(source, document.file);
     if (fs.lstatSync(file).isSymbolicLink() || !fs.statSync(file).isFile()) {
       throw new Error(

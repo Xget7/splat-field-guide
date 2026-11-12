@@ -1,0 +1,290 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { DocumentReference, PartId, ProcedureId } from '../../pack/pack';
+import type {
+  CourseDocument,
+  CourseDocuments,
+} from '../../../platform/documents';
+import { Icon, IconName } from '../../../ui/Icon';
+import {
+  CourseColor as C,
+  CourseRadius as R,
+  CourseType as T,
+  Grid as G,
+} from '../../../ui/courseTokens';
+import {
+  referenceMeta,
+  type MachineSection,
+  type ModuleRow,
+} from '../domain/courseOutline';
+
+const TRAILING_ICON = 20;
+const OPEN_FAILED = 'Could not open this document. Try again.';
+const UNAVAILABLE = 'Not on this device';
+
+export function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text accessibilityRole="header" style={styles.heading}>
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+/** Reads the row as sentences; an objective that already ends in a period keeps just the one. */
+function spokenLabel(...parts: readonly (string | undefined)[]): string {
+  const spoken = parts.filter((part): part is string => !!part);
+  return spoken
+    .map((part, index) =>
+      index === spoken.length - 1 || part.endsWith('.') ? part : `${part}.`,
+    )
+    .join(' ');
+}
+
+interface RowProps {
+  readonly testID: string;
+  readonly title: string;
+  readonly body?: string;
+  readonly meta?: string;
+  readonly trailing: IconName | null;
+  readonly selected?: boolean;
+  readonly disabled?: boolean;
+  readonly divided: boolean;
+  /** Indents a machine's procedure under the machine row. */
+  readonly nested?: boolean;
+  readonly onPress: () => void;
+}
+
+function Row({
+  testID,
+  title,
+  body,
+  meta,
+  trailing,
+  selected,
+  disabled = false,
+  divided,
+  nested = false,
+  onPress,
+}: RowProps) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={spokenLabel(title, body, meta)}
+      accessibilityState={
+        selected === undefined ? { disabled } : { disabled, selected }
+      }
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        divided && styles.divided,
+        nested && styles.nested,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={styles.body}>
+        <Text
+          style={[
+            styles.title,
+            selected && styles.selected,
+            disabled && styles.disabledText,
+          ]}
+        >
+          {title}
+        </Text>
+        {!!body && <Text style={styles.text}>{body}</Text>}
+        {!!meta && <Text style={styles.meta}>{meta}</Text>}
+      </View>
+      {trailing !== null && (
+        <Icon
+          name={trailing}
+          size={TRAILING_ICON}
+          color={selected ? C.accent : C.secondary}
+        />
+      )}
+    </Pressable>
+  );
+}
+
+export function ModuleList({
+  rows,
+  onChoose,
+}: {
+  rows: readonly ModuleRow[];
+  onChoose: (id: ProcedureId) => void;
+}) {
+  return (
+    <View style={styles.list}>
+      {rows.map((row, index) => (
+        <Row
+          key={row.id}
+          testID={`procedure-row-${row.id}`}
+          title={row.title}
+          body={row.objective}
+          meta={row.meta}
+          trailing={IconName.next}
+          divided={index > 0}
+          onPress={() => onChoose(row.id)}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** One list where each machine leads its own procedures; tapping a machine frames it in the preview. */
+export function MachineList({
+  machines,
+  focus,
+  onFocus,
+  onChoose,
+}: {
+  machines: readonly MachineSection[];
+  focus: PartId | null;
+  onFocus: (id: PartId | null) => void;
+  onChoose: (id: ProcedureId) => void;
+}) {
+  return (
+    <View style={styles.list}>
+      {machines.flatMap((machine, index) => {
+        const selected = machine.id === focus;
+        return [
+          <Row
+            key={machine.id}
+            testID={`machine-row-${machine.id}`}
+            title={machine.name}
+            body={machine.task}
+            trailing={IconName.frame}
+            selected={selected}
+            divided={index > 0}
+            onPress={() => onFocus(selected ? null : machine.id)}
+          />,
+          ...machine.modules.map(row => (
+            <Row
+              key={row.id}
+              testID={`procedure-row-${row.id}`}
+              title={row.title}
+              body={row.objective}
+              meta={row.meta}
+              trailing={IconName.next}
+              nested
+              divided
+              onPress={() => onChoose(row.id)}
+            />
+          )),
+        ];
+      })}
+    </View>
+  );
+}
+
+/** Cited manual pages open in the verified local PDF; documents not on the device stay visible but disabled. */
+export function ReferenceSection({
+  title,
+  references,
+  documents,
+}: {
+  title: string;
+  references: readonly DocumentReference[];
+  documents?: CourseDocuments;
+}) {
+  const [entries, setEntries] = useState<readonly CourseDocument[]>([]);
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let current = true;
+    // An unreadable catalog leaves every reference disabled rather than hiding the citations.
+    if (references.length > 0) {
+      documents?.list().then(
+        result => current && setEntries(result),
+        () => current && setEntries([]),
+      );
+    }
+    return () => {
+      current = false;
+    };
+  }, [documents, references.length]);
+  if (references.length === 0) return null;
+  const open = async (reference: DocumentReference) => {
+    setOpening(true);
+    setError('');
+    try {
+      await documents?.open(reference.document, reference.page);
+    } catch {
+      setError(OPEN_FAILED);
+    } finally {
+      setOpening(false);
+    }
+  };
+  return (
+    <Section title={title}>
+      <View style={styles.list}>
+        {references.map((reference, index) => {
+          const document = entries.find(
+            entry => entry.id === reference.document,
+          );
+          const available = !!documents && !!document?.available;
+          const meta = referenceMeta(reference, document);
+          return (
+            <Row
+              key={`${reference.document}:${reference.page}:${index}`}
+              testID={`reference-row-${index}`}
+              title={reference.title}
+              meta={available ? meta : `${meta}. ${UNAVAILABLE}`}
+              trailing={available ? IconName.document : null}
+              disabled={!available || opening}
+              divided={index > 0}
+              onPress={() => open(reference)}
+            />
+          );
+        })}
+      </View>
+      {error !== '' && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      )}
+    </Section>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: { gap: G.small },
+  heading: { ...T.heading, color: C.text },
+  list: {
+    borderRadius: R.control,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surface,
+    overflow: 'hidden',
+  },
+  row: {
+    minHeight: G.control,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: G.small,
+    paddingVertical: G.small,
+    paddingHorizontal: G.medium,
+  },
+  divided: { borderTopWidth: 1, borderTopColor: C.border },
+  // Indented so a machine's procedures read as part of that machine.
+  nested: { paddingLeft: G.medium + G.small },
+  pressed: { backgroundColor: C.raised },
+  body: { flex: 1, gap: G.unit / 2 },
+  title: { ...T.label, color: C.text },
+  selected: { color: C.accent },
+  disabledText: { color: C.secondary },
+  text: { ...T.caption, color: C.secondary },
+  meta: { ...T.caption, color: C.secondary },
+  // The library reports document failures in secondary text, so the course screen does too.
+  error: { ...T.body, color: C.secondary },
+});
