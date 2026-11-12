@@ -36,7 +36,7 @@ const Layout = {
   columnShare: 0.36,
   minColumn: 400,
   maxColumn: 520,
-  // Long summaries wrap before they become hard to follow across a landscape window.
+  // Long summaries wrap before they become hard to follow across a wide window.
   summaryWidth: 720,
 } as const;
 
@@ -130,6 +130,14 @@ export function GuideDetailScreen({
     });
   };
 
+  const column = Math.min(
+    Layout.maxColumn,
+    Math.max(Layout.minColumn, window.width * Layout.columnShare),
+  );
+  // Beside the columns the summary ends where the preview does, so the header shares the grid.
+  const summaryWidth = sideBySide
+    ? window.width - insets.left - insets.right - GUTTER * 3 - column
+    : Layout.summaryWidth;
   const header = (
     <View style={styles.header}>
       {back}
@@ -138,7 +146,9 @@ export function GuideDetailScreen({
           {guide.title}
         </Text>
         {pack.summary !== undefined && (
-          <Text style={styles.summary}>{pack.summary}</Text>
+          <Text style={[styles.summary, { maxWidth: summaryWidth }]}>
+            {pack.summary}
+          </Text>
         )}
       </View>
     </View>
@@ -184,10 +194,6 @@ export function GuideDetailScreen({
   );
 
   if (sideBySide) {
-    const column = Math.min(
-      Layout.maxColumn,
-      Math.max(Layout.minColumn, window.width * Layout.columnShare),
-    );
     return (
       <View
         testID="guide-detail-screen"
@@ -268,7 +274,6 @@ const styles = StyleSheet.create({
   summary: {
     ...Type.body,
     color: Color.secondaryText,
-    maxWidth: Layout.summaryWidth,
   },
   stage: {
     flex: 1,
@@ -283,10 +288,11 @@ const styles = StyleSheet.create({
     marginTop: GUTTER,
   },
   columnContent: { gap: GUTTER, paddingBottom: GUTTER },
+  // The stronger line marks where the list scrolls under the pinned bar; the faint one vanished on the backdrop.
   columnBar: {
     paddingTop: Space.md,
     borderTopWidth: HAIRLINE,
-    borderTopColor: Color.line,
+    borderTopColor: Color.lineStrong,
   },
   stack: { gap: GUTTER },
   bottomBar: {
@@ -297,7 +303,7 @@ const styles = StyleSheet.create({
     paddingTop: Space.md,
     backgroundColor: Color.surface,
     borderTopWidth: HAIRLINE,
-    borderTopColor: Color.line,
+    borderTopColor: Color.lineStrong,
   },
   missing: { ...Type.callout, color: Color.muted },
 });
