@@ -68,7 +68,7 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   const documents = knowledgeDocuments(pack);
   if (dryRun) {
     const plan = {
-      knowledge: documents, 
+      knowledge: documents,
       tools: tools.map(tool => ({ tool_config: tool })),
       dictionary: { name: DICTIONARY_NAME, rules: pronunciationRules },
       agent: buildAgentConfig(pack, {

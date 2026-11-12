@@ -231,7 +231,11 @@ const ReadyCourseAssistant = forwardRef<
     const event = navigation.current;
     if (!event) return;
     navigation.current = null;
-    if (event.type === SessionEventType.select && event.partId !== null) {
+    if (
+      event.type === SessionEventType.select &&
+      event.partId !== null &&
+      event.partId === session.selectedPart
+    ) {
       onOpen({
         guideId: guide.id,
         procedureId: null,
@@ -240,16 +244,19 @@ const ReadyCourseAssistant = forwardRef<
         selectedPart: event.partId,
         voice: voice.on,
       });
-    } else if (event.type === SessionEventType.start) {
+    } else if (
+      event.type === SessionEventType.start &&
+      session.procedureId === event.procedureId
+    ) {
       onOpen({
         guideId: guide.id,
         procedureId: event.procedureId,
-        stepIndex: 0,
+        stepIndex: session.stepIndex,
         mode: LearnMode.instructor,
         voice: voice.on,
       });
     }
-  }, [exchange, focused, guide.id, onOpen, voice.on, voice.section]);
+  }, [exchange, focused, guide.id, onOpen, session, voice.on, voice.section]);
   const part = guide.pack.parts.find(item => item.id === exchange?.part);
   const tour = guide.pack.procedures[0];
   const partStep =
