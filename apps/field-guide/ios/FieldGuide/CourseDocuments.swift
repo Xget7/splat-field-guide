@@ -123,9 +123,15 @@ private final class LocalPDFViewController: UIViewController {
     pdfView.displayMode = .singlePageContinuous
     pdfView.displayDirection = .vertical
     pdfView.document = document
-    pdfView.frame = view.bounds
-    pdfView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    pdfView.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(pdfView)
+    // Going to a page puts its top at the view's top, so start below the bar or the page heading hides under it.
+    NSLayoutConstraint.activate([
+      pdfView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+      pdfView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      pdfView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      pdfView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+    ])
     navigationItem.rightBarButtonItem = UIBarButtonItem(
       systemItem: .done,
       primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
@@ -137,6 +143,11 @@ private final class LocalPDFViewController: UIViewController {
     // PDFView ignores navigation before it has a size, so go to the page on the first real layout.
     guard let page = target, pdfView.bounds.width > 0 else { return }
     target = nil
-    pdfView.go(to: page)
+    // Auto scaling settles during this layout pass; going earlier offsets the page and hides its running header.
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      let bounds = page.bounds(for: self.pdfView.displayBox)
+      self.pdfView.go(to: PDFDestination(page: page, at: CGPoint(x: bounds.minX, y: bounds.maxY)))
+    }
   }
 }
