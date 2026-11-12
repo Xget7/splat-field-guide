@@ -50,6 +50,8 @@ Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so th
 ## JavaScript units
 
 For a private local iOS demo with the original KUKA source PDFs, set `FIELD_GUIDE_DOCUMENTS_DIR=/absolute/path/to/splat-tools/data/reference/kuka` alongside `FIELD_GUIDE_PACKS=miris-pilot/1` in the iOS build command.
+Set `FIELD_GUIDE_MANUAL_INDEX_DIR` to the `splat-tools` `pipeline.pack.manual_index` output directory to include the complete searchable text from those same sources.
+Both iOS and Android private packaging verify its receipt, original source digests and page inventory before replacing accepted resources.
 The document copy stage checks the retained catalog's PDF headers and SHA-256 digests and writes the original bytes, document catalog and copyright notices into the app's `documents` resources.
 Without both explicit settings no KUKA PDFs ship; local inclusion does not grant external redistribution rights.
 Verify the course Documentation tab and source attachment open the same local manual without a network connection, and confirm the document edition before using cited maintenance pages.
@@ -163,7 +165,7 @@ Physical acceptance must use the Miris pack on the target hardware.
 
 ## Instructor configuration
 
-Preparation copies `apps/field-guide/instructor.config.example.json` to ignored `instructor.config.json`; a null `proxyUrl` selects offline operation.
+Preparation copies `apps/field-guide/instructor.config.example.json` to ignored `instructor.config.json`; the example uses the deployed Miris pilot, and a null `proxyUrl` selects offline-only operation.
 The Worker's `.dev.vars.example` requires only `ELEVENLABS_API_KEY` and `AGENT_ID`; keys remain outside git and the app.
 The Worker serves a probe and signed ElevenLabs WebSocket sessions for both text and voice, with no shared cache.
 The pilot session route is public and rate limited, not authenticated per operator.
@@ -173,7 +175,13 @@ Use fake provider responses in tests; incomplete direct agent replies fail witho
 For voice-agent setup, copy `.env.example` and provide `ELEVENLABS_API_KEY` and an available account `VOICE_ID`.
 Run `nice -n 19 pnpm run plan --manifest <file>` in `services/voice-agent` to inspect the exact prepared text documents, tool schemas and English managed-agent configuration without remote writes.
 For the Miris pilot use `../../data/pack/miris-pilot/1/manifest.json`; schema 3 directions are validated without rewriting the source pack.
-The plan and sync never upload original PDFs, splats or MobileCLIP vectors.
+The plan and sync never upload original PDF bytes, splats or MobileCLIP vectors.
+Pass `--manual-index <directory>` or set `FIELD_GUIDE_MANUAL_INDEX_DIR` to bind the agent to the complete local KUKA source corpus, whose pages are read by `search_manual` and `get_manual_page` client tools.
+The same files and source digests must ship with the matching private app.
+Full manual texts are not hosted in RAG by default; the inspected pilot workspace has a 1 MiB RAG quota, insufficient for both complete manuals alongside its existing documents.
+Optional `--host-manuals` uses the same pages but checks hosted capacity first; changing a paid subscription requires separate authorization.
+Once an agent records complete manual scope, sync refuses to silently omit `--manual-index`.
+Use `--state <file>` for an independent dry plan or provisioning state.
 After inspecting an authorized plan, run `nice -n 19 pnpm run sync --manifest <file>`.
 Sync stores document digests/IDs in ignored `agent.json` immediately, requests every RAG index and leaves the agent unchanged while any index is pending or failed.
 A pending-index error is recoverable by rerunning sync after ElevenLabs finishes indexing; the retry reuses uploaded documents.
@@ -184,7 +192,9 @@ The Worker's key only needs the permissions to obtain the configured agent's sig
 Managed generation uses GPT-4.1 Mini through ElevenLabs; no separate model-provider key is needed.
 Set the returned `AGENT_ID` on the existing `field-guide-instructor` Worker, then deploy the replacement and ship the matching app together; older apps do not implement the new read-only tools or the direct text-session path.
 Live conversations incur provider usage and require explicit approval for paid validation.
-Verify ambiguity clarification, exact part evidence, cancelled typed navigation, course-to-scene framing and route-loss fallback before claiming acceptance.
+Verify ambiguity clarification, exact part evidence, full-manual citations, supplied-vector similarity, cancelled typed navigation, course-to-scene framing and route-loss fallback before claiming acceptance.
+Offline full-manual search is lexical and source-bound; it does not run a MobileCLIP query encoder on the phone.
+Known-component similarity compares prepared image/text rows and returns stable IDs with scores, never inferred physical relationships.
 Physical Qwen validation is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).
 For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload` exports locally; signing needs a configured team and account.
 

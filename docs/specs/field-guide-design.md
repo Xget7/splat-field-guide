@@ -149,7 +149,7 @@ A finite shortlist does not prove enclosure or that no continuous camera directi
 
 ## Semantic data
 
-**Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
+**Owns:** compatible-vector ranking to stable part IDs and source-bound complete-manual text retrieval; persistent reconstruction mappings remain planned.
 **Rule:** reject incompatible vector spaces even when dimensions match.
 Zustand holds transient state and progress uses AsyncStorage; WatermelonDB and TanStack Query are selected for persistent records and API state but are not installed.
 **Proposal:** direct SQLite via native bindings with FTS5 would replace the selected persistence approach only after deciding ownership, migrations and index maintenance.
@@ -159,7 +159,11 @@ The manifest binds vector-space identity, encoder/weights/preprocessing, normali
 Preparation supplies every embedding, including query vectors; mobile compares supplied vectors without encoders or inferred physical facts.
 **Read:** [public interface](../../apps/field-guide/src/features/semantic/index.ts), [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
 **Verify:** [vector tests](../../apps/field-guide/src/features/semantic/tests/partVectors.test.ts).
-**Pending:** reading the vectors file from an installed pack, reconstruction identity for mappings and persistent records.
+The app reads bundled vector bytes after checking their manifest digest, decodes native signed bytes without changing their bit pattern and caches the index by pack identity/version.
+Known-component similarity reuses a supplied image or text row as the query; arbitrary free-text MobileCLIP query encoding remains external and unconnected.
+Complete manual text is prepared outside the app with original PDF digests, editions and every PDF page retained.
+Local weighted text retrieval with word normalization supplies source excerpts to Qwen and the same synchronous client tools to ElevenLabs.
+**Pending:** remote installed-file activation, reconstruction identity for mappings and persistent records.
 
 ## Guide
 
@@ -180,9 +184,14 @@ Typed answers fall back from direct ElevenLabs text sessions to ExecuTorch gener
 Local generation explains supplied pack text; Apple Foundation Models is not a fallback.
 The online Miris pilot retrieves prepared text through ElevenLabs RAG, retaining pack identity/version and supplied source qualifications.
 Active stable part ID, procedure and step come from application session state; exact lookup and name/alias search run against the bundled manifest before a world is mounted.
-Structured manual figures, course identities independent of pack identity and full-manual retrieval remain planned; no live voice or physical acceptance is implied.
+Complete KUKA manual text is available through the same verified local corpus in offline and online modes.
+The device verifies the original bundled PDFs and the prepared text receipt before exposing manual search or exact PDF-page lookup.
+When local generation is unavailable, the instructor can return an attributed source excerpt without inventing an explanation.
+Structured manual figures and course identities independent of pack identity remain planned; source/simulator checks do not establish physical acceptance.
 Agent tools resolve validated domain actions through guide rules before viewer mutation or procedure advancement.
-Local prompts prioritize subject, procedure and safety, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Local prompts prioritize subject, procedure, safety and bounded source-manual excerpts, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Duplicate component names require clarification before selection in either mode, and model-supplied IDs cannot bypass an unresolved operator reference.
+Directed relationship answers use the authored or measured graph records directly, preserving each source; embeddings never establish those relationships.
 Each generated answer starts fresh; cancellation, malformed output and token-limit stops fail the turn.
 Keep its three concerns behind separate internal interfaces:
 
@@ -244,7 +253,10 @@ Text-only and voice sessions connect directly to ElevenLabs over WebSocket; mana
 The pilot issuer is public and has no operator identity or membership verification; rate limits are not authorization.
 All app copy and agent prompts are English.
 Prepared knowledge documents retain pack identity/version, stable component IDs, hierarchy, procedures and evidenced relations.
-Original manufacturer PDFs remain local until third-party processing permission is established; missing whole-factory locations and emergency exits remain unknown.
+Full manuals use app client tools by default, so the online agent consults the identical source corpus used offline without requiring hosted RAG capacity for the complete PDFs.
+Optional hosted manual indexing uses the same extracted pages and checks workspace capacity before uploading; it is not required for full-manual client-tool access.
+Original manufacturer PDF bytes remain local; the owner-authorized prototype sends retrieved text passages through the client tools while preserving source restrictions.
+Missing whole-factory locations and emergency exits remain unknown.
 `search_parts` matches supplied names/aliases and returns ambiguous candidates without selection; `get_part` reads exact installed facts and directed relations without mutation.
 `show_part` and procedure tools validate IDs through guide rules; typed navigation stays provisional until a complete answer, and cancelled/failed turns do not commit it.
 A course question can select and frame a component in a bundled scene before that scene has been opened.
