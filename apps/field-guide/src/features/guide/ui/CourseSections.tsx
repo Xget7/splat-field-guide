@@ -6,8 +6,12 @@ import type {
   CourseDocuments,
 } from '../../../platform/documents';
 import { Icon, IconName } from '../../../ui/Icon';
-import { SectionHeader } from '../../../ui/SectionHeader';
-import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
+import {
+  CourseColor as C,
+  CourseRadius as R,
+  CourseType as T,
+  Grid as G,
+} from '../../../ui/courseTokens';
 import {
   referenceMeta,
   type MachineSection,
@@ -27,7 +31,9 @@ export function Section({
 }) {
   return (
     <View style={styles.section}>
-      <SectionHeader title={title} />
+      <Text accessibilityRole="header" style={styles.heading}>
+        {title}
+      </Text>
       {children}
     </View>
   );
@@ -103,7 +109,7 @@ function Row({
         <Icon
           name={trailing}
           size={TRAILING_ICON}
-          color={selected ? Color.accent : Color.faint}
+          color={selected ? C.accent : C.secondary}
         />
       )}
     </Pressable>
@@ -252,30 +258,33 @@ export function ReferenceSection({
 }
 
 const styles = StyleSheet.create({
-  section: { gap: Space.sm },
+  section: { gap: G.small },
+  heading: { ...T.heading, color: C.text },
   list: {
-    borderRadius: Radius.card,
-    borderWidth: HAIRLINE,
-    borderColor: Color.line,
-    backgroundColor: Color.raised,
+    borderRadius: R.control,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surface,
     overflow: 'hidden',
   },
   row: {
+    minHeight: G.control,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.md,
-    paddingVertical: Space.md,
-    paddingHorizontal: Space.lg,
+    gap: G.small,
+    paddingVertical: G.small,
+    paddingHorizontal: G.medium,
   },
-  divided: { borderTopWidth: HAIRLINE, borderTopColor: Color.line },
+  divided: { borderTopWidth: 1, borderTopColor: C.border },
   // Indented so a machine's procedures read as part of that machine.
-  nested: { paddingLeft: Space.lg + Space.xl },
-  pressed: { backgroundColor: Color.pressed },
-  body: { flex: 1, gap: Space.xs },
-  title: { ...Type.calloutStrong, color: Color.text },
-  selected: { color: Color.accent },
-  disabledText: { color: Color.muted },
-  text: { ...Type.callout, color: Color.secondaryText },
-  meta: { ...Type.footnote, color: Color.muted },
-  error: { ...Type.footnote, color: Color.caution },
+  nested: { paddingLeft: G.medium + G.small },
+  pressed: { backgroundColor: C.raised },
+  body: { flex: 1, gap: G.unit / 2 },
+  title: { ...T.label, color: C.text },
+  selected: { color: C.accent },
+  disabledText: { color: C.secondary },
+  text: { ...T.caption, color: C.secondary },
+  meta: { ...T.caption, color: C.secondary },
+  // The library reports document failures in secondary text, so the course screen does too.
+  error: { ...T.body, color: C.secondary },
 });

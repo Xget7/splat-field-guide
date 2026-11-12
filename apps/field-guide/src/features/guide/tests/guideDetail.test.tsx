@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, Text } from 'react-native';
+import { Dimensions, StyleSheet, Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { catalogFor } from '../../pack/catalog';
 import type { Pack } from '../../pack/pack';
@@ -9,6 +9,7 @@ import type {
   CourseDocument,
   CourseDocuments,
 } from '../../../platform/documents';
+import { CourseRadius } from '../../../ui/courseTokens';
 import { LearnMode } from '../domain/learningMode';
 import { fixtureCopy, fixturePack } from '@tests/fixturePack';
 import { procedureRowsFor } from '../domain/procedureRows';
@@ -139,6 +140,23 @@ describe('Guide detail screen', () => {
     texts()
       .flat()
       .filter(part => typeof part === 'string');
+  const scene = () =>
+    renderer.root.findByType('SplatView' as React.ElementType);
+  /** Lays out the preview and reports its native model ready, which shows the preview controls. */
+  const readyPreview = async () => {
+    const native = { frame: jest.fn(), orbit: jest.fn() };
+    const preview = renderer.root
+      .findAllByProps({ testID: 'guide-preview' })
+      .find(item => typeof item.props.onLayout === 'function')!;
+    await act(() => {
+      preview.props.onLayout({
+        nativeEvent: { layout: { width: 800, height: 600 } },
+      });
+      scene().props.hybridRef(native);
+      scene().props.onReady();
+    });
+    return native;
+  };
   const mount = async (
     guideId = pack.packId,
     {
@@ -202,8 +220,7 @@ describe('Guide detail screen', () => {
 
   test('the entry presents the bundled 3D scene before an activity starts', async () => {
     await mount();
-    const scene = renderer.root.findByType('SplatView' as React.ElementType);
-    expect(scene.props.source.splatPath).toBe(
+    expect(scene().props.source.splatPath).toBe(
       'packs/fixture/1/high/world.lodsplat',
     );
     expect(onOpen).not.toHaveBeenCalled();
@@ -244,23 +261,12 @@ describe('Guide detail screen', () => {
 
   test('the ready native preview supports rotation and recentering', async () => {
     await mount();
-    const native = { frame: jest.fn(), orbit: jest.fn() };
-    const scene = renderer.root.findByType('SplatView' as React.ElementType);
     expect(
       renderer.root.findAllByProps({
         accessibilityLabel: 'Rotate preview right',
       }),
     ).toHaveLength(0);
-    const preview = renderer.root
-      .findAllByProps({ testID: 'guide-preview' })
-      .find(item => typeof item.props.onLayout === 'function')!;
-    await act(() => {
-      preview.props.onLayout({
-        nativeEvent: { layout: { width: 800, height: 600 } },
-      });
-      scene.props.hybridRef(native);
-      scene.props.onReady();
-    });
+    const native = await readyPreview();
     expect(native.frame).toHaveBeenCalledTimes(1);
     const control = (label: string) =>
       renderer.root
@@ -352,19 +358,7 @@ describe('Guide detail screen', () => {
 
   test('tapping a robot frames and highlights it in the preview, and tapping again returns to the cell', async () => {
     const outlined = await mountOutlined();
-    const native = { frame: jest.fn(), orbit: jest.fn() };
-    const scene = () =>
-      renderer.root.findByType('SplatView' as React.ElementType);
-    const preview = renderer.root
-      .findAllByProps({ testID: 'guide-preview' })
-      .find(item => typeof item.props.onLayout === 'function')!;
-    await act(() => {
-      preview.props.onLayout({
-        nativeEvent: { layout: { width: 800, height: 600 } },
-      });
-      scene().props.hybridRef(native);
-      scene().props.onReady();
-    });
+    const native = await readyPreview();
     const [, , overview] = native.frame.mock.calls[0];
     await press('machine-row-engine');
     expect(node('machine-row-engine').props.accessibilityState).toEqual({
@@ -419,6 +413,34 @@ describe('Guide detail screen', () => {
     } finally {
       await act(async () => Dimensions.set({ window: phone, screen: phone }));
     }
+  });
+
+  test('every control is squared to the course control corners, never a pill or circle', async () => {
+    await mountOutlined(fakeDocuments());
+    await readyPreview();
+    const corners = renderer.root
+      .findAll(
+        item =>
+          typeof item.type === 'string' &&
+          item.props.accessibilityRole === 'button',
+      )
+      .map(item => ({
+        label: item.props.accessibilityLabel,
+        radius: StyleSheet.flatten(item.props.style)?.borderRadius ?? 0,
+      }));
+    expect(corners.map(corner => corner.label)).toEqual(
+      expect.arrayContaining([
+        'Back',
+        'Start parts tour',
+        'Rotate preview left',
+        'Recenter preview',
+        'Rotate preview right',
+      ]),
+    );
+    // Filtering keeps each round control's label in the failure.
+    expect(
+      corners.filter(corner => corner.radius > CourseRadius.control),
+    ).toEqual([]);
   });
 
   test.each(['missing', 'tactical-truck-engine-bay'])(

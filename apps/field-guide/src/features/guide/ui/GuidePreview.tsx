@@ -5,9 +5,17 @@ import { SplatView, type SplatViewSpec } from 'react-native-splat';
 import { sourceFor } from '../../pack/bundledPack';
 import type { Pack, PartId } from '../../pack/pack';
 import { directionFor, framingFor, highlightFor } from '../domain/derive';
-import { IconButton, Button } from '../../../ui/Button';
+import {
+  CourseButton,
+  CourseIconButton,
+  CourseIconSurface,
+} from './CourseControls';
 import { IconName } from '../../../ui/Icon';
-import { Color, Space, Type } from '../../../ui/theme';
+import {
+  CourseColor as C,
+  CourseType as T,
+  Grid as G,
+} from '../../../ui/courseTokens';
 
 const RADIANS = Math.PI / 180;
 const ORBIT_STEP = Math.PI / 8;
@@ -127,7 +135,7 @@ function PreviewModel({
       />
       {!ready && error === '' && (
         <View style={styles.status}>
-          <ActivityIndicator color={Color.accent} />
+          <ActivityIndicator color={C.accent} />
           <Text accessibilityRole="status" style={styles.statusText}>
             Loading 3D preview
           </Text>
@@ -138,17 +146,19 @@ function PreviewModel({
           <Text accessibilityRole="alert" style={styles.statusText}>
             {error}
           </Text>
-          <Button label="Retry preview" onPress={onRetry} />
+          <CourseButton label="Retry preview" onPress={onRetry} />
         </View>
       )}
       {ready && error === '' && (
         <View style={styles.controls}>
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.back}
             accessibilityLabel="Rotate preview left"
             onPress={() => view?.orbit(-ORBIT_STEP, 0)}
           />
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.frame}
             accessibilityLabel="Recenter preview"
             onPress={() =>
@@ -156,7 +166,8 @@ function PreviewModel({
               view?.frame(target.bounds, RECENTER_SECONDS, target.from)
             }
           />
-          <IconButton
+          <CourseIconButton
+            surface={CourseIconSurface.overlay}
             icon={IconName.next}
             accessibilityLabel="Rotate preview right"
             onPress={() => view?.orbit(ORBIT_STEP, 0)}
@@ -168,28 +179,22 @@ function PreviewModel({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Color.canvasTop },
+  root: { flex: 1, backgroundColor: C.surface },
   status: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Space.lg,
-    padding: Space.xl,
-    backgroundColor: Color.canvasTop,
+    gap: G.small,
+    padding: G.medium,
+    backgroundColor: C.surface,
   },
-  statusText: {
-    ...Type.callout,
-    color: Color.secondaryText,
-    textAlign: 'center',
-  },
+  statusText: { ...T.body, color: C.secondary, textAlign: 'center' },
+  // Separate squares over the model, matching the back button, rather than one rounded tray.
   controls: {
     position: 'absolute',
-    bottom: Space.lg,
+    bottom: G.small,
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: Space.sm,
-    padding: Space.xs,
-    borderRadius: 32,
-    backgroundColor: Color.overlay,
+    gap: G.unit,
   },
 });

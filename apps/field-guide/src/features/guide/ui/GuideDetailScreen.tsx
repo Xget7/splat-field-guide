@@ -9,11 +9,15 @@ import type { CourseDocuments } from '../../../platform/documents';
 import { courseOutlineFor } from '../domain/courseOutline';
 import { LearnMode } from '../domain/learningMode';
 import type { SessionStart } from '../domain/sessionStart';
-import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
-import { Backdrop } from '../../../ui/Gradients';
+import { CourseSurface } from '../../../ui/CourseSurface';
 import { IconName } from '../../../ui/Icon';
 import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
-import { Color, HAIRLINE, Radius, Space, Type } from '../../../ui/theme';
+import {
+  CourseColor as C,
+  CourseRadius as R,
+  CourseType as T,
+  Grid as G,
+} from '../../../ui/courseTokens';
 import { useWideLayout } from '../../../ui/useWideLayout';
 import {
   MachineList,
@@ -21,11 +25,12 @@ import {
   ReferenceSection,
   Section,
 } from './CourseSections';
+import { CourseButton, CourseIconButton } from './CourseControls';
 import { GuidePreview } from './GuidePreview';
 
 // One gutter sets the outer margin, the gap between the columns and the space between sections,
 // so the back button, title, preview and right column share a single grid.
-const GUTTER = Space.xl;
+const GUTTER = G.medium;
 
 const Layout = {
   phonePreview: 300,
@@ -82,16 +87,15 @@ export function GuideDetailScreen({
     scroll.offset.value = 0;
   }, [sideBySide, scroll.offset]);
   const frame = {
-    paddingTop: insets.top + Space.sm,
+    paddingTop: insets.top + G.unit,
     paddingLeft: insets.left + GUTTER,
     paddingRight: insets.right + GUTTER,
   };
   const bottom = Math.max(insets.bottom, GUTTER);
   const back = (
-    <IconButton
+    <CourseIconButton
       testID="guide-back"
       icon={IconName.back}
-      variant={IconButtonVariant.raised}
       accessibilityLabel="Back"
       onPress={() => {
         setOpening(true);
@@ -103,7 +107,7 @@ export function GuideDetailScreen({
   if (!guide) {
     return (
       <View testID="guide-detail-screen" style={[styles.screen, frame]}>
-        <Backdrop />
+        <CourseSurface />
         <View style={styles.header}>
           {back}
           <Text style={styles.missing}>Guide unavailable.</Text>
@@ -181,10 +185,9 @@ export function GuideDetailScreen({
     </>
   );
   const start = (
-    <Button
+    <CourseButton
       testID="start-tour"
       label="Start parts tour"
-      accessibilityLabel="Start parts tour"
       onPress={() => openProcedure(TOUR_ID)}
     />
   );
@@ -195,7 +198,7 @@ export function GuideDetailScreen({
         testID="guide-detail-screen"
         style={[styles.screen, frame, { paddingBottom: bottom }]}
       >
-        <Backdrop />
+        <CourseSurface />
         {header}
         <View style={styles.columns}>
           {preview}
@@ -219,7 +222,7 @@ export function GuideDetailScreen({
 
   return (
     <View testID="guide-detail-screen" style={styles.screen}>
-      <Backdrop />
+      <CourseSurface />
       <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -251,7 +254,7 @@ export function GuideDetailScreen({
           {
             paddingLeft: insets.left + GUTTER,
             paddingRight: insets.right + GUTTER,
-            paddingBottom: insets.bottom + Space.sm,
+            paddingBottom: insets.bottom + G.unit,
           },
         ]}
       >
@@ -262,20 +265,17 @@ export function GuideDetailScreen({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Color.surface },
+  screen: { flex: 1, backgroundColor: C.canvas },
   scroll: { flex: 1 },
-  header: { gap: Space.md },
-  heading: { gap: Space.xs },
-  title: { ...Type.largeTitle, color: Color.text },
-  summary: {
-    ...Type.body,
-    color: Color.secondaryText,
-  },
+  header: { gap: G.small },
+  heading: { gap: G.unit },
+  title: { ...T.title, color: C.text },
+  summary: { ...T.body, color: C.secondary },
   stage: {
     flex: 1,
     overflow: 'hidden',
-    borderRadius: Radius.card,
-    backgroundColor: Color.canvasTop,
+    borderRadius: R.card,
+    backgroundColor: C.surface,
   },
   columns: {
     flex: 1,
@@ -284,11 +284,11 @@ const styles = StyleSheet.create({
     marginTop: GUTTER,
   },
   columnContent: { gap: GUTTER, paddingBottom: GUTTER },
-  // The stronger line marks where the list scrolls under the pinned bar; the faint one vanished on the backdrop.
+  // The line marks where the list scrolls under the pinned button.
   columnBar: {
-    paddingTop: Space.md,
-    borderTopWidth: HAIRLINE,
-    borderTopColor: Color.lineStrong,
+    paddingTop: G.small,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
   },
   stack: { gap: GUTTER },
   bottomBar: {
@@ -296,10 +296,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: Space.md,
-    backgroundColor: Color.surface,
-    borderTopWidth: HAIRLINE,
-    borderTopColor: Color.lineStrong,
+    paddingTop: G.small,
+    backgroundColor: C.canvas,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
   },
-  missing: { ...Type.callout, color: Color.muted },
+  missing: { ...T.body, color: C.secondary },
 });
