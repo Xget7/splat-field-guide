@@ -46,8 +46,12 @@ Missing instructions, unresolved model applicability or absent diagrams remain e
 The initial demonstrable journey is course entry, a question about the KUKA equipment, a grounded answer with manual evidence and actionable cards, then contextual exploration of the selected robot or component in 3D.
 Animation, exploded assemblies and interactive simulation extend that journey; their scope and representation choices remain pending in the backlog.
 Online retrieval and local explanation must state their availability accurately; offline access is limited to prepared content and supported local capabilities.
-At startup, prepare Qwen and voice resources automatically after verifying device files and checking connectivity.
+At startup, prepare the pinned Qwen and voice files automatically after checking connectivity, verifying their identities before exposing them to inference.
 Share the verified model set across workers and navigation; never mark offline capabilities ready before verification or preload all inference models merely because downloads finish.
+Connectivity changes choose available adapters without constructing their models.
+Local inference and the 3D world share the process memory budget even when their work uses different compute units.
+Until measured coexistence is accepted, retire local model resources before mounting a world and keep them unavailable until native rendering, pending work and GPU destruction have completed.
+Reading, scripted guidance and available online assistance remain usable during 3D exploration.
 Offline startup without files retains available reading and online capabilities when connectivity returns, with progress, pause and retry exposed without blocking the course.
 The visual direction takes inspiration from [Linear](https://mobbin.com/sites/linear-c00c68bf-f93c-4837-acf0-31f4e5b46d02/630e7ab4-28c5-46ae-b1d5-a053e315161e/preview): restrained dark surfaces, clear typography and spacing, subtle controls and purposeful color, with readable evidence and equipment imagery taking priority.
 Use the supplied Linear application screenshot as the palette reference: neutral charcoal with subtle dark gradients, high-contrast text and purposeful saturated accents, without pastel colors.

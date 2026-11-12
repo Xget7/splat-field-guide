@@ -44,6 +44,8 @@ interface Options {
   onAction(event: SessionEvent): void;
   onIdle(idle: boolean): void;
   startInVoice?: boolean;
+  /** Retains explicit voice intent while native scene admission is still pending. */
+  suspended?: boolean;
 }
 export function useInstructorVoice(options: Options) {
   const {
@@ -52,6 +54,7 @@ export function useInstructorVoice(options: Options) {
     context,
     runtime,
     startInVoice = false,
+    suspended = false,
   } = options;
   const lifecycle = useVoiceRuntime();
   const [on, setOn] = useState(startInVoice);
@@ -102,7 +105,7 @@ export function useInstructorVoice(options: Options) {
   }, [enabled, lifecycle.foreground]);
   useEffect(() => {
     setReady(false);
-    if (!enabled || !on || !lifecycle.canStart) {
+    if (!enabled || suspended || !on || !lifecycle.canStart) {
       quiet();
       return;
     }
@@ -275,7 +278,16 @@ export function useInstructorVoice(options: Options) {
     };
     // Source changes during a fallback keep that conversation alive; the next start picks the new source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, on, lifecycle.revision, attempt, runtime, options.pack, quiet]);
+  }, [
+    enabled,
+    suspended,
+    on,
+    lifecycle.revision,
+    attempt,
+    runtime,
+    options.pack,
+    quiet,
+  ]);
   useEffect(() => {
     session.current?.session.update(context);
   }, [context]);

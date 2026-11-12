@@ -1,3 +1,4 @@
+import { offlineModelGroups } from '@tests/offlineModels';
 import { AGENT_METADATA, fakePlatform } from '@tests/platform';
 import { VoiceSource } from '../domain/mode/modeTypes';
 import { AgentState, ConnectionFailure } from '../domain/agent/agentStatus';
@@ -51,6 +52,176 @@ function instructorOn(
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
+
+test('losing connectivity without active voice selects offline routes without loading local engines', async () => {
+  const fake = fakePlatform({
+    fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
+  });
+  fake.model.availability.mockReturnValue('available');
+  const store = createInstructorStore();
+  const instructor = instructorOn(fake.platform, { store });
+  try {
+    instructor.start();
+    fake.network.emit(WIFI);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.getState().mode.mode).toBe('online');
+    fake.network.emit({ ...WIFI, satisfied: false });
+    await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS - 1);
+    expect(store.getState().mode.mode).toBe('switchingToOffline');
+    await jest.advanceTimersByTimeAsync(1);
+    expect(store.getState().mode).toMatchObject({
+      mode: 'offline',
+      voice: 'device',
+      answers: 'deviceModel',
+    });
+    expect(fake.input.prepare).not.toHaveBeenCalled();
+    expect(fake.output.prepare).not.toHaveBeenCalled();
+    expect(fake.model.prewarm).not.toHaveBeenCalled();
+    expect(fake.model.respond).not.toHaveBeenCalled();
+  } finally {
+    instructor.stop();
+  }
+});
+
+test('quiescence cancels current work and awaits native retirement without invalidating verified models', async () => {
+  let finish!: () => void;
+  const retiring = new Promise<void>(resolve => {
+    finish = resolve;
+  });
+  const models = {
+    getSnapshot: () => ({
+      state: 'ready' as const,
+      models: offlineModelGroups('ready'),
+      progress: 1,
+      bytes: 100,
+      error: null,
+    }),
+    subscribe: jest.fn(() => () => {}),
+    restore: jest.fn(async () => {}),
+    prepare: jest.fn(async () => {}),
+    cancel: jest.fn(),
+    release: jest.fn(() => retiring),
+    reserveScene: jest.fn(async () => ({ release: jest.fn() })),
+  };
+  const fake = fakePlatform({ offlineModels: () => models });
+  const instructor = instructorOn(fake.platform, { proxyUrl: null });
+  try {
+    instructor.start();
+    let quiet = false;
+    const barrier = instructor.quiesce().then(() => {
+      quiet = true;
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(fake.model.cancel).toHaveBeenCalled();
+    expect(models.release).toHaveBeenCalledTimes(1);
+    expect(quiet).toBe(false);
+    finish();
+    await barrier;
+    expect(quiet).toBe(true);
+    expect(instructor.offlineModels?.getSnapshot().state).toBe('ready');
+  } finally {
+    instructor.stop();
+  }
+});
+
+test('scene reservation synchronously selects scripted offline answers without claiming files are missing', async () => {
+  const fake = fakePlatform();
+  let held = false;
+  const listeners = new Set<() => void>();
+  const files = {
+    state: 'ready' as const,
+    models: offlineModelGroups('ready'),
+    progress: 1,
+    bytes: 100,
+    error: null,
+  };
+  fake.model.availability.mockImplementation(() =>
+    held ? 'unavailable' : 'available',
+  );
+  const models = {
+    getSnapshot: () => files,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    restore: jest.fn(async () => {}),
+    prepare: jest.fn(async () => {}),
+    cancel: jest.fn(),
+    release: jest.fn(async () => {}),
+    reserveScene: jest.fn(() => {
+      held = true;
+      listeners.forEach(listener => listener());
+      return Promise.resolve({
+        release() {
+          held = false;
+          listeners.forEach(listener => listener());
+        },
+      });
+    }),
+  };
+  const store = createInstructorStore();
+  const instructor = instructorOn(
+    { ...fake.platform, offlineModels: () => models },
+    { store, proxyUrl: null },
+  );
+  try {
+    instructor.start();
+    fake.network.emit({ ...WIFI, satisfied: false });
+    expect(store.getState().mode.answers).toBe('deviceModel');
+    const reservation = instructor.reserveScene();
+    expect(store.getState().mode.answers).toBe('script');
+    expect(instructor.offlineModels?.getSnapshot()).toBe(files);
+    const lease = await reservation;
+    expect(fake.input.prepare).not.toHaveBeenCalled();
+    expect(fake.output.prepare).not.toHaveBeenCalled();
+    lease.release();
+    expect(store.getState().mode.answers).toBe('deviceModel');
+  } finally {
+    instructor.stop();
+  }
+});
+
+test('the active offline voice session owns preparation and stopping a pending start suppresses capture', async () => {
+  const fake = fakePlatform({
+    fetch: jest.fn(async () => ({ status: 204 })) as unknown as Fetch,
+  });
+  const store = createInstructorStore();
+  const instructor = instructorOn(fake.platform, { store });
+  const pack = fixturePack();
+  try {
+    instructor.start();
+    fake.network.emit(WIFI);
+    fake.network.emit({ ...WIFI, satisfied: false });
+    await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
+    expect(fake.input.prepare).not.toHaveBeenCalled();
+    expect(fake.output.prepare).not.toHaveBeenCalled();
+    let resolve!: (value: 'available') => void;
+    fake.input.prepare.mockReturnValueOnce(
+      new Promise(done => {
+        resolve = done;
+      }),
+    );
+    const session = instructor.sessionFor(pack)!.session;
+    const started = session.start(
+      {
+        pack,
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+        history: [],
+        thinking: false,
+      },
+      voiceEvents(),
+    );
+    await jest.advanceTimersByTimeAsync(0);
+    expect(fake.output.prepare).toHaveBeenCalledTimes(1);
+    expect(fake.input.prepare).toHaveBeenCalledTimes(1);
+    session.stop();
+    resolve('available');
+    await started;
+    expect(fake.input.listen).not.toHaveBeenCalled();
+  } finally {
+    instructor.stop();
+  }
+});
 
 test.each(['online', 'offline'] as const)(
   '%s voice survives the microphone prompt but stops on a real background',
@@ -225,7 +396,6 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
   });
   const instructor = instructorOn(fake.platform, { store });
   const pack = fixturePack();
-  instructor.setPack(pack);
   instructor.start();
   fake.network.emit(WIFI);
   await jest.advanceTimersByTimeAsync(0);
@@ -280,7 +450,6 @@ test('a Worker that stops answering goes offline within seconds and back online 
   });
   const fake = fakePlatform({ fetch: fetchImpl as unknown as Fetch });
   const instructor = instructorOn(fake.platform, { store });
-  instructor.setPack(fixturePack());
   instructor.start();
   instructor.setInstructorOpen(true);
   fake.network.emit(WIFI);
@@ -323,7 +492,6 @@ test('quota keeps later conversations on device for the run and offline question
   });
   const instructor = instructorOn(fake.platform, { store });
   const pack = fixturePack();
-  instructor.setPack(pack);
   instructor.start();
   fake.network.emit(WIFI);
   await jest.advanceTimersByTimeAsync(0);
@@ -476,7 +644,6 @@ test('slow ElevenLabs first tokens on a good connection neither weaken the netwo
   });
   const instructor = instructorOn(fake.platform, { store });
   const pack = fixturePack();
-  instructor.setPack(pack);
   instructor.start();
   fake.network.emit(WIFI);
   await jest.advanceTimersByTimeAsync(0);
@@ -507,6 +674,7 @@ test('offline preparation refreshes answer readiness and releases its subscripti
   const models = {
     getSnapshot: () => ({
       state: 'missing' as const,
+      models: offlineModelGroups('missing'),
       progress: 0,
       bytes: 0,
       error: null,
@@ -520,7 +688,8 @@ test('offline preparation refreshes answer readiness and releases its subscripti
     restore: jest.fn(async () => {}),
     prepare: jest.fn(async () => {}),
     cancel: jest.fn(),
-    release: jest.fn(),
+    release: jest.fn(async () => {}),
+    reserveScene: jest.fn(async () => ({ release: jest.fn() })),
   };
   const instructor = instructorOn(
     { ...fake.platform, offlineModels: () => models },

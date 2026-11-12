@@ -374,3 +374,40 @@ test('a correction belongs to the reply it names, never to an earlier answer', a
     interrupted: true,
   });
 });
+
+test('course voice acknowledges navigation as a proposal until the operator opens its card', async () => {
+  let heard!: SessionAgentHandlers;
+  const transport = client();
+  const changed = events();
+  const session = createAgentVoiceSession({
+    pack,
+    ids: createExchangeIds(),
+    audio: audioLink,
+    client: handlers => {
+      heard = handlers;
+      return transport;
+    },
+  });
+  await session.start(
+    {
+      pack,
+      state: INITIAL_SESSION,
+      history: [],
+      thinking: false,
+      navigation: 'proposal',
+    },
+    changed,
+  );
+  heard.userTranscript('Where is the battery?');
+  const result = heard.toolCall('show_part', { part_id: 'battery' });
+  expect(result.isError).toBe(false);
+  expect(result.result).toContain('navigation_proposed');
+  expect(result.result).not.toContain('Showing the');
+  expect(transport.start).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.arrayContaining([
+      expect.stringContaining('Navigation tools propose cards'),
+    ]),
+  );
+  session.stop();
+});

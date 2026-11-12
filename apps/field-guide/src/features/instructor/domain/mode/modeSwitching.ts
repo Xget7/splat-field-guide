@@ -1,13 +1,5 @@
-import type {
-  Cancel,
-  Clock,
-  SpeechInput,
-  SpeechOutput,
-  Timers,
-} from '../../../../platform/ports';
-import type { Pack } from '../../../pack/pack';
+import type { Cancel, Clock, Timers } from '../../../../platform/ports';
 import type { Answerer } from '../turn/answerer';
-import { SpeechAvailability, VOICE_LOCALE } from '../voice/voiceCopy';
 import {
   UtteranceKind,
   utteranceId,
@@ -34,11 +26,8 @@ export const SwitchTiming = {
 export interface ModeSwitchingOptions {
   readonly clock: Clock;
   readonly timers: Timers;
-  readonly input: () => SpeechInput;
-  readonly output: () => SpeechOutput;
-  /** Prepared for offline answers, and the fallback when ElevenLabs cannot be reached online. */
-  readonly device: Answerer;
-  readonly pack: () => Pack | null;
+  /** File-level answer readiness, without constructing an inference runner. */
+  readonly device: Pick<Answerer, 'isReady'>;
   /** Prepares the agent conversation, resolving whether online voice can start. */
   readonly prepareAgent: () => Promise<boolean>;
   /** Reaches the Worker, rejecting when ElevenLabs cannot answer. */
@@ -95,33 +84,12 @@ export function createModeSwitching(
     if (mode === InstructorMode.switchingToOffline) {
       return [
         {
-          piece: SwitchPiece.voice,
-          label: SwitchLabel.deviceVoice,
-          fallbackLabel: SwitchLabel.noVoice,
-          start: async () => {
-            await options.output().prepare();
-            return true;
-          },
-        },
-        {
           piece: SwitchPiece.answers,
           label: SwitchLabel.deviceModel,
           fallbackLabel: SwitchLabel.script,
-          start: async () => {
-            const pack = options.pack();
-            if (pack) {
-              device.prewarm(pack);
-            }
-            return device.isReady();
-          },
-        },
-        {
-          piece: SwitchPiece.listening,
-          label: SwitchLabel.deviceListening,
-          fallbackLabel: SwitchLabel.noListening,
-          start: async () =>
-            (await options.input().prepare(VOICE_LOCALE)) ===
-            SpeechAvailability.available,
+          // Connectivity chooses an adapter; the active voice session or typed turn owns loading it.
+          // Eagerly preparing every engine here can exhaust the shared memory needed by the world.
+          start: async () => device.isReady(),
         },
       ];
     }
@@ -191,9 +159,9 @@ export function createModeSwitching(
       tasks.map(async task => {
         let cancelTimeout: Cancel | undefined;
         const timeout = new Promise<boolean>(resolve => {
-          cancelTimeout = after(SwitchTiming.PIECE_TIMEOUT_MS, () =>
-            resolve(false),
-          );
+          cancelTimeout = after(SwitchTiming.PIECE_TIMEOUT_MS, () => {
+            resolve(false);
+          });
         });
         let ready = false;
         try {

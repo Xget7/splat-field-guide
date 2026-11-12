@@ -162,6 +162,17 @@ export type ToolOutcome =
       readonly result: string;
     }
   | { readonly ok: false; readonly result: string };
+
+/** Tool acknowledgements must describe the course card, not a scene that has not opened. */
+export function toolResult(outcome: ToolOutcome, proposal: boolean): string {
+  if (!proposal || !outcome.ok || !outcome.event) return outcome.result;
+  return JSON.stringify({
+    status: 'navigation_proposed',
+    target: outcome.event,
+    confirmation:
+      'The operator must choose Navigate to 3D. The proposed view has not opened.',
+  });
+}
 export function stateSentence(state: SessionState, pack: Pack): string {
   const procedure = currentProcedure(state, pack);
   const step = currentStep(state, pack);
@@ -169,7 +180,16 @@ export function stateSentence(state: SessionState, pack: Pack): string {
     state.selectedPart === null
       ? undefined
       : findPart(pack, state.selectedPart);
-  const shown = part ? AgentToolCopy.shownPart(part.name) : '';
+  const group = state.selectedParts
+    ?.map(id => findPart(pack, id))
+    .filter(item => item !== undefined);
+  const shown = group?.length
+    ? `Showing components: ${group
+        .map(item => `${item.name} (${item.id})`)
+        .join(', ')}.`
+    : part
+    ? AgentToolCopy.shownPart(part.name)
+    : '';
   if (procedure && step) {
     return [
       AgentToolCopy.shownStep(

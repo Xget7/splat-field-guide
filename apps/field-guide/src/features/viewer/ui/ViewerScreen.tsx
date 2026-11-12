@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, Text, View } from 'react-native';
+import type { SceneLease } from 'react-native-on-device';
+import { waitForWorldsReleased } from 'react-native-splat';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   LayoutAnimationConfig,
@@ -95,25 +97,99 @@ export function ViewerScreen({
   progress,
 }: ViewerScreenProps) {
   const instructor = useInstructor();
-  const { guideId, procedureId, stepIndex, mode, voice, selectedPart } = start;
+  const {
+    guideId,
+    procedureId,
+    stepIndex,
+    mode,
+    voice,
+    selectedPart,
+    selectedParts,
+  } = start;
   const guide = findReadyGuide(catalog, guideId);
-  const [opened, setOpened] = useState<SessionStart | null>(null);
+  const [opened, setOpened] = useState<{
+    start: SessionStart;
+    load: number;
+  } | null>(null);
+  const [admissionFailed, setAdmissionFailed] = useState(false);
   useEffect(() => {
     if (!guide) return;
-    // Open after the previous viewer has released its subscriptions and voice session.
-    viewerStore
-      .getState()
-      .open({ guide, procedureId, stepIndex, mode, instructor, selectedPart });
-    setOpened(start);
-  }, [guide, instructor, mode, procedureId, start, stepIndex, selectedPart]);
+    let current = true;
+    let lease: SceneLease | null = null;
+    setAdmissionFailed(false);
+    // Retain the constructor ban through the entire native lifetime, including GPU retirement.
+    // A replacement must also wait for the preceding world's asynchronous destruction.
+    instructor
+      .reserveScene()
+      .then(async acquired => {
+        if (!current) {
+          acquired.release();
+          return;
+        }
+        lease = acquired;
+        await waitForWorldsReleased();
+        if (!current) return;
+        const load = viewerStore.getState().open({
+          guide,
+          procedureId,
+          stepIndex,
+          mode,
+          instructor,
+          selectedPart,
+          selectedParts,
+        });
+        setOpened({ start, load });
+      })
+      .catch(() => {
+        // A failed native fence cannot establish safe model residency. Keep its ban.
+        if (current) setAdmissionFailed(true);
+      });
+    return () => {
+      current = false;
+      const retiring = lease;
+      if (retiring) {
+        waitForWorldsReleased().then(
+          () => {
+            retiring.release();
+          },
+          () => {}, // Fail closed if native retirement cannot be established.
+        );
+      }
+    };
+  }, [
+    guide,
+    instructor,
+    mode,
+    procedureId,
+    start,
+    stepIndex,
+    selectedPart,
+    selectedParts,
+  ]);
   if (guide === undefined) {
     return <MissingGuide onBack={onExit} />;
   }
-  if (opened !== start) return <View style={styles.root} />;
+  if (opened?.start !== start)
+    return (
+      <View style={styles.root}>
+        <IconButton
+          accessibilityLabel="Back"
+          icon={IconName.back}
+          onPress={onExit}
+        />
+        <Text accessibilityRole={admissionFailed ? 'alert' : undefined}>
+          {admissionFailed
+            ? 'Could not prepare the scene. Go back and try again.'
+            : 'Preparing scene…'}
+        </Text>
+      </View>
+    );
   return (
     <Viewer
+      key={opened.load}
       instructor={instructor}
       guide={guide}
+      load={opened.load}
       procedureId={procedureId}
       startInVoice={voice === true && mode === LearnMode.instructor}
       onExit={onExit}
@@ -123,6 +199,7 @@ export function ViewerScreen({
 }
 
 interface ViewerProps {
+  load: number;
   instructor: Instructor;
   guide: ReadyGuide;
   procedureId: ProcedureId | null;
@@ -132,6 +209,7 @@ interface ViewerProps {
 }
 
 function Viewer({
+  load,
   instructor,
   guide,
   procedureId,
@@ -164,9 +242,21 @@ function Viewer({
   const frameRequest = useFrameRequest();
   const utterance = useUtterance();
   const voiceContext = useVoiceContext();
+  const [loadedMs, setLoadedMs] = useState<number | null>(null);
+  const worldLoaded = useCallback(
+    (milliseconds: number) => {
+      if (viewerStore.getState().worldLoaded(load)) setLoadedMs(milliseconds);
+    },
+    [load],
+  );
+  const inferenceReady = loadedMs !== null;
+  const worldUnavailable = useCallback(() => {
+    if (viewerStore.getState().worldUnavailable(load)) setLoadedMs(null);
+  }, [load]);
   const voice = useInstructorVoice({
     pack,
     enabled: instructorOpen,
+    suspended: !inferenceReady,
     utterance,
     context: voiceContext,
     runtime: instructor,
@@ -196,7 +286,6 @@ function Viewer({
       viewerStore.getState().close();
     };
   }, [progress, standalone]);
-  const [loadedMs, setLoadedMs] = useState<number | null>(null);
   const [stage, setStage] = useState<Size>(NO_SIZE);
   const [toolsWidth, setToolsWidth] = useState(0);
   const docks = stageDocksFor(stage.width, toolsWidth);
@@ -305,7 +394,7 @@ function Viewer({
           </View>
         </Animated.View>
       )}
-      {instructorOpen && (
+      {instructorOpen && inferenceReady && (
         <View
           pointerEvents="box-none"
           style={[styles.assistant, { bottom: insets.bottom + Space.lg }]}
@@ -332,13 +421,18 @@ function Viewer({
       pack={pack}
       session={session}
       frameRequest={frameRequest}
-      closeUp={session.selectedPart !== null || exchange !== null}
+      closeUp={
+        session.selectedPart !== null ||
+        !!session.selectedParts?.length ||
+        exchange !== null
+      }
       accessibilityLabel={`${guide.title}, ${guide.area}`}
       resizeTransition={animatedResize ? viewportTransition : undefined}
       markers={labelsOn}
       carded={wide ? cardPart?.id ?? null : null}
       onSelect={actions.select}
-      onLoaded={setLoadedMs}
+      onLoaded={worldLoaded}
+      onUnavailable={worldUnavailable}
     >
       {!wide && !standalone && (
         <View style={styles.toolsTop}>
@@ -352,28 +446,29 @@ function Viewer({
       {stageOverlays}
     </SplatViewport>
   );
-  const panel = instructorOpen ? (
-    <InstructorPanel
-      thread={thread}
-      exchange={exchange}
-      content={card}
-      bottomInset={bottomInset}
-      onAsk={actions.ask}
-      voice={voice}
-      mode={panelMode}
-      onModeChange={actions.setPanelMode}
-      onBack={actions.back}
-      onNext={onNext}
-    />
-  ) : (
-    <StepPanel
-      content={card}
-      bottomInset={bottomInset}
-      onBack={actions.back}
-      onNext={onNext}
-      onRepeat={actions.repeat}
-    />
-  );
+  const panel =
+    instructorOpen && inferenceReady ? (
+      <InstructorPanel
+        thread={thread}
+        exchange={exchange}
+        content={card}
+        bottomInset={bottomInset}
+        onAsk={actions.ask}
+        voice={voice}
+        mode={panelMode}
+        onModeChange={actions.setPanelMode}
+        onBack={actions.back}
+        onNext={onNext}
+      />
+    ) : (
+      <StepPanel
+        content={card}
+        bottomInset={bottomInset}
+        onBack={actions.back}
+        onNext={onNext}
+        onRepeat={actions.repeat}
+      />
+    );
 
   return (
     <KeyboardAvoidingView

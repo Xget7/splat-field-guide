@@ -51,6 +51,12 @@ export function agentVariables(
   };
 }
 export function screenUpdate(state: SessionState, pack: Pack): string {
+  if (state.selectedParts)
+    return AgentContextCopy.screen(
+      `${stateSentence(state, pack)} Selected part ids: ${JSON.stringify(
+        state.selectedParts,
+      )}. Pack: ${pack.packId}/${pack.packVersion}.`,
+    );
   return AgentContextCopy.screen(
     `${stateSentence(state, pack)} Selected part id: ${
       state.selectedPart ?? NONE
@@ -65,3 +71,6 @@ export function historyUpdate(history: readonly PreviousExchange[]): string {
     )
     .join('\n');
 }
+
+export const COURSE_CHAT_CONTEXT =
+  'The operator is in a course chat. Navigation tools propose cards; they do not open a 3D scene. The operator must choose Navigate to 3D before a proposed component or procedure is shown. You may propose several uniquely resolved components. Never claim a proposed view is already open.';

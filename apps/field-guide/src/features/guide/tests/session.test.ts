@@ -342,3 +342,49 @@ describe('the parts tour', () => {
     expect(seen).toEqual(tour.steps.map(step => step.id));
   });
 });
+
+describe('explicit component group inspection', () => {
+  test('validates the whole group and derives combined labels and bounds', () => {
+    const group = reduce(
+      INITIAL_SESSION,
+      {
+        type: SessionEventType.selectParts,
+        partIds: ['fuse-box', 'battery', 'battery'],
+      },
+      pack,
+    );
+    expect(group.selectedParts).toEqual(['battery', 'fuse-box']);
+    expect(group.selectedPart).toBeNull();
+    expect(highlightFor(group, pack)).toEqual([4, 5]);
+    expect(framingFor(group, pack)).toEqual({ min: [6, 0, 0], max: [9, 1, 1] });
+    expect(
+      reduce(
+        group,
+        { type: SessionEventType.selectParts, partIds: ['battery', 'missing'] },
+        pack,
+      ),
+    ).toBe(group);
+    expect(
+      reduce(
+        group,
+        {
+          type: SessionEventType.selectParts,
+          partIds: ['fuse-box', 'battery'],
+        },
+        pack,
+      ),
+    ).toBe(group);
+  });
+
+  test('a pick or procedure step change replaces a group', () => {
+    const group = reduce(
+      startAt('check-coolant', 0, pack),
+      { type: SessionEventType.selectParts, partIds: ['battery', 'fuse-box'] },
+      pack,
+    );
+    expect(reduce(group, select('engine'), pack).selectedParts).toBeUndefined();
+    expect(reduce(group, select(null), pack).selectedParts).toBeUndefined();
+    expect(reduce(group, next, pack).selectedParts).toBeUndefined();
+    expect(reduce(group, repeat, pack).selectedParts).toBeUndefined();
+  });
+});

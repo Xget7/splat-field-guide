@@ -7,6 +7,7 @@ export const SessionEventType = {
   back: 'back',
   repeat: 'repeat',
   select: 'select',
+  selectParts: 'selectParts',
   goTo: 'goTo',
   end: 'end',
 } as const;
@@ -25,6 +26,10 @@ export type SessionEvent =
       readonly type: typeof SessionEventType.select;
       readonly partId: PartId | null;
     }
+  | {
+      readonly type: typeof SessionEventType.selectParts;
+      readonly partIds: readonly PartId[];
+    }
   | { readonly type: typeof SessionEventType.goTo; readonly stepIndex: number }
   | { readonly type: typeof SessionEventType.end };
 
@@ -33,6 +38,8 @@ export interface SessionState {
   readonly stepIndex: number;
   /** Overrides the step's highlight until the step changes. */
   readonly selectedPart: PartId | null;
+  /** An explicit group inspection; a pick or step change replaces it. */
+  readonly selectedParts?: readonly PartId[];
 }
 
 export const INITIAL_SESSION: SessionState = {
@@ -40,6 +47,15 @@ export const INITIAL_SESSION: SessionState = {
   stepIndex: 0,
   selectedPart: null,
 };
+
+function singleSelection(
+  state: SessionState,
+  partId: PartId | null,
+): SessionState {
+  const next = { ...state, selectedPart: partId };
+  delete next.selectedParts;
+  return next;
+}
 
 export function currentProcedure(
   state: SessionState,
@@ -73,30 +89,47 @@ export function reduce(
         : state;
     case SessionEventType.next:
       return procedure && state.stepIndex < procedure.steps.length - 1
-        ? { ...state, stepIndex: state.stepIndex + 1, selectedPart: null }
+        ? { ...singleSelection(state, null), stepIndex: state.stepIndex + 1 }
         : state;
     case SessionEventType.back:
       return procedure && state.stepIndex > 0
-        ? { ...state, stepIndex: state.stepIndex - 1, selectedPart: null }
+        ? { ...singleSelection(state, null), stepIndex: state.stepIndex - 1 }
         : state;
     case SessionEventType.repeat:
-      return procedure && state.selectedPart !== null
-        ? { ...state, selectedPart: null }
+      return procedure && (state.selectedPart !== null || state.selectedParts)
+        ? singleSelection(state, null)
         : state;
     case SessionEventType.select:
       if (event.partId !== null && !findPart(pack, event.partId)) {
         return state;
       }
-      return state.selectedPart === event.partId
+      return state.selectedPart === event.partId && !state.selectedParts
         ? state
-        : { ...state, selectedPart: event.partId };
+        : singleSelection(state, event.partId);
+    case SessionEventType.selectParts: {
+      if (event.partIds.some(id => !findPart(pack, id))) return state;
+      const ids = [...new Set(event.partIds)].sort();
+      if (ids.length < 2) {
+        return reduce(
+          state,
+          { type: SessionEventType.select, partId: ids[0] ?? null },
+          pack,
+        );
+      }
+      if (
+        ids.length === state.selectedParts?.length &&
+        ids.every((id, i) => id === state.selectedParts?.[i])
+      )
+        return state;
+      return { ...state, selectedPart: null, selectedParts: ids };
+    }
     case SessionEventType.goTo:
       return procedure &&
         Number.isInteger(event.stepIndex) &&
         event.stepIndex >= 0 &&
         event.stepIndex < procedure.steps.length &&
         event.stepIndex !== state.stepIndex
-        ? { ...state, stepIndex: event.stepIndex, selectedPart: null }
+        ? { ...singleSelection(state, null), stepIndex: event.stepIndex }
         : state;
     case SessionEventType.end:
       return INITIAL_SESSION;

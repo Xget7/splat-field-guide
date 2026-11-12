@@ -5,6 +5,8 @@ import type { AuthoredEvidence } from '../context';
 import type { PreviousExchange } from '../grounding';
 
 export interface AnswerRequest {
+  /** Course chat offers navigation cards; the operator chooses when a scene opens. */
+  readonly navigation?: 'proposal';
   readonly question: string;
   readonly state: SessionState;
   readonly pack: Pack;

@@ -35,6 +35,7 @@ export interface ViewerOpening {
   readonly mode: LearnMode;
   readonly instructor: Instructor;
   readonly selectedPart?: string;
+  readonly selectedParts?: readonly string[];
 }
 
 /** How the viewer is laid out, apart from the session it shows. */
@@ -51,6 +52,7 @@ export interface ViewerLayout {
 }
 
 export interface ViewerStatus extends ViewerLayout {
+  readonly worldReady: boolean;
   readonly guide: ReadyGuide | null;
   readonly pack: Pack | null;
   readonly viewer: ViewerState | null;
@@ -60,7 +62,11 @@ export interface ViewerStatus extends ViewerLayout {
 }
 
 export interface ViewerActions {
-  open(opening: ViewerOpening): void;
+  open(opening: ViewerOpening): number;
+  /** Only the matching native load may admit inference after its first frame. */
+  worldLoaded(load: number): boolean;
+  /** Withdraw inference admission if the current native view reloads or fails. */
+  worldUnavailable(load: number): boolean;
   close(): void;
   dispatch(event: SessionEvent): void;
   /** True when this was the last step, so the procedure finished. */
@@ -122,6 +128,7 @@ const INITIAL_LAYOUT: ViewerLayout = {
 
 const INITIAL_STATUS: ViewerStatus = {
   ...INITIAL_LAYOUT,
+  worldReady: false,
   guide: null,
   pack: null,
   viewer: null,
@@ -133,6 +140,7 @@ const INITIAL_STATUS: ViewerStatus = {
 export function createViewerStore(): ViewerStore {
   return createStore<ViewerStoreState>()((set, get) => {
     let turnGeneration = 0;
+    let loadGeneration = 0;
     function act(action: ViewerAction) {
       const { viewer, display, pack } = get();
       if (
@@ -157,15 +165,12 @@ export function createViewerStore(): ViewerStore {
       get().voice?.interrupt();
     }
     function changeInstructorOpen(open: boolean) {
-      const { instructorOpen, instructor, pack } = get();
+      const { instructorOpen, instructor } = get();
       if (instructorOpen === open) {
         return;
       }
       set({ instructorOpen: open });
       instructor?.setInstructorOpen(open);
-      if (open && pack !== null) {
-        instructor?.turns.prewarm(pack);
-      }
     }
     const dispatch = (event: SessionEvent) => {
       interrupt();
@@ -199,11 +204,25 @@ export function createViewerStore(): ViewerStore {
         mode,
         instructor,
         selectedPart,
+        selectedParts,
       }) => {
         get().close();
+        const load = ++loadGeneration;
         const { pack } = guide;
         let viewer = initialViewerState(procedureId, stepIndex, pack);
-        if (selectedPart && findPart(pack, selectedPart)) {
+        if (selectedParts) {
+          viewer = reduceViewer(
+            viewer,
+            {
+              type: ViewerActionType.agent,
+              event: {
+                type: SessionEventType.selectParts,
+                partIds: selectedParts,
+              },
+            },
+            pack,
+          );
+        } else if (selectedPart && findPart(pack, selectedPart)) {
           viewer = reduceViewer(
             viewer,
             {
@@ -216,6 +235,7 @@ export function createViewerStore(): ViewerStore {
         const instructorOpen = mode === LearnMode.instructor;
         set({
           ...INITIAL_LAYOUT,
+          worldReady: false,
           fullView: procedureId === null,
           instructorOpen,
           guide,
@@ -225,19 +245,29 @@ export function createViewerStore(): ViewerStore {
           instructor,
           voice: null,
         });
-        instructor.setPack(pack);
         instructor.setInstructorOpen(instructorOpen);
-        if (instructorOpen) {
-          instructor.turns.prewarm(pack);
-        }
+        return load;
+      },
+      worldLoaded: load => {
+        if (load !== loadGeneration || get().instructor === null) return false;
+        set({ worldReady: true });
+        return true;
+      },
+      worldUnavailable: load => {
+        if (load !== loadGeneration || get().instructor === null) return false;
+        set({ worldReady: false });
+        get().voice?.stop();
+        get().cancelAnswer();
+        return true;
       },
       close: () => {
+        loadGeneration += 1;
         turnGeneration += 1;
         const { instructor, voice } = get();
         voice?.stop();
         instructor?.setInstructorOpen(false);
         instructor?.turns.cancel();
-        set({ instructor: null, voice: null });
+        set({ instructor: null, voice: null, worldReady: false });
       },
       dispatch,
       next: () => {
@@ -277,6 +307,7 @@ export function createViewerStore(): ViewerStore {
         }
       },
       ask: text => {
+        if (!get().worldReady) return;
         const question = text.trim();
         if (question === '' || get().voice?.ask(question)) {
           return;

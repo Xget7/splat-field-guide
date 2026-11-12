@@ -26,9 +26,10 @@ function openStore(
   instructor: Instructor = fakeInstructor(),
 ) {
   const store = createViewerStore();
-  store
+  const load = store
     .getState()
     .open({ guide, procedureId: COOLANT, stepIndex, mode, instructor });
+  store.getState().worldLoaded(load);
   return store;
 }
 
@@ -46,6 +47,24 @@ function recordingVoice(accepts = false): VoicePort & { asked: string[] } {
 }
 
 describe('viewer store', () => {
+  test('a stale native first frame cannot admit inference for a replacement or closed world', () => {
+    const store = createViewerStore();
+    const opening = {
+      guide,
+      procedureId: null,
+      stepIndex: 0,
+      mode: LearnMode.selfGuided,
+      instructor: fakeInstructor(),
+    };
+    const previous = store.getState().open(opening);
+    const current = store.getState().open(opening);
+    expect(store.getState().worldLoaded(previous)).toBe(false);
+    expect(store.getState().worldReady).toBe(false);
+    expect(store.getState().worldLoaded(current)).toBe(true);
+    store.getState().close();
+    expect(store.getState().worldLoaded(current)).toBe(false);
+    expect(store.getState().worldReady).toBe(false);
+  });
   test('cancelling an answer restores the previous display', () => {
     const instructor = {
       ...fakeInstructor(),
@@ -204,7 +223,7 @@ describe('viewer store', () => {
     expect(ask).toHaveBeenCalledTimes(1);
   });
 
-  test('closing the instructor stops its voice and the probes; opening it prewarms the answerers', () => {
+  test('opening instructor controls never loads a model; closing releases its voice and probes', () => {
     const instructor = fakeInstructor();
     const prewarm = jest.spyOn(instructor.turns, 'prewarm');
     const store = openStore(0, LearnMode.selfGuided, instructor);
@@ -214,7 +233,7 @@ describe('viewer store', () => {
     store.getState().toggleInstructor();
     expect(store.getState().instructorOpen).toBe(true);
     expect(instructor.setInstructorOpen).toHaveBeenLastCalledWith(true);
-    expect(prewarm).toHaveBeenCalledWith(pack);
+    expect(prewarm).not.toHaveBeenCalled();
     store.getState().toggleInstructor();
     expect(voice.stop).toHaveBeenCalledTimes(2);
     expect(instructor.setInstructorOpen).toHaveBeenLastCalledWith(false);
@@ -259,4 +278,25 @@ describe('progress target', () => {
       stepIndex: 2,
     });
   });
+});
+
+test('an explicit grouped opening selects exactly validated components without activating the instructor', () => {
+  const store = createViewerStore();
+  const instructor = fakeInstructor();
+  const prewarm = jest.spyOn(instructor.turns, 'prewarm');
+  store.getState().open({
+    guide,
+    procedureId: null,
+    stepIndex: 0,
+    mode: LearnMode.selfGuided,
+    instructor,
+    selectedParts: ['battery', 'fuse-box'],
+  });
+  expect(store.getState().viewer?.session.selectedParts).toEqual([
+    'battery',
+    'fuse-box',
+  ]);
+  expect(store.getState().instructorOpen).toBe(false);
+  expect(prewarm).not.toHaveBeenCalled();
+  store.getState().close();
 });

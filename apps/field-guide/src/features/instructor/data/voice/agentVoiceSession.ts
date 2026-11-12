@@ -8,12 +8,14 @@ import {
 } from '../agent/agentClient';
 import {
   agentVariables,
+  COURSE_CHAT_CONTEXT,
   historyUpdate,
   screenUpdate,
 } from '../../domain/agent/agentVariables';
 import { VOICE_LOCALE, VoiceHint } from '../../domain/voice/voiceCopy';
 import {
   runAgentTool,
+  toolResult,
   type KnowledgeLoader,
   type ToolKnowledge,
 } from '../../domain/agent/agentTools';
@@ -256,7 +258,10 @@ export function createAgentVoiceSession({
             }
             events.action(outcome.event);
           }
-          return { result: outcome.result, isError: !outcome.ok };
+          return {
+            result: toolResult(outcome, context.navigation === 'proposal'),
+            isError: !outcome.ok,
+          };
         },
         ended(reason) {
           if (!current() || !started) {
@@ -276,7 +281,12 @@ export function createAgentVoiceSession({
       try {
         await client.start(
           agentVariables(initial.state, pack, initial.history.length > 0),
-          initial.history.length > 0 ? [historyUpdate(initial.history)] : [],
+          [
+            ...(initial.navigation === 'proposal' ? [COURSE_CHAT_CONTEXT] : []),
+            ...(initial.history.length > 0
+              ? [historyUpdate(initial.history)]
+              : []),
+          ],
         );
         if (current()) {
           started = true;

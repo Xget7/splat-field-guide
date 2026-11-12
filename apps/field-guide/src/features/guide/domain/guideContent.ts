@@ -40,23 +40,34 @@ export function cardContentFor(state: SessionState, pack: Pack): CardContent {
       ? findPart(pack, step.parts[0])
       : undefined;
   const part = selected ?? tourPart;
+  const group = state.selectedParts
+    ?.map(id => findPart(pack, id))
+    .filter((item): item is Part => !!item);
   const stepTitle = step?.parts
     .map(id => findPart(pack, id)?.name)
     .filter(name => name !== undefined)
     .join(', ');
   return {
-    kind: part
-      ? CardKind.part
-      : procedure
-      ? CardKind.procedure
-      : CardKind.overview,
-    title: part?.name ?? (stepTitle || procedure?.title || pack.title),
-    body: part?.summary ?? step?.text ?? 'Select a part to inspect it.',
+    kind:
+      part || group?.length
+        ? CardKind.part
+        : procedure
+        ? CardKind.procedure
+        : CardKind.overview,
+    title:
+      group?.map(item => item.name).join(', ') ||
+      part?.name ||
+      stepTitle ||
+      procedure?.title ||
+      pack.title,
+    body: group?.length
+      ? ''
+      : part?.summary ?? step?.text ?? 'Select a part to inspect it.',
     // A step's caution is about the step, not about a part picked on the side.
     caution: selected ? '' : step?.caution ?? '',
     stepNumber: step ? state.stepIndex + 1 : 0,
     stepCount: procedure?.steps.length ?? 0,
-    selected: selected !== undefined,
+    selected: selected !== undefined || !!group?.length,
     backDisabled: !step || state.stepIndex === 0,
     nextDisabled: !step,
     last: isLastStep(state, pack),
@@ -94,6 +105,7 @@ export function stepRowsFor(
 
 // A picked part, else the step's first part.
 function focusFor(state: SessionState, pack: Pack): PartId | null {
+  if (state.selectedParts) return null;
   return state.selectedPart ?? currentStep(state, pack)?.parts[0] ?? null;
 }
 

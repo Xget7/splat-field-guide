@@ -134,8 +134,9 @@ export function fakeInstructor(
   return {
     historyFor: () => [],
     turns: createTurnRunner([], createExchangeIds()),
+    quiesce: jest.fn(async () => {}),
+    reserveScene: jest.fn(async () => ({ release: jest.fn() })),
     sessionFor: jest.fn(() => null),
-    setPack: jest.fn(),
     setInstructorOpen: jest.fn(),
     setIdle: jest.fn(),
     requestMode: jest.fn(),

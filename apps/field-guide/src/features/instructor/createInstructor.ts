@@ -17,6 +17,7 @@ import { createInstructorNetwork } from './data/runtime/instructorNetwork';
 import { createInstructorSessions } from './data/runtime/instructorSessions';
 import type { InstructorStore } from './state/instructorStore';
 import type { KnowledgeLoader } from './domain/agent/agentTools';
+import type { SceneLease } from 'react-native-on-device';
 
 export type { Instructor };
 
@@ -57,7 +58,6 @@ export function createInstructor({
     while (entries.size > 12) entries.delete(entries.keys().next().value!);
     history.set(key, entries);
   };
-  let pack: Pack | null = null;
   let started = false;
   let disposed = false;
   let idle = true;
@@ -66,10 +66,7 @@ export function createInstructor({
   const modes = createInstructorModes({
     clock,
     timers,
-    input: platform.speechInput,
-    output: platform.speechOutput,
     device,
-    pack: () => pack,
     prepareAgent: () => sessions.prepareAgent(),
     probe:
       proxy?.ping ??
@@ -133,16 +130,31 @@ export function createInstructor({
         },
       ),
   };
+  async function quiesce(): Promise<void> {
+    sessions.stop();
+    turns.cancel();
+    await platform.offlineModels?.().release();
+  }
+  async function reserveScene(): Promise<SceneLease> {
+    let reservation: Promise<SceneLease> | undefined;
+    try {
+      // Acquiring the native ban is synchronous, before cancellation can yield to another owner.
+      reservation = platform.offlineModels?.().reserveScene();
+    } finally {
+      sessions.stop();
+      turns.cancel();
+    }
+    return reservation ?? { release() {} };
+  }
   return {
     turns,
+    quiesce,
+    reserveScene,
     historyFor,
     get offlineModels() {
       return platform.offlineModels?.();
     },
     sessionFor: guide => (disposed ? null : sessions.sessionFor(guide)),
-    setPack(value) {
-      pack = value;
-    },
     setInstructorOpen: open => network.setActive(open),
     setIdle(value) {
       idle = value;
@@ -195,14 +207,14 @@ export function createInstructor({
       }
       disposed = true;
       started = false;
-      sessions.stop();
+      quiesce().catch(() => {
+        // A future explicit admission must still await successful native retirement.
+      });
       unsubscribeModels?.();
       preparation?.stop();
-      platform.offlineModels?.().release();
       foreground.stop();
       network.stop();
       modes.dispose();
-      turns.cancel();
     },
   };
 }

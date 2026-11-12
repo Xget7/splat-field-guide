@@ -20,13 +20,16 @@ import {
   usePinchGesture,
   useTapGesture,
 } from 'react-native-gesture-handler';
-import type { SplatViewSpec, ViewDirection } from 'react-native-splat';
+import {
+  waitForWorldsReleased,
+  type SplatViewSpec,
+  type ViewDirection,
+} from 'react-native-splat';
 import {
   instructorStore,
   createInstructor,
   createExchangeIds,
   createTurnRunner,
-  onDeviceInstructions,
   VoiceHint,
   VOICE_LOCALE,
   type Instructor,
@@ -56,6 +59,7 @@ import type { ProcedureId } from '../../pack/pack';
 import { TOUR_ID } from '../../pack/tour';
 
 import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
+import { viewerStore } from '../state/viewerStore';
 
 import { Motion } from '../../../ui/theme';
 import { InstructorPanel } from '../ui/instructor/InstructorPanel';
@@ -175,6 +179,7 @@ describe('viewer screen', () => {
   const mount = async (
     start: Partial<SessionStart> = {},
     entries = catalog,
+    firstFrame = true,
   ) => {
     instructorStore.getState().attach(instructor);
     await act(async () => {
@@ -193,6 +198,12 @@ describe('viewer screen', () => {
         />,
       );
     });
+    if (
+      firstFrame &&
+      renderer.root.findAllByType('SplatView' as React.ElementType).length
+    ) {
+      await act(async () => native().props.onReady());
+    }
   };
   const layout = async (size = VIEWPORT) => {
     await act(() =>
@@ -202,7 +213,7 @@ describe('viewer screen', () => {
   const attach = async () => {
     await act(() => native().props.hybridRef(view as unknown as SplatViewSpec));
     await layout();
-    await act(() => native().props.onReady());
+    await act(async () => native().props.onReady());
   };
   const home = {
     azimuth: (pack.camera.home.azimuth * Math.PI) / 180,
@@ -211,6 +222,7 @@ describe('viewer screen', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    jest.mocked(waitForWorldsReleased).mockReset().mockResolvedValue();
     instructorStore.getState().reset();
     instructor = createInstructor({
       platform: device.platform,
@@ -237,6 +249,112 @@ describe('viewer screen', () => {
     instructor.stop();
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  test('does not mount the native world until prior inference has actually retired', async () => {
+    let retire!: () => void;
+    const reserveScene = jest.fn(
+      () =>
+        new Promise<{ release(): void }>(resolve => {
+          retire = () => resolve({ release: jest.fn() });
+        }),
+    );
+    Object.assign(instructor, { reserveScene });
+    await mount({ procedureId: null });
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(0);
+    expect(reserveScene).toHaveBeenCalledTimes(1);
+    await act(async () => retire());
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(1);
+  });
+
+  test('retains the scene model ban until actual native world retirement completes', async () => {
+    const release = jest.fn();
+    Object.assign(instructor, {
+      reserveScene: jest.fn(async () => ({ release })),
+    });
+    await mount({ procedureId: null });
+    const nativeRetirement = deferred<void>();
+    jest
+      .mocked(waitForWorldsReleased)
+      .mockReturnValue(nativeRetirement.promise);
+    await act(async () => renderer.unmount());
+    expect(waitForWorldsReleased).toHaveBeenCalledTimes(2);
+    expect(release).not.toHaveBeenCalled();
+    await act(async () => nativeRetirement.resolve());
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  test('waits for an outgoing native world before mounting its replacement', async () => {
+    const nativeRetirement = deferred<void>();
+    jest
+      .mocked(waitForWorldsReleased)
+      .mockReturnValue(nativeRetirement.promise);
+    await mount({ procedureId: null });
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(0);
+    await act(async () => nativeRetirement.resolve());
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(1);
+  });
+
+  test('cancelled scene admission returns only its unused lease', async () => {
+    const acquisition = deferred<{ release(): void }>();
+    const release = jest.fn();
+    Object.assign(instructor, {
+      reserveScene: jest.fn(() => acquisition.promise),
+    });
+    await mount({ procedureId: null });
+    await act(async () => renderer.unmount());
+    await act(async () => acquisition.resolve({ release }));
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(waitForWorldsReleased).not.toHaveBeenCalled();
+  });
+
+  test('world loading blocks inference until the matching native first frame', async () => {
+    const askTurn = jest.spyOn(instructor.turns, 'ask');
+    await mount({ mode: LearnMode.instructor }, catalog, false);
+    await act(() => viewerStore.getState().ask('Why does this step matter?'));
+    expect(askTurn).not.toHaveBeenCalled();
+    await attach();
+    await act(() => viewerStore.getState().ask('Why does this step matter?'));
+    expect(askTurn).toHaveBeenCalledTimes(1);
+  });
+
+  test('native failure withdraws first-frame admission until a new frame arrives', async () => {
+    const askTurn = jest.spyOn(instructor.turns, 'ask');
+    await mount({ mode: LearnMode.instructor });
+    await act(async () =>
+      native().props.onError({ message: 'World load failed' }),
+    );
+    await act(() => viewerStore.getState().ask('Why does this step matter?'));
+    expect(askTurn).not.toHaveBeenCalled();
+    await act(async () => native().props.onReady());
+    await act(() => viewerStore.getState().ask('Why does this step matter?'));
+    expect(askTurn).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed native retirement fence keeps models blocked and the replacement unmounted', async () => {
+    const release = jest.fn();
+    Object.assign(instructor, {
+      reserveScene: jest.fn(async () => ({ release })),
+    });
+    jest
+      .mocked(waitForWorldsReleased)
+      .mockRejectedValue(new Error('Native retirement failed'));
+    await mount({ procedureId: null });
+    expect(
+      renderer.root.findAllByType('SplatView' as React.ElementType),
+    ).toHaveLength(0);
+    expect(release).not.toHaveBeenCalled();
+    expect(
+      renderer.root.findByProps({ accessibilityRole: 'alert' }).props.children,
+    ).toContain('Could not prepare');
   });
 
   test('free exploration opens without activity UI and preserves saved course progress', async () => {
@@ -488,12 +606,12 @@ describe('viewer screen', () => {
   });
 
   test('frames once laid out without animation, then slides steps from home', async () => {
-    await mount();
+    await mount({}, catalog, false);
     await act(() => native().props.hybridRef(view as unknown as SplatViewSpec));
     expect(view.frame).not.toHaveBeenCalled();
     await layout();
     expect(view.frame).not.toHaveBeenCalled();
-    await act(() => native().props.onReady());
+    await act(async () => native().props.onReady());
     expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
     expect(view.frame).toHaveBeenCalledTimes(1);
     await press('step-next');
@@ -827,10 +945,10 @@ describe('viewer screen', () => {
   });
 
   test('loading shows until ready; renderer errors keep the session', async () => {
-    await mount();
+    await mount({}, catalog, false);
     expect(text('splat-loading')).toBe('Loading 0.0M splats');
     expect(has('marker-0')).toBe(false);
-    await act(() => native().props.onReady());
+    await act(async () => native().props.onReady());
     expect(has('splat-loading')).toBe(false);
     expect(node('marker-0').props.accessibilityLabel).toBe(
       `${text('step-title')}, highlighted`,
@@ -851,13 +969,13 @@ describe('viewer screen', () => {
       native().props.hybridRef(replacement as unknown as SplatViewSpec),
     );
     expect(replacement.frame).not.toHaveBeenCalled();
-    await act(() => native().props.onReady());
+    await act(async () => native().props.onReady());
     expect(replacement.frame).toHaveBeenCalledTimes(1);
   });
 
   test('marks every part a step names', async () => {
     await mount({ procedureId: 'check-power-steering-fluid', stepIndex: 0 });
-    await act(() => native().props.onReady());
+    await act(async () => native().props.onReady());
     expect(
       [0, 1].map(index => node(`marker-${index}`).props.accessibilityLabel),
     ).toEqual([
@@ -1501,22 +1619,22 @@ describe('viewer screen', () => {
       );
     });
 
-    test('prewarms in instructor mode and keeps commands instant', async () => {
+    test('instructor mode remains lazy and keeps commands instant', async () => {
       jest.mocked(model.availability).mockReturnValue('available');
       await mount({ mode: LearnMode.instructor });
-      expect(model.prewarm).toHaveBeenCalledWith(onDeviceInstructions(pack));
+      expect(model.prewarm).not.toHaveBeenCalled();
       await ask('next');
       expect(model.respond).not.toHaveBeenCalled();
       expect(debug().getState().stepIndex).toBe(1);
       expect(text('instructor-reply')).toBe(procedure('tour').steps[1].text);
     });
 
-    test('does not prewarm before opening the instructor', async () => {
+    test('opening instructor controls does not prewarm a native model', async () => {
       jest.mocked(model.availability).mockReturnValue('available');
       await mount();
       expect(model.prewarm).not.toHaveBeenCalled();
       await press('instructor-toggle');
-      expect(model.prewarm).toHaveBeenCalledWith(onDeviceInstructions(pack));
+      expect(model.prewarm).not.toHaveBeenCalled();
     });
 
     test('speaks a model reply once without appending the current step caution', async () => {

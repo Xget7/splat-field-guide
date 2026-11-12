@@ -17,6 +17,20 @@ Check pause/retry, offline startup without files and recovery when the route ret
 Allow microphone access separately.
 A fresh installation without those files cannot provide local voice or generated answers.
 
+### Shared memory transition checks
+
+Verify file readiness separately from native model residency.
+Use a standalone signed Release on the physical acceptance device, since an attached debugger can alter the process memory allowance.
+Record device/OS, pack identity, active model backend, process footprint, remaining process allowance, thermal state and constructor/retirement phases.
+Remaining process allowance is not the phone's total free RAM.
+Compare cold world-only, cold offline Qwen then world, and online-to-offline with no question or voice then world.
+Exercise cancelled model preparation, rapid scene replacement, returning to chat during pending native work and repeated world/chat transitions.
+Assert that no Qwen, Whisper or Kokoro constructor starts while a scene lease is held, including after its first frame.
+Assert that returning to chat admits local inference only after the actual native world-retirement fence completes.
+Keep the native memory admission guard enabled; a refusal is useful evidence and is not itself proof of an OS OOM kill.
+Use fake delayed constructors and destruction in interface tests before attempting physical reproduction.
+Temporary allocation probes must contain only phases and numeric process metrics, without prompts, source text or credentials, and must be removed from shipped UI after capturing evidence.
+
 ## Worktree dependency storage
 
 Each JavaScript unit pins pnpm in `package.json` and keeps its own `pnpm-lock.yaml`.

@@ -123,6 +123,30 @@ Cleanup checks passed 66 app suites with 812 tests, 21 local capability tests, a
 
 ## Runtime cleanup
 
+### Physical memory incident, 2026-11-12
+
+The signed Miris Release on xgetphone, iPhone 17 Pro running iOS 27.0.1, reproduced a preventive native world-load refusal after changing an open course from online to airplane mode with Wi-Fi and Bluetooth disabled.
+No voice session or question was required.
+Temporary native process samples recorded Qwen prewarm, Whisper preparation and Kokoro preparation starting together during the connectivity switch.
+The process footprint rose from 63,293,304 bytes before the switch to 3,243,102,664 bytes after preparation; the scene error sample recorded 3,255,587,296 bytes footprint and 284,405,280 bytes remaining process allowance.
+Constructor overlap prevents attributing those totals to an individual model.
+This was an admission refusal, not an observed jetsam or OS OOM crash.
+Cold world-only and cold offline single-Qwen-answer-then-world controls loaded successfully, so the evidence does not establish a Qwen-only leak.
+This build uses ExecuTorch 0.11 with CPU XNNPACK, not Neural Engine inference, while Metal rendering shares its process memory limit.
+
+The containment removes eager model construction from connectivity changes and serializes real model construction, cancellation and retirement.
+A scene retains an exclusive local-model residency lease until native rendering, pending engine holders and GPU destruction have completed.
+The dedicated course chat keeps local generation outside scene residency; offline scene reading/scripted answers and online assistance remain available.
+Regression coverage includes late constructors, cancelled admission, overlapping scene leases, delayed native destruction and stale first-frame callbacks.
+The instrumented residency fix passed the same online-to-airplane world-load sequence on this phone: connectivity switching kept footprint near 103 MB and the first world frame sampled 1,035,242,008 bytes.
+After leaving that world, its native fence completed before a local Qwen constructor started; that answer completed, its explicit R03 wrist card opened and highlighted the matching 3D component, and Back preserved the conversation.
+The second first-frame sample was 1,092,586,248 bytes, and a later post-retirement sample was 189,171,912 bytes.
+This verifies the observed transition failure and one local-answer round trip, not sustained thermal behavior, concurrent local speech or all-device acceptance.
+The final source, including sequential functional preparation and compact phone chat, passed 81 app suites with 939 tests, 41 local-package tests, app/package types and lint, 12 pack/document tooling tests, a signed arm64 iOS Release build and an Android Debug build including the new Kotlin/JNI bridge.
+Physical validation of those last UI/preparation changes and sustained repeated-transition/thermal acceptance remain open.
+Portable native validation registered 416 tests with zero failures and three unavailable-fixture skips; the delayed engine/GPU retirement regression failed before the fence change and passed afterward.
+Qwen generated offline on the phone, but the sampled manual answers omitted citations and included irrelevant or unsupported claims; answer-quality acceptance and [issue 28](https://github.com/Xget7/splat-field-guide/issues/28) remain open.
+
 - [x] Remove discarded demo content, AR product paths, unrelated catalog entries and standalone benchmark screens, including their callers, assets and source records.
 - [x] Remove the superseded mobile semantic tokenizer/encoder experiment and its unneeded scripts, resources and retrieval tests.
 - [x] Update preparation, packaging, navigation and tests with those removals, retaining required viewer, speech and GPU verification support.
