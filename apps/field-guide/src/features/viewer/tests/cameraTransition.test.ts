@@ -1,5 +1,5 @@
 import {
-  CUT_DEGREES,
+  MAX_MOVE_SECONDS,
   MAX_TURN_DEGREES_PER_SECOND,
   MIN_MOVE_SECONDS,
   transitionBetween,
@@ -31,10 +31,11 @@ test('a medium turn is capped at a comfortable turning speed', () => {
   );
 });
 
-test('a swing past the cut angle cuts instead of whipping around', () => {
-  expect(
-    transitionBetween(direction(0), direction(CUT_DEGREES + 1), false),
-  ).toEqual({ kind: 'cut' });
+test('a wide swing stays a continuous move with a bounded duration', () => {
+  expect(transitionBetween(direction(0), direction(200), false)).toEqual({
+    kind: 'move',
+    seconds: MAX_MOVE_SECONDS,
+  });
 });
 
 test('reduced motion always cuts', () => {

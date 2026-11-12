@@ -16,8 +16,9 @@ export const INITIAL_FRAME_SECONDS = 0;
 // A camera turning faster than this reads as a whip pan and makes people dizzy.
 export const MAX_TURN_DEGREES_PER_SECOND = 70;
 export const MIN_MOVE_SECONDS = 0.6;
-// A larger swing cannot stay both slow and short, so the camera cuts through a fade instead.
-export const CUT_DEGREES = 100;
+// Even the widest swing between steps stays a continuous move; this caps how long it waits.
+export const MAX_MOVE_SECONDS = 2.8;
+// Reduce Motion replaces the move with a brief fade, which carries no motion of its own.
 export const CUT_FADE_MS = 180;
 export const CUT_REVEAL_MS = 260;
 // Leave the surrounding equipment visible so the part retains its context.
@@ -93,11 +94,11 @@ export function transitionBetween(
       Math.abs(target.azimuth - current.azimuth),
       Math.abs(target.elevation - current.elevation),
     ) / RADIANS_PER_DEGREE;
-  if (turn > CUT_DEGREES) {
-    return { kind: 'cut' };
-  }
   return {
     kind: 'move',
-    seconds: Math.max(MIN_MOVE_SECONDS, turn / MAX_TURN_DEGREES_PER_SECOND),
+    seconds: Math.min(
+      MAX_MOVE_SECONDS,
+      Math.max(MIN_MOVE_SECONDS, turn / MAX_TURN_DEGREES_PER_SECOND),
+    ),
   };
 }

@@ -60,7 +60,7 @@ import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
 import { Motion } from '../../../ui/theme';
 import { InstructorPanel } from '../ui/instructor/InstructorPanel';
 import { PanelMode, PanelPan } from '../domain/panelMotion';
-import { CUT_FADE_MS } from '../domain/camera';
+import { MAX_MOVE_SECONDS } from '../domain/camera';
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
@@ -567,21 +567,18 @@ describe('viewer screen', () => {
     });
   });
 
-  test('a wide swing between steps cuts through the veil instead of turning', async () => {
-    jest.useFakeTimers();
+  test('a wide swing between steps moves without hiding the scene', async () => {
+    const WIDE_SWING_RADIANS = 4;
     await mount();
     await attach();
     view.drawnDirection.mockReturnValue({
-      azimuth: home.azimuth + Math.PI,
+      azimuth: home.azimuth + WIDE_SWING_RADIANS,
       elevation: home.elevation,
     });
     const calls = view.frame.mock.calls.length;
     await press('step-repeat');
-    expect(view.frame).toHaveBeenCalledTimes(calls);
-    await act(async () => jest.advanceTimersByTime(CUT_FADE_MS));
-    await act(async () => jest.runOnlyPendingTimers());
     expect(view.frame).toHaveBeenCalledTimes(calls + 1);
-    expect(view.frame.mock.calls.at(-1)?.[1]).toBe(0);
+    expect(view.frame.mock.calls.at(-1)?.[1]).toBe(MAX_MOVE_SECONDS);
     expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
   });
 
