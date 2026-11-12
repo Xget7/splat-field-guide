@@ -7,6 +7,9 @@ internal object SplatEngine {
   // `cacheDir` keeps the compiled Vulkan pipelines between launches; null compiles every launch.
   external fun create(owner: HybridSplatView, cacheDir: String?): Long
   external fun destroy(id: Long)
+  external fun retainWorldHost(): Long
+  external fun releaseWorldHost(token: Long)
+  external fun whenWorldsReleased(callback: Runnable)
   external fun surface(id: Long, surface: Surface?)
   external fun resize(id: Long, width: Int, height: Int)
   external fun beginLoad(id: Long): Long

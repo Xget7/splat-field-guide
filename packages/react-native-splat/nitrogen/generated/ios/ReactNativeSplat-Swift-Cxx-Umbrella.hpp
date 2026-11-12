@@ -22,6 +22,8 @@ namespace margelo::nitro::splat { class HybridBundledPacksSpec; }
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatViewSpec; }
+// Forward declaration of `HybridWorldRetirementSpec` to properly resolve imports.
+namespace margelo::nitro::splat { class HybridWorldRetirementSpec; }
 // Forward declaration of `SplatDiagnosticsSnapshot` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatDiagnosticsSnapshot; }
 // Forward declaration of `SplatErrorCode` to properly resolve imports.
@@ -43,6 +45,7 @@ namespace margelo::nitro::splat { struct ViewDirection; }
 #include "HybridBundledPacksSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
+#include "HybridWorldRetirementSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
 #include "SplatError.hpp"
 #include "SplatErrorCode.hpp"
@@ -75,6 +78,8 @@ namespace ReactNativeSplat { class HybridBundledPacksSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
+// Forward declaration of `HybridWorldRetirementSpec_cxx` to properly resolve imports.
+namespace ReactNativeSplat { class HybridWorldRetirementSpec_cxx; }
 
 // Include Swift defined types
 #if __has_include("ReactNativeSplat-Swift.h")

@@ -5,6 +5,7 @@ import SplatKitCore
 /// Render-thread ownership allows concurrent load, pick and project calls only while their callers
 /// retain the engine.
 final class SplatEngine {
+  private static let retirements = DispatchQueue(label: "splat.retire", qos: .userInitiated)
   let handle: OpaquePointer
   // The C callback's context: unretained there, so kept alive here.
   private let events: SplatEvents
@@ -25,7 +26,15 @@ final class SplatEngine {
   }
 
   deinit {
-    sfg_destroy(handle)
+    let retiredHandle = handle
+    let retainedEvents = events
+    // The final pick/project reference can be released on its caller's thread. GPU idle/destruction
+    // must not block that caller or the UI; the C adapter retains its fence token until this ends.
+    Self.retirements.async {
+      withExtendedLifetime(retainedEvents) {
+        sfg_destroy(retiredHandle)
+      }
+    }
   }
 }
 

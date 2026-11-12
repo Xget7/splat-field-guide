@@ -17,6 +17,7 @@ import com.margelo.nitro.NitroModules
 import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.core.Promise
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.SurfaceTextureListener, LifecycleEventListener {
   constructor() : this(requireNotNull(NitroModules.applicationContext))
@@ -24,9 +25,22 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
   private val texture = TextureView(context)
   private val reactContext = context as? ReactContext
   override val view: View = texture
-  private val thread = HandlerThread("FieldGuideRender").apply { start() }
-  private val render = Handler(thread.looper)
   private val workers = Executors.newSingleThreadExecutor()
+  private val worldLifetime = SplatEngine.retainWorldHost()
+  // The render looper AND queued file/decode workers must drain before the host is gone.
+  private val retiringOwners = AtomicInteger(2)
+  private val thread = object : HandlerThread("FieldGuideRender") {
+    override fun run() {
+      try { super.run() } finally { ownerRetired() }
+    }
+  }.apply {
+    try { start() } catch (error: Throwable) {
+      workers.shutdown()
+      SplatEngine.releaseWorldHost(worldLifetime)
+      throw error
+    }
+  }
+  private val render = Handler(thread.looper)
   @Volatile private var engine = 0L
   @Volatile private var dropped = false
   @Volatile private var active = true
@@ -117,6 +131,10 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     render.post { if (!dropped && engine != 0L) { action(); wake() } }
   }
 
+  private fun ownerRetired() {
+    if (retiringOwners.decrementAndGet() == 0) SplatEngine.releaseWorldHost(worldLifetime)
+  }
+
   private fun wake() {
     if (scheduled || dropped || !active || !texture.isAttachedToWindow) return
     scheduled = true
@@ -188,12 +206,18 @@ class HybridSplatView(context: Context) : HybridSplatViewSpec(), TextureView.Sur
     onReady = {}
     onError = {}
     render.post {
-      choreographer?.removeFrameCallback(frameCallback)
-      SplatEngine.destroy(engine)
-      engine = 0L
-      thread.quitSafely()
+      try {
+        choreographer?.removeFrameCallback(frameCallback)
+        SplatEngine.destroy(engine)
+        engine = 0L
+      } finally {
+        // Shutdown is serialized with submissions on this same render looper. The tail marker
+        // runs after every pending bundled-file resolution and native load has returned.
+        workers.execute { ownerRetired() }
+        workers.shutdown()
+        thread.quitSafely()
+      }
     }
-    workers.shutdown()
   }
 
   companion object {

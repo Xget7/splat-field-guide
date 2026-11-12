@@ -23,3 +23,5 @@ export const SplatView = getHostComponent<SplatViewProps, SplatViewMethods>(
 );
 
 export { getBundledPacks, type BundledPackManifest } from './bundledPacks';
+
+export { waitForWorldsReleased } from './worldRetirement';

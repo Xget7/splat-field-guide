@@ -37,10 +37,12 @@ target_sources(
   ../nitrogen/generated/shared/c++/HybridSplatDiagnosticsSpec.cpp
   ../nitrogen/generated/shared/c++/HybridSplatViewSpec.cpp
   ../nitrogen/generated/shared/c++/views/HybridSplatViewComponent.cpp
+  ../nitrogen/generated/shared/c++/HybridWorldRetirementSpec.cpp
   # Android-specific Nitrogen C++ sources
   ../nitrogen/generated/android/c++/JHybridBundledPacksSpec.cpp
   ../nitrogen/generated/android/c++/JHybridSplatViewSpec.cpp
   ../nitrogen/generated/android/c++/views/JHybridSplatViewStateUpdater.cpp
+  ../nitrogen/generated/android/c++/JHybridWorldRetirementSpec.cpp
 )
 
 # From node_modules/react-native/ReactAndroid/cmake-utils/folly-flags.cmake

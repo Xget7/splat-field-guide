@@ -78,6 +78,17 @@ typedef void (*sfg_event_callback)(void* SFG_NULLABLE context, sfg_event event, 
 
 void sfg_destroy(sfg_engine* engine);
 
+// Hosts register before queuing engine creation and release only after their render/load workers
+// have stopped. Engines retain their own lifetime until destruction has finished GPU teardown.
+// Releasing an already released host token is harmless.
+uint64_t sfg_world_host_opened(void);
+void sfg_world_host_closed(uint64_t token);
+
+typedef void (*sfg_worlds_released_callback)(void* SFG_NULLABLE context);
+// Never blocks. Calls once when all current hosts and engines are gone, outside registry locks.
+// May call immediately. The caller must prevent new hosts while handing residency to ML.
+void sfg_when_worlds_released(sfg_worlds_released_callback callback, void* SFG_NULLABLE context);
+
 // Ready reports on the render thread and failures on the thread that detects them.
 // Replacement is thread-safe and nonblocking; an already selected callback may finish.
 // Retain context and engine until all in-flight load/draw calls return, including after clearing.
