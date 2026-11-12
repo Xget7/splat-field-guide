@@ -12,7 +12,6 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
-import type { TourSummary } from '../domain/courseOutline';
 import { MODE_OPTIONS } from './guideDetail';
 
 const Layout = {
@@ -32,20 +31,11 @@ interface Props {
   readonly onMode: (mode: LearnMode) => void;
   readonly voice: boolean;
   readonly onVoice: (voice: boolean) => void;
-  /** What the tour covers, read just before starting it. */
-  readonly tour: TourSummary | null;
   readonly onStart: () => void;
 }
 
 /** How the course starts: guidance mode, voice for the instructor, then the parts tour. */
-export function StartBar({
-  mode,
-  onMode,
-  voice,
-  onVoice,
-  tour,
-  onStart,
-}: Props) {
+export function StartBar({ mode, onMode, voice, onVoice, onStart }: Props) {
   const instructor = mode === LearnMode.instructor;
   return (
     <View style={styles.bar}>
@@ -98,12 +88,6 @@ export function StartBar({
           </View>
         </Pressable>
       )}
-      {tour && (
-        <Text testID="tour-summary" style={styles.tour}>
-          {tour.objective ? `${tour.objective} ` : ''}
-          <Text style={styles.steps}>{tour.steps}</Text>
-        </Text>
-      )}
       <Button
         testID="start-tour"
         label="Start parts tour"
@@ -138,8 +122,6 @@ const styles = StyleSheet.create({
   },
   segmentText: { ...Type.calloutStrong, color: Color.secondaryText },
   activeText: { color: Color.text },
-  tour: { ...Type.footnote, color: Color.secondaryText },
-  steps: { color: Color.muted },
   voice: {
     minHeight: MIN_TOUCH,
     flexDirection: 'row',

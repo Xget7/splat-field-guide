@@ -14,26 +14,6 @@ export const TOUR_TITLE = 'Parts tour';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
-const counted = (count: number, one: string, many: string) =>
-  `${count} ${count === 1 ? one : many}`;
-
-/** The tour has no authored objective, so it states what it covers from the parts themselves. */
-function tourObjective(
-  machines: number,
-  components: number,
-): string | undefined {
-  if (machines === 0) return undefined;
-  const subject = machines === 1 ? 'the machine' : `the ${machines} machines`;
-  const owner = machines === 1 ? 'its' : 'their';
-  return components === 0
-    ? `Identify ${subject}.`
-    : `Identify ${subject} and ${owner} ${counted(
-        components,
-        'part',
-        'parts',
-      )}.`;
-}
-
 /** Introduce each machine, then its components, before moving to another machine. */
 export function tourOf(
   pack: Pick<Pack, 'parts' | 'camera'> & { relations?: readonly Relation[] },
@@ -92,7 +72,6 @@ export function tourOf(
   return {
     id: TOUR_ID,
     title: TOUR_TITLE,
-    objective: tourObjective(roots.length, pack.parts.length - roots.length),
     audience: Audience.operator,
     steps,
   };

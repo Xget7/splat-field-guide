@@ -99,19 +99,9 @@ describe('tourOf', () => {
     ).toEqual(['roof', 'base', 'arm', 'tool', 'rear']);
   });
 
-  it('states what it covers from the part counts, for operators', () => {
+  it('is for operators and authors no objective', () => {
     expect(tour.audience).toBe('operator');
-    expect(tour.objective).toBe('Identify the 6 machines and their 2 parts.');
-    const engine = pack.parts.filter(
-      part => part.id === 'engine' || part.parent === 'engine',
-    );
-    expect(tourOf({ ...pack, parts: engine }).objective).toBe(
-      'Identify the machine and its 2 parts.',
-    );
-    expect(tourOf({ ...pack, parts: engine.slice(0, 1) }).objective).toBe(
-      'Identify the machine.',
-    );
-    expect(tourOf({ ...pack, parts: [] }).objective).toBeUndefined();
+    expect('objective' in tour).toBe(false);
   });
 
   it('is the first procedure of a parsed pack', () => {

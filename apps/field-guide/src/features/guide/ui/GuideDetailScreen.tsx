@@ -188,7 +188,6 @@ export function GuideDetailScreen({
       onMode={setMode}
       voice={voice}
       onVoice={setVoice}
-      tour={outline.tour}
       onStart={() => openProcedure(TOUR_ID)}
     />
   );

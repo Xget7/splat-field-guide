@@ -134,16 +134,11 @@ describe('Guide detail screen', () => {
   };
   const texts = () =>
     renderer.root.findAllByType(Text).map(item => item.props.children);
-  /** The tour line above the start button, with its nested step count flattened. */
-  const tourSummary = () =>
-    renderer.root
-      .findAllByType(Text)
-      .find(item => item.props.testID === 'tour-summary')
-      ?.findAllByType(Text)
-      .flatMap(item =>
-        [item.props.children].flat().filter(part => typeof part === 'string'),
-      )
-      .join('');
+  /** Every string on screen, nested text included. */
+  const words = () =>
+    texts()
+      .flat()
+      .filter(part => typeof part === 'string');
   const mount = async (
     guideId = pack.packId,
     {
@@ -342,7 +337,7 @@ describe('Guide detail screen', () => {
     );
   });
 
-  test('an older pack without an outline reads cleanly: no summary, no documentation, derived tour objective', async () => {
+  test('an older pack without an outline reads cleanly: no summary and no documentation', async () => {
     await mount(pack.packId, { documents: fakeDocuments() });
     expect(texts()).toEqual(
       expect.arrayContaining([
@@ -354,14 +349,11 @@ describe('Guide detail screen', () => {
       ]),
     );
     expect(texts()).not.toContain('KUKA documentation');
-    expect(tourSummary()).toBe(
-      'Identify the 6 machines and their 2 parts. 8 steps',
-    );
     expect(texts()).not.toContain(undefined);
     expect(texts().filter(text => text === '')).toHaveLength(0);
   });
 
-  test('the tour is offered once, by the start button with what it covers, and whole-cell modules start here', async () => {
+  test('the tour is offered once, by the start button alone, and whole-cell modules start here', async () => {
     await mountOutlined();
     expect(texts()).toContain(SUMMARY);
     const ids = renderer.root
@@ -384,9 +376,9 @@ describe('Guide detail screen', () => {
       `Check the coolant level. ${COOLANT_OBJECTIVE} Maintenance, 3 steps`,
     );
     expect(texts()).not.toContain('Parts tour');
-    expect(tourSummary()).toBe(
-      'Identify the 6 machines and their 2 parts. 8 steps',
-    );
+    // The button is the whole offer: no line restates the tour's coverage or length.
+    expect(words().some(text => text.startsWith('Identify'))).toBe(false);
+    expect(words()).not.toContain('8 steps');
     expect(texts()).toContain('Operator, 2 steps');
     await press('procedure-row-check-coolant');
     expect(onOpen).toHaveBeenLastCalledWith(

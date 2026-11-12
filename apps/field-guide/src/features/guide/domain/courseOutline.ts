@@ -34,16 +34,8 @@ export interface MachineSection {
   readonly modules: readonly ModuleRow[];
 }
 
-/** What the parts tour covers, shown beside the button that starts it. */
-export interface TourSummary {
-  readonly objective?: string;
-  /** Such as "44 steps". */
-  readonly steps: string;
-}
-
+/** The start button owns the tour, so the outline never lists it. */
 export interface CourseOutline {
-  /** The start button owns the tour, so the lists never repeat it. */
-  readonly tour: TourSummary | null;
   /** Whole-cell procedures. */
   readonly startHere: readonly ModuleRow[];
   readonly machines: readonly MachineSection[];
@@ -68,11 +60,9 @@ function moduleRow(procedure: Procedure): ModuleRow {
   };
 }
 
-/** Groups the course into the tour, whole-cell modules and one section per machine, each module once. */
+/** Groups the course into whole-cell modules and one section per machine, each module once. */
 export function courseOutlineFor(pack: Pack): CourseOutline {
-  const tour = pack.procedures.find(procedure => procedure.id === TOUR_ID);
   return {
-    tour: tour ? { objective: tour.objective, steps: stepsLabel(tour) } : null,
     startHere: pack.procedures
       .filter(
         procedure =>
