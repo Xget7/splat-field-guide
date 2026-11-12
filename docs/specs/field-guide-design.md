@@ -2,18 +2,18 @@
 
 Read [first principles](first-principles.md) for the domain rules behind these interfaces.
 
-Miris targets an iOS guide to the whole factory cell and car process, joining splats, CAD and local ML through stable segmentation IDs.
-The current app has viewer, guide and instructor foundations; Miris delivery and semantic integration are pending.
+Miris is a course-first factory guide with iOS and Android viewer and instructor foundations; CAD, remote content installation and course-wide retrieval remain planned.
+Statements below describe current code unless marked **Planned** or **Proposal**; proposals require contract decisions before implementation.
 Use [tasks](../../TASKS.md) for status/acceptance and [operations](../agents/checks.md) for commands.
 
 ## Find the owning area
 
-Read the matching area, then its linked interface and tests before editing.
-Each area names the complexity it owns and the rule that callers must preserve.
+Read the owning area and its linked interface/tests before editing.
 
 - Startup, dependencies or navigation: [App](#app).
 - Guide discovery: [Library](#library).
 - Manifest, runtime files or updates: [Pack and delivery](#pack-and-delivery).
+- Multi-tenant sync, CAS or deployment choices: [Scale proposal](#scale-proposal).
 - Persistent knowledge or vector ranking: [Semantic data](#semantic-data).
 - Procedure position, selection or continuation: [Guide](#guide).
 - Commands, answers or voice modes: [Instructor](#instructor).
@@ -27,35 +27,22 @@ Each area names the complexity it owns and the rule that callers must preserve.
 ## App
 
 **Owns:** startup, navigation and dependency composition; screens receive configured capabilities.
-Startup supplies no pack until real Miris content is integrated; the course shell presents the Automotive Assembly Line demonstration without mounting a native scene.
+Startup validates explicitly bundled packs through the native reader and shows a startup error on failure; builds bundle no packs by default.
+The course shell opens before a native scene; Explore and saved continuation resolve available catalog entries.
 **Rule:** features never import app composition or construct unrelated provider lifecycles.
 **Read:** [startup](../../apps/field-guide/src/app/App.tsx), [navigation](../../apps/field-guide/src/app/navigation/RootNavigator.tsx), [platform wiring](../../apps/field-guide/src/app/platform.ts).
 **Verify:** [app tests](../../apps/field-guide/src/app/tests/App.test.tsx).
 
 ## Library
 
-**Owns:** the course entry shell, module presentation, discoverable guide entries, availability and opening a session.
-**Rule:** discovery chooses a session start; guide rules own its subsequent position.
-**Read:** [public interface](../../apps/field-guide/src/features/library/index.ts), [presentation](../../apps/field-guide/src/features/library/views.ts), [catalog](../../apps/field-guide/src/features/pack/catalog.ts).
+**Owns:** course entry, module presentation, discoverable guides, availability and session opening.
+**Rule:** discovery chooses a session start; guide rules own subsequent position.
+The landscape shell uses shared charcoal surfaces, blue actions, system typography and an 8-point spacing scale; native highlight styling is independent.
+The demo modules are presentation, while course-wide answers, source PDF opening and course downloads show explicit availability states.
+Downloads separates verified Voice & AI models from course content: offline course readiness requires every required course file to be installed and verified.
+Ready entries and saved continuation enter guide/viewer interfaces.
+**Read:** [public interface](../../apps/field-guide/src/features/library/index.ts), [views](../../apps/field-guide/src/features/library/views.ts), [catalog](../../apps/field-guide/src/features/pack/catalog.ts), [tokens](../../apps/field-guide/src/ui/courseTokens.ts).
 **Verify:** [library tests](../../apps/field-guide/src/features/library/tests/library.test.tsx).
-
-The course shell uses `ui/courseTokens.ts` for neutral charcoal surfaces, system typography and 8-point spacing.
-Controls have a minimum 48-point touch area; 16/24-point corner radii distinguish controls and page surfaces.
-The sidebar collapses in narrow windows and the hero and module cards stack below 1056 points or with large text.
-`CourseNavigation`, `CourseOverview`, `CourseComposer` and `ModuleCard` compose the entry screen without a WebView.
-Course tabs use text only, the source attachment is a filename card, and the composer has exactly two grounded example questions and an upward send control.
-The viewer chrome shares the charcoal palette and the yellow primary with the course shell.
-The primary marks only the current step or part, active tools and the forward action, with black ink on filled controls; warnings use orange so they never read as the primary.
-Native part-selection tint remains an independent renderer contract; UI palette changes do not alter GPU highlighting.
-The three module names are demonstration presentation, not installed learning content or a new pack identity.
-Course-wide answers, PDF opening and downloads currently show explicit availability states; no remote request or generated equipment claim is made.
-The entry links to Downloads, where course content and shared Voice & AI resources have separate status cards.
-The sidebar selects global destinations Courses, Downloads and Help; only Courses renders the selected course breadcrumb and its Course, Modules, Documentation and Assistant tabs.
-Switching a global destination preserves the course tab and draft without presenting course navigation inside Downloads or Help.
-A ready model set is labelled Models ready, never evidence that a course is available offline.
-The demonstration course remains unavailable offline until its required content has a verified installation; a catalog scene alone does not satisfy that condition.
-Model controls pause, continue or retry the existing ExecuTorch preparation, while unavailable course delivery has no simulated download action.
-Ready catalog entries and saved continuation still enter the existing guide and viewer interfaces.
 
 ## Pack and delivery
 
@@ -63,60 +50,73 @@ Ready catalog entries and saved continuation still enter the existing guide and 
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
 The current schema uses `.lodsplat` and one unsigned 16-bit little-endian label per tree node, with zero unlabelled and 1-65535 available part labels.
-SFGL v2 has ASCII `SFGL` at offset 0, u16 version 2 at offset 4, u16 width 2 at offset 6, u32 node count at offset 8 and u32 reserved zero at offset 12, all integers little-endian.
-The payload starts at offset 16, aligned to two bytes, and contains exactly `nodeCount * 2` bytes without trailing padding.
-Readers reject SFGL v1; regenerate existing packs before packaging.
-GPU label uploads pad to four-byte words, with two labels per word, independently of the file layout.
-Highlighting uses a 65,536-entry storage-buffer style lookup, including zero, to preserve per-label fades across the full range without uniform-buffer limits or changes to captured rendering.
-The lookup occupies 2 MiB plus a 16-byte reveal prefix per frame slot; CPU styles and upload staging live on the heap.
+SFGL v2 uses a 16-byte header (`SFGL`, u16 version 2, u16 width 2, u32 node count, u32 reserved zero), followed by exactly `nodeCount * 2` bytes; all integers are little-endian.
+Readers reject SFGL v1; GPU uploads independently pad labels to four-byte words.
+Highlighting currently uploads a 65,536-entry style lookup, 2 MiB plus a 16-byte reveal prefix per frame slot; CPU storage is heap-allocated.
 A part's `parent` is Brick `brick:hasPart`; optional `relations` add `feeds` (`brick:feeds`, media flow), `carries` (kinematic support), `drives` (actuation), `supports` (stationary mechanical support), `routes` (visible routed connection without media or flow direction) and `adjacent` (measured proximity, stored once).
-Each relation names two different known parts, appears once and keeps `authored` or `measured` evidence with a source; `carries` and `supports` form one acyclic mechanical graph.
+Each relation names two different known parts, appears once and keeps `authored` or `measured` evidence with a source.
+The parser rejects cycles in the parent hierarchy and the combined `carries`/`supports` graph; other predicates follow their own rules rather than a global DAG constraint.
+Turtle uses Brick `hasPart`/`feeds` and Miris extensions `carries`, `supports`, `drives`, `routesTo` and `adjacentTo`; these extensions are not Brick predicates.
+Evidence kind records provenance, not certainty; authored demo facts and qualified manual applicability retain their source qualifications.
 The optional `model` file is the single annotated Brick/Turtle graph alongside the manifest; tooling verifies and bundles its bytes, and the app never parses it.
-The exporter includes notes, hierarchy evidence, vector metadata and procedure steps with next-step and stable component links; aliases and details remain omitted.
+Exported notes, hierarchy, vectors and procedure links retain source evidence; aliases and details remain omitted from Turtle.
 Mechanical relation sources retain the KUKA document edition, section, page and figure; a visual route cannot become a documented media feed.
-The generated tour introduces each top-level machine before its components, follows supplied support and carrying links within that machine and orders only the machine roots by the home camera.
-Search results show the owning machine for repeated local component names.
-Manual references are currently prose attached to part IDs; CAD file/node/transform joins and the proposed cell relation kinds have no contract yet.
-Schema 2 treats absent `relations`, `model` and `semantic` keys as none; the [component graph](../../apps/field-guide/src/features/pack/graph.ts) answers connections, neighbours, the carries chain, the feed path and the top-level assembly from the pack alone.
-Planned installation contract, not yet implemented:
-An installation is the immutable directory `Application Support/<bundle-id>/packs/<packId>/<packVersion>/`, holding the signed manifest bytes, its signature and every runtime file; nothing inside is written after it is renamed into place.
-Staging lives in `packs/<packId>/.staging-<packVersion>/` inside the same directory tree, with each transport chunk named by its SHA-256 so the files present are the resume state; caches and temporary directories hold nothing an installation depends on.
-`packs/` is excluded from backup at directory level and the exclusion is asserted again at every launch.
-Activation has one commit point: atomically replacing `packs/<packId>/active.json`, which holds `packVersion` and `manifestSha256`; no symlink or key-value store records activation, and persisted paths are relative and resolved at launch.
-Trust roots are Ed25519 public keys with key IDs compiled into the app, rotated or revoked only by an app update; the app verifies the signature over the exact manifest bytes, with a size cap, before parsing them.
-The signed manifest carries `packId`, `packVersion`, the required schema, SFGL and `.lodsplat` versions, each transport chunk's digest and size and each runtime file's final digest.
-The app refuses a manifest whose `packVersion` is below the highest it has activated for that `packId`, or that reuses an activated `packVersion` with a different manifest digest.
-Before transfer the app requires important-usage capacity for the remaining chunks, the final files and a margin, and keeps the previous installation until the new one is ready.
-A chunk is accepted only when its digest matches; final files must match their manifest digests and their format headers before staging is renamed to its version.
-At launch an installation is usable when its pointer, manifest, signature and file sizes agree; the engine digest-verifies geometry and labels on every load and the vectors file is digest-verified when read.
-Recovery at launch deletes staging that matches no verified manifest, treats a verified version newer than the active one as installed but not activated, and keeps only the active and previous versions.
-A failed verification marks the version unusable and falls back to the previous installation, never to partial data; a bundled pack is the fallback only when no installed version verifies.
-Installed files are removed only by unlink, after no mounted viewer or open session references their version, and are never truncated, overwritten or renamed.
-A new installation takes effect by remounting the viewer keyed by `packId@packVersion`, never by changing the source under a mounted session, so records, highlight and picks cannot cross versions and the old world's GPU memory is released before the new one is decoded.
-Planned CAD contract, not yet implemented:
+Tours group components under their machine using supplied support/carrying links; search disambiguates local names by machine.
+Manual references are currently prose attached to part IDs; structured document bindings and CAD joins remain planned.
+Schema 2 permits absent `relations`, `model` and `semantic` blocks; graph queries traverse supplied facts.
+**Planned installation contract:**
+Immutable versions live at `Application Support/<bundle-id>/packs/<packId>/<packVersion>/`, containing manifest bytes, signature and runtime files; persist relative paths and exclude `packs/` from backup at every launch.
+Same-tree staging at `packs/<packId>/.staging-<packVersion>/` names chunks by SHA-256 for resume; installations never depend on cache/temp files.
+Verify the size-capped raw manifest signature before parsing, using compiled Ed25519 key IDs rotated/revoked by app update.
+The signed manifest binds pack identity/version, required schema/SFGL/LODSPLAT versions, chunk sizes/hashes and final file hashes; reject rollback below the highest activated version and reused versions with different digests.
+Preflight important-usage capacity for remaining chunks, final files and margin while retaining the previous installation; verify chunks, final hashes and headers before renaming staging into place.
+Atomically replace `packs/<packId>/active.json` containing `packVersion` and `manifestSha256` as the sole activation commit.
+At launch, validate pointer/manifest/signature/sizes, remove staging without a verified manifest and retain active/previous versions; a verified newer version remains inactive until committed.
+Digest-check geometry/labels on every load and vectors on read; failed verification marks a version unusable and falls back to the previous usable installation, then a verified bundled pack.
+Remove installed files only by unlink after viewers/sessions release their version; never overwrite, truncate or rename them.
+Remount by `packId@packVersion`, releasing old GPU resources before decoding the replacement so records, highlights and picks cannot cross versions.
+**Planned CAD contract:**
 A CAD join belongs to a representation mapping: part ID, CAD file `{path, bytes, sha256}`, node path and a 4x4 similarity transform from CAD to splat frame, with its scale, the reconstruction SHA-256 it applies to, the registration method and the residual in splat units.
 Articulated equipment carries one join per rigid link in its captured pose.
-The Miris source is photographs and point clouds of an approximate recreation, so CAD for it is authored or adopted reference geometry made exact by this project, and each join records that origin as its evidence.
-CAD never depth-tests against splats until a soft-depth composite is accepted on hardware; a cross-fade or an overlay drawn after the splats comes first.
+CAD is authored/adopted reference geometry for the approximate recreation, with origin evidence; use cross-fade or post-splat overlay until soft-depth composition passes hardware acceptance.
 **Read:** [types](../../apps/field-guide/src/features/pack/pack.ts), [parser](../../apps/field-guide/src/features/pack/parsePack.ts), [component graph](../../apps/field-guide/src/features/pack/graph.ts), [bundled source paths](../../apps/field-guide/src/features/pack/bundledPack.ts), [validation entry](../../scripts/validate-pack.cjs), [label format](../../packages/react-native-splat/engine/splat-core/include/splat/formats/PartLabels.h).
 **Verify:** [parser tests](../../apps/field-guide/src/features/pack/tests/parsePack.test.ts), [graph tests](../../apps/field-guide/src/features/pack/tests/graph.test.ts), [pack tooling tests](../../tests/pack-build.test.cjs).
 **Pending:** [installation and replacement](../../TASKS.md#app-integration); a network request cache is not a file installer.
-Secure remote chunk transfer, manifest authentication, on-device processing, viewer relation controls and acceptance of the regenerated export are pending.
+
+## Scale proposal
+
+**Proposal:** separate an authorized metadata control plane from immutable binary delivery; CloudFront/S3, CAS, MMKV and direct SQLite/FTS5 are not integrated.
+A course is independent of its distribution packs; stable component IDs are resolved within an organization/equipment scope, with course/content version and representation identity retained in requests and mappings.
+Reject stale picks and instructor actions when session/representation identity changes.
+
+- **Edge:** proposed `/catalog/*` serves authorized deltas, `/blobs/*` serves private immutable objects through signed access, and `/agents/*` serves authenticated sessions and answers.
+  Backend tenant authorization and per-route caching remain necessary with WAF; HTTP/3 fallback preserves verification guarantees.
+- **Sync:** scope cursors by authorized dataset, apply deltas and tombstones transactionally, and provide full resync when a cursor expires.
+  Discover catalogs separately from installing detailed content.
+- **Storage:** keep preferences separate from credentials in platform secure storage and from the installation's authoritative `active.json`.
+  A SHA-256 CAS would revise the installation layout, requiring version-to-blob references and filesystem/database crash recovery.
+  SHA-256 proves integrity, manifest signatures authenticate publication, and backend checks authorize access.
+- **GC:** protect active/previous installations, user-retained offline content, staging and session leases acquired before file access; apply LRU only to eligible content.
+  Reconstruct references after crashes; define logout, tenant switching and offline authorization before cross-tenant deduplication.
+- **Background work:** platform transfer adapters own scheduling and task recovery; shared verification may run natively, while Miris owns installation policy.
+  Background URLSession and Android transfer/job adapters handle restart, URL renewal and verified chunk resume.
+- **Capacity:** catalog size and active-world size are separate budgets.
+  Target one mounted world; measure load/pick latency, replacement memory and GPU/thermal behavior alongside local inference.
+  Download chunks are transport units; worlds exceeding device budgets require a separate spatial residency/tiling contract.
 
 ## Semantic data
 
 **Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
-**Rule:** WatermelonDB owns local records, TanStack Query owns API state and Zustand holds transient state.
-Use one database writer; reject incompatible vector spaces even when dimensions match.
-The optional pack `semantic` block names the vector space (64-hex id, encoder, weights digest, preprocessing, dimensions, `normalized: true`), the `vectors` file and one row per part and kind (`image` or `text`).
-The vectors file holds little-endian float32 rows in row order, so its byte count must equal rows times dimensions times four; tooling also checks each row is finite and unit length.
-[Part vectors](../../apps/field-guide/src/features/semantic/domain/partVectors.ts) rank one kind by cosine and refuse another space id, a wrong-length query and a buffer that disagrees with the manifest.
-Mobile receives both comparison vectors; it does not generate embeddings or infer physical relationships from similarity.
+**Rule:** reject incompatible vector spaces even when dimensions match.
+Zustand holds transient state and progress uses AsyncStorage; WatermelonDB and TanStack Query are selected for persistent records and API state but are not installed.
+**Proposal:** direct SQLite via native bindings with FTS5 would replace the selected persistence approach only after deciding ownership, migrations and index maintenance.
+Use one writer and bounded asynchronous queries; FTS5 serves text search, relational indexes serve IDs/edges, and supplied-vector ranking remains separate.
+The manifest binds vector-space identity, encoder/weights/preprocessing, normalized dimensions and image/text rows per part.
+[Cosine ranking](../../apps/field-guide/src/features/semantic/domain/partVectors.ts) validates space, dimensions and buffer size; tooling checks finite unit-length float32 rows.
+Preparation supplies every embedding, including query vectors; mobile compares supplied vectors without encoders or inferred physical facts.
 **Read:** [public interface](../../apps/field-guide/src/features/semantic/index.ts), [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
 **Verify:** [vector tests](../../apps/field-guide/src/features/semantic/tests/partVectors.test.ts).
 **Pending:** reading the vectors file from an installed pack, reconstruction identity for mappings and persistent records.
-WatermelonDB and TanStack Query are not installed.
-The preparation pipeline produces every embedding, query vectors included; the app is a viewer and query client and never runs an encoder.
 
 ## Guide
 
@@ -131,16 +131,11 @@ A session is the current position; progress is its saved continuation.
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
 Typed answers fall back from the remote proxy to ExecuTorch generation to scripted guidance on both iOS and Android.
-Local generation explains supplied pack text and never computes embeddings; Miris hardware acceptance remains open.
-Prompts list the subject's supplied connections with their evidence source, so answers about what a part is connected to stay grounded.
-The local flow uses ExecuTorch 0.11.0 for Whisper Base English recognition with VAD, Kokoro synthesis and Qwen2.5 1.5B Instruct generation.
-The initial locale remains `en-US`.
-The Whisper preset has no per-pack vocabulary-bias option.
-CPU XNNPACK is selected for both platforms to avoid sharing the viewer's GPU; memory, thermal behaviour and grounded answer quality still need physical acceptance.
-Recognition, synthesis and answers use separate worklet runtimes so long generation cannot occupy the recognizer's queue.
-The on-device prompt admits the subject, its steps and safety note, then supplied connections, notes and measured proximity nearest first, with optional evidence yielding to the budget.
-Required procedure and safety context exceeding the prompt budget fails the turn rather than losing instructions.
-Generation starts a fresh session per answer, uses greedy sampling and reserves 384 reply tokens; cancellation, malformed responses and token-limit stops fail the turn.
+Local generation explains supplied pack text; Apple Foundation Models is not a fallback.
+**Planned:** course-scoped retrieval retains course/content identity and source citations; active part, procedure and step come from authoritative session state rather than conversation history.
+Agent tools resolve validated domain actions through guide rules before viewer mutation or procedure advancement.
+Prompts prioritize subject, procedure and safety, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Each generated answer starts fresh; cancellation, malformed output and token-limit stops fail the turn.
 Keep its three concerns behind separate internal interfaces:
 
 - **Turn policy:** [router](../../apps/field-guide/src/features/instructor/domain/router.ts), [turn runner](../../apps/field-guide/src/features/instructor/domain/turn/turnRunner.ts), [grounding](../../apps/field-guide/src/features/instructor/domain/grounding.ts); [turn tests](../../apps/field-guide/src/features/instructor/tests/turnRunner.test.ts).
@@ -158,42 +153,37 @@ Keep its three concerns behind separate internal interfaces:
 
 **Owns:** load ownership, geometry, picking, LOD, render-thread lifetime and GPU resources.
 **Rule:** reject stale loads; report ready after the accepted first frame; stop rendering when detached and sleep when unchanged.
-The shared C++ core owns behavior; Metal/Vulkan adapters draw.
+Nitro HybridView/Fabric hosts Swift/CAMetalLayer or Kotlin/JNI/TextureView, crossing the app-owned `sfg_*` C adapter into SplatKit.
+The current source contract passes file paths and hashes, not file descriptors; native workers load and pick while render threads own GPU work.
+The loader maps read-only files, verifies geometry/labels and decodes CPU arrays before GPU packing/upload; `mmap` is not end-to-end zero-copy or a bound on decoded memory.
+The shared C++ core owns behavior; Metal/Vulkan adapters draw and own backend-specific LOD, visibility, sorting and compositing policies.
+Picking returns a uint16 label or zero, exposed as a Nitro promise; its current leaf scan and hit sorting require latency measurement as worlds grow.
 The app host sets a `.lodsplat` budget of 1,500,000 splats before loading a world; this bounds hierarchy selection without cropping the complete pack and is distinct from the actual post-culling draw count.
 The host renders at 0.75 scale, while the engine exposes native selected/drawn statistics that the current app diagnostics do not publish.
 The Dev panel labels its manifest-derived count as Pack splats; the selected count may be below the budget because of LOD and culling, and target-device GPU, memory and thermal acceptance remains outstanding.
-SplatKit changes land upstream before integration here.
-The target boundary is SplatKit's public API at a pinned revision, with no app patches to engine sources.
-Pack policy and identity requirements remain app-owned; generic rendering and loading mechanisms belong upstream.
-The source importer in `packages/react-native-splat/scripts/engine-artifact.rb --import-source <repository> <full-commit>` exports committed package files without patching them and records their hashes in `engine-source.json`.
-When that receipt exists, artifact verification also rejects source changes, missing files, extra files and executable-mode changes.
-The current customized engine has not yet migrated to this importer; its native bindings still require the downstream C API.
-Planned emphasis contract, not yet implemented:
-Emphasis is a per-label state in {target, context, hidden} plus a view-dependent cutaway, and the engine owns the style of each state; a target's descendants are targets.
-Highlight state is uploaded when it changes, as a one-byte state per label with a small style palette, not as a full style table every frame.
-Splats outside the target set that lie in front of the target's projected bounds are faded by the cutaway, whatever their label, so fences, housings and neighbouring equipment cannot hide the target.
-Merged tree nodes carry their dominant label, so styling is exact only at leaves.
-A pick returns what the drawn frame shows, after styles and cutaway.
-**Read:** [Nitro contract](../../packages/react-native-splat/src/SplatView.nitro.ts), [C interface](../../packages/react-native-splat/engine/splatkit-engine/include/splatkit/sfg.h), [GPU stages](../../packages/react-native-splat/engine/splatkit-ios/README.md), [import receipt](../../packages/react-native-splat/engine/splatkit-engine/UPSTREAM).
-**Verify:** [C-interface tests](../../packages/react-native-splat/engine/splatkit-engine/tests/sfg/SfgTest.cpp), [Metal tests](../../packages/react-native-splat/engine/splatkit-ios/tests), [profiling operations](../agents/checks.md#gpu-profiling).
+SplatKit changes land upstream first; the imported revision and file hashes live in `engine-source.json` and artifact verification rejects source drift.
+The app-owned adapter applies Miris policy through SplatKit interfaces; generic rendering/loading mechanisms remain upstream.
+**Planned emphasis contract:**
+Per-label {target, context, hidden} states use one-byte updates on change and a small style palette; descendants inherit target status.
+View-dependent cutaway fades non-target splats in front of target bounds; picking must match styled/cutaway output.
+Merged nodes carry dominant labels, so styling is exact only at leaves.
+**Read:** [Nitro contract](../../packages/react-native-splat/src/SplatView.nitro.ts), [C adapter](../../packages/react-native-splat/adapter/include/sfg/sfg.h), [GPU stages](../../packages/react-native-splat/engine/splatkit-ios/README.md), [import receipt](../../packages/react-native-splat/engine-source.json), [loader](../../packages/react-native-splat/engine/splat-core/src/loading/SplatWorldLoader.cpp), [picking](../../packages/react-native-splat/engine/splatkit-engine/src/pick/PickIndex.cpp).
+**Verify:** [adapter tests](../../packages/react-native-splat/adapter/tests/SfgTest.cpp), [Metal tests](../../packages/react-native-splat/engine/splatkit-ios/tests), [profiling operations](../agents/checks.md#gpu-profiling).
 
 ## On-device capabilities
 
 **Owns:** microphone ownership, recognition, synthesis, interruptions and supported local generation.
 **Rule:** cancellation rejects stale callbacks and releases active resources; instructor owns equipment evidence and answer policy.
-ExecuTorch owns local speech recognition, phonemization, synthesis and answer generation on both platforms.
+ExecuTorch supplies Whisper Base English with VAD, Kokoro synthesis and Qwen2.5 1.5B Instruct generation on both platforms; model definitions own exact versions.
+The initial locale is `en-US`; recognition has no per-pack vocabulary bias.
+Separate worklet runtimes keep recognition, synthesis and answers independent; CPU XNNPACK avoids GPU contention, while shared memory and thermal limits still require hardware acceptance.
 `react-native-audio-api` supplies one echo-cancelled microphone/playback module shared with the online PCM audio link.
-The previous native Apple Foundation Models, platform speech and ONNX/Kokoro implementations are removed; a missing local model leaves reading, typing and scripted guidance available.
-The app starts shared offline preparation automatically: verify device files, then download missing resources when the device has a network route.
-The course, chat and voice observe the same checking, progress, ready or error state; offline availability is shown separately from online service availability.
-Preparation survives screen changes, permits pause and retry, and recovers when the network route returns without retry loops.
-Workers reuse the same verified device files, not a separate 1.8 GB set per account.
-Downloading files never preloads Qwen, Whisper or Kokoro into memory and does not gate online answers.
-It downloads only the pinned files in `modelAssets.json`, verifies size and SHA-256, and promotes each staged file after verification.
-A complete set must pass verification before any inference factory can obtain local paths.
-Verified files persist in the app's Documents directory; restore and inference make no network requests, while the startup coordinator may prepare missing files after restore.
-The English part-of-speech tagger is omitted because its upstream Brown Corpus data is not cleared for commercial use; lexicon and neural phonemization remain available.
-Preparing models is separate from downloading or activating a Miris scene pack.
+Missing models leave reading, typing and scripted guidance available.
+Shared startup preparation verifies pinned `modelAssets.json` files, downloads missing files, checks size/SHA-256 and promotes staging before exposing paths to inference.
+It survives navigation, supports pause/retry and reconnect recovery, and reports readiness separately from course installation and online availability.
+Workers share verified files without preloading all inference models or gating online answers.
+Files persist in Documents; restore/inference need no network, while the startup coordinator may download missing files.
+The English POS tagger is omitted because Brown Corpus data is not cleared for commercial use; lexicon/neural phonemization remain available.
 **Read:** [lazy entry points](../../packages/react-native-on-device/src/index.ts), [capability contracts](../../packages/react-native-on-device/src/capabilities.ts), [model preparation](../../packages/react-native-on-device/src/local/modelStore.ts), [inference](../../packages/react-native-on-device/src/local/inference.ts), [audio](../../packages/react-native-on-device/src/local/audio.ts), [online audio link](../../packages/react-native-on-device/src/AudioLink.ts).
 **Verify:** [capability tests](../../packages/react-native-on-device/__tests__), [device acceptance](../../TASKS.md#acceptance).
 
@@ -201,8 +191,12 @@ Preparing models is separate from downloading or activating a Miris scene pack.
 
 **Owns:** secrets, signed voice sessions, provider stream translation and agent configuration.
 **Rule:** incomplete streams fail; provider credentials remain outside the app; live requests and sync require explicit authorization.
-Online voice uses ElevenLabs with Claude through the Worker; preparation models belong elsewhere.
-**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [stream handling](../../services/instructor-proxy/src/chatStream.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
+The current Cloudflare Worker provides typed NDJSON answers, signed ElevenLabs voice sessions and a shared-secret-authenticated custom-LLM SSE route to Claude.
+The app obtains a signed URL and streams PCM over a direct ElevenLabs WebSocket; the Worker handles session issuance and LLM callbacks, not the audio relay.
+Answer/session routes currently lack caller authentication; rate limits are not tenant authorization.
+**Proposal:** CloudFront ingress must preserve authenticated streaming and cancellation; a single-ingress audio requirement would need an explicit relay rather than the current direct connection.
+Ephemeral session credentials must not be cached across users.
+**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [stream handling](../../services/instructor-proxy/src/chatStream.ts), [voice client](../../apps/field-guide/src/features/instructor/data/agent/agentClient.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
 **Verify:** [proxy tests](../../services/instructor-proxy/test), [agent tests](../../services/voice-agent/test); [configuration operations](../agents/checks.md#instructor-configuration).
 
 ## Shared foundations
