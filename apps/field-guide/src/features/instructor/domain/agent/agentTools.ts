@@ -1,4 +1,6 @@
 import { partKnowledge, searchParts } from './partKnowledge';
+import { partClarification } from '../partReference';
+import type { ManualIndex, PartVectorIndex } from '../../../semantic';
 import { AgentToolCopy } from './agentCopy';
 import { findPart, findProcedure, type Pack } from '../../../pack/pack';
 import {
@@ -14,6 +16,9 @@ export const AgentTool = {
   showPart: 'show_part',
   searchParts: 'search_parts',
   getPart: 'get_part',
+  searchManual: 'search_manual',
+  getManualPage: 'get_manual_page',
+  similarParts: 'find_similar_parts',
   startProcedure: 'start_procedure',
   nextStep: 'next_step',
   previousStep: 'previous_step',
@@ -31,13 +36,25 @@ export interface AgentToolSpec {
     readonly required: readonly string[];
   };
 }
+export interface ToolKnowledge {
+  readonly manuals?: ManualIndex;
+  readonly vectors?: PartVectorIndex;
+}
+export type KnowledgeLoader = (pack: Pack) => Promise<ToolKnowledge>;
 const Description = {
+  [AgentTool.searchManual]:
+    'Search the complete installed KUKA manuals by operator wording. Results retain edition, source digest and PDF page. Do not transfer instructions across model families.',
+  [AgentTool.getManualPage]:
+    'Read the full text of an exact source PDF page. Retain its edition and applicability qualifications.',
+  [AgentTool.similarParts]:
+    'Compare prepared image or text embeddings for a known component with other components. Scores establish similarity only, never identity, flow, support or any physical relationship.',
+
   [AgentTool.searchParts]:
     'Find parts by name, alias or id. Multiple matches require clarification. Use within_part_id only for an explicit assembly. Does not move anything.',
   [AgentTool.getPart]:
     'Read exact prepared part facts, hierarchy, directed relations and source evidence by stable id. Does not change the scene.',
   [AgentTool.showPart]:
-    'Call when the user asks about one named part: to see or find it, or how to check, fill or change it.',
+    'Select a component only after search_parts uniquely resolves the operator wording. Never guess an id for an ambiguous name; ask which machine first.',
   [AgentTool.startProcedure]:
     'Call when the user asks to begin a guided check or the parts tour.',
   [AgentTool.nextStep]:
@@ -61,11 +78,41 @@ export const FIRST_STEP_NUMBER = 1;
 export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
   return Object.values(AgentTool).map(name => {
     const properties: Record<string, unknown> = {};
-    if (name === AgentTool.showPart || name === AgentTool.getPart) {
+    if (
+      name === AgentTool.showPart ||
+      name === AgentTool.getPart ||
+      name === AgentTool.similarParts
+    ) {
       properties.part_id = {
         type: 'string',
         description: ParameterDescription.partId,
         enum: pack.parts.map(part => part.id),
+      };
+    }
+    if (name === AgentTool.similarParts) {
+      properties.kind = {
+        type: 'string',
+        enum: ['image', 'text'],
+        description:
+          'Compare the supplied image rows or the supplied text rows.',
+      };
+    }
+    if (name === AgentTool.searchManual) {
+      properties.query = {
+        type: 'string',
+        description:
+          'The manual question, keeping component names, section numbers and model identifiers.',
+      };
+    }
+    if (name === AgentTool.getManualPage) {
+      properties.document_id = {
+        type: 'string',
+        description: 'The exact source document id returned by search_manual.',
+      };
+      properties.pdf_page = {
+        type: 'integer',
+        minimum: 1,
+        description: 'The one-based PDF page number returned by search_manual.',
       };
     }
     if (name === AgentTool.searchParts) {
@@ -143,6 +190,8 @@ export function runAgentTool(
   parameters: unknown,
   state: SessionState,
   pack: Pack,
+  question?: string,
+  knowledge: ToolKnowledge = {},
 ): ToolOutcome {
   const fail = (result: string): ToolOutcome => ({ ok: false, result });
   if (!Object.values(AgentTool).includes(name as AgentTool)) {
@@ -156,6 +205,75 @@ export function runAgentTool(
     return fail(AgentToolCopy.parameters);
   }
   const values = parameters as Record<string, unknown>;
+  if (name === AgentTool.searchManual) {
+    if (
+      typeof values.query !== 'string' ||
+      !values.query.trim() ||
+      values.query.length > 1000
+    )
+      return fail(AgentToolCopy.parameters);
+    if (!knowledge.manuals)
+      return fail(
+        'The complete source manuals are not installed on this device. Do not invent a passage.',
+      );
+    return {
+      ok: true,
+      event: null,
+      state,
+      result: JSON.stringify({
+        matches: knowledge.manuals.search(values.query),
+        qualification:
+          'PDF excerpts are evidence for their own edition and model family. Confirm installed model applicability before service.',
+      }),
+    };
+  }
+  if (name === AgentTool.getManualPage) {
+    if (
+      typeof values.document_id !== 'string' ||
+      !Number.isInteger(values.pdf_page)
+    )
+      return fail(AgentToolCopy.parameters);
+    const page = knowledge.manuals?.page(
+      values.document_id,
+      values.pdf_page as number,
+    );
+    return page
+      ? { ok: true, event: null, state, result: JSON.stringify(page) }
+      : fail('The requested source PDF page is not installed.');
+  }
+  if (name === AgentTool.similarParts) {
+    if (
+      typeof values.part_id !== 'string' ||
+      (values.kind !== 'image' && values.kind !== 'text')
+    )
+      return fail(AgentToolCopy.parameters);
+    if (!knowledge.vectors)
+      return fail('Prepared component embeddings are not installed.');
+    const ranked = knowledge.vectors.similarParts(
+      values.part_id,
+      values.kind,
+      5,
+    );
+    return ranked.ok
+      ? {
+          ok: true,
+          event: null,
+          state,
+          result: JSON.stringify({
+            space_id: knowledge.vectors.space.id,
+            query_part_id: values.part_id,
+            kind: values.kind,
+            matches: ranked.matches,
+            qualification:
+              'Similarity is not evidence of a physical relationship or equipment identity.',
+          }),
+        }
+      : fail(ranked.error.message);
+  }
+  if (question && (name === AgentTool.getPart || name === AgentTool.showPart)) {
+    const clarification = partClarification(question, pack);
+    if (clarification) return fail(clarification.reply);
+  }
   if (name === AgentTool.getPart) {
     const data =
       typeof values.part_id === 'string'

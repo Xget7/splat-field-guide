@@ -54,3 +54,5 @@ export type {
   InstructorStatus,
   InstructorStore,
 } from './state/instructorStore';
+
+export type { ToolKnowledge, KnowledgeLoader } from './domain/agent/agentTools';

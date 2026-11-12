@@ -16,11 +16,13 @@ import { createInstructorForeground } from './data/runtime/instructorForeground'
 import { createInstructorNetwork } from './data/runtime/instructorNetwork';
 import { createInstructorSessions } from './data/runtime/instructorSessions';
 import type { InstructorStore } from './state/instructorStore';
+import type { KnowledgeLoader } from './domain/agent/agentTools';
 
 export type { Instructor };
 
 export interface InstructorOptions {
   readonly platform: Platform;
+  readonly knowledge?: KnowledgeLoader;
   /** A null proxy URL runs with on-device answers and voice only. */
   readonly proxyUrl: string | null;
   /** Receives every status the instructor reports. */
@@ -29,6 +31,7 @@ export interface InstructorOptions {
 
 export function createInstructor({
   platform,
+  knowledge,
   proxyUrl,
   store,
 }: InstructorOptions): Instructor {
@@ -102,16 +105,18 @@ export function createInstructor({
     started: () => started,
     historyFor,
     remember,
+    knowledge,
   });
   const cloud = createCloudAnswerer({
     proxy,
     socket: platform.socket,
+    knowledge,
     clock,
     timers,
     isOnline: () => modes.current().mode === InstructorMode.online,
     onFailure: () => network.report({ ok: false }),
   });
-  const runner = createTurnRunner([cloud, device], ids);
+  const runner = createTurnRunner([cloud, device], ids, knowledge);
   const turns: typeof runner = {
     ...runner,
     ask: (input, changed) =>

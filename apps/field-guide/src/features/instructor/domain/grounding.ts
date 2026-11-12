@@ -112,6 +112,14 @@ export function promptFor(
   if (notes === PromptNotes.subject && evidence.safety) {
     lines.push(`Notes: ${evidence.safety.text}`);
   }
+  for (const passage of evidence.manual) {
+    const excerpt = `Manual evidence: ${passage.documentId}, ${passage.edition}, PDF page ${passage.pdfPage}. Source PDF SHA-256: ${passage.sourceSha256}.\n${passage.text}`;
+    if (
+      [...lines, excerpt].join('\n').length + MAX_QUESTION_CHARS + 20 <=
+      maxChars
+    )
+      lines.push(excerpt);
+  }
   const asked = `Question: ${question.trim().slice(0, MAX_QUESTION_CHARS)}`;
   let used = [...lines, asked].join('\n').length;
   if (used > maxChars) {
@@ -239,6 +247,10 @@ export function inventsNumbers(
     numbersIn(
       [
         subject?.name ?? '',
+        ...evidence.manual.map(
+          passage =>
+            `${passage.edition} PDF page ${passage.pdfPage} ${passage.text}`,
+        ),
         ...relations.flatMap(({ relation, other }) => [
           other.name,
           relation.evidence.source,

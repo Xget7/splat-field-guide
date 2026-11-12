@@ -265,3 +265,36 @@ test('a failed course provider discards provisional text and uses the next answe
     answer: { reply: 'It supplies the starter.' },
   });
 });
+
+test.each([false, true])(
+  'duplicate names ask for clarification before an offline or online model runs (%s)',
+  async courseKnowledge => {
+    const model = {
+      ...fakeAnswerer(replies('A guessed component.')),
+      courseKnowledge,
+    };
+    const ambiguous = {
+      ...pack,
+      parts: [...pack.parts, { ...battery, id: 'second-battery' }],
+    };
+    const events: import('../domain/turn/exchange').TurnEvent[] = [];
+    await runner([model]).ask(
+      {
+        question: 'Where is the battery?',
+        state: INITIAL_SESSION,
+        pack: ambiguous,
+        history: [],
+      },
+      event => events.push(event),
+    );
+    const completed = events.find(event => event.type === TurnEventType.answer);
+    expect(completed).toMatchObject({
+      answer: {
+        reply: expect.stringContaining('Which'),
+        part: null,
+        event: null,
+      },
+    });
+    expect(model.respond).not.toHaveBeenCalled();
+  },
+);

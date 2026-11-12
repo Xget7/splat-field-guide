@@ -9,12 +9,17 @@ import {
   agentVariables,
   historyUpdate,
 } from '../../domain/agent/agentVariables';
-import { runAgentTool } from '../../domain/agent/agentTools';
+import {
+  runAgentTool,
+  type KnowledgeLoader,
+  type ToolKnowledge,
+} from '../../domain/agent/agentTools';
 import { createAgentClient } from '../agent/agentClient';
 import type { ProxyClient } from '../proxy/proxyClient';
 
 export interface CloudAnswererOptions {
   readonly proxy: ProxyClient | null;
+  readonly knowledge?: KnowledgeLoader;
   readonly socket: (url: string) => Socket;
   readonly isOnline?: () => boolean;
   readonly onFailure?: (failure: ReplyFailure) => void;
@@ -25,6 +30,7 @@ export interface CloudAnswererOptions {
 /** Text-only ElevenLabs sessions use the same validated tools as voice, without microphone access. */
 export function createCloudAnswerer({
   proxy,
+  knowledge,
   socket,
   clock,
   timers,
@@ -40,6 +46,7 @@ export function createCloudAnswerer({
       if (!proxy) throw new Error('ElevenLabs session issuer is unavailable');
       let event: SessionEvent | null = null;
       let state = request.state;
+      let prepared: ToolKnowledge = {};
       const reply = await policy.run(report => {
         let settled = false;
         let resolve!: (text: string) => void;
@@ -83,6 +90,8 @@ export function createCloudAnswerer({
                 parameters,
                 state,
                 request.pack,
+                request.question,
+                prepared,
               );
               if (outcome.ok && outcome.event) {
                 if (event)
@@ -106,11 +115,15 @@ export function createCloudAnswerer({
           ),
           opening: '',
         };
-        client
-          .start(
-            variables,
-            request.history.length ? [historyUpdate(request.history)] : [],
-          )
+        Promise.resolve(knowledge?.(request.pack) ?? {})
+          .then(value => {
+            prepared = value;
+            if (settled) return;
+            return client.start(
+              variables,
+              request.history.length ? [historyUpdate(request.history)] : [],
+            );
+          })
           .then(() => {
             if (!settled) client.sendText(request.question);
           })

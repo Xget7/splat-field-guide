@@ -19,7 +19,7 @@ const Format = { input: 'pcm_16000', output: 'pcm_24000' } as const;
 const Rate = { input: 16000, output: 24000 } as const;
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
-function setup() {
+function setup(textOnly = false) {
   const socket: Socket = {
     send: jest.fn(),
     close: jest.fn(),
@@ -59,6 +59,7 @@ function setup() {
     signedUrl: async () => 'wss://fake',
     connect: () => socket,
     audio,
+    textOnly,
     handlers,
     timers,
   });
@@ -125,6 +126,7 @@ function setup() {
     client,
     socket,
     audio,
+    textOnly,
     handlers,
     receive,
     respond,
@@ -504,5 +506,34 @@ test('interrupting streamed text before audio suppresses the rest of that respon
   ]);
   expect(jest.mocked(test.handlers.response).mock.calls).toEqual([['New', 2]]);
   expect(test.audio.play).toHaveBeenCalledTimes(1);
+  test.client.stop();
+});
+
+test('text streaming stop and the final response complete one turn only once', async () => {
+  const test = setup(true);
+  await test.start();
+  test.part('Which machine?');
+  test.part('', 'stop');
+  test.client.sendText('R03.');
+  test.respond(1, 'Which machine?');
+  test.respond(2, 'The roof welder.');
+  expect(jest.mocked(test.handlers.response).mock.calls).toEqual([
+    ['Which machine?', 1],
+    ['The roof welder.', 2],
+  ]);
+  test.client.stop();
+});
+
+test('an empty tool-generation stop cannot consume the subsequent answer for the same event id', async () => {
+  const test = setup(true);
+  await test.start();
+  test.part('');
+  test.part('', 'stop');
+  test.part('Which machine?');
+  test.part('', 'stop');
+  test.respond(1, 'Which machine?');
+  expect(jest.mocked(test.handlers.response).mock.calls).toEqual([
+    ['Which machine?', 1],
+  ]);
   test.client.stop();
 });

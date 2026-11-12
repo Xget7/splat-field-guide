@@ -110,6 +110,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let lastInterruptionId = NO_EVENT_ID;
   let currentEventId = NO_EVENT_ID;
   let responseEventId: number | null = null;
+  let completedEventId: number | null = null;
   let outputRate = NO_RATE;
   // Events that arrive before the microphone and speaker are ready, replayed in order once they are.
   let held: AgentServerEvent[] | null = null;
@@ -131,6 +132,13 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     queuedMs = 0;
     responseText = '';
     responseEventId = null;
+    completedEventId = null;
+  }
+  function completeResponse(text: string, eventId: number) {
+    // A tool-only generation can finish without words before the answer uses the same event id.
+    if (!text.trim() || completedEventId === eventId) return;
+    completedEventId = eventId;
+    handlers.response(text, eventId);
   }
   function acceptResponse(eventId: number): boolean {
     if (eventId < lastInterruptionId) {
@@ -263,7 +271,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           timeline.replaceText(responseText);
           handlers.responseText(responseText, event.eventId);
           if (options.textOnly && event.part === 'stop')
-            handlers.response(responseText, event.eventId);
+            completeResponse(responseText, event.eventId);
           words();
         }
         break;
@@ -272,7 +280,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           currentEventId = event.eventId;
           responseText = event.text;
           timeline.replaceText(responseText);
-          handlers.response(event.text, event.eventId);
+          completeResponse(event.text, event.eventId);
           words();
         }
         break;

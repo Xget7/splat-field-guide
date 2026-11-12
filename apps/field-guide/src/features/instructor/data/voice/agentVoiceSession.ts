@@ -12,7 +12,11 @@ import {
   screenUpdate,
 } from '../../domain/agent/agentVariables';
 import { VOICE_LOCALE, VoiceHint } from '../../domain/voice/voiceCopy';
-import { runAgentTool } from '../../domain/agent/agentTools';
+import {
+  runAgentTool,
+  type KnowledgeLoader,
+  type ToolKnowledge,
+} from '../../domain/agent/agentTools';
 import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
 import {
@@ -50,6 +54,7 @@ export type SessionAgentHandlers = Omit<
 export function createAgentVoiceSession({
   client: makeClient,
   pack,
+  knowledge,
   audio,
   ids,
   output,
@@ -57,6 +62,7 @@ export function createAgentVoiceSession({
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
   pack: Pack;
+  knowledge?: KnowledgeLoader;
   audio: () => AudioLink;
   /** The thread's id source, shared with the turn runner so ids never collide. */
   ids: ExchangeIds;
@@ -79,6 +85,7 @@ export function createAgentVoiceSession({
   let saying = false;
   let generation = 0;
   let stoppedQuestion: string | null = null;
+  let prepared: ToolKnowledge = {};
   // A reply after the exchange is done reads a step the app asked for, which belongs to no question.
   const answering = () =>
     exchange !== null && exchange.phase !== ExchangePhase.done;
@@ -146,6 +153,9 @@ export function createAgentVoiceSession({
         if (!(await prompt(() => audio().requestPermission()))) {
           throw new VoiceStartError(VoiceStartFailure.permission);
         }
+        const loaded = await (knowledge?.(pack) ?? {});
+        if (!current()) return;
+        prepared = loaded;
       } catch (error) {
         if (!current()) {
           return;
@@ -227,7 +237,14 @@ export function createAgentVoiceSession({
           }
         },
         toolCall(name, parameters) {
-          const outcome = runAgentTool(name, parameters, context.state, pack);
+          const outcome = runAgentTool(
+            name,
+            parameters,
+            context.state,
+            pack,
+            exchange?.question,
+            prepared,
+          );
           if (current() && outcome.ok && outcome.event !== null) {
             context = { ...context, state: outcome.state };
             if (

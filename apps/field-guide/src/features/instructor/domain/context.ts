@@ -9,6 +9,7 @@ import {
 import { relationsOf, type PartRelation } from '../../pack/graph';
 import { currentProcedure, currentStep, type SessionState } from '../../guide';
 import { focusPart, namedPart, procedureForQuestion } from './instructor';
+import type { ManualPassage } from '../../semantic';
 
 /** Reserve room for at most two notes plus instructions, history and an answer in 4096 tokens. */
 export const MAX_NOTES_CHARS = 1200;
@@ -244,6 +245,7 @@ export function subjectOf(
 
 /** Authored facts resolved once for a turn, before any model chooses its prompt budget. */
 export interface AuthoredEvidence {
+  readonly manual: readonly ManualPassage[];
   readonly subject: Part | null;
   readonly procedure: Procedure | null;
   readonly onScreen: Part | null;
@@ -259,6 +261,7 @@ export function evidenceFor(
   question: string,
   state: SessionState,
   pack: Pack,
+  manual: readonly ManualPassage[] = [],
 ): AuthoredEvidence {
   const subject = subjectOf(question, state, pack);
   const notes =
@@ -268,6 +271,7 @@ export function evidenceFor(
           subject.notes.filter(note => note.topic === topic),
         );
   return {
+    manual,
     subject,
     procedure: procedureForQuestion(question, pack),
     onScreen: focusPart(state, pack) ?? null,

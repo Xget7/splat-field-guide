@@ -1,4 +1,5 @@
 import type { Platform } from '../../../../platform/ports';
+import type { KnowledgeLoader } from '../../domain/agent/agentTools';
 import type { NetworkService } from '../../../../platform/connectivity/networkService';
 import { NetworkQuality } from '../../../../platform/connectivity/networkStatus';
 import { AgentState } from '../../domain/agent/agentStatus';
@@ -36,6 +37,7 @@ import type { InstructorForeground } from './instructorForeground';
 
 export interface InstructorSessionsOptions {
   readonly platform: Platform;
+  readonly knowledge?: KnowledgeLoader;
   readonly proxy: ProxyClient | null;
   readonly ids: ExchangeIds;
   readonly foreground: InstructorForeground;
@@ -57,6 +59,7 @@ export interface InstructorSessionsOptions {
  */
 export function createInstructorSessions({
   platform,
+  knowledge,
   proxy,
   ids,
   foreground,
@@ -205,6 +208,7 @@ export function createInstructorSessions({
     }
     const primary = createAgentVoiceSession({
       pack: guide,
+      knowledge,
       audio: platform.audioLink,
       output: platform.speechOutput,
       client,

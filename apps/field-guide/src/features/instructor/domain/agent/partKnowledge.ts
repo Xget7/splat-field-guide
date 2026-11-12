@@ -64,25 +64,29 @@ export function partKnowledge(pack: Pack, id: string) {
 export function searchParts(pack: Pack, query: string, within?: string) {
   const normalized = normalize(query);
   const words = normalized.split(' ').filter(Boolean);
-  const matches = (within ? partsWithin(pack, within) : pack.parts).filter(
-    part => {
-      const names = [part.id, part.name, ...part.aliases].map(normalize);
-      const assembly = assemblyOf(pack, part.id);
-      const text = [
-        ...names,
-        assembly
-          ? normalize(
-              `${assembly.id} ${assembly.name} ${assembly.aliases.join(' ')}`,
-            )
-          : '',
-      ].join(' ');
-      return (
-        names.includes(normalized) ||
-        (words.length > 0 &&
-          words.every(word => text.split(' ').includes(word)))
-      );
-    },
+  const candidates = within ? partsWithin(pack, within) : pack.parts;
+  const exact = candidates.filter(part =>
+    [part.id, part.name, ...part.aliases].map(normalize).includes(normalized),
   );
+  const matches = exact.length
+    ? exact
+    : candidates.filter(part => {
+        const names = [part.id, part.name, ...part.aliases].map(normalize);
+        const assembly = assemblyOf(pack, part.id);
+        const text = [
+          ...names,
+          assembly
+            ? normalize(
+                `${assembly.id} ${assembly.name} ${assembly.aliases.join(' ')}`,
+              )
+            : '',
+        ].join(' ');
+        return (
+          names.includes(normalized) ||
+          (words.length > 0 &&
+            words.every(word => text.split(' ').includes(word)))
+        );
+      });
   return {
     pack_id: pack.packId,
     pack_version: pack.packVersion,
