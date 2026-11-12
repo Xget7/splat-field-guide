@@ -25,7 +25,7 @@ Run installs inside the unit, or use `nice -n 19 pnpm --dir <unit> install --fro
 The hoisted layout preserves Metro, CocoaPods and Gradle paths inside each unit's `node_modules`.
 The app uses `link:` dependencies for its two local native packages so edits and generated frameworks resolve directly from the current worktree, without copying the engine into `node_modules`.
 The machine-wide pnpm content store shares downloaded packages across units and worktrees.
-`package-import-method=clone-or-copy` uses copy-on-write clones on APFS, preserving isolation when native install tools modify a package; unsupported filesystems fall back to copies.
+[`package-import-method=clone-or-copy`](https://pnpm.io/10.x/settings#packageimportmethod) uses copy-on-write clones on APFS, preserving isolation when native install tools modify a package; unsupported filesystems fall back to copies.
 Keep worktrees and the store on the same APFS volume for clone sharing; inspect the location with `pnpm store path` from a unit.
 
 Create worktrees with Git rather than copying a checkout, and install only the units needed by that task.

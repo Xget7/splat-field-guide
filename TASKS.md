@@ -278,3 +278,12 @@ Regression tests reproduce free exploration exposing Guide controls and a replac
 Validation passes 871 app tests in 75 suites, lint, formatting, TypeScript, production iOS JavaScript bundling and an unsigned iOS Simulator Debug build.
 Argent on the assigned SplatKit highlight iPad confirms organization-to-course navigation, free scene rendering and Roof welder selection without a procedure, compact activity navigation, saved activity resume, completion and the empty progress skeleton.
 The existing single integration review was not repeated, and other sessions' devices and Metro servers remain preserved.
+
+## Worktree dependency storage
+
+JavaScript units now pin pnpm 10.34.9 and use imported frozen lockfiles with no new registry package versions.
+Hoisted per-unit installations preserve native tooling paths, while APFS copy-on-write imports share the machine-wide store and local native packages link into their own worktree.
+Preparation provisions ExecuTorch libraries once from the app; ordinary dependency installs skip its download script.
+Validation passed 75 app suites with 871 tests, 92 package/service tests, 11 build-helper tests, affected lint/types, iOS/Android autolinking discovery and production iOS JavaScript bundling.
+A fresh service installation reused all seven packages offline from the shared store.
+Full Pods/Gradle builds and physical-device acceptance were not run for this migration; existing worktrees and their active dependencies, servers and native artifacts were preserved.
