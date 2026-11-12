@@ -13,6 +13,14 @@ import type {
 const RADIANS_PER_DEGREE = Math.PI / 180;
 export const FRAME_SECONDS = 0.45;
 export const INITIAL_FRAME_SECONDS = 0;
+// A camera turning faster than this reads as a whip pan and makes people dizzy.
+export const MAX_TURN_DEGREES_PER_SECOND = 110;
+export const MIN_MOVE_SECONDS = 0.5;
+// Even the widest swing between steps stays a continuous move; this caps how long it waits.
+export const MAX_MOVE_SECONDS = 1.8;
+// Reduce Motion replaces the move with a brief fade, which carries no motion of its own.
+export const CUT_FADE_MS = 180;
+export const CUT_REVEAL_MS = 260;
 // Leave the surrounding equipment visible so the part retains its context.
 export const CONTEXT_SCALE = 2;
 // A slow push-in keeps spoken explanations visually continuous.
@@ -60,4 +68,37 @@ export function guideFrameBounds(bounds: Bounds, closeUp = false): SplatBounds {
   return boundsForView(
     inContext(bounds, closeUp ? CLOSE_UP_SCALE : CONTEXT_SCALE),
   );
+}
+
+export type Transition =
+  | { readonly kind: 'move'; readonly seconds: number }
+  | { readonly kind: 'cut' };
+
+/**
+ * Picks how the camera reaches a new step. The engine interpolates azimuth and elevation
+ * linearly, so the larger of the two deltas is the turn the viewer sees.
+ */
+export function transitionBetween(
+  current: ViewDirection | undefined,
+  target: ViewDirection,
+  reducedMotion: boolean,
+): Transition {
+  if (reducedMotion) {
+    return { kind: 'cut' };
+  }
+  if (current === undefined) {
+    return { kind: 'move', seconds: MIN_MOVE_SECONDS };
+  }
+  const turn =
+    Math.max(
+      Math.abs(target.azimuth - current.azimuth),
+      Math.abs(target.elevation - current.elevation),
+    ) / RADIANS_PER_DEGREE;
+  return {
+    kind: 'move',
+    seconds: Math.min(
+      MAX_MOVE_SECONDS,
+      Math.max(MIN_MOVE_SECONDS, turn / MAX_TURN_DEGREES_PER_SECOND),
+    ),
+  };
 }

@@ -30,7 +30,10 @@ import {
 } from 'react-native-splat';
 import { scheduleOnRN } from 'react-native-worklets';
 import Animated, {
+  useAnimatedStyle,
   useReducedMotion,
+  useSharedValue,
+  withTiming,
   type LinearTransition,
 } from 'react-native-reanimated';
 import { highlightFor, currentStep, type SessionState } from '../../../guide';
@@ -49,7 +52,11 @@ import {
   Space,
   Type,
 } from '../../../../ui/theme';
-import { cameraLimitsInRadians } from '../../domain/camera';
+import {
+  cameraLimitsInRadians,
+  CUT_FADE_MS,
+  CUT_REVEAL_MS,
+} from '../../domain/camera';
 import { PartMarkers } from './PartMarkers';
 import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
 import { isCurrentPick } from '../../domain/pickInputs';
@@ -194,6 +201,30 @@ function Viewport({
     setError(failure.message);
   }, []);
   const activeView = ready && auditSession === null ? view : null;
+  const veil = useSharedValue(0);
+  const veilStyle = useAnimatedStyle(() => ({ opacity: veil.value }));
+  const cutToken = useRef(0);
+  const cut = useCallback(
+    (jump: () => void) => {
+      const token = ++cutToken.current;
+      veil.value = withTiming(1, { duration: CUT_FADE_MS });
+      setTimeout(() => {
+        if (!mounted.current || token !== cutToken.current) {
+          return;
+        }
+        jump();
+        // Two frames let the engine draw the new pose before the veil lifts.
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            if (token === cutToken.current) {
+              veil.value = withTiming(0, { duration: CUT_REVEAL_MS });
+            }
+          }),
+        );
+      }, CUT_FADE_MS);
+    },
+    [veil],
+  );
   const { boxes, viewport } = useProjectedParts(activeView, parts, size);
   const projection = useMemo(
     () => ({ ids: parts.map(part => part.id), boxes, viewport }),
@@ -208,6 +239,8 @@ function Viewport({
     resizeTransition !== undefined,
     settlement,
     closeUp,
+    reducedMotion,
+    cut,
   );
   const source = useMemo(() => sourceFor(pack), [pack]);
   const limits = useMemo(
@@ -348,6 +381,7 @@ function Viewport({
           enterAfter={reducedMotion ? 0 : Motion.reveal}
         />
       )}
+      <Animated.View pointerEvents="none" style={[styles.veil, veilStyle]} />
 
       {error !== '' && (
         <View pointerEvents="none" style={styles.error}>
@@ -371,6 +405,7 @@ function Viewport({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Color.black },
+  veil: { ...StyleSheet.absoluteFill, backgroundColor: Color.black },
   loading: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
