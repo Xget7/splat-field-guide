@@ -15,7 +15,9 @@ final class HybridSplatView: HybridSplatViewSpec {
   private let metalView = SplatMetalView()
   private let events = SplatEvents()
   private let loop: SplatRenderLoop
-  private let pickQueue = DispatchQueue(label: "splat.pick", qos: .userInitiated)
+  // Picks retain an immutable published view. Concurrent reads let bounded dev-audit
+  // batches share the cloud without serializing hundreds of independent rays.
+  private let pickQueue = DispatchQueue(label: "splat.pick", qos: .userInitiated, attributes: .concurrent)
 
   // Main thread only.
   private var changed: Set<Prop> = []

@@ -28,7 +28,10 @@ Read the owning area and its linked interface/tests before editing.
 
 **Owns:** startup, navigation and dependency composition; screens receive configured capabilities.
 Startup validates explicitly bundled packs through the native reader and shows a startup error on failure; builds bundle no packs by default.
-The course shell opens before a native scene; Explore and saved continuation resolve available catalog entries.
+The global workspace opens before any native scene: Organizations leads to an organization's courses, then a course, module and activity.
+The global sidebar contains Organizations, My progress, Downloads and Help; Courses is scoped to the organization.
+The bundled demo supplies one local default Miris organization without implying a remote membership directory.
+Explore cell and saved continuation resolve available catalog entries.
 **Rule:** features never import app composition or construct unrelated provider lifecycles.
 **Read:** [startup](../../apps/field-guide/src/app/App.tsx), [navigation](../../apps/field-guide/src/app/navigation/RootNavigator.tsx), [platform wiring](../../apps/field-guide/src/app/platform.ts).
 **Verify:** [app tests](../../apps/field-guide/src/app/tests/App.test.tsx).
@@ -38,7 +41,10 @@ The course shell opens before a native scene; Explore and saved continuation res
 **Owns:** course entry, module presentation, discoverable guides, availability and session opening.
 **Rule:** discovery chooses a session start; guide rules own subsequent position.
 The landscape shell uses shared charcoal surfaces, blue actions, system typography and an 8-point spacing scale; native highlight styling is independent.
-The demo modules are presentation, while course-wide answers, source PDF opening and course downloads show explicit availability states.
+Course tabs own module presentation, documentation and the course Assistant; clickable breadcrumbs navigate outward without discarding the Assistant draft.
+My progress reports only the validated saved continuation, without inferring completion, time spent or aggregated learning analytics.
+Module actions open actual bundled activities, course questions use the grounded turn runner, and the native document adapter opens hash-verified local originals.
+Remote course downloading remains unavailable; the download action opens the current local-resource availability page.
 Downloads separates verified Voice & AI models from course content: offline course readiness requires every required course file to be installed and verified.
 Ready entries and saved continuation enter guide/viewer interfaces.
 **Read:** [public interface](../../apps/field-guide/src/features/library/index.ts), [views](../../apps/field-guide/src/features/library/views.ts), [catalog](../../apps/field-guide/src/features/pack/catalog.ts), [tokens](../../apps/field-guide/src/ui/courseTokens.ts).
@@ -105,6 +111,42 @@ Reject stale picks and instructor actions when session/representation identity c
   Target one mounted world; measure load/pick latency, replacement memory and GPU/thermal behavior alongside local inference.
   Download chunks are transport units; worlds exceeding device budgets require a separate spatial residency/tiling contract.
 
+### Prepared framing directions
+
+Schema 3 requires `viewDirection: { azimuth, elevation }` in degrees on every part and authored procedure step, within the manifest camera limits.
+The generated parts tour inherits each part's direction.
+Schema 2 remains readable with home-direction fallback so installed legacy packs retain access while preparation migrates; that fallback makes no visibility claim.
+The consumer parser, also loaded by `scripts/validate-pack.cjs`, rejects missing schema 3 directions, non-finite angles and directions outside the limits.
+Selection takes precedence over the active step for bounds, highlights and direction, while an overview uses home.
+A subsequent push-in preserves the user's orbit.
+
+Preparation shortlists ten alternative directions at least 20 degrees apart plus home for each distinct target set, using capture support and projected target-splat quality.
+It retains the whole delivered cloud and uses the app's doubled-context bounding-sphere framing distance, radius limits and 65 degree vertical field of view.
+The shortlist checks whether each camera lies inside a half-opacity Gaussian support ellipsoid; those directions remain diagnosable but cannot win selection.
+The CPU visibility approximation is no longer used to choose export directions.
+A development-only native candidate pass frames each candidate instantly, waits for its published drawn pose and centred target projection, then samples the normal 12 by 12 native-pick grid independently for every root target.
+Assemblies accept descendant labels through the same guide highlight contract as the normal audit.
+Bounded batches of eight immutable native picks reduce measurement overhead without changing the grid or scoring.
+
+A complete measurement pass must match the pack identity, geometry hashes, viewport, target sets, candidate IDs, requested poses and CPU quality components.
+Every target must reach 0.3 projected-box coverage whenever any safe measured candidate can show all targets at that floor.
+If simultaneous floors are impossible, selection maximizes the weakest target exactly before considering quality.
+Eligible quality is `0.55 * nativeCoverage + 0.30 * captureSupport + 0.15 * crispPixels`, with named constants in preparation.
+Native coverage is the mean per-target projected-box occupancy, preventing a union score from hiding an absent target.
+Within 0.0001 quality, home proximity breaks ties.
+Capture support averages Gaussian angular support with a 20 degree sigma over the nearest three training views whose frusta contain the target centre and whose distance is between one half and twice the framing distance.
+The capture poses and target centres share the pack placement transform; absent qualifying captures score zero.
+The shortlist's crispness proxy is the share of projected target splats with opacity at least 0.5 and three-sigma support diameter at most six pixels at a reference viewport height of 768 points.
+This target-only proxy does not measure front-most pixel sharpness, and native coverage alone does not establish image quality or how much of the target's own surface is visible.
+Those limitations remain explicit rather than treating the CPU approximation as native reconstruction-quality evidence.
+
+The exporter accepts `--native-views` containing the shortlist, complete native measurements and derived selections, rechecks their binding and copies directions into schema 3.
+Its receipt records the native measurements, component scores, best measured weakest-target coverage, safe-candidate count and every target set below 0.3, including zero.
+Without that input, export creates an explicitly unmeasured home-direction bootstrap for acquiring geometry and candidate measurements, with no CPU visibility rescore.
+The final normal prepared audit checks the re-exported pack through the same direction source as the guide.
+The reference landscape iPad split viewport is 982 by 1024 points; other viewport shapes require separate native validation.
+A finite shortlist does not prove enclosure or that no continuous camera direction could improve a target.
+
 ## Semantic data
 
 **Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
@@ -124,6 +166,9 @@ Preparation supplies every embedding, including query vectors; mobile compares s
 **Owns:** deterministic session transitions, selection overrides, child expansion, framing and saved continuation.
 **Rule:** viewer and instructor submit events; guide rules decide the resulting procedure position and emphasis.
 A session is the current position; progress is its saved continuation.
+A session start with a null procedure opens free exploration with selection and camera controls, without guidance, steps, an Assistant or progress writes.
+Entering free exploration from the course preserves any existing saved learning continuation.
+Course activities show a compact current-instruction card instead of the legacy guidance dropdown and full step-list sidebar.
 **Read:** [public interface](../../apps/field-guide/src/features/guide/index.ts), [session rules](../../apps/field-guide/src/features/guide/domain/session.ts), [highlight/framing](../../apps/field-guide/src/features/guide/domain/derive.ts), [progress storage](../../apps/field-guide/src/features/guide/data/progressStorage.ts).
 **Verify:** [session tests](../../apps/field-guide/src/features/guide/tests/session.test.ts), [progress tests](../../apps/field-guide/src/features/guide/tests/progressStorage.test.ts).
 

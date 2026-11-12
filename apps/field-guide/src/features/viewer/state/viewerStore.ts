@@ -30,7 +30,7 @@ export interface VoicePort {
 
 export interface ViewerOpening {
   readonly guide: ReadyGuide;
-  readonly procedureId: ProcedureId;
+  readonly procedureId: ProcedureId | null;
   readonly stepIndex: number;
   readonly mode: LearnMode;
   readonly instructor: Instructor;
@@ -216,6 +216,7 @@ export function createViewerStore(): ViewerStore {
         const instructorOpen = mode === LearnMode.instructor;
         set({
           ...INITIAL_LAYOUT,
+          fullView: procedureId === null,
           instructorOpen,
           guide,
           pack,
@@ -309,6 +310,10 @@ export function createViewerStore(): ViewerStore {
       applyAgentAction: event => act({ type: ViewerActionType.agent, event }),
       toggleInstructor: () => {
         get().voice?.stop();
+        if (get().instructorOpen) {
+          get().cancelAnswer();
+          set({ instructorDockExpanded: false });
+        }
         changeInstructorOpen(!get().instructorOpen);
       },
       setPanelMode: panelMode => set({ panelMode }),

@@ -11,5 +11,13 @@
     "@cloudflare/workers-types": "^5.20261001.1",
     "typescript": "^5.9.3",
     "wrangler": "^4.0.0"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "fsevents",
+      "workerd"
+    ]
   }
 }

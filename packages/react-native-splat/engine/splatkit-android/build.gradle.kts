@@ -49,7 +49,7 @@ dependencies {
 // publishing machine (ORG_GRADLE_PROJECT_mavenCentralUsername, mavenCentralPassword,
 // signingInMemoryKey, signingInMemoryKeyPassword); local builds need none of it.
 mavenPublishing {
-    coordinates("io.github.xget7", "splatkit-android", "0.1.0-beta.2")
+    coordinates("io.github.xget7", "splatkit-android", "0.1.0-beta.3")
     publishToMavenCentral(automaticRelease = true)
     if (project.findProperty("signingInMemoryKey") != null) signAllPublications()
     pom {

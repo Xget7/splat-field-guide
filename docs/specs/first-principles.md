@@ -51,6 +51,8 @@ Offline startup without files retains available reading and online capabilities 
 The visual direction takes inspiration from [Linear](https://mobbin.com/sites/linear-c00c68bf-f93c-4837-acf0-31f4e5b46d02/630e7ab4-28c5-46ae-b1d5-a053e315161e/preview): restrained dark surfaces, clear typography and spacing, subtle controls and purposeful color, with readable evidence and equipment imagery taking priority.
 Use the supplied Linear application screenshot as the palette reference: neutral charcoal with subtle dark gradients, high-contrast text and purposeful saturated accents, without pastel colors.
 Keep names direct, typography readable and hierarchy explicit; omit promotional slogans, decorative uppercase eyebrow text and redundant descriptions or subtitles.
+Headings stand alone without helper subtitles or repeated context labels; empty workspace states use a quiet animated skeleton with Reduced Motion support instead of explanatory text.
+Use distinct icons for organizations, learning progress, courses, downloads and scene exploration rather than a generic 3D cube.
 Course imagery is slightly dimmed and surfaces use soft rounded corners.
 Use a shared 8px spacing scale for layout, component padding, gaps and control sizes; border thickness, typography and small optical icon adjustments are separate from that scale.
 

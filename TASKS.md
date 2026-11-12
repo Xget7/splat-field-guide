@@ -19,8 +19,10 @@ One English Miris agent retrieves prepared content through native RAG; original 
 Read-only name/alias search preserves ambiguous candidates, and exact part lookup returns hierarchy, directed relations and their source evidence.
 Typed navigation commits only after a complete answer; local procedure narration and offline Qwen/scripted voice fallback remain available.
 The current published schema 3 pack requires the prepared view-direction consumer update included with this integration.
-The isolated source baseline passed 68 app suites with 829 tests, app lint/types, six voice-agent tests/types and five Worker tests/types before the final integration with main.
-An unsigned arm64 iOS Simulator Release build succeeded using the prepared native dependencies and bundled Miris content.
+After integration with main, 75 app suites with 861 tests, lint and TypeScript checks pass for the English course entry, direct text/voice tools, ambiguity, cancellation, exact-ID navigation and offline fallback.
+The voice-agent has six passing tests and type checks; the signed-session Worker has five passing tests and type checks.
+An unsigned arm64 iOS Simulator Release build succeeded before integrating main, using the prepared native dependencies and bundled Miris content.
+The final integrated source also produces a production iOS JavaScript bundle.
 A separate Miris agent was created with 49 indexed prepared-text documents; the existing engine-bay agent and active Worker were preserved.
 The matching Worker deployment and a paid live-conversation proof remain pending, so source checks and index readiness do not establish voice, navigation or physical acceptance.
 Physical Qwen validation on the owner's iPhone is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).
@@ -130,7 +132,12 @@ Keep source provenance for referenced pack inputs and attribution for shipped re
 
 ## Acceptance
 
-No Miris pack opening on a simulator or physical device is recorded.
+The full Miris pack opened on the landscape Field Guide iPad simulator in an isolated development app.
+Its home-direction framing baseline flagged 70 of 84 procedure steps and 88 of 116 target measurements below 0.3 on 3,311,590 leaves.
+The reports and geometry snapshots are in `/Users/xget/Documents/splat-field-guide/.work/plans/framing-audit-v2/`.
+Schema 3 directions, shared guide and audit direction selection, native candidate measurement and native-input export have source coverage: 843 app tests, lint, types, 159 pipeline tests and the full-pack validator pass.
+The isolated iOS Debug build passed, but the concurrent-pick update has not been installed for the full candidate run.
+The 54-set, 594-candidate native measurement pass, native-selected re-export, final prepared audit, remaining-target screenshots and physical acceptance are pending.
 
 - [ ] Open the integrated Miris pack on a simulator for functional review, then on target hardware for physical acceptance.
 - [ ] Verify orbit, pinch, part picking, every accepted highlight, procedure framing and mount/unmount recovery on physical target hardware.
@@ -257,3 +264,41 @@ Installation of `dev.splatfieldguide.coursepreview` from `apps/field-guide/ios/b
 Launch and visual validation remain blocked because `device_open` reports that device support, agent access and an available simulator platform must be enabled; no other device or session was taken over.
 The installed app uses the existing Metro on 8081; the parallel Field Guide iPad and Metro 8107 were preserved.
 No target-device drawn-count, GPU, memory, thermal or physical-performance acceptance is claimed.
+
+## Miris demo UI and offline documentation
+
+Tickets #22, #23, #24 and #25 cover the real scene preview, useful course navigation, guidance modes and on-device manuals.
+The module entry now renders the bundled Miris splat with rotate and recenter controls, and releases its viewer while an activity is focused.
+The sidebar exposes course overview, real modules, 3D equipment, documentation, validated resume, downloads and help; Assistant remains in the course tabs only.
+Instructor and Self-guided share the current activity position, and leaving Instructor cancels its pending answer and voice session.
+Course questions use the shared grounded turn runner and require an explicit action to open an answered-about part in 3D.
+The local demo build contains hash-verified KUKA BA extra V4 and MA K+P V6 originals through the documented opt-in copy phase; PDF bytes are not redistributed by this repository.
+The native document adapter opens the verified local files with Quick Look, and Downloads reports verified manuals and real course activities separately from unavailable remote delivery.
+Validation passes 866 app tests in 75 suites, app lint, formatting, TypeScript, the document bundling regression, production iOS JavaScript bundling and an unsigned iOS Simulator Debug app build.
+One integration review per axis found no standards issues and two specification issues; regression tests reproduce and fix same-text course retries after cancellation and incorrect Downloads availability.
+Argent verification on SplatKit highlight iPad, `FFC2D6EA-E75C-4BFB-916E-D0EF1F95AF47`, bundle `dev.splatfieldguide.coursepreview`, confirms real preview rendering and rotation, both native offline PDFs, populated modules and Downloads, Self-guided navigation, mode switching without losing the step, and a grounded Roof welder response with explicit 3D navigation.
+The app uses the existing Metro on 8081, and the parallel Field Guide iPad, bundle and Metro 8107 were preserved.
+Paid voice and answer providers were tested with fakes rather than live calls; simulator validation does not establish physical-device GPU, memory, thermal or performance acceptance.
+
+## Global workspace and free exploration
+
+Ticket #27 separates global navigation from the selected course and removes the legacy Guide sidebar.
+Workspace now opens Organizations, then Miris courses, then course tabs, module and activity; Courses is not a global destination.
+My progress shows only the validated saved continuation, and empty progress uses a pulsing skeleton with Reduced Motion support and no helper text.
+Generic helper subtitles and repeated organization labels are omitted, with distinct organization, progress, book, scene and download glyphs.
+Explore cell opens a null-procedure session without guidance, step controls, an Assistant or progress writes; course activities retain a compact current-instruction card and previous/next controls.
+The explicit course download action opens verified resource availability; the compact source-document chip and primary actions use the blue palette.
+A replacement session start now initializes after render, releasing prior subscriptions and voice ownership before opening the requested context.
+Regression tests reproduce free exploration exposing Guide controls and a replacement start retaining the preceding activity before the fixes.
+Validation passes 871 app tests in 75 suites, lint, formatting, TypeScript, production iOS JavaScript bundling and an unsigned iOS Simulator Debug build.
+Argent on the assigned SplatKit highlight iPad confirms organization-to-course navigation, free scene rendering and Roof welder selection without a procedure, compact activity navigation, saved activity resume, completion and the empty progress skeleton.
+The existing single integration review was not repeated, and other sessions' devices and Metro servers remain preserved.
+
+## Worktree dependency storage
+
+JavaScript units now pin pnpm 10.34.9 and use imported frozen lockfiles with no new registry package versions.
+Hoisted per-unit installations preserve native tooling paths, while APFS copy-on-write imports share the machine-wide store and local native packages link into their own worktree.
+Preparation provisions ExecuTorch libraries once from the app; ordinary dependency installs skip its download script.
+Validation passed 75 app suites with 871 tests, 92 package/service tests, 11 build-helper tests, affected lint/types, iOS/Android autolinking discovery and production iOS JavaScript bundling.
+A fresh service installation reused all seven packages offline from the shared store.
+Full Pods/Gradle builds and physical-device acceptance were not run for this migration; existing worktrees and their active dependencies, servers and native artifacts were preserved.

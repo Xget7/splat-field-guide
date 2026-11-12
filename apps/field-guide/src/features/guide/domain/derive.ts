@@ -50,3 +50,12 @@ export function framingFor(state: SessionState, pack: Pack): Bounds | null {
     max: axis(b => b.max, Math.max),
   };
 }
+
+/** Prepared directions share the selection precedence used for bounds and highlights. */
+export function directionFor(state: SessionState, pack: Pack) {
+  return (
+    (state.selectedPart !== null
+      ? pack.parts.find(part => part.id === state.selectedPart)?.viewDirection
+      : currentStep(state, pack)?.viewDirection) ?? pack.camera.home
+  );
+}

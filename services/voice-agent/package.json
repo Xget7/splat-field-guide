@@ -15,5 +15,12 @@
     "@types/node": "^26.6.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "fsevents"
+    ]
   }
 }

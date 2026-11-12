@@ -22,11 +22,15 @@ const SUGGESTIONS = [
 ];
 export function CourseComposer({
   onAsk,
+  onVoice,
+  voiceOn,
   onDocument,
   question,
   onQuestionChange,
 }: {
   onAsk: (question: string) => void;
+  onVoice?: () => void;
+  voiceOn?: boolean;
   onDocument: () => void;
   question: string;
   onQuestionChange: (question: string) => void;
@@ -75,8 +79,28 @@ export function CourseComposer({
             onPress={onDocument}
             style={styles.document}
           >
-            <Text style={styles.filename}>KR QUANTEC extra.pdf</Text>
+            <View style={styles.documentChip}>
+              <Icon name={IconName.document} size={16} color={C.accent} />
+              <Text numberOfLines={1} style={styles.filename}>
+                KR QUANTEC extra.pdf
+              </Text>
+            </View>
           </Pressable>
+          {onVoice && (
+            <Pressable
+              testID="course-voice"
+              accessibilityRole="button"
+              accessibilityLabel={voiceOn ? 'End voice' : 'Start voice'}
+              onPress={onVoice}
+              style={styles.voice}
+            >
+              <Icon
+                name={voiceOn ? IconName.micOff : IconName.mic}
+                color={C.text}
+                size={20}
+              />
+            </Pressable>
+          )}
           <Pressable
             testID="course-send"
             accessibilityRole="button"
@@ -87,7 +111,7 @@ export function CourseComposer({
             style={[styles.send, !question.trim() && styles.disabled]}
           >
             <Animated.View style={{ transform: [{ translateY: lift }] }}>
-              <Icon name={IconName.send} color={C.canvas} size={24} />
+              <Icon name={IconName.send} color={C.white} size={20} />
             </Animated.View>
           </Pressable>
         </View>
@@ -97,6 +121,7 @@ export function CourseComposer({
           <Pressable
             key={text}
             accessibilityRole="button"
+            hitSlop={G.unit}
             onPress={() => {
               onQuestionChange(text);
               input.current?.focus();
@@ -111,9 +136,9 @@ export function CourseComposer({
   );
 }
 const styles = StyleSheet.create({
-  wrap: { gap: G.small },
+  wrap: { gap: G.unit },
   composer: {
-    minHeight: 184,
+    minHeight: 280,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: R.card,
@@ -123,7 +148,8 @@ const styles = StyleSheet.create({
   input: {
     ...T.body,
     color: C.text,
-    minHeight: 96,
+    // Account for the composer border so the suggestions end level with the preview.
+    minHeight: 198,
     textAlignVertical: 'top',
     padding: 0,
   },
@@ -134,32 +160,45 @@ const styles = StyleSheet.create({
     gap: G.unit,
   },
   document: {
-    minHeight: G.control,
-    paddingHorizontal: G.small,
-    borderRadius: R.control,
-    backgroundColor: C.raised,
+    minHeight: 44,
+    maxWidth: 208,
     justifyContent: 'center',
     flexShrink: 1,
   },
-  filename: { ...T.caption, color: C.text },
+  documentChip: {
+    minHeight: G.large,
+    paddingHorizontal: G.unit,
+    gap: G.unit,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: G.unit,
+    backgroundColor: C.raised,
+  },
+  filename: { ...T.caption, color: C.secondary, flexShrink: 1 },
+  voice: {
+    width: G.control,
+    height: G.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   send: {
     width: G.control,
     height: G.control,
     borderRadius: R.pill,
-    backgroundColor: C.white,
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabled: { opacity: 0.5 },
+  disabled: { backgroundColor: C.raised, opacity: 0.5 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: G.unit },
   suggestion: {
-    minHeight: G.control,
-    paddingHorizontal: G.small,
-    paddingVertical: G.unit,
+    minHeight: G.large,
+    paddingHorizontal: G.unit,
+    paddingVertical: 0,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: R.pill,
+    borderRadius: R.control,
     justifyContent: 'center',
   },
-  prompt: { ...T.caption, color: C.secondary },
+  prompt: { fontSize: 11, lineHeight: 16, color: C.accent },
 });

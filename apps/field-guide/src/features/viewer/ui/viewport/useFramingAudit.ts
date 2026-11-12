@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SplatViewSpec } from 'react-native-splat';
-import { framingFor, type SessionState } from '../../../guide';
-import type { Pack } from '../../../pack/pack';
+import { directionFor, framingFor, type SessionState } from '../../../guide';
+import type { FrameDirection, Pack } from '../../../pack/pack';
 import {
   guideFrameBounds,
   FRAME_SECONDS,
@@ -13,6 +13,11 @@ import {
   FRAMING_VISIBILITY_THRESHOLD,
 } from '../../domain/framingAudit';
 import type { Size } from '../../domain/screenGeometry';
+import {
+  measureCandidateSets,
+  type CandidateInput,
+  type CandidateReport,
+} from '../../domain/candidateAudit';
 
 const SETTLE_MARGIN_MS = 500;
 const HIGHLIGHT_COMMIT_MS = 100;
@@ -24,12 +29,17 @@ type AuditRow = Awaited<ReturnType<typeof measureFraming>> & {
   stepIndex: number;
   partId: string;
   label: number;
+  viewDirection: FrameDirection;
+  drawnDirection?: FrameDirection;
 };
 interface FramingAuditDebug {
-  run: () => Promise<void>;
+  measureCandidates: (input: CandidateInput) => Promise<void>;
+  candidateReport?: CandidateReport;
+  run: (directionMode?: 'prepared' | 'home') => Promise<void>;
   showStep: (procedureId: string, stepIndex: number) => Promise<void>;
   restore: () => void;
   report: {
+    directionMode: 'prepared' | 'home';
     packId: string;
     packVersion: number;
     splatCount: number;
@@ -64,6 +74,7 @@ export function useFramingAudit(
         );
       }
     };
+    let directionMode: 'prepared' | 'home' = 'prepared';
     const showStep = async (procedureId: string, stepIndex: number) => {
       check();
       const state = { procedureId, stepIndex, selectedPart: null };
@@ -78,14 +89,61 @@ export function useFramingAudit(
       view.frame(
         guideFrameBounds(bounds),
         FRAME_SECONDS,
-        homeDirectionInRadians(pack.camera.home),
+        homeDirectionInRadians(
+          directionMode === 'home'
+            ? pack.camera.home
+            : directionFor(state, pack),
+        ),
       );
       await wait(FRAME_SECONDS * 1000 + SETTLE_MARGIN_MS);
       check();
+      const drawn = view.drawnDirection();
+      console.log(
+        `FRAMING_AUDIT_POSE ${JSON.stringify({
+          requested:
+            directionMode === 'home'
+              ? pack.camera.home
+              : directionFor(state, pack),
+          drawn,
+        })}`,
+      );
       return state;
     };
     const debug: FramingAuditDebug = {
+      measureCandidates: async input => {
+        if (running.current) throw new Error('Framing audit already running');
+        running.current = true;
+        const report: CandidateReport = {
+          packId: pack.packId,
+          packVersion: pack.packVersion,
+          geometry: input.geometry,
+          viewport: size,
+          sets: [],
+          complete: false,
+        };
+        debug.candidateReport = report;
+        try {
+          await measureCandidateSets(
+            view,
+            pack,
+            size,
+            input,
+            setSession,
+            check,
+            report,
+          );
+          console.log(`FRAMING_CANDIDATE_REPORT ${JSON.stringify(report)}`);
+        } catch (error) {
+          report.error = String(error);
+          console.log(`FRAMING_CANDIDATE_ERROR ${JSON.stringify(report)}`);
+          throw error;
+        } finally {
+          running.current = false;
+          if (!cancelled) setSession(null);
+        }
+      },
       report: {
+        directionMode: 'prepared',
         packId: pack.packId,
         packVersion: pack.packVersion,
         splatCount: pack.tiers[0].splatCount,
@@ -99,11 +157,13 @@ export function useFramingAudit(
         await showStep(procedureId, stepIndex);
       },
       restore: () => setSession(null),
-      run: async () => {
+      run: async (mode = 'prepared') => {
         if (running.current) {
           throw new Error('Framing audit already running');
         }
         running.current = true;
+        directionMode = mode;
+        debug.report.directionMode = mode;
         debug.report.steps = [];
         debug.report.complete = false;
         delete debug.report.error;
@@ -128,7 +188,23 @@ export function useFramingAudit(
                   pack,
                 );
                 check();
+                const direction =
+                  directionMode === 'home'
+                    ? pack.camera.home
+                    : directionFor(state, pack);
+                const drawn = view.drawnDirection();
                 const row = {
+                  drawnDirection:
+                    drawn === undefined
+                      ? undefined
+                      : {
+                          azimuth: (drawn.azimuth * 180) / Math.PI,
+                          elevation: (drawn.elevation * 180) / Math.PI,
+                        },
+                  viewDirection: {
+                    azimuth: direction.azimuth,
+                    elevation: direction.elevation,
+                  },
                   procedure: procedure.title,
                   procedureId: procedure.id,
                   stepIndex,

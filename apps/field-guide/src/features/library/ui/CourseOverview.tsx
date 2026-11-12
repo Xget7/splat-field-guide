@@ -1,13 +1,4 @@
-import { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import { Icon, IconName } from '../../../ui/Icon';
 import {
   CourseColor as C,
@@ -21,6 +12,8 @@ export function CourseOverview({
   wide,
   onExplore,
   onAsk,
+  onVoice,
+  voiceOn,
   onDocument,
   onDownloads,
   question,
@@ -29,89 +22,79 @@ export function CourseOverview({
   wide: boolean;
   onExplore: () => void;
   onAsk: (question: string) => void;
+  onVoice?: () => void;
+  voiceOn?: boolean;
   onDocument: () => void;
   onDownloads: () => void;
   question: string;
   onQuestionChange: (question: string) => void;
 }) {
-  const rotation = useSharedValue(0);
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (!reduced) {
-      rotation.value = withRepeat(withTiming(360, { duration: 12000 }), -1);
-    }
-    return () => cancelAnimation(rotation);
-  }, [reduced, rotation]);
-  const cubeStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${rotation.value}deg` }],
-  }));
   return (
-    <View style={[styles.hero, wide && styles.wide]}>
-      <View style={[styles.photo, wide && styles.photoWide]}>
-        <Image
-          accessibilityLabel="KUKA robots around a vehicle body in the Miris reference scene"
-          source={require('../assets/assembly-line.jpg')}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View pointerEvents="none" style={styles.dim} />
+    <View style={styles.hero}>
+      <View style={styles.titleRow}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Automotive Assembly Line
+        </Text>
         <Pressable
-          testID="course-explore"
+          testID="course-download"
           accessibilityRole="button"
-          onPress={onExplore}
-          style={styles.explore}
+          accessibilityLabel="Download course"
+          accessibilityHint="View local files and course download availability"
+          onPress={onDownloads}
+          style={({ pressed }) => [
+            styles.download,
+            pressed && styles.downloadPressed,
+          ]}
         >
-          <Animated.View style={cubeStyle}>
-            <Icon name={IconName.explore} size={16} color={C.text} />
-          </Animated.View>
-          <Text style={styles.label}>Explore in 3D</Text>
+          <Icon name={IconName.download} size={20} color={C.secondary} />
         </Pressable>
       </View>
-      <View style={styles.details}>
-        <View style={styles.titleRow}>
-          <Text accessibilityRole="header" style={styles.title}>
-            Automotive{wide ? '\n' : ' '}Assembly Line
-          </Text>
+      <View style={[styles.body, wide && styles.wide]}>
+        <View style={[styles.photo, wide && styles.photoWide]}>
+          <Image
+            accessibilityLabel="KUKA robots around a vehicle body in the Miris reference scene"
+            source={require('../assets/assembly-line.jpg')}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View pointerEvents="none" style={styles.dim} />
           <Pressable
+            testID="course-explore"
             accessibilityRole="button"
-            accessibilityLabel="Course downloads"
-            onPress={onDownloads}
-            style={styles.download}
+            onPress={onExplore}
+            style={styles.explore}
           >
-            <Icon name={IconName.down} color={C.secondary} />
+            <Text style={styles.label}>Explore</Text>
+            <Icon name={IconName.next} size={24} color={C.white} />
           </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Manage course offline availability"
-          onPress={onDownloads}
-          style={styles.availability}
-        >
-          <Text style={styles.availabilityText}>Not available offline</Text>
-          <Icon name={IconName.next} size={16} color={C.secondary} />
-        </Pressable>
-        <CourseComposer
-          onAsk={onAsk}
-          onDocument={onDocument}
-          question={question}
-          onQuestionChange={onQuestionChange}
-        />
+        <View style={styles.details}>
+          <CourseComposer
+            onAsk={onAsk}
+            onVoice={onVoice}
+            voiceOn={voiceOn}
+            onDocument={onDocument}
+            question={question}
+            onQuestionChange={onQuestionChange}
+          />
+        </View>
       </View>
     </View>
   );
 }
-export const DEMO_MODULES = [
-  'KUKA Robot Fundamentals',
-  'Body Transport',
-  'Cell Safety',
-] as const;
 export function ModuleCard({
   title,
   index,
   onPress,
   testID,
+  steps,
+  action = 'Open module',
+  wide = false,
 }: {
   title: string;
+  steps?: number;
+  action?: string;
+  wide?: boolean;
   index: number;
   onPress: () => void;
   testID?: string;
@@ -120,42 +103,44 @@ export function ModuleCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Open module, ${title}`}
+      accessibilityLabel={`Open module, ${title}${
+        steps === undefined ? '' : `, ${steps} steps`
+      }, module ${index + 1}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        wide && styles.cardWide,
+        pressed && styles.pressed,
+      ]}
     >
       <View style={styles.titleRow}>
-        <Icon
-          name={
-            index === 0
-              ? IconName.explore
-              : index === 1
-              ? IconName.layers
-              : IconName.lock
-          }
-          color={C.secondary}
-          size={24}
-        />
-        <Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text>
+        <Icon name={IconName.course} color={C.secondary} size={24} />
+        {steps !== undefined && (
+          <View style={styles.stepCount}>
+            <Icon name={IconName.list} color={C.secondary} size={14} />
+            <Text style={styles.number}>{steps}</Text>
+          </View>
+        )}
       </View>
       <Text style={styles.moduleTitle}>{title}</Text>
       <View style={styles.cardFooter}>
-        <Text style={styles.label}>Open module</Text>
-        <Icon name={IconName.next} color={C.secondary} size={16} />
+        <Text style={styles.label}>{action}</Text>
+        <Icon name={IconName.next} color={C.accent} size={16} />
       </View>
     </Pressable>
   );
 }
 const styles = StyleSheet.create({
-  hero: { gap: G.large },
-  wide: { flexDirection: 'row', alignItems: 'stretch' },
+  hero: { gap: G.medium },
+  body: { gap: G.medium },
+  wide: { flexDirection: 'row', alignItems: 'flex-start' },
   photo: {
-    height: 352,
+    height: 320,
     borderRadius: R.card,
     overflow: 'hidden',
     backgroundColor: C.surface,
   },
-  photoWide: { flex: 1, height: undefined, minHeight: 352 },
+  photoWide: { flex: 1, height: 320 },
   image: { width: '100%', height: '100%', position: 'absolute' },
   dim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.2)' },
   explore: {
@@ -164,23 +149,15 @@ const styles = StyleSheet.create({
     right: G.small,
     minHeight: G.control,
     paddingHorizontal: G.small,
-    borderRadius: R.pill,
+    borderRadius: R.control,
     flexDirection: 'row',
     gap: G.unit,
     alignItems: 'center',
-    backgroundColor: C.overlay,
+    backgroundColor: C.primary,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.accent,
   },
-  details: { flex: 1, gap: G.medium },
-  availability: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    minHeight: G.control,
-    gap: G.unit,
-  },
-  availabilityText: { ...T.caption, color: C.secondary },
+  details: { flex: 1 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,12 +168,14 @@ const styles = StyleSheet.create({
   download: {
     width: G.control,
     height: G.control,
-    borderRadius: R.pill,
+    borderRadius: R.control,
+    backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  downloadPressed: { backgroundColor: C.raised },
   label: { ...T.label, color: C.text },
   card: {
     flex: 1,
@@ -207,6 +186,8 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     backgroundColor: C.surface,
   },
+  cardWide: { flexBasis: '40%' },
+  stepCount: { flexDirection: 'row', alignItems: 'center', gap: G.unit },
   pressed: { backgroundColor: C.raised },
   number: { ...T.caption, color: C.secondary },
   moduleTitle: { ...T.heading, color: C.text, flex: 1 },

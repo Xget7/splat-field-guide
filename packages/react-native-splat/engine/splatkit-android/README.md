@@ -7,13 +7,13 @@ An arm64 emulator can test functionality; it is not a phone performance measurem
 
 ## Install
 
-Maven Central `0.1.0-beta.2` hands walking to the host: the view looks only, and `walkVelocity`, the character settings and the collider come from the app.
+Maven Central `0.1.0-beta.3` hands walking to the host: the view looks only, and `walkVelocity`, the character settings and the collider come from the app.
 See the [changelog](../../CHANGELOG.md) and [releases](https://github.com/Xget7/splatkit/releases).
 Avoid alpha05, which corrupts Adreno sorting.
 
 ```kotlin
 dependencies {
-    implementation("io.github.xget7:splatkit-android:0.1.0-beta.2")
+    implementation("io.github.xget7:splatkit-android:0.1.0-beta.3")
 }
 ```
 

@@ -145,7 +145,7 @@ TEST(SplatEngineLabels, HostHighlightLookRestylesPartsAndOutlivesReplacement) {
   engine.loadWorld(bytes.data(), bytes.size(), labels.data(), labels.size());
   engine.render(now += kFrameNanos);
   engine.highlightParts(&selected, 1);
-  engine.render(now += 250'000'000);
+  engine.render(now + 250'000'000);
   EXPECT_FLOAT_EQ(observed->selectedStyle.tintAmount, 0.5f);
   EXPECT_FLOAT_EQ(observed->otherStyle.brightness, 1.0f);
 }

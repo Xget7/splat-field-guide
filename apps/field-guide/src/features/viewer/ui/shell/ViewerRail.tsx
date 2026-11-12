@@ -18,6 +18,7 @@ interface Props {
   bottomInset: number;
   capability: Capability;
   drawerOpen: boolean;
+  allowGuide?: boolean;
   onBack: () => void;
   onCapability: (capability: Capability) => void;
 }
@@ -29,6 +30,7 @@ export function ViewerRail({
   drawerOpen,
   onBack,
   onCapability,
+  allowGuide = true,
 }: Props) {
   return (
     <View
@@ -53,7 +55,9 @@ export function ViewerRail({
         <Icon name={IconName.back} color={Color.secondaryText} />
       </Pressable>
       <View style={styles.capabilities}>
-        {CAPABILITIES.map(item => {
+        {CAPABILITIES.filter(
+          item => allowGuide || item.value !== Capability.guide,
+        ).map(item => {
           const selected = drawerOpen && capability === item.value;
           return (
             <Pressable

@@ -5,17 +5,35 @@ Use fakes for paid providers; deployment, upload and live paid requests require 
 
 ## Setup
 
-Use an Apple silicon Mac, Xcode 27, Node 26+, npm, CMake, Ruby and Bundler.
+Use an Apple silicon Mac, Xcode 27, Node 26+, pnpm 10.34.9, CMake, Ruby and Bundler.
 The viewer requires iOS/iPadOS 26+ with an A14-class GPU or Android 10+ with Vulkan.
 Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROID_HOME` configured.
-After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
-For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
+After root preparation, run `nice -n 19 pnpm run ios` from `apps/field-guide`.
+For Xcode, start Metro there with `nice -n 19 pnpm start` and open `ios/FieldGuide.xcworkspace`.
 Debug needs reachable Metro; Release bundles JavaScript.
 While connected, let automatic startup preparation finish and verify Models ready before local inference tests in airplane mode.
 Check the course's separate offline availability in Downloads; verified voice and AI models do not install its scene, manual or modules.
 Check pause/retry, offline startup without files and recovery when the route returns using fake transfers before a real download.
 Allow microphone access separately.
 A fresh installation without those files cannot provide local voice or generated answers.
+
+## Worktree dependency storage
+
+Each JavaScript unit pins pnpm in `package.json` and keeps its own `pnpm-lock.yaml`.
+Enable the pinned version with Corepack (`corepack enable`) or install pnpm 10.34.9 using your Node tool manager.
+Run installs inside the unit, or use `nice -n 19 pnpm --dir <unit> install --frozen-lockfile` from root.
+The hoisted layout preserves Metro, CocoaPods and Gradle paths inside each unit's `node_modules`.
+The app uses `link:` dependencies for its two local native packages so edits and generated frameworks resolve directly from the current worktree, without copying the engine into `node_modules`.
+The machine-wide pnpm content store shares downloaded packages across units and worktrees.
+[`package-import-method=clone-or-copy`](https://pnpm.io/10.x/settings#packageimportmethod) uses copy-on-write clones on APFS, preserving isolation when native install tools modify a package; unsupported filesystems fall back to copies.
+Keep worktrees and the store on the same APFS volume for clone sharing; inspect the location with `pnpm store path` from a unit.
+
+Create worktrees with Git rather than copying a checkout, and install only the units needed by that task.
+For example, a voice-agent change needs only `nice -n 19 pnpm --dir services/voice-agent install --frozen-lockfile`; it needs no app installation, Pods, engine build or preparation.
+Do not copy or symlink another worktree's `node_modules`, Pods or build directories: local package links, generated native files and dependency versions belong to their checkout.
+Switching an existing checkout from npm to pnpm requires replacing that unit's `node_modules`; do this only when no session is using it.
+Leave other sessions' dependency trees, servers, GPU work and caches intact.
+Use a frozen install after changing branches, and update dependencies deliberately with pnpm rather than regenerating npm lockfiles.
 
 ## Prepare
 
@@ -31,12 +49,19 @@ Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so th
 
 ## JavaScript units
 
-Each unit under `apps/`, `packages/` and `services/` installs with `npm ci` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
-Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
-`services/instructor-proxy` has no typecheck script; use `npx tsc --noEmit -p .`.
-`services/voice-agent` previews its agent configuration with `npm run plan -- --manifest <file>`.
+For a private local iOS demo with the original KUKA source PDFs, set `FIELD_GUIDE_DOCUMENTS_DIR=/absolute/path/to/splat-tools/data/reference/kuka` alongside `FIELD_GUIDE_PACKS=miris-pilot/1` in the iOS build command.
+The document copy stage checks the retained catalog's PDF headers and SHA-256 digests and writes the original bytes, document catalog and copyright notices into the app's `documents` resources.
+Without both explicit settings no KUKA PDFs ship; local inclusion does not grant external redistribution rights.
+Verify the course Documentation tab and source attachment open the same local manual without a network connection, and confirm the document edition before using cited maintenance pages.
+Run `nice -n 19 node --test tests/course-documents.test.cjs` to check opt-in bundling and corruption refusal without copying real PDFs.
+
+Each unit under `apps/`, `packages/` and `services/` installs with `nice -n 19 pnpm install --frozen-lockfile` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
+Run Jest suites (app, `react-native-on-device`) with `nice -n 19 pnpm test --runInBand`.
+`services/instructor-proxy` has no typecheck script; use `nice -n 19 pnpm exec tsc --noEmit -p .`.
+`services/voice-agent` previews its agent configuration with `pnpm run plan --manifest <file>`.
 The on-device package tests exercise preparation, cancellation, speech/answer adapters and audio ownership with fake providers.
-ExecuTorch native libraries are provisioned by its postinstall script; if npm skips dependency scripts, run `nice -n 19 node node_modules/react-native-executorch/scripts/download-libs.js` from `apps/field-guide` before Pods or Gradle.
+ExecuTorch's dependency postinstall is intentionally skipped to avoid duplicate native-library downloads.
+Preparation runs `nice -n 19 node node_modules/react-native-executorch/scripts/download-libs.js` once from `apps/field-guide` before Pods; run it there before a standalone Gradle build too.
 The app package selects only the XNNPACK backend and Phonemis library.
 
 ## Mobile pack tooling
@@ -87,7 +112,7 @@ For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebu
 
 ## Device acceptance
 
-The obsolete demo Maestro flow and its npm command have been removed.
+The obsolete demo Maestro flow and its package command have been removed.
 Future Miris flows must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
 Screenshots and simulator checks do not establish physical performance acceptance.
 No Miris pack opening on a simulator or device is recorded in [tasks](../../TASKS.md).
@@ -146,10 +171,10 @@ The retired answer and custom-LLM routes return 404; Anthropic keys and model/sh
 Use fake provider responses in tests; incomplete direct agent replies fail without committing typed navigation.
 
 For voice-agent setup, copy `.env.example` and provide `ELEVENLABS_API_KEY` and an available account `VOICE_ID`.
-Run `nice -n 19 npm run plan -- --manifest <file>` in `services/voice-agent` to inspect the exact prepared text documents, tool schemas and English managed-agent configuration without remote writes.
+Run `nice -n 19 pnpm run plan --manifest <file>` in `services/voice-agent` to inspect the exact prepared text documents, tool schemas and English managed-agent configuration without remote writes.
 For the Miris pilot use `../../data/pack/miris-pilot/1/manifest.json`; schema 3 directions are validated without rewriting the source pack.
 The plan and sync never upload original PDFs, splats or MobileCLIP vectors.
-After inspecting an authorized plan, run `nice -n 19 npm run sync -- --manifest <file>`.
+After inspecting an authorized plan, run `nice -n 19 pnpm run sync --manifest <file>`.
 Sync stores document digests/IDs in ignored `agent.json` immediately, requests every RAG index and leaves the agent unchanged while any index is pending or failed.
 A pending-index error is recoverable by rerunning sync after ElevenLabs finishes indexing; the retry reuses uploaded documents.
 Ensure the account has enough RAG capacity before sync; provider responses identify quota and permission failures.
@@ -167,11 +192,19 @@ For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload
 
 In a Debug viewer, open Dev and choose Check framing to audit every procedure target at the current viewport size.
 The audit owns framing and highlights until it finishes; avoid procedure or layout changes during the run.
-It uses the guide context distance and home direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
+It uses the guide context distance and prepared step direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
 A visible fraction below 0.3 is flagged, including targets entirely off-screen; an assembly accepts its own and descendant labels.
 These are projected-box occupancy scores, so sparse geometry can score low even without another part in front.
 Each target is logged as a FRAMING_AUDIT JSON line, followed by FRAMING_AUDIT_REPORT for the full report.
-The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` and `globalThis.fieldGuideFraming.report`; retrieve the latter with CDP Runtime.evaluate using returnByValue.
+The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` (`run('home')` records a home-direction baseline on the same pack) and `globalThis.fieldGuideFraming.report`; retrieve it through the approved Metro debugger evaluation tool.
 For screenshots, await `globalThis.fieldGuideFraming.showStep(procedureId, zeroBasedStepIndex)` and then call `restore()` when finished.
 From the library, `globalThis.fieldGuideOpenFraming()` opens the first bundled guide for debugger-driven audits.
 Release builds expose neither the audit action nor the debugger hooks.
+
+For native candidate selection, generate a shortlist with `pipeline.pack.native_views shortlist` in splat-tools and inject the resulting JSON into the connected development runtime.
+Call `globalThis.fieldGuideFraming.measureCandidates(input)` and inspect `globalThis.fieldGuideFraming.candidateReport` until `complete` is true or `error` is present.
+The pass logs one FRAMING_CANDIDATE line per pose and a final FRAMING_CANDIDATE_REPORT, or FRAMING_CANDIDATE_ERROR with the incomplete report.
+Do not reload, change the viewport or run a normal audit during candidate measurement.
+The input and report bind pack ID and version, geometry hashes, viewport, canonical target sets and candidate identities.
+Use the splat-tools selector to write the complete native choices, re-export with `--native-views`, rebuild the same isolated app and run the normal prepared audit once.
+Use the approved simulator tooling for every app action, screenshot and Metro debugger operation, with the session's isolated bundle ID, device and Metro port.

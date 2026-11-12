@@ -24,5 +24,3 @@ export {
   useVoiceRuntime,
 } from './state/instructorHooks';
 export { OfflinePreparation } from './ui/OfflinePreparation';
-
-export { CourseAssistant } from './ui/CourseAssistant';

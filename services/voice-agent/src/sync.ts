@@ -10,7 +10,7 @@ import { createElevenLabs } from './elevenlabs.ts';
 import { loadState, saveState, JSON_INDENT, type AgentState } from './state.ts';
 
 const STATE_PATH = fileURLToPath(new URL('../agent.json', import.meta.url));
-export const WORKER_COMMAND = 'npx wrangler secret put AGENT_ID';
+export const WORKER_COMMAND = 'pnpm exec wrangler secret put AGENT_ID';
 export const DICTIONARY_NAME = 'Field Guide terms';
 export const DRY_RUN_ARGUMENT = '--dry-run';
 export const Placeholder = {
