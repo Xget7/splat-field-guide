@@ -24,6 +24,7 @@ The voice-agent has six passing tests and type checks; the signed-session Worker
 An unsigned arm64 iOS Simulator Release build succeeded before integrating main, using the prepared native dependencies and bundled Miris content.
 The final integrated source also produces a production iOS JavaScript bundle.
 A separate Miris agent was created with 49 indexed prepared-text documents; the existing engine-bay agent and active Worker were preserved.
+The Worker handler obtained a valid uncached signed WebSocket URL for the new agent using its server key, without starting a conversation.
 The matching Worker deployment and a paid live-conversation proof remain pending, so source checks and index readiness do not establish voice, navigation or physical acceptance.
 Physical Qwen validation on the owner's iPhone is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).
 
