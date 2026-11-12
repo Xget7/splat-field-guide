@@ -76,6 +76,7 @@ test('the full manual text ships only with matching verified source PDFs and a v
     {
       id: 'manual',
       pages: 1,
+      pageOffset: 0,
       file: 'manual.pdf',
       sha256: createHash('sha256').update(pdf).digest('hex'),
       copyright: 'Synthetic notice',
