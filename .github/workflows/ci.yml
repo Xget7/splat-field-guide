@@ -23,34 +23,45 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.9
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: |
+            apps/*/pnpm-lock.yaml
+            packages/*/pnpm-lock.yaml
+            services/*/pnpm-lock.yaml
       - name: Install
         id: install
         run: |
           for project in packages/react-native-splat packages/react-native-on-device apps/field-guide services/instructor-proxy services/voice-agent; do
-            npm ci --prefix "$project"
+            nice -n 19 pnpm install --frozen-lockfile --dir "$project"
           done
       # Each check runs after a failed one, so a single run reports every failure.
       - name: App
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: apps/field-guide
-        run: npm run lint && npm run typecheck && npm test -- --runInBand
+        run: nice -n 19 pnpm run lint && nice -n 19 pnpm run typecheck && nice -n 19 pnpm test --runInBand
       - name: Native packages
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           for package in react-native-splat react-native-on-device; do
-            (cd "packages/$package" && npm run lint && npm run typecheck && npm test)
+            (cd "packages/$package" && nice -n 19 pnpm run lint && nice -n 19 pnpm run typecheck)
           done
+          nice -n 19 pnpm --dir packages/react-native-splat test
+          nice -n 19 pnpm --dir packages/react-native-on-device test --runInBand
       - name: Mobile build helpers
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: nice -n 19 node --test tests/pack-build.test.cjs tests/mobile-asset-tools.test.cjs
       - name: Services
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
-          (cd services/instructor-proxy && npm test && npx tsc --noEmit -p .)
-          (cd services/voice-agent && npm test && npm run typecheck)
+          (cd services/instructor-proxy && nice -n 19 pnpm test && nice -n 19 pnpm exec tsc --noEmit -p .)
+          (cd services/voice-agent && nice -n 19 pnpm test && nice -n 19 pnpm run typecheck)
       # The runner image already has CMake, Make and zlib, so nothing is downloaded from apt.
       - name: Engine
         if: ${{ !cancelled() }}

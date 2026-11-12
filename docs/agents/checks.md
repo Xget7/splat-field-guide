@@ -5,17 +5,35 @@ Use fakes for paid providers; deployment, upload and live paid requests require 
 
 ## Setup
 
-Use an Apple silicon Mac, Xcode 27, Node 26+, npm, CMake, Ruby and Bundler.
+Use an Apple silicon Mac, Xcode 27, Node 26+, pnpm 10.34.9, CMake, Ruby and Bundler.
 The viewer requires iOS/iPadOS 26+ with an A14-class GPU or Android 10+ with Vulkan.
 Android builds use JDK 17, SDK/build-tools 37 and NDK 27.1.12297006 with `ANDROID_HOME` configured.
-After root preparation, run `nice -n 19 npm run ios` from `apps/field-guide`.
-For Xcode, start Metro there with `nice -n 19 npm start` and open `ios/FieldGuide.xcworkspace`.
+After root preparation, run `nice -n 19 pnpm run ios` from `apps/field-guide`.
+For Xcode, start Metro there with `nice -n 19 pnpm start` and open `ios/FieldGuide.xcworkspace`.
 Debug needs reachable Metro; Release bundles JavaScript.
 While connected, let automatic startup preparation finish and verify Models ready before local inference tests in airplane mode.
 Check the course's separate offline availability in Downloads; verified voice and AI models do not install its scene, manual or modules.
 Check pause/retry, offline startup without files and recovery when the route returns using fake transfers before a real download.
 Allow microphone access separately.
 A fresh installation without those files cannot provide local voice or generated answers.
+
+## Worktree dependency storage
+
+Each JavaScript unit pins pnpm in `package.json` and keeps its own `pnpm-lock.yaml`.
+Enable the pinned version with Corepack (`corepack enable`) or install pnpm 10.34.9 using your Node tool manager.
+Run installs inside the unit, or use `nice -n 19 pnpm --dir <unit> install --frozen-lockfile` from root.
+The hoisted layout preserves Metro, CocoaPods and Gradle paths inside each unit's `node_modules`.
+The app uses `link:` dependencies for its two local native packages so edits and generated frameworks resolve directly from the current worktree, without copying the engine into `node_modules`.
+The machine-wide pnpm content store shares downloaded packages across units and worktrees.
+`package-import-method=clone-or-copy` uses copy-on-write clones on APFS, preserving isolation when native install tools modify a package; unsupported filesystems fall back to copies.
+Keep worktrees and the store on the same APFS volume for clone sharing; inspect the location with `pnpm store path` from a unit.
+
+Create worktrees with Git rather than copying a checkout, and install only the units needed by that task.
+For example, a voice-agent change needs only `nice -n 19 pnpm --dir services/voice-agent install --frozen-lockfile`; it needs no app installation, Pods, engine build or preparation.
+Do not copy or symlink another worktree's `node_modules`, Pods or build directories: local package links, generated native files and dependency versions belong to their checkout.
+Switching an existing checkout from npm to pnpm requires replacing that unit's `node_modules`; do this only when no session is using it.
+Leave other sessions' dependency trees, servers, GPU work and caches intact.
+Use a frozen install after changing branches, and update dependencies deliberately with pnpm rather than regenerating npm lockfiles.
 
 ## Prepare
 
@@ -37,12 +55,13 @@ Without both explicit settings no KUKA PDFs ship; local inclusion does not grant
 Verify the course Documentation tab and source attachment open the same local manual without a network connection, and confirm the document edition before using cited maintenance pages.
 Run `nice -n 19 node --test tests/course-documents.test.cjs` to check opt-in bundling and corruption refusal without copying real PDFs.
 
-Each unit under `apps/`, `packages/` and `services/` installs with `npm ci` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
-Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
-`services/instructor-proxy` has no typecheck script; use `npx tsc --noEmit -p .`.
-`services/voice-agent` previews its agent configuration with `npm run plan -- --manifest <file>`.
+Each unit under `apps/`, `packages/` and `services/` installs with `nice -n 19 pnpm install --frozen-lockfile` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
+Run Jest suites (app, `react-native-on-device`) with `nice -n 19 pnpm test --runInBand`.
+`services/instructor-proxy` has no typecheck script; use `nice -n 19 pnpm exec tsc --noEmit -p .`.
+`services/voice-agent` previews its agent configuration with `pnpm run plan --manifest <file>`.
 The on-device package tests exercise preparation, cancellation, speech/answer adapters and audio ownership with fake providers.
-ExecuTorch native libraries are provisioned by its postinstall script; if npm skips dependency scripts, run `nice -n 19 node node_modules/react-native-executorch/scripts/download-libs.js` from `apps/field-guide` before Pods or Gradle.
+ExecuTorch's dependency postinstall is intentionally skipped to avoid duplicate native-library downloads.
+Preparation runs `nice -n 19 node node_modules/react-native-executorch/scripts/download-libs.js` once from `apps/field-guide` before Pods; run it there before a standalone Gradle build too.
 The app package selects only the XNNPACK backend and Phonemis library.
 
 ## Mobile pack tooling
@@ -93,7 +112,7 @@ For an owned Debug Metro, pass `FIELD_GUIDE_METRO_HOST=<host>:<port>` to xcodebu
 
 ## Device acceptance
 
-The obsolete demo Maestro flow and its npm command have been removed.
+The obsolete demo Maestro flow and its package command have been removed.
 Future Miris flows must wait for native first-frame readiness and verify selected part identity, highlight and procedure navigation on an explicitly chosen device.
 Screenshots and simulator checks do not establish physical performance acceptance.
 No Miris pack opening on a simulator or device is recorded in [tasks](../../TASKS.md).
@@ -150,8 +169,8 @@ The Worker serves probes, typed NDJSON answers, signed agent sessions and authen
 Incomplete streams must fail rather than commit partial answers.
 Answer/session routes currently lack caller authentication; rate limits are not authentication.
 
-For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 npm run plan -- --manifest <file>` in `services/voice-agent`.
-The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 npm run sync -- --manifest <file>`.
+For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 pnpm run plan --manifest <file>` in `services/voice-agent`.
+The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 pnpm run sync --manifest <file>`.
 Sync updates the shared secret, tools, dictionary and agent and saves IDs in ignored `agent.json`; preserve it for retries.
 The agent key needs agent/workspace write, pronunciation dictionary read/write and voice read permissions; the Worker's key needs agent read access.
 Use the same `AGENT_LLM_SECRET` on both sides and configure the returned `AGENT_ID` on the Worker.
