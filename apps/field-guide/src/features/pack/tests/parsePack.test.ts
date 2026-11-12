@@ -276,6 +276,24 @@ describe('parsePack', () => {
     expect(error.path).toBe('procedures[0].steps');
   });
 
+  it('orders the parsed parts tour along supplied support links within a machine', () => {
+    const manifest = fixtureCopy();
+    manifest.relations.push({
+      type: 'supports',
+      from: 'intake-manifold',
+      to: 'valve-cover',
+      evidence: { kind: 'authored', source: 'Workshop manual, top end' },
+    });
+    const result = parsePack(manifest);
+    if (!result.ok) throw new Error(result.error.message);
+    const tour = findProcedure(result.pack, TOUR_ID)!;
+    expect(tour.steps.map(step => step.id).slice(-3)).toEqual([
+      'engine',
+      'intake-manifold',
+      'valve-cover',
+    ]);
+  });
+
   describe('course outline', () => {
     const reference = {
       document: 'kuka-quantec-2-kp-v6',

@@ -948,7 +948,7 @@ function buildPack(value: unknown): Pack {
     tiers,
     camera,
     parts,
-    procedures: [tourOf({ parts, camera }), ...procedures],
+    procedures: [tourOf({ parts, camera, relations }), ...procedures],
     relations,
     references,
     model: root.model === undefined ? undefined : readFile(root.model, 'model'),
