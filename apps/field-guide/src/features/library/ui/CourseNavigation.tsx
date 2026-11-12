@@ -1,5 +1,4 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { Icon, IconName } from '../../../ui/Icon';
 import {
   CourseColor as C,
@@ -8,18 +7,14 @@ import {
   CourseRadius as R,
 } from '../../../ui/courseTokens';
 
-export type AppSection =
-  | 'Courses'
-  | 'Modules'
-  | 'Documentation'
-  | 'Equipment'
-  | 'Downloads'
-  | 'Help';
+export type AppSection = 'Organizations' | 'Progress' | 'Downloads' | 'Help';
 const ITEMS = [
-  { title: 'Courses', label: 'Course overview', icon: IconName.layers },
-  { title: 'Modules', label: 'Modules', icon: IconName.list },
-  { title: 'Equipment', label: '3D equipment', icon: IconName.explore },
-  { title: 'Documentation', label: 'Documentation', icon: IconName.tag },
+  {
+    title: 'Organizations',
+    label: 'Organizations',
+    icon: IconName.organization,
+  },
+  { title: 'Progress', label: 'My progress', icon: IconName.progress },
 ] as const;
 
 export function CourseNavigation({
@@ -45,11 +40,7 @@ export function CourseNavigation({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.brand} accessibilityLabel="Miris">
-        <Svg width={24} height={24} viewBox="0 0 24 24" accessible={false}>
-          <Path d="M12 1L23 7 12 13 1 7Z" fill={C.white} />
-          <Path d="M1 7L12 13V24L1 18Z" fill={C.secondary} />
-          <Path d="M12 13L23 7V18L12 24Z" fill={C.text} />
-        </Svg>
+        <Icon name={IconName.organization} size={24} color={C.text} />
         {!compact && <Text style={styles.brandText}>Miris</Text>}
       </View>
       {!compact && <Text style={styles.sectionLabel}>Workspace</Text>}
@@ -120,7 +111,7 @@ export function CourseNavigation({
           ]}
         >
           <Icon
-            name={title === 'Downloads' ? IconName.down : IconName.help}
+            name={title === 'Downloads' ? IconName.download : IconName.help}
             size={18}
             color={section === title ? C.accent : C.secondary}
           />

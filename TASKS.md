@@ -264,3 +264,17 @@ One integration review per axis found no standards issues and two specification 
 Argent verification on SplatKit highlight iPad, `FFC2D6EA-E75C-4BFB-916E-D0EF1F95AF47`, bundle `dev.splatfieldguide.coursepreview`, confirms real preview rendering and rotation, both native offline PDFs, populated modules and Downloads, Self-guided navigation, mode switching without losing the step, and a grounded Roof welder response with explicit 3D navigation.
 The app uses the existing Metro on 8081, and the parallel Field Guide iPad, bundle and Metro 8107 were preserved.
 Paid voice and answer providers were tested with fakes rather than live calls; simulator validation does not establish physical-device GPU, memory, thermal or performance acceptance.
+
+## Global workspace and free exploration
+
+Ticket #27 separates global navigation from the selected course and removes the legacy Guide sidebar.
+Workspace now opens Organizations, then Miris courses, then course tabs, module and activity; Courses is not a global destination.
+My progress shows only the validated saved continuation, and empty progress uses a pulsing skeleton with Reduced Motion support and no helper text.
+Generic helper subtitles and repeated organization labels are omitted, with distinct organization, progress, book, scene and download glyphs.
+Explore cell opens a null-procedure session without guidance, step controls, an Assistant or progress writes; course activities retain a compact current-instruction card and previous/next controls.
+The explicit course download action opens verified resource availability; the compact source-document chip and primary actions use the blue palette.
+A replacement session start now initializes after render, releasing prior subscriptions and voice ownership before opening the requested context.
+Regression tests reproduce free exploration exposing Guide controls and a replacement start retaining the preceding activity before the fixes.
+Validation passes 871 app tests in 75 suites, lint, formatting, TypeScript, production iOS JavaScript bundling and an unsigned iOS Simulator Debug build.
+Argent on the assigned SplatKit highlight iPad confirms organization-to-course navigation, free scene rendering and Roof welder selection without a procedure, compact activity navigation, saved activity resume, completion and the empty progress skeleton.
+The existing single integration review was not repeated, and other sessions' devices and Metro servers remain preserved.

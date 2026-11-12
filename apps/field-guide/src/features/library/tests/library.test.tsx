@@ -94,7 +94,7 @@ describe('Library screen', () => {
       await node(testID).props.onPress();
     });
   };
-  const mount = async (documents?: CourseDocuments) => {
+  const mount = async (documents?: CourseDocuments, openCourse = true) => {
     await act(() => {
       renderer = ReactTestRenderer.create(
         <NavigationContext.Provider
@@ -112,6 +112,10 @@ describe('Library screen', () => {
         </NavigationContext.Provider>,
       );
     });
+    if (openCourse) {
+      await press('open-organization-miris');
+      await press('open-course-automotive-assembly-line');
+    }
   };
   beforeEach(() => {
     jest.clearAllMocks();
@@ -145,39 +149,51 @@ describe('Library screen', () => {
     ).toHaveLength(0);
   });
 
-  test('sidebar routes to modules and documentation, opens equipment and keeps Assistant in the course', async () => {
-    await mount();
-    expect(
-      renderer.root.findAllByProps({ accessibilityLabel: 'Miris' }).length,
-    ).toBeGreaterThan(0);
-    expect(
-      renderer.root.findAllByProps({ testID: 'navigation-assistant' }),
-    ).toHaveLength(0);
-    await press('navigation-modules');
-    expect(node('navigation-modules').props.accessibilityState).toEqual({
+  test('global workspace opens organizations, their courses and course detail with working outward breadcrumbs', async () => {
+    await mount(undefined, false);
+    expect(node('navigation-organizations').props.accessibilityState).toEqual({
       selected: true,
     });
     expect(
-      renderer.root.findAllByProps({ testID: 'course-explore' }),
+      renderer.root.findAllByProps({ accessibilityRole: 'tablist' }),
     ).toHaveLength(0);
-    await press('navigation-documentation');
-    expect(node('navigation-documentation').props.accessibilityState).toEqual({
+    for (const id of [
+      'navigation-courses',
+      'navigation-modules',
+      'navigation-documentation',
+      'navigation-equipment',
+      'navigation-assistant',
+    ]) {
+      expect(renderer.root.findAllByProps({ testID: id })).toHaveLength(0);
+    }
+    const landingText = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(landingText).not.toContain('Your workspace');
+    expect(landingText).not.toContain('Default organization');
+    expect(
+      renderer.root.findAllByProps({
+        testID: 'workspace-breadcrumb-organizations',
+      }),
+    ).toHaveLength(0);
+    await press('open-organization-miris');
+    expect(node('navigation-organizations').props.accessibilityState).toEqual({
       selected: true,
     });
-    await press('navigation-equipment');
-    expect(onOpen).toHaveBeenLastCalledWith({
-      guideId: pack.packId,
-      procedureId: pack.procedures[0].id,
-      stepIndex: 0,
-      mode: LearnMode.selfGuided,
-    });
-    await press('navigation-courses');
+    await press('open-course-automotive-assembly-line');
     expect(node('course-explore')).toBeDefined();
+    await press('workspace-breadcrumb-courses');
+    expect(
+      renderer.root.findAllByProps({ accessibilityRole: 'tablist' }),
+    ).toHaveLength(0);
+    await press('open-course-automotive-assembly-line');
+    await press('workspace-breadcrumb-organizations');
+    expect(node('open-organization-miris')).toBeDefined();
   });
 
   test('modules start real authored procedures with their full qualified titles', async () => {
     await mount();
-    await press('navigation-modules');
+    await press('course-tab-modules');
     const texts = renderer.root
       .findAllByType(Text)
       .map(item => item.props.children);
@@ -201,10 +217,50 @@ describe('Library screen', () => {
     await press('help-equipment');
     expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
-      procedureId: pack.procedures[0].id,
+      procedureId: null,
       stepIndex: 0,
       mode: LearnMode.selfGuided,
     });
+  });
+
+  test('global My progress shows the actual saved position and can resume it', async () => {
+    await saveProgress(progress);
+    await mount(undefined, false);
+    await press('navigation-progress');
+    expect(node('navigation-progress').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    const texts = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(texts).toContain('My progress');
+    expect(texts).toContain('Step 2 of 3');
+    expect(texts).toContain(pack.procedures[1].title);
+    expect(
+      renderer.root.findAllByProps({ accessibilityRole: 'tablist' }),
+    ).toHaveLength(0);
+    await press('library-continue');
+    expect(onOpen).toHaveBeenLastCalledWith({
+      ...progress,
+      mode: LearnMode.selfGuided,
+    });
+  });
+
+  test('My progress shows a quiet skeleton without helper copy when no activity is saved', async () => {
+    await mount(undefined, false);
+    await press('navigation-progress');
+    expect(
+      renderer.root.findAllByProps({ testID: 'library-continue' }),
+    ).toHaveLength(0);
+    expect(node('progress-empty')).toBeDefined();
+    const texts = renderer.root
+      .findAllByType(Text)
+      .map(item => item.props.children);
+    expect(texts).not.toContain('No saved activity yet.');
+    expect(texts).not.toContain('Saved activity on this device');
+    expect(
+      renderer.root.findAllByProps({ testID: 'progress-organizations' }),
+    ).toHaveLength(0);
   });
 
   test('sidebar resume uses validated saved continuation only', async () => {
@@ -232,7 +288,7 @@ describe('Library screen', () => {
       await attachment.props.onPress();
     });
     expect(documents.open).toHaveBeenCalledWith('kuka-quantec-extra-v4');
-    expect(node('navigation-documentation').props.accessibilityState).toEqual({
+    expect(node('course-tab-documentation').props.accessibilityState).toEqual({
       selected: true,
     });
   });
@@ -253,12 +309,12 @@ describe('Library screen', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  test('explore opens the available tour directly in 3D', async () => {
+  test('explore opens the scene without a procedure', async () => {
     await mount();
     await press('course-explore');
     expect(onOpen).toHaveBeenCalledWith({
       guideId: pack.packId,
-      procedureId: pack.procedures[0].id,
+      procedureId: null,
       stepIndex: 0,
       mode: LearnMode.selfGuided,
     });
@@ -290,6 +346,26 @@ describe('Library screen', () => {
     ).toContain('Where is the A5 axis motor?');
   });
 
+  test('leaving the course through workspace breadcrumbs preserves its assistant draft on return', async () => {
+    await mount();
+    await press('course-tab-assistant');
+    const input = () =>
+      renderer.root
+        .findAllByProps({ testID: 'course-question' })
+        .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() =>
+      input().props.onChangeText('What does the roof welder do?'),
+    );
+    await press('workspace-breadcrumb-organizations');
+    expect(node('open-organization-miris')).toBeDefined();
+    await press('open-organization-miris');
+    await press('open-course-automotive-assembly-line');
+    expect(node('course-tab-assistant').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(input().props.value).toBe('What does the roof welder do?');
+  });
+
   test('the discarded spatial assembly entry is absent', async () => {
     await mount();
     expect(
@@ -301,7 +377,7 @@ describe('Library screen', () => {
     await mount();
     const downloads = renderer.root
       .findAllByProps({
-        accessibilityLabel: 'Course downloads',
+        accessibilityLabel: 'Download course',
       })
       .find(item => typeof item.props.onPress === 'function')!;
     await act(() => downloads.props.onPress());
@@ -336,7 +412,9 @@ describe('Library screen', () => {
         renderer.root.findAllByProps({ testID: 'course-breadcrumb' }),
       ).toHaveLength(0);
     }
-    await press('navigation-courses');
+    await press('navigation-organizations');
+    await press('open-organization-miris');
+    await press('open-course-automotive-assembly-line');
     expect(
       renderer.root.findAllByProps({ accessibilityRole: 'tablist' }).length,
     ).toBeGreaterThan(0);

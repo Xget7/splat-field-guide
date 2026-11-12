@@ -6,6 +6,12 @@ export const IconName = {
   back: 'back',
   next: 'next',
   down: 'down',
+  download: 'download',
+  document: 'document',
+  organization: 'organization',
+  progress: 'progress',
+  course: 'course',
+  scene: 'scene',
   mic: 'mic',
   micOff: 'micOff',
   handsFree: 'handsFree',
@@ -39,11 +45,36 @@ const VIEW_BOX = '0 0 24 24';
 const DEFAULT_SIZE = 20;
 const DEFAULT_STROKE = 2;
 
+const sceneGlyph = () => (
+  <>
+    <Circle cx={12} cy={12} r={2.5} />
+    <Path d="M12 9.5V3M9.5 13.5L4 17M14.5 13.5L20 17M9 5l3-2 3 2M4 13v4l4 1M20 13v4l-4 1" />
+  </>
+);
+
 // Strokes on a 24 point grid; filled shapes say so.
 const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
   back: () => <Path d="M15 18l-6-6 6-6" />,
   next: () => <Path d="M9 18l6-6-6-6" />,
   down: () => <Path d="M6 9l6 6 6-6" />,
+  download: () => <Path d="M12 3v12M7 10l5 5 5-5M4 15v5h16v-5" />,
+  document: () => <Path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6" />,
+  organization: () => (
+    <>
+      <Path d="M3 21V8h8v13M11 21V3h10v18M1 21h22" />
+      <Path d="M6 11h2M6 15h2M14 7h4M14 11h4M14 15h4M15 21v-2h2v2" />
+    </>
+  ),
+  progress: () => (
+    <>
+      <Path d="M3 3v18h18" />
+      <Path d="M7 16v-3M12 16V9M17 16V5" strokeWidth={3} />
+    </>
+  ),
+  course: () => (
+    <Path d="M12 6C9 4 5.5 4 3 5v14c2.5-1 6-1 9 1 3-2 6.5-2 9-1V5c-2.5-1-6-1-9 1Zm0 0v14M6 8h3M6 11h3M15 8h3M15 11h3" />
+  ),
+  scene: sceneGlyph,
   mic: () => (
     <>
       <Rect x={9} y={2.5} width={6} height={12} rx={3} />
@@ -91,9 +122,7 @@ const SHAPES: Readonly<Record<IconName, (color: string) => ReactNode>> = {
   list: () => (
     <Path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
   ),
-  explore: () => (
-    <Path d="M12 2.5l8.5 4.75v9.5L12 21.5l-8.5-4.75v-9.5zM3.5 7.25L12 12l8.5-4.75M12 12v9.5" />
-  ),
+  explore: sceneGlyph,
   frame: () => (
     <Path d="M3 8V4.5A1.5 1.5 0 0 1 4.5 3H8M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8M21 16v3.5a1.5 1.5 0 0 1-1.5 1.5H16M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" />
   ),

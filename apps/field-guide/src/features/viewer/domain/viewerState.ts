@@ -69,13 +69,16 @@ export type ViewerAction =
   | { readonly type: typeof ViewerActionType.guide };
 
 export function initialViewerState(
-  procedureId: ProcedureId,
+  procedureId: ProcedureId | null,
   stepIndex: number,
   pack: Pack,
 ): ViewerState {
   return showStep(
     {
-      session: startAt(procedureId, stepIndex, pack),
+      session:
+        procedureId === null
+          ? INITIAL_SESSION
+          : startAt(procedureId, stepIndex, pack),
       exchange: null,
       thread: [],
       stepsShown: 0,

@@ -13,6 +13,7 @@ import {
 import { type Pack, type ProcedureId } from '../../pack/pack';
 import {
   currentProcedure,
+  currentStep,
   type SessionEvent,
   type SessionStart,
   type SessionState,
@@ -38,7 +39,6 @@ import {
   useFrameRequest,
   usePartTrail,
   useShownText,
-  useStepRows,
   useThread,
   useUtterance,
   useViewerLayout,
@@ -51,7 +51,7 @@ import { Color, Space, Type } from '../../../ui/theme';
 
 import { AssistantDock } from './instructor/AssistantDock';
 import { ExploreDrawer } from './shell/ExploreDrawer';
-import { GuideDrawer } from './shell/GuideDrawer';
+import { ActivityPanel } from './shell/ActivityPanel';
 import { DOCK_EXPANDED_HEIGHT, DRAWER_IN, DRAWER_OUT } from './shell/layout';
 import { ViewerRail } from './shell/ViewerRail';
 import { Breadcrumb, BREADCRUMB_HEIGHT } from './stage/Breadcrumb';
@@ -97,16 +97,24 @@ export function ViewerScreen({
   const instructor = useInstructor();
   const { guideId, procedureId, stepIndex, mode, voice } = start;
   const guide = findReadyGuide(catalog, guideId);
+  const [opened, setOpened] = useState<SessionStart | null>(null);
+  useEffect(() => {
+    if (!guide) return;
+    // Open after the previous viewer has released its subscriptions and voice session.
+    viewerStore
+      .getState()
+      .open({ guide, procedureId, stepIndex, mode, instructor });
+    setOpened(start);
+  }, [guide, instructor, mode, procedureId, start, stepIndex]);
   if (guide === undefined) {
     return <MissingGuide onBack={onExit} />;
   }
+  if (opened !== start) return <View style={styles.root} />;
   return (
     <Viewer
       instructor={instructor}
       guide={guide}
       procedureId={procedureId}
-      stepIndex={stepIndex}
-      mode={mode}
       startInVoice={voice === true && mode === LearnMode.instructor}
       onExit={onExit}
       progress={progress}
@@ -117,9 +125,7 @@ export function ViewerScreen({
 interface ViewerProps {
   instructor: Instructor;
   guide: ReadyGuide;
-  procedureId: ProcedureId;
-  stepIndex: number;
-  mode: LearnMode;
+  procedureId: ProcedureId | null;
   startInVoice: boolean;
   onExit: () => void;
   progress: ProgressWriter;
@@ -129,19 +135,12 @@ function Viewer({
   instructor,
   guide,
   procedureId,
-  stepIndex,
-  mode,
   startInVoice,
   onExit,
   progress,
 }: ViewerProps) {
   const { pack } = guide;
-  // Opened during the first render, so the first frame already shows the requested step.
-  useState(() =>
-    viewerStore
-      .getState()
-      .open({ guide, procedureId, stepIndex, mode, instructor }),
-  );
+  const standalone = procedureId === null;
   // Actions never change, so reading them once per render is enough.
   const actions = viewerStore.getState();
   const insets = useSafeAreaInsets();
@@ -159,7 +158,6 @@ function Viewer({
   const card = useCard();
   const thread = useThread();
   const exchange = useExchange();
-  const steps = useStepRows();
   const trail = usePartTrail();
   const cardPart = useCardPart();
   const shownText = useShownText();
@@ -189,12 +187,15 @@ function Viewer({
   }, [askVoice, interruptVoice, stopVoice]);
   // Declared after the voice hook, so leaving stops speech before the answer is cancelled.
   useEffect(() => {
-    const detach = attachProgressAutosave(viewerStore, progress);
+    // Free exploration must not clear or overwrite a course continuation.
+    const detach = standalone
+      ? () => {}
+      : attachProgressAutosave(viewerStore, progress);
     return () => {
       detach();
       viewerStore.getState().close();
     };
-  }, [progress]);
+  }, [progress, standalone]);
   const [loadedMs, setLoadedMs] = useState<number | null>(null);
   const [stage, setStage] = useState<Size>(NO_SIZE);
   const [toolsWidth, setToolsWidth] = useState(0);
@@ -258,17 +259,19 @@ function Viewer({
   );
   const stageOverlays = wide && (
     <>
-      <View
-        pointerEvents="box-none"
-        style={[styles.breadcrumb, { top: insets.top + Space.sm }]}
-      >
-        <Breadcrumb
-          area={guide.area}
-          trail={trail}
-          onArea={() => actions.select(null)}
-          onPart={actions.select}
-        />
-      </View>
+      {(guide.area !== '' || trail.length > 0) && (
+        <View
+          pointerEvents="box-none"
+          style={[styles.breadcrumb, { top: insets.top + Space.sm }]}
+        >
+          <Breadcrumb
+            area={guide.area}
+            trail={trail}
+            onArea={() => actions.select(null)}
+            onPart={actions.select}
+          />
+        </View>
+      )}
       {labelsOn && (
         <PartCard part={cardPart} stage={stage} clear={cardClearance} />
       )}
@@ -292,6 +295,7 @@ function Viewer({
               labelsOn={labelsOn}
               fullView={fullView}
               canRepeat={!exploring}
+              showActivityControls={!standalone}
               dev={<DevPanel pack={pack} loadedMs={loadedMs} />}
               onRecenter={actions.recenter}
               onToggleLabels={actions.toggleLabels}
@@ -336,7 +340,7 @@ function Viewer({
       onSelect={actions.select}
       onLoaded={setLoadedMs}
     >
-      {!wide && (
+      {!wide && !standalone && (
         <View style={styles.toolsTop}>
           <ViewerTools
             exploring={exploring}
@@ -386,43 +390,26 @@ function Viewer({
             <ViewerRail
               topInset={insets.top}
               bottomInset={insets.bottom}
+              allowGuide={!standalone}
               capability={capability}
               drawerOpen={!fullView}
               onBack={leave}
               onCapability={actions.chooseCapability}
             />
-            {!fullView && (
+            {!fullView && exploring && (
               <Animated.View
                 entering={DRAWER_IN}
                 exiting={DRAWER_OUT}
                 style={styles.drawer}
               >
-                {exploring ? (
-                  <ExploreDrawer
-                    topInset={insets.top}
-                    bottomInset={insets.bottom}
-                    parts={pack.parts}
-                    selected={session.selectedPart}
-                    onSelect={actions.select}
-                    onClose={actions.closeDrawer}
-                  />
-                ) : (
-                  <GuideDrawer
-                    instructorOpen={instructorOpen}
-                    onToggleInstructor={actions.toggleInstructor}
-                    topInset={insets.top}
-                    bottomInset={insets.bottom}
-                    procedureTitle={procedureTitle}
-                    onChooseProcedure={actions.openPicker}
-                    steps={steps}
-                    current={session.stepIndex}
-                    onGoTo={actions.goTo}
-                    content={card}
-                    onBack={actions.back}
-                    onNext={onNext}
-                    onClose={actions.closeDrawer}
-                  />
-                )}
+                <ExploreDrawer
+                  topInset={insets.top}
+                  bottomInset={insets.bottom}
+                  parts={pack.parts}
+                  selected={session.selectedPart}
+                  onSelect={actions.select}
+                  onClose={actions.closeDrawer}
+                />
               </Animated.View>
             )}
             <View
@@ -434,6 +421,27 @@ function Viewer({
               }}
             >
               {viewportView}
+              {!exploring && !fullView && (
+                <View
+                  style={[
+                    styles.activity,
+                    {
+                      top: insets.top + Space.xxl + Space.xl,
+                      bottom: insets.bottom + Space.xxl * 2,
+                    },
+                  ]}
+                  pointerEvents="box-none"
+                >
+                  <ActivityPanel
+                    procedureTitle={procedureTitle}
+                    content={card}
+                    detail={currentStep(session, pack)?.text}
+                    onBack={actions.back}
+                    onNext={onNext}
+                    onClose={actions.closeDrawer}
+                  />
+                </View>
+              )}
             </View>
           </View>
         </LayoutAnimationConfig>
@@ -442,22 +450,25 @@ function Viewer({
           <ViewerTopBar
             topInset={insets.top}
             procedureTitle={procedureTitle}
+            activityControls={!standalone}
             instructorOpen={instructorOpen}
             onBack={leave}
             onChooseProcedure={actions.openPicker}
             onToggleInstructor={actions.toggleInstructor}
           />
           {viewportView}
-          {panel}
+          {!standalone && panel}
         </>
       )}
-      <ProcedureSheet
-        visible={pickerVisible}
-        pack={pack}
-        current={session.procedureId}
-        onChoose={actions.chooseProcedure}
-        onClose={actions.closePicker}
-      />
+      {!standalone && (
+        <ProcedureSheet
+          visible={pickerVisible}
+          pack={pack}
+          current={session.procedureId}
+          onChoose={actions.chooseProcedure}
+          onClose={actions.closePicker}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -482,6 +493,12 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row' },
   drawer: { flexDirection: 'row' },
   stage: { flex: 1 },
+  activity: {
+    position: 'absolute',
+    left: Space.lg,
+    right: Space.lg,
+    alignItems: 'flex-start',
+  },
   toolsTop: { position: 'absolute', top: Space.md, left: Space.md },
   breadcrumb: {
     position: 'absolute',

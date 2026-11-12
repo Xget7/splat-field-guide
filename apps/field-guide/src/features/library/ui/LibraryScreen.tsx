@@ -36,6 +36,14 @@ import { CourseAssistant } from './CourseAssistant';
 import { CourseDocumentation } from './CourseDocumentation';
 import type { CourseDocuments } from '../../../platform/documents';
 import { CourseDownloads } from './CourseDownloads';
+import {
+  WorkspaceHome,
+  DEFAULT_ORGANIZATION,
+  COURSE_TITLE,
+  WorkspaceProgress,
+} from './WorkspaceHome';
+
+type Destination = AppSection | 'Courses';
 
 type CourseSection = 'Course' | 'Modules' | 'Assistant' | 'Documentation';
 
@@ -98,8 +106,9 @@ export function LibraryScreen({
     }
   };
 
-  const [destination, setDestination] = useState<AppSection>('Courses');
-  const inCourse = destination === 'Courses';
+  const [destination, setDestination] = useState<Destination>('Organizations');
+  const [courseOpen, setCourseOpen] = useState(false);
+  const inCourse = destination === 'Courses' && courseOpen;
   const [section, setSection] = useState<CourseSection>('Course');
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -118,14 +127,13 @@ export function LibraryScreen({
   };
   const explore = () => {
     const guide = catalog[0];
-    const tour = guide?.pack.procedures[0];
-    if (!guide || !tour) {
+    if (!guide) {
       unavailable();
       return;
     }
     onOpen({
       guideId: guide.id,
-      procedureId: tour.id,
+      procedureId: null,
       stepIndex: 0,
       mode: LearnMode.selfGuided,
     });
@@ -144,24 +152,17 @@ export function LibraryScreen({
         setNotice('Could not open the on-device manual. Try again.'),
       );
   };
-  const selectDestination = (next: AppSection) => {
-    if (next === 'Equipment') {
-      explore();
-      return;
-    }
-    if (next === 'Modules' || next === 'Documentation') {
-      setDestination('Courses');
-      setSection(next);
-    } else {
-      setDestination(next);
-      if (next === 'Courses') setSection('Course');
-    }
+  const selectDestination = (next: Destination) => {
+    setDestination(next);
+    setCourseOpen(false);
     setNotice(null);
   };
-  const navigationSection =
-    inCourse && (section === 'Modules' || section === 'Documentation')
-      ? section
-      : destination;
+  const openCourse = (next: CourseSection = section) => {
+    setDestination('Courses');
+    setCourseOpen(true);
+    setSection(next);
+    setNotice(null);
+  };
   const select = (next: CourseSection) => {
     setSection(next);
     setNotice(null);
@@ -175,7 +176,7 @@ export function LibraryScreen({
       ]}
     >
       <CourseNavigation
-        section={navigationSection}
+        section={destination === 'Courses' ? 'Organizations' : destination}
         compact={compact}
         continuation={
           continuation
@@ -195,18 +196,77 @@ export function LibraryScreen({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
         >
+          {destination === 'Courses' && (
+            <View
+              testID={inCourse ? 'course-breadcrumb' : 'workspace-breadcrumb'}
+              style={styles.breadcrumbs}
+            >
+              <Pressable
+                testID="workspace-breadcrumb-organizations"
+                accessibilityRole="button"
+                accessibilityLabel="Back to organizations"
+                onPress={() => selectDestination('Organizations')}
+                style={styles.breadcrumbAction}
+              >
+                <Text style={styles.breadcrumb}>Organizations</Text>
+              </Pressable>
+              {destination === 'Courses' && (
+                <>
+                  <Text style={styles.breadcrumb}>/</Text>
+                  <Pressable
+                    testID="workspace-breadcrumb-organization"
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Miris organization courses"
+                    onPress={() => selectDestination('Courses')}
+                    style={styles.breadcrumbAction}
+                  >
+                    <Text style={styles.breadcrumb}>
+                      {DEFAULT_ORGANIZATION}
+                    </Text>
+                  </Pressable>
+                  {inCourse && (
+                    <>
+                      <Text style={styles.breadcrumb}>/</Text>
+                      <Pressable
+                        testID="workspace-breadcrumb-courses"
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to courses"
+                        onPress={() => selectDestination('Courses')}
+                        style={styles.breadcrumbAction}
+                      >
+                        <Text style={styles.breadcrumb}>Courses</Text>
+                      </Pressable>
+                    </>
+                  )}
+                  {inCourse && (
+                    <>
+                      <Text style={styles.breadcrumb}>/</Text>
+                      <Text style={styles.current}>{COURSE_TITLE}</Text>
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+          {!inCourse &&
+            (destination === 'Organizations' || destination === 'Courses') && (
+              <WorkspaceHome
+                organizations={destination === 'Organizations'}
+                courseAvailable={catalog.length > 0}
+                moduleCount={moduleCount}
+                onOrganization={() => selectDestination('Courses')}
+                onCourse={() => openCourse()}
+              />
+            )}
           {inCourse && (
             <>
-              <Text testID="course-breadcrumb" style={styles.breadcrumb}>
-                Organization / Courses /{' '}
-                <Text style={styles.current}>Automotive Assembly Line</Text>
-              </Text>
               <View accessibilityRole="tablist" style={styles.tabs}>
                 {(
                   ['Course', 'Modules', 'Documentation', 'Assistant'] as const
                 ).map(tab => (
                   <Pressable
                     key={tab}
+                    testID={`course-tab-${tab.toLowerCase()}`}
                     accessibilityRole="tab"
                     accessibilityLabel={tab}
                     accessibilityState={{ selected: section === tab }}
@@ -321,14 +381,19 @@ export function LibraryScreen({
           {inCourse && section === 'Documentation' && (
             <CourseDocumentation documents={documents} />
           )}
+          {destination === 'Progress' && (
+            <WorkspaceProgress
+              continuation={continuation}
+              onContinue={continueGuide}
+            />
+          )}
           {destination === 'Downloads' && (
             <CourseDownloads
               sceneAvailable={catalog.length > 0}
               documents={documents}
               moduleCount={moduleCount}
               onBack={() => {
-                select('Course');
-                selectDestination('Courses');
+                openCourse('Course');
               }}
             />
           )}
@@ -348,16 +413,16 @@ export function LibraryScreen({
               <Pressable
                 testID="help-equipment"
                 accessibilityRole="button"
-                accessibilityLabel="Explore equipment"
+                accessibilityLabel="Explore cell"
                 onPress={explore}
                 style={styles.helpAction}
               >
-                <Text style={styles.helpActionText}>Explore equipment</Text>
+                <Text style={styles.helpActionText}>Explore cell</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Browse course modules"
-                onPress={() => selectDestination('Modules')}
+                onPress={() => openCourse('Modules')}
                 style={styles.helpAction}
               >
                 <Text style={styles.helpActionText}>Browse course modules</Text>
@@ -365,7 +430,7 @@ export function LibraryScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Read equipment documentation"
-                onPress={() => selectDestination('Documentation')}
+                onPress={() => openCourse('Documentation')}
                 style={styles.helpAction}
               >
                 <Text style={styles.helpActionText}>
@@ -398,6 +463,13 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   content: { padding: G.large, gap: G.large },
+  breadcrumbs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: G.unit,
+  },
+  breadcrumbAction: { minHeight: G.control, justifyContent: 'center' },
   breadcrumb: { ...T.caption, color: C.secondary },
   current: { ...T.label, color: C.text },
   secondary: { ...T.body, color: C.secondary },
