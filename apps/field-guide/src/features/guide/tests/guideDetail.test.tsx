@@ -171,18 +171,22 @@ describe('Guide detail screen', () => {
     await act(() => renderer.unmount());
   });
 
-  test('a procedure and Start open step zero in Instructor by default', async () => {
+  test('a procedure and Start open step zero with the instructor speaking, with no mode or voice choice here', async () => {
     await mount();
-    expect(node('mode-instructor').props.accessibilityState).toEqual({
-      selected: true,
-    });
+    for (const choice of [
+      'mode-instructor',
+      'mode-self-guided',
+      'voice-assistant',
+    ]) {
+      expect(renderer.root.findAllByProps({ testID: choice })).toHaveLength(0);
+    }
     await press('procedure-row-check-coolant');
     expect(onOpen).toHaveBeenLastCalledWith({
       guideId: pack.packId,
       procedureId: 'check-coolant',
       stepIndex: 0,
       mode: LearnMode.instructor,
-      voice: false,
+      voice: true,
     });
     await press('start-tour');
     expect(onOpen).toHaveBeenLastCalledWith({
@@ -190,7 +194,7 @@ describe('Guide detail screen', () => {
       procedureId: TOUR_ID,
       stepIndex: 0,
       mode: LearnMode.instructor,
-      voice: false,
+      voice: true,
     });
     await press('guide-back');
     expect(onBack).toHaveBeenCalledTimes(1);
@@ -295,46 +299,6 @@ describe('Guide detail screen', () => {
     expect(
       renderer.root.findAllByType(Text).map(item => item.props.children),
     ).not.toContain('Preview files could not be opened.');
-  });
-
-  test('selected mode drives both procedure and Start navigation', async () => {
-    await mount();
-    await press('mode-self-guided');
-    expect(node('mode-self-guided').props.accessibilityState).toEqual({
-      selected: true,
-    });
-    expect(node('mode-instructor').props.accessibilityState).toEqual({
-      selected: false,
-    });
-    await press('procedure-row-check-brake-fluid');
-    expect(onOpen).toHaveBeenLastCalledWith({
-      guideId: pack.packId,
-      procedureId: 'check-brake-fluid',
-      stepIndex: 0,
-      mode: LearnMode.selfGuided,
-      voice: false,
-    });
-    await press('start-tour');
-    expect(onOpen).toHaveBeenLastCalledWith({
-      guideId: pack.packId,
-      procedureId: TOUR_ID,
-      stepIndex: 0,
-      mode: LearnMode.selfGuided,
-      voice: false,
-    });
-  });
-
-  test('each learning mode explains its behavior as a hint rather than a caption', async () => {
-    await mount();
-    expect(node('mode-instructor').props.accessibilityHint).toBe(
-      'Steps on screen, and answers about any part you ask.',
-    );
-    expect(node('mode-self-guided').props.accessibilityHint).toBe(
-      'Just the steps, read at your own pace.',
-    );
-    expect(texts()).not.toContain(
-      'Steps on screen, and answers about any part you ask.',
-    );
   });
 
   test('an older pack without an outline reads cleanly: no summary and no documentation', async () => {
@@ -455,26 +419,6 @@ describe('Guide detail screen', () => {
     } finally {
       await act(async () => Dimensions.set({ window: phone, screen: phone }));
     }
-  });
-
-  test('the voice assistant is an Instructor choice that opens the viewer in voice', async () => {
-    await mount();
-    await press('voice-assistant');
-    expect(node('voice-assistant').props.accessibilityState).toEqual({
-      checked: true,
-    });
-    await press('start-tour');
-    expect(onOpen).toHaveBeenLastCalledWith(
-      expect.objectContaining({ mode: LearnMode.instructor, voice: true }),
-    );
-    await press('mode-self-guided');
-    expect(
-      renderer.root.findAllByProps({ testID: 'voice-assistant' }),
-    ).toHaveLength(0);
-    await press('start-tour');
-    expect(onOpen).toHaveBeenLastCalledWith(
-      expect.objectContaining({ mode: LearnMode.selfGuided, voice: false }),
-    );
   });
 
   test.each(['missing', 'tactical-truck-engine-bay'])(

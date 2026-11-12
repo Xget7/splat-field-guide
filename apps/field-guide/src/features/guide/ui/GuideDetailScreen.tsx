@@ -9,7 +9,7 @@ import type { CourseDocuments } from '../../../platform/documents';
 import { courseOutlineFor } from '../domain/courseOutline';
 import { LearnMode } from '../domain/learningMode';
 import type { SessionStart } from '../domain/sessionStart';
-import { IconButton, IconButtonVariant } from '../../../ui/Button';
+import { Button, IconButton, IconButtonVariant } from '../../../ui/Button';
 import { Backdrop } from '../../../ui/Gradients';
 import { IconName } from '../../../ui/Icon';
 import { ScrollEdge, useScrollOffset } from '../../../ui/ScrollEdge';
@@ -22,7 +22,6 @@ import {
   Section,
 } from './CourseSections';
 import { GuidePreview } from './GuidePreview';
-import { StartBar } from './StartBar';
 
 // One gutter sets the outer margin, the gap between the columns and the space between sections,
 // so the back button, title, preview and right column share a single grid.
@@ -71,8 +70,6 @@ export function GuideDetailScreen({
   const wide = useWideLayout();
   const window = useWindowDimensions();
   const sideBySide = wide && window.width > window.height;
-  const [mode, setMode] = useState<LearnMode>(LearnMode.instructor);
-  const [voice, setVoice] = useState(false);
   const [opening, setOpening] = useState(false);
   const [focus, setFocus] = useState<PartId | null>(null);
   const [barHeight, setBarHeight] = useState(0);
@@ -117,7 +114,8 @@ export function GuideDetailScreen({
 
   const { pack } = guide;
   const outline = courseOutlineFor(pack);
-  // Voice belongs to the instructor, so a self-guided start never opens it.
+  // Every start opens the instructor speaking; the learner turns voice off in the viewer,
+  // and a voice that cannot start falls back to text there.
   const openProcedure = (procedureId: ProcedureId) => {
     // Release the preview in the same transition that mounts the activity viewer.
     setOpening(true);
@@ -125,8 +123,8 @@ export function GuideDetailScreen({
       guideId: guide.id,
       procedureId,
       stepIndex: 0,
-      mode,
-      voice: mode === LearnMode.instructor && voice,
+      mode: LearnMode.instructor,
+      voice: true,
     });
   };
 
@@ -183,12 +181,11 @@ export function GuideDetailScreen({
     </>
   );
   const start = (
-    <StartBar
-      mode={mode}
-      onMode={setMode}
-      voice={voice}
-      onVoice={setVoice}
-      onStart={() => openProcedure(TOUR_ID)}
+    <Button
+      testID="start-tour"
+      label="Start parts tour"
+      accessibilityLabel="Start parts tour"
+      onPress={() => openProcedure(TOUR_ID)}
     />
   );
 
