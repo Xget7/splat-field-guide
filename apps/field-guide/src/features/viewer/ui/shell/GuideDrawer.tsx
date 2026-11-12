@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../../../../ui/Icon';
 import { Color, Radius, Space, Type } from '../../../../ui/theme';
 import type { CardContent, StepRow } from '../../../guide';
@@ -23,6 +23,8 @@ interface Props {
   onBack: () => void;
   onNext: () => void;
   onClose: () => void;
+  instructorOpen?: boolean;
+  onToggleInstructor?: () => void;
 }
 
 export function GuideDrawer({
@@ -37,6 +39,8 @@ export function GuideDrawer({
   onBack,
   onNext,
   onClose,
+  instructorOpen = false,
+  onToggleInstructor,
 }: Props) {
   return (
     <Drawer
@@ -55,6 +59,44 @@ export function GuideDrawer({
         />
       }
     >
+      {onToggleInstructor && (
+        <View style={styles.guidance}>
+          <Text style={styles.guidanceLabel}>Guidance</Text>
+          <View style={styles.modes}>
+            {[
+              {
+                id: 'instructor',
+                title: 'Instructor',
+                selected: instructorOpen,
+              },
+              {
+                id: 'self-guided',
+                title: 'Self-guided',
+                selected: !instructorOpen,
+              },
+            ].map(option => (
+              <Pressable
+                key={option.id}
+                testID={`guidance-${option.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={option.title}
+                accessibilityState={{ selected: option.selected }}
+                onPress={() => {
+                  if (!option.selected) onToggleInstructor();
+                }}
+                style={[styles.mode, option.selected && styles.modeSelected]}
+              >
+                <Text style={styles.modeTitle}>{option.title}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.guidanceCaption}>
+            {instructorOpen
+              ? 'Ask about the selected part or current step.'
+              : 'Follow the steps at your own pace.'}
+          </Text>
+        </View>
+      )}
       <Pressable
         testID="procedure-button"
         accessibilityRole="button"
@@ -75,6 +117,29 @@ export function GuideDrawer({
 }
 
 const styles = StyleSheet.create({
+  guidance: {
+    marginHorizontal: Space.lg,
+    marginBottom: Space.lg,
+    gap: Space.sm,
+  },
+  guidanceLabel: { ...Type.label, color: Color.secondaryText },
+  modes: {
+    flexDirection: 'row',
+    gap: Space.xs,
+    padding: Space.xs,
+    backgroundColor: Color.field,
+    borderRadius: Radius.control,
+  },
+  mode: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.control,
+  },
+  modeSelected: { backgroundColor: Color.accentFill },
+  modeTitle: { ...Type.label, color: Color.text },
+  guidanceCaption: { ...Type.footnote, color: Color.secondaryText },
   procedure: {
     minHeight: 48,
     marginHorizontal: Space.lg,

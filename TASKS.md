@@ -249,3 +249,18 @@ Installation of `dev.splatfieldguide.coursepreview` from `apps/field-guide/ios/b
 Launch and visual validation remain blocked because `device_open` reports that device support, agent access and an available simulator platform must be enabled; no other device or session was taken over.
 The installed app uses the existing Metro on 8081; the parallel Field Guide iPad and Metro 8107 were preserved.
 No target-device drawn-count, GPU, memory, thermal or physical-performance acceptance is claimed.
+
+## Miris demo UI and offline documentation
+
+Tickets #22, #23, #24 and #25 cover the real scene preview, useful course navigation, guidance modes and on-device manuals.
+The module entry now renders the bundled Miris splat with rotate and recenter controls, and releases its viewer while an activity is focused.
+The sidebar exposes course overview, real modules, 3D equipment, documentation, validated resume, downloads and help; Assistant remains in the course tabs only.
+Instructor and Self-guided share the current activity position, and leaving Instructor cancels its pending answer and voice session.
+Course questions use the shared grounded turn runner and require an explicit action to open an answered-about part in 3D.
+The local demo build contains hash-verified KUKA BA extra V4 and MA K+P V6 originals through the documented opt-in copy phase; PDF bytes are not redistributed by this repository.
+The native document adapter opens the verified local files with Quick Look, and Downloads reports verified manuals and real course activities separately from unavailable remote delivery.
+Validation passes 866 app tests in 75 suites, app lint, formatting, TypeScript, the document bundling regression, production iOS JavaScript bundling and an unsigned iOS Simulator Debug app build.
+One integration review per axis found no standards issues and two specification issues; regression tests reproduce and fix same-text course retries after cancellation and incorrect Downloads availability.
+Argent verification on SplatKit highlight iPad, `FFC2D6EA-E75C-4BFB-916E-D0EF1F95AF47`, bundle `dev.splatfieldguide.coursepreview`, confirms real preview rendering and rotation, both native offline PDFs, populated modules and Downloads, Self-guided navigation, mode switching without losing the step, and a grounded Roof welder response with explicit 3D navigation.
+The app uses the existing Metro on 8081, and the parallel Field Guide iPad, bundle and Metro 8107 were preserved.
+Paid voice and answer providers were tested with fakes rather than live calls; simulator validation does not establish physical-device GPU, memory, thermal or performance acceptance.

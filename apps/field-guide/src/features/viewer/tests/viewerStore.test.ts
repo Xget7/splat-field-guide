@@ -68,6 +68,28 @@ describe('viewer store', () => {
     expect(store.getState().viewer?.exchange).toBeNull();
   });
 
+  test('leaving Instructor cancels a pending answer while retaining the step', () => {
+    const instructor = fakeInstructor({
+      turns: createTurnRunner(
+        [
+          {
+            isReady: () => true,
+            prewarm: () => {},
+            cancel: () => {},
+            respond: () => new Promise<string>(() => {}),
+          },
+        ],
+        createExchangeIds(),
+      ),
+    });
+    const store = openStore(1, LearnMode.instructor, instructor);
+    store.getState().ask('Why does this step matter?');
+    expect(store.getState().viewer?.exchange).not.toBeNull();
+    store.getState().toggleInstructor();
+    expect(store.getState().viewer?.exchange).toBeNull();
+    expect(store.getState().viewer?.session.stepIndex).toBe(1);
+  });
+
   test('closing releases the voice and rejects subsequent session actions', () => {
     const store = openStore(1);
     const voice = recordingVoice();

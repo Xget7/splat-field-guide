@@ -1,4 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import type { CourseDocuments } from '../../../platform/documents';
 import { OfflinePreparation } from '../../instructor/views';
 import {
   CourseColor as C,
@@ -11,10 +13,36 @@ import {
 export function CourseDownloads({
   sceneAvailable,
   onBack,
+  documents,
+  moduleCount = 0,
 }: {
   sceneAvailable: boolean;
   onBack: () => void;
+  documents?: CourseDocuments;
+  moduleCount?: number;
 }) {
+  const [manuals, setManuals] = useState<string>('Checking local manuals');
+  useEffect(() => {
+    let active = true;
+    const update = (value: string) => {
+      if (active) setManuals(value);
+    };
+    setManuals('Checking local manuals');
+    if (!documents) update('Not downloaded');
+    else
+      documents.list().then(
+        entries =>
+          update(
+            entries.length > 0 && entries.every(entry => entry.available)
+              ? 'Available on device'
+              : 'Not downloaded',
+          ),
+        () => update('Could not verify local manuals'),
+      );
+    return () => {
+      active = false;
+    };
+  }, [documents]);
   return (
     <View style={styles.panel}>
       <Text accessibilityRole="header" style={styles.heading}>
@@ -23,7 +51,7 @@ export function CourseDownloads({
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.heading}>Automotive Assembly Line</Text>
-          <Text style={styles.status}>Not available offline</Text>
+          <Text style={styles.status}>Local demo resources</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>3D scene</Text>
@@ -32,8 +60,16 @@ export function CourseDownloads({
           </Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Manual &amp; course modules</Text>
-          <Text style={styles.secondary}>Not downloaded</Text>
+          <Text style={styles.label}>Equipment manuals</Text>
+          <Text style={styles.secondary}>{manuals}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Course activities</Text>
+          <Text style={styles.secondary}>
+            {moduleCount > 0
+              ? `${moduleCount} available on device`
+              : 'Not downloaded'}
+          </Text>
         </View>
         <Text style={styles.secondary}>
           Course downloads are not available yet.

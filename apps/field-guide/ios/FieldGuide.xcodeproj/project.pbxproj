@@ -16,6 +16,8 @@
 		86247EA738BE977004D10EE4 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1D85DE3F534D69F8EBF0B906 /* Geist-Bold.ttf */; };
 		96B6C9E287CE469CAC3D1F01 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = 96B6C9E287CE469CAC3D1F02 /* ThirdPartyNotices.txt */; };
 		E34E6E427FA922DE6F7C4EC6 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F310777D259CCB92B9D8DFA7 /* Geist-Regular.ttf */; };
+		D025A0000000000000000001 /* CourseDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = D025A0000000000000000002 /* CourseDocuments.swift */; };
+		D025A0000000000000000003 /* CourseDocumentsBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D025A0000000000000000004 /* CourseDocumentsBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +35,8 @@
 		C65EB00691EDFE98520A4A13 /* Geist-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "Geist-SemiBold.ttf"; path = "../assets/fonts/Geist-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F310777D259CCB92B9D8DFA7 /* Geist-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "Geist-Regular.ttf"; path = "../assets/fonts/Geist-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		D025A0000000000000000002 /* CourseDocuments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldGuide/CourseDocuments.swift; sourceTree = "<group>"; };
+		D025A0000000000000000004 /* CourseDocumentsBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FieldGuide/CourseDocumentsBridge.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +64,8 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				D025A0000000000000000002 /* CourseDocuments.swift */,
+				D025A0000000000000000004 /* CourseDocumentsBridge.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -251,7 +257,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\n# FIELD_GUIDE_PACKS names bundled packs as space-separated <packId>/<packVersion> entries; none by default.\nnice -n 19 node \"$SRCROOT/../../../scripts/copy_bundled_packs.cjs\" \"$PACKS\" \"$DEST\" ${FIELD_GUIDE_PACKS:-}\n";
+			shellScript = "set -eu\nPACKS=\"$SRCROOT/../../../data/pack\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/packs\"\n# FIELD_GUIDE_PACKS names bundled packs as space-separated <packId>/<packVersion> entries; none by default.\nnice -n 19 node \"$SRCROOT/../../../scripts/copy_bundled_packs.cjs\" \"$PACKS\" \"$DEST\" ${FIELD_GUIDE_PACKS:-}\nnice -n 19 node \"$SRCROOT/../../../scripts/copy_course_documents.cjs\" \"$SRCROOT/../assets/documents/catalog.json\" \"${FIELD_GUIDE_DOCUMENTS_DIR:-}\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/documents\" ${FIELD_GUIDE_PACKS:-}\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -300,6 +306,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				D025A0000000000000000001 /* CourseDocuments.swift in Sources */,
+				D025A0000000000000000003 /* CourseDocumentsBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

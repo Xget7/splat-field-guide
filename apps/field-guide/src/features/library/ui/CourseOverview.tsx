@@ -100,18 +100,19 @@ export function CourseOverview({
     </View>
   );
 }
-export const DEMO_MODULES = [
-  'KUKA Robot Fundamentals',
-  'Body Transport',
-  'Cell Safety',
-] as const;
 export function ModuleCard({
   title,
   index,
   onPress,
   testID,
+  details,
+  action = 'Open module',
+  wide = false,
 }: {
   title: string;
+  details?: string;
+  action?: string;
+  wide?: boolean;
   index: number;
   onPress: () => void;
   testID?: string;
@@ -122,25 +123,24 @@ export function ModuleCard({
       accessibilityRole="button"
       accessibilityLabel={`Open module, ${title}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        wide && styles.cardWide,
+        pressed && styles.pressed,
+      ]}
     >
       <View style={styles.titleRow}>
         <Icon
-          name={
-            index === 0
-              ? IconName.explore
-              : index === 1
-              ? IconName.layers
-              : IconName.lock
-          }
+          name={index === 0 ? IconName.explore : IconName.list}
           color={C.secondary}
           size={24}
         />
         <Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text>
       </View>
       <Text style={styles.moduleTitle}>{title}</Text>
+      {details && <Text style={styles.moduleDetails}>{details}</Text>}
       <View style={styles.cardFooter}>
-        <Text style={styles.label}>Open module</Text>
+        <Text style={styles.label}>{action}</Text>
         <Icon name={IconName.next} color={C.secondary} size={16} />
       </View>
     </Pressable>
@@ -207,6 +207,8 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     backgroundColor: C.surface,
   },
+  cardWide: { flexBasis: '40%' },
+  moduleDetails: { ...T.caption, color: C.secondary },
   pressed: { backgroundColor: C.raised },
   number: { ...T.caption, color: C.secondary },
   moduleTitle: { ...T.heading, color: C.text, flex: 1 },

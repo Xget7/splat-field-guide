@@ -1,3 +1,6 @@
+import { NativeModules } from 'react-native';
+import { createCourseDocuments } from '../../platform/documents';
+import { useIsFocused } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { ProgressStorage } from '../../features/guide';
 import { GuideDetailScreen } from '../../features/guide/views';
@@ -14,6 +17,8 @@ export interface RouteContext {
 
 type AdapterProps<R extends Route> = ScreenProps<R> & RouteContext;
 
+const courseDocuments = createCourseDocuments(NativeModules.CourseDocuments);
+
 // Each adapter maps its route params and the navigation to the screen's props, so screens
 // know nothing of the navigator.
 
@@ -24,6 +29,7 @@ export function LibraryRoute({
 }: AdapterProps<typeof Route.library>) {
   return (
     <LibraryScreen
+      documents={courseDocuments}
       catalog={catalog}
       progress={progress}
       onOpenGuide={guide =>
@@ -40,8 +46,10 @@ export function GuideRoute({
   catalog,
 }: AdapterProps<typeof Route.guide>) {
   const { guideId } = route.params;
+  const active = useIsFocused();
   return (
     <GuideDetailScreen
+      active={active}
       catalog={catalog}
       guideId={guideId}
       onBack={() => navigation.goBack()}
