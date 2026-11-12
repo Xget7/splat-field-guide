@@ -121,7 +121,7 @@ test('pausing during final file promotion leaves a resumable state', async () =>
   const move = files.move;
   let finish;
   files.move = async (from, to) => {
-    if (to.endsWith(`/${assets.at(-1).id}`)) {
+    if (to.endsWith('/voice')) {
       await new Promise(resolve => { finish = resolve; });
     }
     await move(from, to);
@@ -134,4 +134,53 @@ test('pausing during final file promotion leaves a resumable state', async () =>
   expect(store.getSnapshot().state).toBe('missing');
   await store.prepare();
   expect(store.getSnapshot().state).toBe('ready');
+});
+
+test('prepares and verifies functional groups sequentially with independent byte progress', async () => {
+  const { store, files } = fixture();
+  const download = files.download.getMockImplementation();
+  let finish; const seen = []; const starts = [];
+  files.download.mockImplementation(async (url, path, signal, progress) => {
+    const asset = assets.find(item => item.url === url);
+    starts.push({ id: asset.id, status: store.getSnapshot() });
+    if (asset.id === 'llm') {
+      progress(asset.bytes / 2);
+      await new Promise(resolve => { finish = resolve; });
+    }
+    await download(url, path, signal, progress);
+  });
+  store.subscribe(() => seen.push(store.getSnapshot()));
+  const preparing = store.prepare();
+  while (!finish) await Promise.resolve();
+  const current = store.getSnapshot();
+  expect(current.models.map(group => group.id)).toEqual(['answers', 'listening', 'speaking']);
+  expect(current.models[0]).toMatchObject({ state: 'downloading', bytes: assets.find(asset => asset.id === 'llm').bytes / 2 });
+  expect(current.models[0].progress).toBeGreaterThan(0);
+  expect(current.models[0].progress).toBeLessThan(1);
+  expect(current.models.slice(1).map(group => group.state)).toEqual(['queued', 'queued']);
+  finish(); await preparing;
+  expect(starts.map(item => item.id)).toEqual(['llm', 'tokenizer', 'tokenizerConfig', 'whisper', 'whisperTokenizer', 'vad', 'duration', 'synthesizer', 'lexicon', 'phonemizer', 'voice']);
+  expect(starts.find(item => item.id === 'whisper').status.models[0].state).toBe('ready');
+  expect(starts.find(item => item.id === 'duration').status.models[1].state).toBe('ready');
+  expect(store.getSnapshot().models.every(group => group.state === 'ready' && group.bytes === group.total && group.progress === 1)).toBe(true);
+  expect(seen.some(snapshot => snapshot.models?.[0].state === 'ready' && snapshot.state !== 'ready')).toBe(true);
+});
+
+test('a failed group stops later transfers and retry reuses verified preceding files', async () => {
+  const { store, files, contents } = fixture();
+  const download = files.download.getMockImplementation();
+  files.download.mockImplementation(async (url, path, signal, progress) => {
+    const asset = assets.find(item => item.url === url);
+    await download(url, path, signal, progress);
+    if (asset.id === 'whisper') contents.set(path, { ...asset, sha256: 'corrupt' });
+  });
+  await expect(store.prepare()).rejects.toThrow(/verification/);
+  expect(store.getSnapshot().models.map(group => group.state)).toEqual(['ready', 'error', 'queued']);
+  expect(files.download.mock.calls.map(call => call[0])).not.toContain(assets.find(asset => asset.id === 'duration').url);
+  expect(() => store.paths('listening')).toThrow();
+  expect(store.paths('answers').llm).toMatch(/llm$/);
+  files.download.mockReset().mockImplementation(download);
+  await store.prepare();
+  expect(files.download.mock.calls.map(call => call[0])).not.toContain(assets.find(asset => asset.id === 'llm').url);
+  expect(store.getSnapshot().models.every(group => group.state === 'ready')).toBe(true);
 });

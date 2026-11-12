@@ -30,8 +30,8 @@ function fixture() {
     onToken('Supplied '); onToken('facts.');
     return { finishReason: 'stop', stats: [{ numTokens: 5 }], messages: [{ role: 'assistant', content: 'Supplied facts.' }] };
   }), dispose: jest.fn(), stop: jest.fn() };
-  const inference = { speech: jest.fn(async () => tts), recognition: jest.fn(async () => stt), answer: jest.fn(async () => answer) };
-  const models = { restore: jest.fn(async () => {}), getSnapshot: () => ({ state: 'ready' }) };
+  const inference = { sceneReserved: jest.fn(() => false), speech: jest.fn(async () => tts), recognition: jest.fn(async () => stt), answer: jest.fn(async () => answer), disposeAnswer: jest.fn(async session => session.dispose()) };
+  const models = { restore: jest.fn(async () => {}), isReady: () => true, getSnapshot: () => ({ state: 'ready' }) };
   return { audio, stt, tts, inference, models, answer, updates, local: createLocalCapabilities(audio, inference, models) };
 }
 test('generates a fresh grounded answer and passes cumulative streaming text', async () => {
@@ -86,7 +86,7 @@ test('decodes cumulative committed speech once and discards a cancellation flush
 });
 test('local preparation has no download side effect when models are missing', async () => {
   const { audio, inference } = fixture();
-  const local = createLocalCapabilities(audio, inference, { restore: jest.fn(async () => {}), getSnapshot: () => ({ state: 'missing' }) });
+  const local = createLocalCapabilities(audio, inference, { restore: jest.fn(async () => {}), isReady: () => false, getSnapshot: () => ({ state: 'missing' }) });
   expect(local.model.availability()).toBe('modelsMissing');
   await expect(local.input.prepare('en-US')).resolves.toBe('unavailable');
   expect(inference.recognition).not.toHaveBeenCalled();

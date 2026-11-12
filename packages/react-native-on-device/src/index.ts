@@ -10,6 +10,10 @@ export type {
   SpeechOutput as SpeechOutputSpec,
   OfflineModels,
   OfflineModelStatus,
+  OfflineModelGroupId,
+  OfflineModelGroupState,
+  OfflineModelProgress,
+  SceneLease,
 } from './capabilities';
 export type { AudioLink as AudioLinkSpec } from './AudioLink';
 export type {
