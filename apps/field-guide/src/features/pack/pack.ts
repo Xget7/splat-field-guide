@@ -93,6 +93,8 @@ export interface Part {
   readonly notes: readonly PartNote[];
   readonly bounds: Bounds;
   readonly anchor: Vec3;
+  /** Mean captured colour as `#rrggbb`, a robot's including its sub-parts; older packs omit it. */
+  readonly color?: string;
 }
 
 export interface Step {

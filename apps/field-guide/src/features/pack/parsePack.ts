@@ -423,6 +423,17 @@ function readNotes(value: unknown, path: string): PartNote[] {
   return notes;
 }
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function readColor(value: unknown, path: string): string | undefined {
+  if (value === undefined) return undefined;
+  const text = readText(value, path);
+  if (!HEX_COLOR.test(text)) {
+    return fail(PackErrorCode.invalidField, path, 'expected #rrggbb');
+  }
+  return text;
+}
+
 function readDirection(value: unknown, path: string) {
   if (value === undefined) return undefined;
   const object = readObject(value, path);
@@ -458,6 +469,7 @@ function readPart(value: unknown, path: string): Part {
     notes: readNotes(object.notes, at(path, 'notes')),
     bounds: readBounds(object.bounds, at(path, 'bounds')),
     anchor: readVec3(object.anchor, at(path, 'anchor')),
+    color: readColor(object.color, at(path, 'color')),
   };
 }
 
