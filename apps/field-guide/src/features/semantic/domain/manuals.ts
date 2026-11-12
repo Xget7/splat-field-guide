@@ -131,7 +131,16 @@ export function openManualIndex(
       return document && page ? passage(document, page) : null;
     },
     search(query, documentId, limit = 3) {
-      const asked = [...new Set(tokens(query))];
+      const subject = query
+        .replace(
+          /\baccording to (?:the )?(?:kuka )?(?:technical )?(?:manual|documentation|pdf|source)\b/gi,
+          ' ',
+        )
+        .replace(
+          /\b(?:in|from) (?:the )?(?:kuka )?(?:manual|documentation|pdf)\b/gi,
+          ' ',
+        );
+      const asked = [...new Set(tokens(subject))];
       if (!asked.length) return [];
       const score = (entry: ReturnType<typeof stats>) =>
         asked.reduce((total, word) => {

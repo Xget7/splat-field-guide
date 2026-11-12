@@ -54,3 +54,31 @@ test('a different source digest, edition or incomplete page inventory is rejecte
     ).toThrow();
   }
 });
+
+test('a request prefix naming the manual cannot outrank the actual subject', () => {
+  const index = openManualIndex(
+    {
+      schemaVersion: 1,
+      documents: [
+        {
+          ...source,
+          pages: [
+            { number: 1, text: 'A5 axis. A5 is a wrist axis.' },
+            {
+              number: 2,
+              text: 'According to the KUKA manual, the A5 drive has manual service instructions for the motor.',
+            },
+          ],
+        },
+      ],
+    },
+    [source],
+  );
+  expect(
+    index.search(
+      'According to the KUKA manual, what is axis A5?',
+      undefined,
+      1,
+    )[0].pdfPage,
+  ).toBe(1);
+});

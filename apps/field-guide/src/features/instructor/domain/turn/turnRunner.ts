@@ -1,4 +1,5 @@
 import type { Pack } from '../../../pack/pack';
+import { assemblyOf } from '../../../pack/graph';
 import { evidenceFor } from '../context';
 import { partClarification } from '../partReference';
 import { relationshipAnswer } from '../knowledge';
@@ -149,11 +150,13 @@ export function createTurnRunner(
       if (ranked.ok && ranked.matches.length) {
         finish({
           reply: `Similar prepared component records: ${ranked.matches
-            .map(
-              match =>
-                pack.parts.find(part => part.id === match.partId)?.name ??
-                match.partId,
-            )
+            .map(match => {
+              const part = pack.parts.find(item => item.id === match.partId);
+              const assembly = assemblyOf(pack, match.partId);
+              return part && assembly && assembly.id !== part.id
+                ? `${part.name} on ${assembly.name}`
+                : part?.name ?? match.partId;
+            })
             .join(
               ', ',
             )}. Similarity does not establish a physical relationship.`,
@@ -227,7 +230,7 @@ export function createTurnRunner(
     finish(
       source
         ? {
-            reply: `${source.text} Source: ${source.edition}, PDF page ${source.pdfPage}.`,
+            reply: `${source.edition}, PDF page ${source.pdfPage}.\n${source.text}`,
             caution: '',
             part: null,
             event: null,
