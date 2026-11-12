@@ -3,7 +3,12 @@ import type {
   CameraLimits as SplatCameraLimits,
   ViewDirection,
 } from 'react-native-splat';
-import type { Bounds, CameraHome, CameraLimits, Vec3 } from '../../pack/pack';
+import type {
+  Bounds,
+  FrameDirection,
+  CameraLimits,
+  Vec3,
+} from '../../pack/pack';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 export const FRAME_SECONDS = 0.45;
@@ -25,7 +30,7 @@ export function cameraLimitsInRadians(limits: CameraLimits): SplatCameraLimits {
   };
 }
 
-export function homeDirectionInRadians(home: CameraHome): ViewDirection {
+export function homeDirectionInRadians(home: FrameDirection): ViewDirection {
   return {
     azimuth: home.azimuth * RADIANS_PER_DEGREE,
     elevation: home.elevation * RADIANS_PER_DEGREE,

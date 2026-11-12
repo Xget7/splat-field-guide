@@ -453,6 +453,37 @@ describe('viewer screen', () => {
     );
   });
 
+  test('frames prepared step and selected part directions through the native interface', async () => {
+    const fixture = fixturePack();
+    const prepared = {
+      ...fixture,
+      parts: fixture.parts.map(part => ({
+        ...part,
+        viewDirection: { azimuth: 45, elevation: 20 },
+      })),
+      procedures: fixture.procedures.map(item => ({
+        ...item,
+        steps: item.steps.map(step => ({
+          ...step,
+          viewDirection: { azimuth: 60, elevation: 30 },
+        })),
+      })),
+    };
+    await mount({ guideId: prepared.packId }, catalogFor([prepared]));
+    await attach();
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual({
+      azimuth: Math.PI / 3,
+      elevation: Math.PI / 6,
+    });
+    await act(() =>
+      debug().dispatch({ type: SessionEventType.select, partId: 'battery' }),
+    );
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual({
+      azimuth: Math.PI / 4,
+      elevation: 20 * (Math.PI / 180),
+    });
+  });
+
   test('repeat and a new viewport size frame the step again', async () => {
     await mount();
     await attach();
@@ -466,7 +497,7 @@ describe('viewer screen', () => {
     expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
   });
 
-  test('selection keeps the orbit direction; repeat and Next restore the step', async () => {
+  test('selection uses its direction; repeat and Next restore the step', async () => {
     await mount();
     await attach();
     await act(() =>
@@ -474,7 +505,7 @@ describe('viewer screen', () => {
     );
     expect(text('step-title')).toBe('Battery');
     expect(node('step-repeat').props.accessibilityLabel).toBe('Back to step');
-    expect(view.frame.mock.calls.at(-1)).toHaveLength(2);
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
     await press('step-repeat');
     expect(debug().getState().selectedPart).toBeNull();
     expect(view.frame.mock.calls.at(-1)).toHaveLength(3);
@@ -1086,7 +1117,7 @@ describe('viewer screen', () => {
       expect(view.frame).toHaveBeenCalledTimes(calls);
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
-      expect(view.frame.mock.calls.at(-1)).toHaveLength(2);
+      expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
       await settleViewport();
       expect(view.frame).toHaveBeenCalledTimes(calls + 1);
     });

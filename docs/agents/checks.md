@@ -156,11 +156,19 @@ For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload
 
 In a Debug viewer, open Dev and choose Check framing to audit every procedure target at the current viewport size.
 The audit owns framing and highlights until it finishes; avoid procedure or layout changes during the run.
-It uses the guide context distance and home direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
+It uses the guide context distance and prepared step direction, waits for the framing animation plus a margin, then samples a 12 by 12 grid in each target's clipped projected bounds with native picks.
 A visible fraction below 0.3 is flagged, including targets entirely off-screen; an assembly accepts its own and descendant labels.
 These are projected-box occupancy scores, so sparse geometry can score low even without another part in front.
 Each target is logged as a FRAMING_AUDIT JSON line, followed by FRAMING_AUDIT_REPORT for the full report.
-The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` and `globalThis.fieldGuideFraming.report`; retrieve the latter with CDP Runtime.evaluate using returnByValue.
+The dev-only Metro runtime interface also exposes `globalThis.fieldGuideFraming.run()` (`run('home')` records a home-direction baseline on the same pack) and `globalThis.fieldGuideFraming.report`; retrieve it through the approved Metro debugger evaluation tool.
 For screenshots, await `globalThis.fieldGuideFraming.showStep(procedureId, zeroBasedStepIndex)` and then call `restore()` when finished.
 From the library, `globalThis.fieldGuideOpenFraming()` opens the first bundled guide for debugger-driven audits.
 Release builds expose neither the audit action nor the debugger hooks.
+
+For native candidate selection, generate a shortlist with `pipeline.pack.native_views shortlist` in splat-tools and inject the resulting JSON into the connected development runtime.
+Call `globalThis.fieldGuideFraming.measureCandidates(input)` and inspect `globalThis.fieldGuideFraming.candidateReport` until `complete` is true or `error` is present.
+The pass logs one FRAMING_CANDIDATE line per pose and a final FRAMING_CANDIDATE_REPORT, or FRAMING_CANDIDATE_ERROR with the incomplete report.
+Do not reload, change the viewport or run a normal audit during candidate measurement.
+The input and report bind pack ID and version, geometry hashes, viewport, canonical target sets and candidate identities.
+Use the splat-tools selector to write the complete native choices, re-export with `--native-views`, rebuild the same isolated app and run the normal prepared audit once.
+Use the approved simulator tooling for every app action, screenshot and Metro debugger operation, with the session's isolated bundle ID, device and Metro port.

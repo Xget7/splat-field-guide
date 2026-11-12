@@ -104,6 +104,42 @@ Reject stale picks and instructor actions when session/representation identity c
   Target one mounted world; measure load/pick latency, replacement memory and GPU/thermal behavior alongside local inference.
   Download chunks are transport units; worlds exceeding device budgets require a separate spatial residency/tiling contract.
 
+### Prepared framing directions
+
+Schema 3 requires `viewDirection: { azimuth, elevation }` in degrees on every part and authored procedure step, within the manifest camera limits.
+The generated parts tour inherits each part's direction.
+Schema 2 remains readable with home-direction fallback so installed legacy packs retain access while preparation migrates; that fallback makes no visibility claim.
+The consumer parser, also loaded by `scripts/validate-pack.cjs`, rejects missing schema 3 directions, non-finite angles and directions outside the limits.
+Selection takes precedence over the active step for bounds, highlights and direction, while an overview uses home.
+A subsequent push-in preserves the user's orbit.
+
+Preparation shortlists ten alternative directions at least 20 degrees apart plus home for each distinct target set, using capture support and projected target-splat quality.
+It retains the whole delivered cloud and uses the app's doubled-context bounding-sphere framing distance, radius limits and 65 degree vertical field of view.
+The shortlist checks whether each camera lies inside a half-opacity Gaussian support ellipsoid; those directions remain diagnosable but cannot win selection.
+The CPU visibility approximation is no longer used to choose export directions.
+A development-only native candidate pass frames each candidate instantly, waits for its published drawn pose and centred target projection, then samples the normal 12 by 12 native-pick grid independently for every root target.
+Assemblies accept descendant labels through the same guide highlight contract as the normal audit.
+Bounded batches of eight immutable native picks reduce measurement overhead without changing the grid or scoring.
+
+A complete measurement pass must match the pack identity, geometry hashes, viewport, target sets, candidate IDs, requested poses and CPU quality components.
+Every target must reach 0.3 projected-box coverage whenever any safe measured candidate can show all targets at that floor.
+If simultaneous floors are impossible, selection maximizes the weakest target exactly before considering quality.
+Eligible quality is `0.55 * nativeCoverage + 0.30 * captureSupport + 0.15 * crispPixels`, with named constants in preparation.
+Native coverage is the mean per-target projected-box occupancy, preventing a union score from hiding an absent target.
+Within 0.0001 quality, home proximity breaks ties.
+Capture support averages Gaussian angular support with a 20 degree sigma over the nearest three training views whose frusta contain the target centre and whose distance is between one half and twice the framing distance.
+The capture poses and target centres share the pack placement transform; absent qualifying captures score zero.
+The shortlist's crispness proxy is the share of projected target splats with opacity at least 0.5 and three-sigma support diameter at most six pixels at a reference viewport height of 768 points.
+This target-only proxy does not measure front-most pixel sharpness, and native coverage alone does not establish image quality or how much of the target's own surface is visible.
+Those limitations remain explicit rather than treating the CPU approximation as native reconstruction-quality evidence.
+
+The exporter accepts `--native-views` containing the shortlist, complete native measurements and derived selections, rechecks their binding and copies directions into schema 3.
+Its receipt records the native measurements, component scores, best measured weakest-target coverage, safe-candidate count and every target set below 0.3, including zero.
+Without that input, export creates an explicitly unmeasured home-direction bootstrap for acquiring geometry and candidate measurements, with no CPU visibility rescore.
+The final normal prepared audit checks the re-exported pack through the same direction source as the guide.
+The reference landscape iPad split viewport is 982 by 1024 points; other viewport shapes require separate native validation.
+A finite shortlist does not prove enclosure or that no continuous camera direction could improve a target.
+
 ## Semantic data
 
 **Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
