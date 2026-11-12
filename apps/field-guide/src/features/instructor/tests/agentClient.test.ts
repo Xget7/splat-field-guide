@@ -537,3 +537,19 @@ test('an empty tool-generation stop cannot consume the subsequent answer for the
   ]);
   test.client.stop();
 });
+
+test('a text-generation stop is provisional until the final agent response arrives', async () => {
+  const test = setup(true);
+  await test.start();
+  test.part('Checking the source.');
+  test.part('', 'stop');
+  expect(test.handlers.response).not.toHaveBeenCalled();
+  test.part('Which machine?');
+  test.part('', 'stop');
+  expect(test.handlers.response).not.toHaveBeenCalled();
+  test.respond(1, 'Which machine?');
+  expect(jest.mocked(test.handlers.response).mock.calls).toEqual([
+    ['Which machine?', 1],
+  ]);
+  test.client.stop();
+});

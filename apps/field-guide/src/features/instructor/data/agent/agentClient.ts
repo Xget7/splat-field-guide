@@ -270,8 +270,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
             event.part === 'start' ? event.text : responseText + event.text;
           timeline.replaceText(responseText);
           handlers.responseText(responseText, event.eventId);
-          if (options.textOnly && event.part === 'stop')
-            completeResponse(responseText, event.eventId);
+          // A generation may stop to call a tool; only agent_response completes the answer.
           words();
         }
         break;
