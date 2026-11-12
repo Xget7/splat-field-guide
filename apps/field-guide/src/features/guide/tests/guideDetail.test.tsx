@@ -134,6 +134,16 @@ describe('Guide detail screen', () => {
   };
   const texts = () =>
     renderer.root.findAllByType(Text).map(item => item.props.children);
+  /** The tour line above the start button, with its nested step count flattened. */
+  const tourSummary = () =>
+    renderer.root
+      .findAllByType(Text)
+      .find(item => item.props.testID === 'tour-summary')
+      ?.findAllByType(Text)
+      .flatMap(item =>
+        [item.props.children].flat().filter(part => typeof part === 'string'),
+      )
+      .join('');
   const mount = async (
     guideId = pack.packId,
     {
@@ -319,14 +329,17 @@ describe('Guide detail screen', () => {
     });
   });
 
-  test('the selected learning mode explains its behavior', async () => {
+  test('each learning mode explains its behavior as a hint rather than a caption', async () => {
     await mount();
-    expect(texts()).toContain(
+    expect(node('mode-instructor').props.accessibilityHint).toBe(
       'Steps on screen, and answers about any part you ask.',
     );
-    expect(texts()).not.toContain('Just the steps, read at your own pace.');
-    await press('mode-self-guided');
-    expect(texts()).toContain('Just the steps, read at your own pace.');
+    expect(node('mode-self-guided').props.accessibilityHint).toBe(
+      'Just the steps, read at your own pace.',
+    );
+    expect(texts()).not.toContain(
+      'Steps on screen, and answers about any part you ask.',
+    );
   });
 
   test('an older pack without an outline reads cleanly: no summary, no documentation, derived tour objective', async () => {
@@ -336,19 +349,19 @@ describe('Guide detail screen', () => {
         'Fixture engine bay',
         'Start here',
         'Robots',
-        'Parts tour',
-        'Identify the 6 machines and their 2 parts.',
-        'Operator, 8 steps',
         '3 steps',
         'Engine summary',
       ]),
     );
     expect(texts()).not.toContain('KUKA documentation');
+    expect(tourSummary()).toBe(
+      'Identify the 6 machines and their 2 parts. 8 steps',
+    );
     expect(texts()).not.toContain(undefined);
     expect(texts().filter(text => text === '')).toHaveLength(0);
   });
 
-  test('whole-cell modules start here and each robot leads its own procedures, each module once', async () => {
+  test('the tour is offered once, by the start button with what it covers, and whole-cell modules start here', async () => {
     await mountOutlined();
     expect(texts()).toContain(SUMMARY);
     const ids = renderer.root
@@ -363,7 +376,6 @@ describe('Guide detail screen', () => {
       .filter((id, index, all) => all.indexOf(id) === index);
     // The coolant check belongs to the engine, so it is listed with that robot and nowhere else.
     expect(ids).toEqual([
-      `procedure-row-${TOUR_ID}`,
       'procedure-row-check-brake-fluid',
       'procedure-row-check-power-steering-fluid',
       'procedure-row-check-coolant',
@@ -371,9 +383,9 @@ describe('Guide detail screen', () => {
     expect(node('procedure-row-check-coolant').props.accessibilityLabel).toBe(
       `Check the coolant level. ${COOLANT_OBJECTIVE} Maintenance, 3 steps`,
     );
-    // A sentence that already ends in a period is not given a second one.
-    expect(node(`procedure-row-${TOUR_ID}`).props.accessibilityLabel).toBe(
-      'Parts tour. Identify the 6 machines and their 2 parts. Operator, 8 steps',
+    expect(texts()).not.toContain('Parts tour');
+    expect(tourSummary()).toBe(
+      'Identify the 6 machines and their 2 parts. 8 steps',
     );
     expect(texts()).toContain('Operator, 2 steps');
     await press('procedure-row-check-coolant');

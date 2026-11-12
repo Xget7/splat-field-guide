@@ -12,6 +12,7 @@ import {
   Space,
   Type,
 } from '../../../ui/theme';
+import type { TourSummary } from '../domain/courseOutline';
 import { MODE_OPTIONS } from './guideDetail';
 
 const Layout = {
@@ -31,13 +32,21 @@ interface Props {
   readonly onMode: (mode: LearnMode) => void;
   readonly voice: boolean;
   readonly onVoice: (voice: boolean) => void;
+  /** What the tour covers, read just before starting it. */
+  readonly tour: TourSummary | null;
   readonly onStart: () => void;
 }
 
 /** How the course starts: guidance mode, voice for the instructor, then the parts tour. */
-export function StartBar({ mode, onMode, voice, onVoice, onStart }: Props) {
+export function StartBar({
+  mode,
+  onMode,
+  voice,
+  onVoice,
+  tour,
+  onStart,
+}: Props) {
   const instructor = mode === LearnMode.instructor;
-  const selected = MODE_OPTIONS.find(option => option.mode === mode)!;
   return (
     <View style={styles.bar}>
       <View accessibilityLabel="Guidance mode" style={styles.segments}>
@@ -66,7 +75,6 @@ export function StartBar({ mode, onMode, voice, onVoice, onStart }: Props) {
           );
         })}
       </View>
-      <Text style={styles.caption}>{selected.caption}</Text>
       {/* Voice belongs to the instructor, so self-guided offers no voice choice. */}
       {instructor && (
         <Pressable
@@ -89,6 +97,12 @@ export function StartBar({ mode, onMode, voice, onVoice, onStart }: Props) {
             <Animated.View layout={TOGGLE_MOTION} style={styles.knob} />
           </View>
         </Pressable>
+      )}
+      {tour && (
+        <Text testID="tour-summary" style={styles.tour}>
+          {tour.objective ? `${tour.objective} ` : ''}
+          <Text style={styles.steps}>{tour.steps}</Text>
+        </Text>
       )}
       <Button
         testID="start-tour"
@@ -124,7 +138,8 @@ const styles = StyleSheet.create({
   },
   segmentText: { ...Type.calloutStrong, color: Color.secondaryText },
   activeText: { color: Color.text },
-  caption: { ...Type.footnote, color: Color.secondaryText },
+  tour: { ...Type.footnote, color: Color.secondaryText },
+  steps: { color: Color.muted },
   voice: {
     minHeight: MIN_TOUCH,
     flexDirection: 'row',

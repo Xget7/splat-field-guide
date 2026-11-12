@@ -150,9 +150,11 @@ export function GuideDetailScreen({
   );
   const sections = (
     <>
-      <Section title={Copy.startHere}>
-        <ModuleList rows={outline.startHere} onChoose={openProcedure} />
-      </Section>
+      {outline.startHere.length > 0 && (
+        <Section title={Copy.startHere}>
+          <ModuleList rows={outline.startHere} onChoose={openProcedure} />
+        </Section>
+      )}
       {outline.machines.length > 0 && (
         <Section title={Copy.machines}>
           <MachineList
@@ -176,6 +178,7 @@ export function GuideDetailScreen({
       onMode={setMode}
       voice={voice}
       onVoice={setVoice}
+      tour={outline.tour}
       onStart={() => openProcedure(TOUR_ID)}
     />
   );
