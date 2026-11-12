@@ -5,7 +5,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const DEMO_PACK = 'miris-pilot/1';
 
-function copyDocuments(catalog, source, destination, packs) {
+function copyDocuments(catalog, source, destination, packs, knowledgeSource = process.env.FIELD_GUIDE_MANUAL_INDEX_DIR || '') {
   if (!source || !packs.includes(DEMO_PACK)) {
     fs.rmSync(destination, { recursive: true, force: true });
     return;
@@ -31,6 +31,16 @@ function copyDocuments(catalog, source, destination, packs) {
     }
     return { file: document.file, bytes };
   });
+  let knowledge;
+  if (knowledgeSource) {
+    const receipt = JSON.parse(fs.readFileSync(path.join(knowledgeSource, 'receipt.json'), 'utf8'));
+    if (receipt.schemaVersion !== 1 || receipt.index?.path !== 'manuals.json' || !Array.isArray(receipt.sources) || receipt.sources.length !== catalog.length || catalog.some(document => !receipt.sources.some(item => item.id === document.id && item.sha256 === document.sha256 && item.pages === document.pages))) throw new Error('Manual index source identity differs from the retained catalog');
+    const payload = fs.readFileSync(path.join(knowledgeSource, receipt.index.path));
+    if (payload.length !== receipt.index.bytes || createHash('sha256').update(payload).digest('hex') !== receipt.index.sha256) throw new Error('Manual index digest differs from preparation');
+    const prepared = JSON.parse(payload.toString('utf8'));
+    if (prepared.schemaVersion !== 1 || !Array.isArray(prepared.documents) || prepared.documents.length !== catalog.length || catalog.some(document => !prepared.documents.some(item => item.id === document.id && item.sha256 === document.sha256 && Array.isArray(item.pages) && item.pages.length === document.pages && item.pages.every((page, index) => page.number === index + 1 && typeof page.text === 'string')))) throw new Error('Invalid manual page inventory');
+    knowledge = { receipt, payload };
+  }
   // Verify every source before replacing this build's previously accepted resources.
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const staged = fs.mkdtempSync(destination + '-');
@@ -42,6 +52,10 @@ function copyDocuments(catalog, source, destination, packs) {
       path.join(staged, 'index.json'),
       JSON.stringify(catalog, null, 2) + '\n',
     );
+    if (knowledge) {
+      fs.writeFileSync(path.join(staged, 'manuals.json'), knowledge.payload);
+      fs.writeFileSync(path.join(staged, 'knowledge-receipt.json'), JSON.stringify(knowledge.receipt) + '\n');
+    }
     fs.writeFileSync(
       path.join(staged, 'NOTICE.txt'),
       catalog

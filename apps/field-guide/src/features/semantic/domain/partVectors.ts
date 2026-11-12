@@ -46,6 +46,8 @@ export interface PartVectorIndex {
   readonly space: VectorSpace;
   /** The parts whose supplied vector of `kind` is closest to the query, best first. */
   rankParts(query: VectorQuery, kind: VectorKind, limit: number): RankResult;
+  /** Uses an existing prepared row as the query; never encodes text on the phone. */
+  similarParts(partId: PartId, kind: VectorKind, limit: number): RankResult;
 }
 
 export type OpenResult =
@@ -147,5 +149,40 @@ export function openPartVectorIndex(
     return { ok: true, matches: matches.slice(0, Math.max(0, limit)) };
   }
 
-  return { ok: true, index: { space, rankParts } };
+  return {
+    ok: true,
+    index: {
+      space,
+      rankParts,
+      similarParts(partId, kind, limit) {
+        const row = rows.findIndex(
+          item => item.part === partId && item.kind === kind,
+        );
+        if (row < 0)
+          return failure(
+            VectorErrorCode.invalidQuery,
+            'No prepared vector exists for that component and kind',
+          );
+        const ranked = rankParts(
+          {
+            spaceId: space.id,
+            vector: values.slice(
+              row * space.dimensions,
+              (row + 1) * space.dimensions,
+            ),
+          },
+          kind,
+          limit + 1,
+        );
+        return ranked.ok
+          ? {
+              ok: true,
+              matches: ranked.matches
+                .filter(match => match.partId !== partId)
+                .slice(0, Math.max(0, limit)),
+            }
+          : ranked;
+      },
+    },
+  };
 }
