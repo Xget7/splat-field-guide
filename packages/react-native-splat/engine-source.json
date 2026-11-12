@@ -1,5 +1,5 @@
 {
-  "revision": "2c69446a4683f462f918fab4baca8a05b8c1ca65",
+  "revision": "3901eaaf1cdb74de76cb3297cdd71198289427a1",
   "files": {
     ".clang-format": {
       "sha256": "fc7883e10e83d18c0d4a8111e1e23a0d07c0479eb32eedaf2de3761f4ae35636",
@@ -474,15 +474,15 @@
       "executable": false
     },
     "splat-core/tools/splat_lod_build.cpp": {
-      "sha256": "1d44ebd361e7ba971f4f94acea3249af87005c9e9a82227fa726b2533940730a",
+      "sha256": "4011a64b192d7974af172d5b291590266cd17c04aee2c5bfdbfbe3f68d9e2512",
       "executable": false
     },
     "splatkit-android/README.md": {
-      "sha256": "cec3181de9cf24e489c1fd66292f4fb6b01082becfe7ce3cbdf051723d76141a",
+      "sha256": "3770a2d6e8d8dfd3f6b67a00fb0863be2cbf2e5d571a3ab06a545b17c8b7b216",
       "executable": false
     },
     "splatkit-android/build.gradle.kts": {
-      "sha256": "73434c4b542bfb9d5d44ebdbd50a820e7106db93810436fda5fc5886a9e7eff6",
+      "sha256": "a8453fc8490b9621304fbcf96a34b007e005cf5b98b79e46becde78bb190b978",
       "executable": false
     },
     "splatkit-android/consumer-rules.pro": {
@@ -1094,7 +1094,7 @@
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineLensTest.cpp": {
-      "sha256": "73fcf88717009b5ed243ff66f7c8b03633e25d2898d1b14128d4b32c580bd923",
+      "sha256": "b3fe165d092c56a2b48a89ac7ad68b4b1b487fd8f0a7edd6823021d1f9aa3fc0",
       "executable": false
     },
     "splatkit-engine/tests/engine/SplatEngineMemoryTest.cpp": {
@@ -1158,7 +1158,7 @@
       "executable": false
     },
     "splatkit-ios/README.md": {
-      "sha256": "850e850b5e5ad8ccae2a10c0b8d535d2fa404ff7c915db908c9fb164bef22c0e",
+      "sha256": "10eec7053c8436bf9533713b12081a260843384e544bc2e41d5a0104c1c81bbe",
       "executable": false
     },
     "splatkit-ios/Sources/SplatKit/CameraPose.swift": {
@@ -1418,7 +1418,7 @@
       "executable": false
     },
     "splatkit-ios/distribution/CHANGELOG.md": {
-      "sha256": "360261707706d658be28630aab8b85c4225f6b9deb85e86b9466b58b61782e1e",
+      "sha256": "b5f33b142e23065168c4f1882f8ce80ba5d5f02b0a6fff66e99c582fbd5d7954",
       "executable": false
     },
     "splatkit-ios/distribution/CONTRIBUTING.md": {
@@ -1426,7 +1426,7 @@
       "executable": false
     },
     "splatkit-ios/distribution/README.md": {
-      "sha256": "bbd771ecdaca702d533a9093c62352dc91f36506cdc7536dc735aa8da362da11",
+      "sha256": "c6c7d4605a36387d1a828df224f592a5db61923528b656740ef1ce6310ec6dd1",
       "executable": false
     },
     "splatkit-ios/tests/CMakeLists.txt": {

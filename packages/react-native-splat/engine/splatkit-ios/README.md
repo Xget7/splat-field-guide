@@ -7,7 +7,7 @@ Run it on a physical device: the iOS Simulator does not report family 7, so `Spl
 ## Use it
 
 Swift Package Manager: add `https://github.com/Xget7/splatkit-ios`, product `SplatKit`, then `import SplatKit`.
-Choose exact version `0.1.0-beta.2`.
+Choose exact version `0.1.0-beta.3`.
 
 For source builds, build the static libraries with `scripts/build-ios.sh` from the repository root, then add to your target:
 
@@ -18,7 +18,7 @@ For source builds, build the static libraries with `scripts/build-ios.sh` from t
 
 `scripts/package-ios.sh` builds the XCFramework; `Package.swift` pins its release checksum.
 The source-built Objective-C engine exposes atomic `applyCameraRequest:reason:` and the effective `cameraState`; see [the bridge contract](Sources/SplatKitCore/include/SplatKit/SKSplatEngine.h).
-Current-source APIs listed under Unreleased in the [changelog](https://github.com/Xget7/splatkit-ios/blob/main/CHANGELOG.md), including `sourceFrame`, require a rebuilt XCFramework; the pinned beta.2 binary predates them.
+Current-source APIs listed under Unreleased in the [changelog](https://github.com/Xget7/splatkit-ios/blob/main/CHANGELOG.md) require a rebuilt XCFramework until the next release.
 
 ```swift
 let view = SplatMetalView()
