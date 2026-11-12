@@ -1,10 +1,38 @@
-import { Pack, Part, Procedure, ProcedureId, Relation, Step } from './pack';
+import {
+  Audience,
+  Pack,
+  Part,
+  Procedure,
+  ProcedureId,
+  Relation,
+  Step,
+} from './pack';
 
 /** Reserved: an authored procedure may not take it. */
 export const TOUR_ID: ProcedureId = 'tour';
 export const TOUR_TITLE = 'Parts tour';
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
+
+const counted = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
+
+/** The tour has no authored objective, so it states what it covers from the parts themselves. */
+function tourObjective(
+  machines: number,
+  components: number,
+): string | undefined {
+  if (machines === 0) return undefined;
+  const subject = machines === 1 ? 'the machine' : `the ${machines} machines`;
+  const owner = machines === 1 ? 'its' : 'their';
+  return components === 0
+    ? `Identify ${subject}.`
+    : `Identify ${subject} and ${owner} ${counted(
+        components,
+        'part',
+        'parts',
+      )}.`;
+}
 
 /** Introduce each machine, then its components, before moving to another machine. */
 export function tourOf(
@@ -50,9 +78,8 @@ export function tourOf(
     members.filter(member => !carried.has(member.id)).forEach(chain);
     members.forEach(chain);
   }
-  [...(children.get(null) ?? [])]
-    .sort((a, b) => across(a) - across(b))
-    .forEach(visit);
+  const roots = children.get(null) ?? [];
+  [...roots].sort((a, b) => across(a) - across(b)).forEach(visit);
   // Defensive for hand-built packs; the parser already rejects hierarchy cycles.
   pack.parts.forEach(visit);
   const steps: Step[] = ordered.map(part => ({
@@ -62,5 +89,11 @@ export function tourOf(
     parts: [part.id],
     caution: '',
   }));
-  return { id: TOUR_ID, title: TOUR_TITLE, steps };
+  return {
+    id: TOUR_ID,
+    title: TOUR_TITLE,
+    objective: tourObjective(roots.length, pack.parts.length - roots.length),
+    audience: Audience.operator,
+    steps,
+  };
 }

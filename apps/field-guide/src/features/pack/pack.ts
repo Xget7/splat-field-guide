@@ -103,10 +103,39 @@ export interface Step {
   readonly caution: string;
 }
 
+/** Who a procedure is written for; titles no longer carry it. */
+export const Audience = {
+  operator: 'operator',
+  maintenance: 'maintenance',
+  specialist: 'specialist',
+} as const;
+export type Audience = (typeof Audience)[keyof typeof Audience];
+
 export interface Procedure {
   readonly id: ProcedureId;
   readonly title: string;
+  /** One sentence on what the operator can do afterwards, when authored. */
+  readonly objective?: string;
+  readonly audience?: Audience;
+  /** The root part the procedure belongs to; absent for whole-cell procedures. */
+  readonly machine?: PartId;
   readonly steps: readonly Step[];
+}
+
+/**
+ * A cited manual section or figure. `document` is an ID from the app's document catalog and
+ * `page` the printed page as cited; the catalog maps printed pages to PDF pages.
+ */
+export interface DocumentReference {
+  readonly document: string;
+  readonly title: string;
+  /** The section number as printed, such as "2.2". */
+  readonly section?: string;
+  /** The figure number as printed, such as "2-2". */
+  readonly figure?: string;
+  readonly page: number;
+  /** Root parts the reference concerns; empty when it concerns the whole cell. */
+  readonly parts: readonly PartId[];
 }
 
 /**
@@ -183,6 +212,8 @@ export interface Pack {
   readonly packId: string;
   readonly packVersion: number;
   readonly title: string;
+  /** One or two sentences about the course, when authored. */
+  readonly summary?: string;
   readonly sources?: PackSources;
   readonly tiers: readonly Tier[];
   readonly camera: { readonly home: CameraHome; readonly limits: CameraLimits };
@@ -191,6 +222,8 @@ export interface Pack {
   readonly procedures: readonly Procedure[];
   /** Empty when the pack supplies none. */
   readonly relations: readonly Relation[];
+  /** Empty when the pack cites no manual sections. */
+  readonly references: readonly DocumentReference[];
   /** The Brick/Turtle graph of the same facts, bundled for other consumers and never parsed here. */
   readonly model?: PackFile;
   readonly semantic?: PackSemantic;
