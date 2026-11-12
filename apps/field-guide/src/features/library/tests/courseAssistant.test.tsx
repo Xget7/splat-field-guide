@@ -7,7 +7,7 @@ import {
 } from '../../instructor';
 import { catalogFor } from '../../pack/catalog';
 import { fixturePack } from '@tests/fixturePack';
-import { fakeInstructor } from '@tests/voiceSession';
+import { fakeInstructor, fakeVoiceSession } from '@tests/voiceSession';
 import { CourseAssistant } from '../ui/CourseAssistant';
 
 jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
@@ -86,5 +86,58 @@ test('an explicit repeated submission restarts a canceled question without askin
     screen.update(<CourseAssistant {...props} requestId={2} active />),
   );
   expect(respond).toHaveBeenCalledTimes(2);
+  await act(() => screen.unmount());
+});
+
+test('an interrupted voice answer discards its pending scene navigation', async () => {
+  const guide = catalogFor([fixturePack()])[0];
+  const voice = fakeVoiceSession();
+  instructorStore.getState().attach(
+    fakeInstructor({
+      sessionFor: () => ({
+        session: voice.session,
+        questions: voice.questions,
+      }),
+    }),
+  );
+  const open = jest.fn();
+  let screen!: Renderer.ReactTestRenderer;
+  await act(() => {
+    screen = Renderer.create(
+      <CourseAssistant
+        guide={guide}
+        question={null}
+        onOpen={open}
+        onDocument={jest.fn()}
+      />,
+    );
+  });
+  const mic = screen.root
+    .findAllByProps({ testID: 'course-voice' })
+    .find(node => node.props.accessibilityRole === 'button')!;
+  await act(async () => {
+    mic.props.onPress();
+  });
+  await act(() => {
+    voice.questions.ask('Where is the battery?');
+  });
+  await act(() => {
+    voice.events.action({ type: 'select', partId: 'battery' });
+    voice.events.turn({
+      type: 'answer',
+      exchange: {
+        id: 1,
+        question: 'Where is the battery?',
+        reply: 'Here...',
+        caution: '',
+        part: null,
+        phase: 'done',
+        interrupted: true,
+      },
+      answer: { reply: 'Here...', caution: '', part: null, event: null },
+    });
+  });
+  expect(open).not.toHaveBeenCalled();
+  expect(voice.context.state.selectedPart).toBeNull();
   await act(() => screen.unmount());
 });

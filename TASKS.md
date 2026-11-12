@@ -19,7 +19,7 @@ One English Miris agent retrieves prepared content through native RAG; original 
 Read-only name/alias search preserves ambiguous candidates, and exact part lookup returns hierarchy, directed relations and their source evidence.
 Typed navigation commits only after a complete answer; local procedure narration and offline Qwen/scripted voice fallback remain available.
 The current published schema 3 pack requires the prepared view-direction consumer update included with this integration.
-After integration with main, 75 app suites with 861 tests, lint and TypeScript checks pass for the English course entry, direct text/voice tools, ambiguity, cancellation, exact-ID navigation and offline fallback.
+After integration with main, 75 app suites with 862 tests, lint and TypeScript checks pass for the English course entry, direct text/voice tools, ambiguity, cancellation, exact-ID navigation and offline fallback.
 The voice-agent has six passing tests and type checks; the signed-session Worker has five passing tests and type checks.
 An unsigned arm64 iOS Simulator Release build succeeded before integrating main, using the prepared native dependencies and bundled Miris content.
 The final integrated source also produces a production iOS JavaScript bundle.

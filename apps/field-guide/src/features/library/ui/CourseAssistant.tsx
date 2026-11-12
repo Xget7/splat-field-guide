@@ -91,33 +91,49 @@ const ReadyCourseAssistant = forwardRef<
   const generation = useRef(0);
   const pending = useRef(false);
   const navigation = useRef<SessionEvent | null>(null);
+  const pendingActions = useRef<SessionEvent[]>([]);
   const history = instructor.historyFor(guide.pack);
-  const action = useCallback(
-    (event: SessionEvent) => {
-      setSession(current => reduce(current, event, guide.pack));
-      if (
-        event.type === SessionEventType.select ||
-        event.type === SessionEventType.start
-      )
-        navigation.current = event;
-    },
-    [guide.pack],
-  );
+  const action = useCallback((event: SessionEvent) => {
+    pendingActions.current.push(event);
+    if (
+      event.type === SessionEventType.select ||
+      event.type === SessionEventType.start
+    )
+      navigation.current = event;
+  }, []);
   const turn = useCallback(
     (event: TurnEvent) => {
       if (event.type === TurnEventType.cancel) {
         pending.current = false;
         navigation.current = null;
+        pendingActions.current = [];
         setExchange(null);
         return;
+      }
+      if (event.type === TurnEventType.begin) {
+        pendingActions.current = [];
+        navigation.current = null;
       }
       setExchange(event.exchange);
       if (event.type === TurnEventType.answer) {
         pending.current = false;
+        if (event.exchange.interrupted) {
+          navigation.current = null;
+          pendingActions.current = [];
+          return;
+        }
         if (event.answer.event) action(event.answer.event);
+        const accepted = pendingActions.current;
+        pendingActions.current = [];
+        setSession(current =>
+          accepted.reduce(
+            (state, item) => reduce(state, item, guide.pack),
+            current,
+          ),
+        );
       }
     },
-    [action],
+    [action, guide.pack],
   );
   const askText = useCallback(
     (text: string, clearDraft = true) => {
@@ -126,6 +142,7 @@ const ReadyCourseAssistant = forwardRef<
       if (clearDraft) setDraft('');
       setError('');
       navigation.current = null;
+      pendingActions.current = [];
       pending.current = true;
       instructor.turns
         .ask(
@@ -189,6 +206,7 @@ const ReadyCourseAssistant = forwardRef<
   const cancelPending = useCallback(() => {
     generation.current++;
     navigation.current = null;
+    pendingActions.current = [];
     if (pending.current) instructor.turns.cancel();
     pending.current = false;
   }, [instructor]);
@@ -206,6 +224,7 @@ const ReadyCourseAssistant = forwardRef<
     if (
       !focused ||
       exchange?.phase !== ExchangePhase.done ||
+      exchange.interrupted ||
       voice.section !== null
     )
       return;
