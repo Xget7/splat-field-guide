@@ -41,5 +41,11 @@
     "react-native": "0.87.1",
     "react-native-nitro-modules": "^0.37.1",
     "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "fsevents"
+    ]
   }
 }

@@ -52,5 +52,14 @@
     "libs": [
       "phonemis"
     ]
+  },
+  "packageManager": "pnpm@10.34.9",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "fsevents"
+    ],
+    "ignoredBuiltDependencies": [
+      "react-native-executorch"
+    ]
   }
 }

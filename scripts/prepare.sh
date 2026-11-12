@@ -11,16 +11,16 @@ if [ "$#" -gt 0 ]; then
     exit 2
   fi
   if [ ! -d "$ROOT/apps/field-guide/node_modules/typescript" ]; then
-    nice -n 19 npm ci --ignore-scripts --prefix "$ROOT/apps/field-guide"
+    nice -n 19 pnpm install --frozen-lockfile --ignore-scripts --dir "$ROOT/apps/field-guide"
   fi
   nice -n 19 node "$ROOT/scripts/pack_archive.cjs" ensure "$@"
 fi
 nice -n 19 bash "$ROOT/packages/react-native-splat/scripts/build-ios-engine.sh"
-nice -n 19 npm ci --prefix "$ROOT/apps/field-guide"
-# npm may skip dependency install scripts; provision only the inference backends the app selects.
+nice -n 19 pnpm install --frozen-lockfile --dir "$ROOT/apps/field-guide"
+# Provision native libraries once, using the app's selected inference backends.
 INIT_CWD="$ROOT/apps/field-guide" nice -n 19 node "$ROOT/apps/field-guide/node_modules/react-native-executorch/scripts/download-libs.js"
 for package in react-native-splat react-native-on-device; do
-  nice -n 19 npm ci --prefix "$ROOT/packages/$package"
+  nice -n 19 pnpm install --frozen-lockfile --dir "$ROOT/packages/$package"
 done
 export BUNDLE_GEMFILE="$ROOT/apps/field-guide/Gemfile"
 nice -n 19 bundle install
