@@ -20,7 +20,7 @@ import {
   usePinchGesture,
   useTapGesture,
 } from 'react-native-gesture-handler';
-import type { SplatViewSpec } from 'react-native-splat';
+import type { SplatViewSpec, ViewDirection } from 'react-native-splat';
 import {
   instructorStore,
   createInstructor,
@@ -60,6 +60,7 @@ import { ViewerScreen, type FieldGuideDebug } from '../ui/ViewerScreen';
 import { Motion } from '../../../ui/theme';
 import { InstructorPanel } from '../ui/instructor/InstructorPanel';
 import { PanelMode, PanelPan } from '../domain/panelMotion';
+import { CUT_FADE_MS } from '../domain/camera';
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
@@ -165,6 +166,7 @@ describe('viewer screen', () => {
   const sheet = () => renderer.root.findByType(Modal);
   const view = {
     frame: jest.fn(),
+    drawnDirection: jest.fn<ViewDirection | undefined, []>(() => undefined),
     orbit: jest.fn(),
     dolly: jest.fn(),
     pick: jest.fn<Promise<number>, [number, number]>(),
@@ -228,6 +230,7 @@ describe('viewer screen', () => {
     jest.mocked(input.listen).mockReset().mockResolvedValue();
     jest.mocked(output.speak).mockReset().mockResolvedValue();
     progress = createProgressStorage(fakeStorage().storage);
+    view.drawnDirection.mockReset().mockReturnValue(undefined);
   });
   afterEach(async () => {
     await act(() => renderer.unmount());
@@ -562,6 +565,24 @@ describe('viewer screen', () => {
       azimuth: Math.PI / 4,
       elevation: 20 * (Math.PI / 180),
     });
+  });
+
+  test('a wide swing between steps cuts through the veil instead of turning', async () => {
+    jest.useFakeTimers();
+    await mount();
+    await attach();
+    view.drawnDirection.mockReturnValue({
+      azimuth: home.azimuth + Math.PI,
+      elevation: home.elevation,
+    });
+    const calls = view.frame.mock.calls.length;
+    await press('step-repeat');
+    expect(view.frame).toHaveBeenCalledTimes(calls);
+    await act(async () => jest.advanceTimersByTime(CUT_FADE_MS));
+    await act(async () => jest.runOnlyPendingTimers());
+    expect(view.frame).toHaveBeenCalledTimes(calls + 1);
+    expect(view.frame.mock.calls.at(-1)?.[1]).toBe(0);
+    expect(view.frame.mock.calls.at(-1)?.[2]).toEqual(home);
   });
 
   test('repeat and a new viewport size frame the step again', async () => {

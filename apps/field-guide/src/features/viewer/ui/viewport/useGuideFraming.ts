@@ -9,6 +9,7 @@ import {
   homeDirectionInRadians,
   guideFrameBounds,
   INITIAL_FRAME_SECONDS,
+  transitionBetween,
 } from '../../domain/camera';
 import type { Size } from '../../domain/screenGeometry';
 
@@ -23,6 +24,9 @@ interface FramedInputs {
   settlement: number;
 }
 
+/** Hides the viewport, runs the jump while hidden, then shows it again. */
+export type CameraCut = (jump: () => void) => void;
+
 /** Reframe after aspect changes because framing depends on the viewport shape. */
 export function useGuideFraming(
   view: SplatViewSpec | null,
@@ -33,6 +37,8 @@ export function useGuideFraming(
   animatedResize = false,
   settlement = 0,
   closeUp = false,
+  reducedMotion = false,
+  cut: CameraCut = jump => jump(),
 ) {
   const framing = useMemo(() => framingFor(state, pack), [state, pack]);
   const from = useMemo(
@@ -75,17 +81,24 @@ export function useGuideFraming(
     }
     const bounds = guideFrameBounds(framing, closeUp);
     const pushIn = !changedScene && !changedSize;
-    const seconds =
-      previous?.view !== view
-        ? INITIAL_FRAME_SECONDS
-        : pushIn
-        ? CLOSE_UP_SECONDS
-        : FRAME_SECONDS;
     if (pushIn) {
       // A push-in keeps the direction the user chose by orbiting.
-      view.frame(bounds, seconds);
+      view.frame(bounds, CLOSE_UP_SECONDS);
+    } else if (previous?.view !== view) {
+      view.frame(bounds, INITIAL_FRAME_SECONDS, from);
+    } else if (!changedScene) {
+      view.frame(bounds, FRAME_SECONDS, from);
     } else {
-      view.frame(bounds, seconds, from);
+      const transition = transitionBetween(
+        view.drawnDirection(),
+        from,
+        reducedMotion,
+      );
+      if (transition.kind === 'cut') {
+        cut(() => view.frame(bounds, INITIAL_FRAME_SECONDS, from));
+      } else {
+        view.frame(bounds, transition.seconds, from);
+      }
     }
     framed.current = {
       view,
@@ -107,5 +120,7 @@ export function useGuideFraming(
     height,
     animatedResize,
     settlement,
+    reducedMotion,
+    cut,
   ]);
 }
