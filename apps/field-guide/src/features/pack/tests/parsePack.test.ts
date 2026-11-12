@@ -299,7 +299,7 @@ describe('parsePack', () => {
       document: 'kuka-quantec-2-kp-v6',
       title: 'Robot anatomy',
       section: '2.2',
-      figure: '2-2',
+      figure: 'Fig. 2-2',
       page: 16,
       parts: ['engine'],
     };

@@ -71,7 +71,7 @@ export function courseOutlineFor(pack: Pack): CourseOutline {
   };
 }
 
-/** Edition, section, figure and printed page, such as "MA KR QUANTEC-2 K+P V6, Fig. 2-2, p. 16". */
+/** Edition, section, figure and printed page, such as "MA KR QUANTEC-2 K+P V6, Sec. 2.2, Fig. 2-2, p. 16". */
 export function referenceMeta(
   reference: DocumentReference,
   document: CourseDocument | undefined,
@@ -79,7 +79,7 @@ export function referenceMeta(
   return [
     document?.edition,
     reference.section && `Sec. ${reference.section}`,
-    reference.figure && `Fig. ${reference.figure}`,
+    reference.figure,
     `p. ${reference.page}`,
   ]
     .filter(Boolean)

@@ -131,7 +131,7 @@ export interface DocumentReference {
   readonly title: string;
   /** The section number as printed, such as "2.2". */
   readonly section?: string;
-  /** The figure number as printed, such as "2-2". */
+  /** The figure label as printed, prefix included, such as "Fig. 2-2". */
   readonly figure?: string;
   readonly page: number;
   /** Root parts the reference concerns; empty when it concerns the whole cell. */

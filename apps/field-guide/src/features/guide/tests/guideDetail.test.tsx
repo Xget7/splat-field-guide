@@ -38,7 +38,9 @@ function outlinedPack(): Pack {
     {
       document: 'manual-v6',
       title: 'Robot anatomy',
-      figure: '2-2',
+      section: '2.2',
+      // Packs author the figure with its printed prefix.
+      figure: 'Fig. 2-2',
       page: 16,
       parts: ['engine'],
     },
@@ -419,7 +421,7 @@ describe('Guide detail screen', () => {
     const documents = fakeDocuments();
     await mountOutlined(documents);
     expect(texts()).toContain('KUKA documentation');
-    expect(texts()).toContain('MA V6, Fig. 2-2, p. 16');
+    expect(texts()).toContain('MA V6, Sec. 2.2, Fig. 2-2, p. 16');
     expect(texts()).toContain('BA V4, Sec. 3.2, p. 20. Not on this device');
     expect(node('reference-row-1').props.accessibilityState).toEqual({
       disabled: true,
