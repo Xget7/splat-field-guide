@@ -236,6 +236,63 @@ describe('viewer screen', () => {
     jest.restoreAllMocks();
   });
 
+  test('free exploration opens without activity UI and preserves saved course progress', async () => {
+    const phone = Dimensions.get('window');
+    Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
+    try {
+      await progress.save({
+        guideId: pack.packId,
+        procedureId: 'check-coolant',
+        stepIndex: 2,
+      });
+      await mount({ procedureId: null, mode: LearnMode.selfGuided });
+      expect(debug().getState()).toEqual({
+        procedureId: null,
+        stepIndex: 0,
+        selectedPart: null,
+      });
+      expect(has('activity-panel')).toBe(false);
+      expect(has('viewer-rail-guide')).toBe(false);
+      expect(has('viewer-drawer')).toBe(false);
+      expect(has('assistant-expand')).toBe(false);
+      await press('viewer-rail-explore');
+      await press('part-row-battery');
+      expect(debug().getState().selectedPart).toBe('battery');
+      expect(debug().getState().procedureId).toBeNull();
+      await press('viewer-rail-back');
+      expect(onExit).toHaveBeenCalledTimes(1);
+      expect(await loadProgress()).toEqual({
+        guideId: pack.packId,
+        procedureId: 'check-coolant',
+        stepIndex: 2,
+      });
+    } finally {
+      await act(async () => Dimensions.set({ window: phone, screen: phone }));
+    }
+  });
+
+  test('a replacement start opens its own session instead of retaining the previous activity', async () => {
+    await mount({ procedureId: 'check-coolant', stepIndex: 2 });
+    await act(() =>
+      renderer.update(
+        <ViewerScreen
+          catalog={catalog}
+          start={{
+            guideId: pack.packId,
+            procedureId: null,
+            stepIndex: 0,
+            mode: LearnMode.selfGuided,
+          }}
+          onExit={onExit}
+          progress={progress}
+        />,
+      ),
+    );
+    expect(debug().getState().procedureId).toBeNull();
+    expect(debug().getState().stepIndex).toBe(0);
+    expect(has('instructor-toggle')).toBe(false);
+  });
+
   test('typed questions use active voice, and tool navigation keeps its live exchange without interruption', async () => {
     let heard!: VoiceSessionEvents;
     const ids = createExchangeIds();
@@ -300,18 +357,20 @@ describe('viewer screen', () => {
     expect(native().props.highlight).toEqual(highlightFor(getState(), pack));
   });
 
-  test('iPad guidance modes preserve the step and show the assistant only in Instructor', async () => {
+  test('iPad course controls preserve the step while the compact instruction is hidden', async () => {
     const phone = Dimensions.get('window');
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.selfGuided });
-      await press('step-row-2');
+      await press('step-next');
+      await press('step-next');
       expect(has('assistant-expand')).toBe(false);
-      await press('guidance-instructor');
-      expect(has('assistant-expand')).toBe(true);
-      expect(debug().getState().stepIndex).toBe(2);
-      await press('guidance-self-guided');
-      expect(has('assistant-expand')).toBe(false);
+      expect(has('step-list')).toBe(false);
+      expect(has('guidance-instructor')).toBe(false);
+      await press('activity-close');
+      expect(has('activity-panel')).toBe(false);
+      await press('viewer-rail-guide');
+      expect(has('activity-panel')).toBe(true);
       expect(debug().getState().stepIndex).toBe(2);
       expect(await loadProgress()).toMatchObject({ stepIndex: 2 });
     } finally {
@@ -319,27 +378,28 @@ describe('viewer screen', () => {
     }
   });
 
-  test('on an iPad the steps list beside the splat and open any step', async () => {
+  test('on an iPad the current instruction overlays the scene without the legacy sidebar', async () => {
     const phone = Dimensions.get('window');
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
       await press('assistant-expand');
       expect(has('viewer-rail')).toBe(true);
-      expect(has('viewer-drawer')).toBe(true);
+      expect(has('viewer-drawer')).toBe(false);
+      expect(has('activity-panel')).toBe(true);
       expect(has('instructor-grabber')).toBe(false);
-      expect(node('step-row-0').props.accessibilityState).toEqual({
-        selected: true,
-      });
-      await press('step-row-3');
+      expect(has('step-list')).toBe(false);
+      await press('step-next');
+      await press('step-next');
+      await press('step-next');
       expect(debug().getState().stepIndex).toBe(3);
-      expect(node('step-row-3').props.accessibilityState).toEqual({
-        selected: true,
-      });
+      expect(text('activity-counter')).toBe('Step 4 of 5');
       const step = procedure('check-coolant').steps[3];
       expect(
-        [text('step-current-text'), text('step-current-detail')].join(' '),
-      ).toBe(step.text);
+        node('activity-panel')
+          .findAllByType(Text)
+          .map(item => item.props.children),
+      ).toContain(step.text);
       expect(has('instructor-reply')).toBe(false);
       expect(has('thread-entry-0')).toBe(false);
       const question = 'What does the coolant reservoir do?';
@@ -374,8 +434,10 @@ describe('viewer screen', () => {
       const step = procedure('check-coolant').steps[0];
       expect(debug().getState().procedureId).toBe('check-coolant');
       expect(
-        [text('step-current-text'), text('step-current-detail')].join(' '),
-      ).toBe(step.text);
+        node('activity-panel')
+          .findAllByType(Text)
+          .map(item => item.props.children),
+      ).toContain(step.text);
       expect(
         node('instructor-thread')
           .findAllByType(Text)
@@ -391,7 +453,8 @@ describe('viewer screen', () => {
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
     try {
       await mount({ procedureId: 'check-coolant', mode: LearnMode.instructor });
-      await press('step-row-2');
+      await press('step-next');
+      await press('step-next');
       await press('viewer-rail-explore');
       expect(await loadProgress()).toMatchObject({
         procedureId: 'check-coolant',
@@ -415,9 +478,7 @@ describe('viewer screen', () => {
       await press('viewer-rail-guide');
       expect(has('part-list')).toBe(false);
       expect(debug().getState().stepIndex).toBe(2);
-      expect(node('step-row-2').props.accessibilityState).toEqual({
-        selected: true,
-      });
+      expect(text('activity-counter')).toBe('Step 3 of 5');
     } finally {
       await act(async () => Dimensions.set({ window: phone, screen: phone }));
     }

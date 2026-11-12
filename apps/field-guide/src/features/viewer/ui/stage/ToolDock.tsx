@@ -78,6 +78,7 @@ interface Props {
   labelsOn: boolean;
   fullView: boolean;
   canRepeat: boolean;
+  showActivityControls?: boolean;
   /** The Dev button's panel. */
   dev: ReactNode;
   onRecenter: () => void;
@@ -156,6 +157,7 @@ export function ToolDock({
   labelsOn,
   fullView,
   canRepeat,
+  showActivityControls = true,
   dev,
   onRecenter,
   onToggleLabels,
@@ -228,14 +230,16 @@ export function ToolDock({
           selected={labelsOn}
           onPress={onToggleLabels}
         />
-        <Tool
-          icon={IconName.repeat}
-          label={ToolCopy.repeat}
-          caption={Caption.repeat}
-          hint={ToolCopy.repeatHint}
-          disabled={!canRepeat}
-          onPress={onRepeat}
-        />
+        {showActivityControls && (
+          <Tool
+            icon={IconName.repeat}
+            label={ToolCopy.repeat}
+            caption={Caption.repeat}
+            hint={ToolCopy.repeatHint}
+            disabled={!canRepeat}
+            onPress={onRepeat}
+          />
+        )}
         <Tool
           icon={IconName.help}
           label={ToolCopy.help}
@@ -252,14 +256,16 @@ export function ToolDock({
           expanded={popover?.kind === Popover.dev}
           onPress={() => toggle(Popover.dev)}
         />
-        <Tool
-          icon={IconName.sidebar}
-          label={ToolCopy.fullView}
-          caption={Caption.fullView}
-          hint={fullView ? ToolCopy.fullViewOnHint : ToolCopy.fullViewOffHint}
-          selected={fullView}
-          onPress={onToggleFullView}
-        />
+        {showActivityControls && (
+          <Tool
+            icon={IconName.sidebar}
+            label={ToolCopy.fullView}
+            caption={Caption.fullView}
+            hint={fullView ? ToolCopy.fullViewOnHint : ToolCopy.fullViewOffHint}
+            selected={fullView}
+            onPress={onToggleFullView}
+          />
+        )}
       </Glass>
       <Modal
         visible={popover !== null}

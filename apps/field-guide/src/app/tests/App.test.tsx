@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import App from '../App';
 import { instructorStore } from '../../features/instructor';
@@ -42,6 +42,12 @@ jest.mock('react-native-gesture-handler', () => ({
 
 describe('app', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
+  const press = async (testID: string) => {
+    const button = renderer.root
+      .findAllByProps({ testID })
+      .find(item => item.props.accessibilityRole === 'button')!;
+    await act(() => button.props.onPress());
+  };
   beforeEach(() => instructorStore.getState().reset());
   afterEach(async () => {
     await act(() => renderer?.unmount());
@@ -77,23 +83,16 @@ describe('app', () => {
     await act(() => {
       renderer = ReactTestRenderer.create(<App />);
     });
-    const visibleText = renderer.root
-      .findAllByType(Text)
-      .map(item => item.props.children);
-    expect(visibleText).toContain('Course modules');
+    await press('open-organization-miris');
+    expect(
+      renderer.root.findAllByProps({ testID: 'courses-empty' }).length,
+    ).toBeGreaterThan(0);
     expect(
       renderer.root.findAllByType('SplatView' as React.ElementType),
     ).toHaveLength(0);
-    const explore = renderer.root
-      .findAllByProps({ testID: 'course-explore' })
-      .find(item => item.props.accessibilityRole === 'button')!;
-    await act(() => explore.props.onPress());
-    expect(
-      renderer.root.findAllByType(Text).map(item => item.props.children),
-    ).toContain('The 3D scene is not available on this device yet.');
   });
 
-  test('a bundled pack opens its parts tour from the course entry', async () => {
+  test('a bundled pack opens free exploration through the workspace and course', async () => {
     jest.mocked(getBundledPacks).mockReturnValueOnce({
       manifests: () => [
         { directory: 'fixture/1', manifest: JSON.stringify(fixtureCopy()) },
@@ -102,6 +101,8 @@ describe('app', () => {
     await act(() => {
       renderer = ReactTestRenderer.create(<App />);
     });
+    await press('open-organization-miris');
+    await press('open-course-automotive-assembly-line');
     const explore = renderer.root
       .findAllByProps({ testID: 'course-explore' })
       .find(item => item.props.accessibilityRole === 'button')!;

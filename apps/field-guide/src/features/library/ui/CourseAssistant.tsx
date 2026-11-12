@@ -108,9 +108,6 @@ export function CourseAssistant({
       <Text accessibilityRole="header" style={styles.title}>
         Course assistant
       </Text>
-      <Text style={styles.caption}>
-        Ask about the equipment, component roles and procedures in this course.
-      </Text>
       {!guide && (
         <Text accessibilityRole="alert" style={styles.caption}>
           Install the course to ask about its equipment.

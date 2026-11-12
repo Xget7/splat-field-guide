@@ -62,9 +62,9 @@ export function CourseOverview({
           style={styles.explore}
         >
           <Animated.View style={cubeStyle}>
-            <Icon name={IconName.explore} size={16} color={C.text} />
+            <Icon name={IconName.scene} size={18} color={C.text} />
           </Animated.View>
-          <Text style={styles.label}>Explore in 3D</Text>
+          <Text style={styles.label}>Explore cell</Text>
         </Pressable>
       </View>
       <View style={styles.details}>
@@ -72,23 +72,20 @@ export function CourseOverview({
           <Text accessibilityRole="header" style={styles.title}>
             Automotive{wide ? '\n' : ' '}Assembly Line
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Course downloads"
-            onPress={onDownloads}
-            style={styles.download}
-          >
-            <Icon name={IconName.down} color={C.secondary} />
-          </Pressable>
         </View>
         <Pressable
+          testID="course-download"
           accessibilityRole="button"
-          accessibilityLabel="Manage course offline availability"
+          accessibilityLabel="Download course"
+          accessibilityHint="View local files and course download availability"
           onPress={onDownloads}
-          style={styles.availability}
+          style={({ pressed }) => [
+            styles.download,
+            pressed && styles.downloadPressed,
+          ]}
         >
-          <Text style={styles.availabilityText}>Not available offline</Text>
-          <Icon name={IconName.next} size={16} color={C.secondary} />
+          <Icon name={IconName.download} size={18} color={C.white} />
+          <Text style={styles.downloadLabel}>Download course</Text>
         </Pressable>
         <CourseComposer
           onAsk={onAsk}
@@ -130,18 +127,14 @@ export function ModuleCard({
       ]}
     >
       <View style={styles.titleRow}>
-        <Icon
-          name={index === 0 ? IconName.explore : IconName.list}
-          color={C.secondary}
-          size={24}
-        />
+        <Icon name={IconName.course} color={C.secondary} size={24} />
         <Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text>
       </View>
       <Text style={styles.moduleTitle}>{title}</Text>
       {details && <Text style={styles.moduleDetails}>{details}</Text>}
       <View style={styles.cardFooter}>
         <Text style={styles.label}>{action}</Text>
-        <Icon name={IconName.next} color={C.secondary} size={16} />
+        <Icon name={IconName.next} color={C.accent} size={16} />
       </View>
     </Pressable>
   );
@@ -168,19 +161,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: G.unit,
     alignItems: 'center',
-    backgroundColor: C.overlay,
+    backgroundColor: C.primary,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.accent,
   },
   details: { flex: 1, gap: G.medium },
-  availability: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    minHeight: G.control,
-    gap: G.unit,
-  },
-  availabilityText: { ...T.caption, color: C.secondary },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,14 +174,18 @@ const styles = StyleSheet.create({
   },
   title: { ...T.title, color: C.text, flex: 1 },
   download: {
-    width: G.control,
-    height: G.control,
-    borderRadius: R.pill,
-    borderWidth: 1,
-    borderColor: C.border,
+    minHeight: G.control,
+    paddingHorizontal: G.small,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: G.unit,
+    borderRadius: R.control,
+    backgroundColor: C.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  downloadPressed: { backgroundColor: C.primaryPressed },
+  downloadLabel: { ...T.label, color: C.white },
   label: { ...T.label, color: C.text },
   card: {
     flex: 1,

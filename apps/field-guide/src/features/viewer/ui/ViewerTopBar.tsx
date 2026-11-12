@@ -14,6 +14,7 @@ interface Props {
   topInset: number;
   procedureTitle: string;
   instructorOpen: boolean;
+  activityControls?: boolean;
   onBack: () => void;
   onChooseProcedure: () => void;
   onToggleInstructor: () => void;
@@ -24,6 +25,7 @@ export function ViewerTopBar({
   topInset,
   procedureTitle,
   instructorOpen,
+  activityControls = true,
   onBack,
   onChooseProcedure,
   onToggleInstructor,
@@ -39,35 +41,43 @@ export function ViewerTopBar({
       >
         <Icon name={IconName.back} />
       </Pressable>
-      <Pressable
-        testID="procedure-button"
-        accessibilityRole="button"
-        accessibilityLabel={`Procedure: ${procedureTitle}`}
-        accessibilityHint="Choose another procedure"
-        onPress={onChooseProcedure}
-        style={({ pressed }) => [styles.procedure, pressed && styles.pressed]}
-      >
-        <Text numberOfLines={1} style={styles.procedureTitle}>
-          {procedureTitle}
-        </Text>
-        <Icon name={IconName.down} size={CHEVRON_SIZE} color={Color.muted} />
-      </Pressable>
-      <Pressable
-        testID="instructor-toggle"
-        accessibilityRole="button"
-        accessibilityLabel="Instructor"
-        accessibilityHint={
-          instructorOpen ? 'Switch to self-guided mode' : 'Open the instructor'
-        }
-        accessibilityState={{ selected: instructorOpen }}
-        onPress={onToggleInstructor}
-        style={({ pressed }) => [styles.control, pressed && styles.pressed]}
-      >
-        <Icon
-          name={IconName.chat}
-          color={instructorOpen ? Color.accent : Color.muted}
-        />
-      </Pressable>
+      {activityControls ? (
+        <Pressable
+          testID="procedure-button"
+          accessibilityRole="button"
+          accessibilityLabel={`Procedure: ${procedureTitle}`}
+          accessibilityHint="Choose another procedure"
+          onPress={onChooseProcedure}
+          style={({ pressed }) => [styles.procedure, pressed && styles.pressed]}
+        >
+          <Text numberOfLines={1} style={styles.procedureTitle}>
+            {procedureTitle}
+          </Text>
+          <Icon name={IconName.down} size={CHEVRON_SIZE} color={Color.muted} />
+        </Pressable>
+      ) : (
+        <Text style={styles.procedureTitle}>Explore cell</Text>
+      )}
+      {activityControls && (
+        <Pressable
+          testID="instructor-toggle"
+          accessibilityRole="button"
+          accessibilityLabel="Instructor"
+          accessibilityHint={
+            instructorOpen
+              ? 'Switch to self-guided mode'
+              : 'Open the instructor'
+          }
+          accessibilityState={{ selected: instructorOpen }}
+          onPress={onToggleInstructor}
+          style={({ pressed }) => [styles.control, pressed && styles.pressed]}
+        >
+          <Icon
+            name={IconName.chat}
+            color={instructorOpen ? Color.accent : Color.muted}
+          />
+        </Pressable>
+      )}
     </View>
   );
 }

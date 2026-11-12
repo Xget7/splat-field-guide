@@ -28,7 +28,10 @@ Read the owning area and its linked interface/tests before editing.
 
 **Owns:** startup, navigation and dependency composition; screens receive configured capabilities.
 Startup validates explicitly bundled packs through the native reader and shows a startup error on failure; builds bundle no packs by default.
-The course shell opens before a native scene; Explore and saved continuation resolve available catalog entries.
+The global workspace opens before any native scene: Organizations leads to an organization's courses, then a course, module and activity.
+The global sidebar contains Organizations, My progress, Downloads and Help; Courses is scoped to the organization.
+The bundled demo supplies one local default Miris organization without implying a remote membership directory.
+Explore cell and saved continuation resolve available catalog entries.
 **Rule:** features never import app composition or construct unrelated provider lifecycles.
 **Read:** [startup](../../apps/field-guide/src/app/App.tsx), [navigation](../../apps/field-guide/src/app/navigation/RootNavigator.tsx), [platform wiring](../../apps/field-guide/src/app/platform.ts).
 **Verify:** [app tests](../../apps/field-guide/src/app/tests/App.test.tsx).
@@ -38,7 +41,10 @@ The course shell opens before a native scene; Explore and saved continuation res
 **Owns:** course entry, module presentation, discoverable guides, availability and session opening.
 **Rule:** discovery chooses a session start; guide rules own subsequent position.
 The landscape shell uses shared charcoal surfaces, blue actions, system typography and an 8-point spacing scale; native highlight styling is independent.
-The demo modules are presentation, while course-wide answers, source PDF opening and course downloads show explicit availability states.
+Course tabs own module presentation, documentation and the course Assistant; clickable breadcrumbs navigate outward without discarding the Assistant draft.
+My progress reports only the validated saved continuation, without inferring completion, time spent or aggregated learning analytics.
+Module actions open actual bundled activities, course questions use the grounded turn runner, and the native document adapter opens hash-verified local originals.
+Remote course downloading remains unavailable; the download action opens the current local-resource availability page.
 Downloads separates verified Voice & AI models from course content: offline course readiness requires every required course file to be installed and verified.
 Ready entries and saved continuation enter guide/viewer interfaces.
 **Read:** [public interface](../../apps/field-guide/src/features/library/index.ts), [views](../../apps/field-guide/src/features/library/views.ts), [catalog](../../apps/field-guide/src/features/pack/catalog.ts), [tokens](../../apps/field-guide/src/ui/courseTokens.ts).
@@ -159,6 +165,9 @@ Preparation supplies every embedding, including query vectors; mobile compares s
 **Owns:** deterministic session transitions, selection overrides, child expansion, framing and saved continuation.
 **Rule:** viewer and instructor submit events; guide rules decide the resulting procedure position and emphasis.
 A session is the current position; progress is its saved continuation.
+A session start with a null procedure opens free exploration with selection and camera controls, without guidance, steps, an Assistant or progress writes.
+Entering free exploration from the course preserves any existing saved learning continuation.
+Course activities show a compact current-instruction card instead of the legacy guidance dropdown and full step-list sidebar.
 **Read:** [public interface](../../apps/field-guide/src/features/guide/index.ts), [session rules](../../apps/field-guide/src/features/guide/domain/session.ts), [highlight/framing](../../apps/field-guide/src/features/guide/domain/derive.ts), [progress storage](../../apps/field-guide/src/features/guide/data/progressStorage.ts).
 **Verify:** [session tests](../../apps/field-guide/src/features/guide/tests/session.test.ts), [progress tests](../../apps/field-guide/src/features/guide/tests/progressStorage.test.ts).
 
