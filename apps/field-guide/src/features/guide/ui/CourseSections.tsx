@@ -52,6 +52,8 @@ interface RowProps {
   readonly selected?: boolean;
   readonly disabled?: boolean;
   readonly divided: boolean;
+  /** Indents a machine's procedure under the machine row. */
+  readonly nested?: boolean;
   readonly onPress: () => void;
 }
 
@@ -64,6 +66,7 @@ function Row({
   selected,
   disabled = false,
   divided,
+  nested = false,
   onPress,
 }: RowProps) {
   return (
@@ -79,6 +82,7 @@ function Row({
       style={({ pressed }) => [
         styles.row,
         divided && styles.divided,
+        nested && styles.nested,
         pressed && styles.pressed,
       ]}
     >
@@ -131,7 +135,7 @@ export function ModuleList({
   );
 }
 
-/** Each machine leads its own procedures; tapping it frames the machine in the preview. */
+/** One list where each machine leads its own procedures; tapping a machine frames it in the preview. */
 export function MachineList({
   machines,
   focus,
@@ -144,34 +148,34 @@ export function MachineList({
   onChoose: (id: ProcedureId) => void;
 }) {
   return (
-    <View style={styles.groups}>
-      {machines.map(machine => {
+    <View style={styles.list}>
+      {machines.flatMap((machine, index) => {
         const selected = machine.id === focus;
-        return (
-          <View key={machine.id} style={styles.list}>
+        return [
+          <Row
+            key={machine.id}
+            testID={`machine-row-${machine.id}`}
+            title={machine.name}
+            body={machine.task}
+            trailing={IconName.frame}
+            selected={selected}
+            divided={index > 0}
+            onPress={() => onFocus(selected ? null : machine.id)}
+          />,
+          ...machine.modules.map(row => (
             <Row
-              testID={`machine-row-${machine.id}`}
-              title={machine.name}
-              body={machine.task}
-              trailing={IconName.frame}
-              selected={selected}
-              divided={false}
-              onPress={() => onFocus(selected ? null : machine.id)}
+              key={row.id}
+              testID={`procedure-row-${row.id}`}
+              title={row.title}
+              body={row.objective}
+              meta={row.meta}
+              trailing={IconName.next}
+              nested
+              divided
+              onPress={() => onChoose(row.id)}
             />
-            {machine.modules.map(row => (
-              <Row
-                key={row.id}
-                testID={`procedure-row-${row.id}`}
-                title={row.title}
-                body={row.objective}
-                meta={row.meta}
-                trailing={IconName.next}
-                divided
-                onPress={() => onChoose(row.id)}
-              />
-            ))}
-          </View>
-        );
+          )),
+        ];
       })}
     </View>
   );
@@ -249,7 +253,6 @@ export function ReferenceSection({
 
 const styles = StyleSheet.create({
   section: { gap: Space.sm },
-  groups: { gap: Space.md },
   list: {
     borderRadius: Radius.card,
     borderWidth: HAIRLINE,
@@ -265,6 +268,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.lg,
   },
   divided: { borderTopWidth: HAIRLINE, borderTopColor: Color.line },
+  // Indented so a machine's procedures read as part of that machine.
+  nested: { paddingLeft: Space.lg + Space.xl },
   pressed: { backgroundColor: Color.pressed },
   body: { flex: 1, gap: Space.xs },
   title: { ...Type.calloutStrong, color: Color.text },
