@@ -6,6 +6,7 @@ import { INITIAL_SESSION } from '../../../apps/field-guide/src/features/guide/do
 import type { AgentState } from './state.ts';
 
 export type AgentConfigIds = Required<Pick<AgentState, 'dictionary'>> & {
+  readonly manualSources?: readonly { id: string; edition: string; sha256: string }[];
   readonly knowledgeIds: readonly { id: string; name: string }[];
   readonly voiceId: string;
   readonly toolIds: readonly string[];
@@ -39,7 +40,12 @@ const VoiceStyle = [
   'Write numbers, grades and units as the notes write them, for example 5W-40.',
 ] as const;
 const ToolInstructions = [
-  'When the user asks about one specific part, such as where it is, what it does, or how to check, fill or change it, call show_part for it before you answer, even if they did not ask to see it.',
+  'Use search_manual for questions about the KUKA manuals and get_manual_page when an exact page is needed. The installed full-text corpus and the hosted manual documents retain the same original PDF hashes and pages.',
+  'Cite the manual edition and PDF page for each manual-backed answer. Do not transfer specifications or procedures between KR QUANTEC extra and KR QUANTEC-2 K/P. The installed Miris model remains unconfirmed; qualify applicability or ask for the model before service guidance.',
+  'find_similar_parts compares supplied image or text embeddings only. Never turn a similarity score into a physical relationship, confirmed identity or manual instruction.',
+  'Mandatory component lookup order: search_parts with the operator wording, then get_part for the uniquely resolved id, then show_part before explaining the identified component.',
+  'If search_parts returns needs_clarification or several candidates, stop component lookup and selection and ask which machine the operator means. A single RAG result never proves a unique match.',
+  'Example: User: Where is the welding gun? Call search_parts with query welding gun. Four machines have this component, so ask which machine; do not call show_part until the operator clarifies.',
   'Match common wording to supplied names and aliases. If no component matches, say so; never invent the closest equipment identity.',
   'When they ask to start a check, call start_procedure.',
   'For next, back, repeat, a step number or stopping, call the matching step tool.',
@@ -61,14 +67,14 @@ const ScreenContext = [
   'Later screen changes arrive as context.',
 ] as const;
 
-export function buildPrompt(pack: Pack): string {
+export function buildPrompt(pack: Pack, manualSources: AgentConfigIds['manualSources'] = []): string {
   return [
     `You are the Miris organization assistant. The prepared course content is ${pack.title}. The current module is context, not a restriction on which authorized Miris content can be discussed.`,
+    ...(manualSources?.length ? [`Complete source texts available through client tools: ${manualSources.map(source => `${source.id}, edition ${source.edition}, PDF SHA-256 ${source.sha256}`).join('; ')}. Full manuals need not be hosted in RAG; call search_manual to consult the installed common corpus.`] : []),
     ...VoiceStyle,
     ...rulesFor(pack, ReplyFormat.plain),
     ...ToolInstructions,
     ...ScreenContext,
-    `Part ids: ${pack.parts.map(part => `${part.id} = ${part.name}`).join(', ')}`,
     `Check ids: ${pack.procedures.map(procedure => `${procedure.id} = ${procedure.title}`).join(', ')}`,
     'The attached knowledge base contains the reviewed prepared content. Retrieve evidence rather than inventing missing details.',
   ].join('\n');
@@ -85,7 +91,7 @@ export function buildAgentConfig(pack: Pack, ids: AgentConfigIds) {
           dynamic_variable_placeholders: agentVariables(INITIAL_SESSION, pack, false),
         },
         prompt: {
-          prompt: buildPrompt(pack),
+          prompt: buildPrompt(pack, ids.manualSources),
           llm: LLM,
           temperature: 0.1,
           knowledge_base: ids.knowledgeIds.map(document => ({ type: 'text' as const, id: document.id, name: document.name, usage_mode: 'auto' as const })),

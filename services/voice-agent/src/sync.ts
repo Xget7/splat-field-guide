@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { openManualIndex, type ManualIndex } from '../../../apps/field-guide/src/features/semantic/index.ts';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { parsePack } from '../../../apps/field-guide/src/features/pack/parsePack.ts';
@@ -29,6 +31,8 @@ const SyncCopy = {
 } as const;
 export interface SyncOptions {
   readonly manifest?: unknown;
+  readonly manuals?: ManualIndex;
+  readonly hostManuals?: boolean;
   readonly env?: Environment;
   readonly statePath?: string;
   readonly fetchImpl?: typeof fetch;
@@ -64,8 +68,9 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   const pack = parsed.pack;
   const statePath = options.statePath ?? STATE_PATH;
   const state = await loadState(statePath);
+  if (state.manualSources?.length && !options.manuals) throw new Error('This agent includes complete manuals. Pass --manual-index <directory> to preserve that knowledge scope.');
   const tools = buildToolConfigs(pack);
-  const documents = knowledgeDocuments(pack);
+  const documents = knowledgeDocuments(pack, options.hostManuals ? options.manuals : undefined);
   if (dryRun) {
     const plan = {
       knowledge: documents,
@@ -74,6 +79,7 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
       agent: buildAgentConfig(pack, {
         voiceId, knowledgeIds: documents.map(document => ({ id: state.knowledge?.[document.digest]?.id ?? `<knowledge id: ${document.key}>`, name: document.name })),
         toolIds: tools.map(tool => state.toolIds?.[tool.name] ?? `<tool id: ${tool.name}>`),
+        manualSources: options.manuals?.documents.map(document => ({ id: document.id, edition: document.edition, sha256: document.sha256 })),
         dictionary: state.dictionary ?? { id: Placeholder.dictionaryId, versionId: Placeholder.dictionaryVersion },
       }),
     };
@@ -82,6 +88,12 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   }
   const api = createElevenLabs(apiKey, options.fetchImpl ?? fetch);
   const knowledge = state.knowledge ??= {};
+  if (options.hostManuals) {
+    const usage = await api.ragUsage();
+    const required = documents.filter(document => !knowledge[document.digest]).reduce((sum, document) => sum + Buffer.byteLength(document.text), 0);
+    const desiredBytes = documents.reduce((sum, document) => sum + Buffer.byteLength(document.text), 0);
+    if (desiredBytes > usage.total_max_bytes || required > usage.total_max_bytes - usage.total_used_bytes) throw new Error(`Insufficient hosted RAG capacity: ${required} new bytes required, ${usage.total_max_bytes - usage.total_used_bytes} available. Complete manuals remain available through the app client tools without hosted manual indexing.`);
+  }
   const knowledgeIds: { id: string; name: string }[] = [];
   for (const document of documents) {
     let saved = knowledge[document.digest];
@@ -116,8 +128,10 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
     state.dictionary = await api.createDictionaryRef(DICTIONARY_NAME, pronunciationRules);
   }
   await saveState(statePath, state);
+  if (options.manuals) state.manualSources = options.manuals.documents.map(document => ({ id: document.id, sha256: document.sha256 }));
   const agent = await api.agent(buildAgentConfig(pack, {
     voiceId, knowledgeIds, toolIds: tools.map(tool => toolIds[tool.name]), dictionary: state.dictionary,
+    manualSources: options.manuals?.documents.map(document => ({ id: document.id, edition: document.edition, sha256: document.sha256 })),
   }), state.agentId);
   state.agentId = agent.agent_id;
   await saveState(statePath, state);
@@ -130,7 +144,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const manifestIndex = process.argv.indexOf('--manifest');
     if (manifestIndex < 0 || !process.argv[manifestIndex + 1]) throw new Error('Pass --manifest <file>');
     const manifest = JSON.parse(await readFile(process.argv[manifestIndex + 1], 'utf8'));
-    await runSync({ manifest, dryRun: process.argv.includes(DRY_RUN_ARGUMENT) });
+    const manualArg = process.argv.indexOf('--manual-index');
+    const directory = manualArg >= 0 ? process.argv[manualArg + 1] : process.env.FIELD_GUIDE_MANUAL_INDEX_DIR;
+    let manuals: ManualIndex | undefined;
+    if (directory) {
+      const receipt = JSON.parse(await readFile(resolve(directory, 'receipt.json'), 'utf8'));
+      if (receipt.schemaVersion !== 1 || receipt.index?.path !== 'manuals.json') throw new Error('Invalid manual receipt');
+      const bytes = await readFile(resolve(directory, 'manuals.json'));
+      if (bytes.length !== receipt.index.bytes || createHash('sha256').update(bytes).digest('hex') !== receipt.index.sha256) throw new Error('Prepared manual index digest mismatch');
+      const catalog = JSON.parse(await readFile(new URL('../../../apps/field-guide/assets/documents/catalog.json', import.meta.url), 'utf8'));
+      manuals = openManualIndex(JSON.parse(bytes.toString('utf8')), catalog);
+    }
+    const stateArg = process.argv.indexOf('--state');
+    const statePath = stateArg >= 0 ? process.argv[stateArg + 1] : undefined;
+    if (stateArg >= 0 && !statePath) throw new Error('Pass --state <file>');
+    await runSync({ manifest, manuals, statePath, hostManuals: process.argv.includes('--host-manuals'), dryRun: process.argv.includes(DRY_RUN_ARGUMENT) });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

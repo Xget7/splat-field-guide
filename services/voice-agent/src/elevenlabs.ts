@@ -61,6 +61,11 @@ export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
   }
 
   return {
+    ragUsage: async () => {
+      const usage = await request<{ total_used_bytes: number; total_max_bytes: number }>('/convai/knowledge-base/rag-index', Method.get);
+      if (!Number.isSafeInteger(usage.total_used_bytes) || usage.total_used_bytes < 0 || !Number.isSafeInteger(usage.total_max_bytes) || usage.total_max_bytes < 0) throw new Error(INVALID_RESPONSE);
+      return usage;
+    },
     knowledge: async (name: string, text: string) => {
       const value = await request<unknown>('/convai/knowledge-base/text', Method.create, { name, text });
       return { id: resourceId(value, 'id'), name };

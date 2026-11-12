@@ -48,3 +48,14 @@ test('dry plan exposes prepared documents and configuration without provider req
   assert.ok(!plan.includes('private-key'));
   assert.equal(JSON.parse(plan).knowledge.length, knowledgeDocuments(pack).length);
 });
+
+test('hosted full manuals check remaining capacity before uploading any document', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'miris-rag-quota-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const calls: string[] = [];
+  await assert.rejects(runSync({ manifest, hostManuals: true, statePath: join(directory, 'agent.json'), env: { ELEVENLABS_API_KEY: 'fake', VOICE_ID: 'voice' }, print() {}, fetchImpl: async (url, init) => {
+    calls.push(`${init?.method} ${new URL(String(url)).pathname}`);
+    return Response.json({ total_used_bytes: 1024, total_max_bytes: 1024 });
+  } }), /Insufficient hosted RAG capacity/);
+  assert.deepEqual(calls, ['GET /v1/convai/knowledge-base/rag-index']);
+});
