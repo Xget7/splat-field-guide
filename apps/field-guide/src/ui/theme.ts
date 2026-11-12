@@ -1,7 +1,7 @@
 import { CourseColor } from './courseTokens';
 import type { TextStyle } from 'react-native';
 
-// Interface emphasis uses the course primary; the renderer marks selected parts in its own navy, PartHighlight.
+// Interface emphasis uses the course primary; the renderer tints selected parts by the viewer's highlightLookFor.
 export const Color = {
   // The camera and the splat stage only; every other surface is graphite.
   black: '#000000',
@@ -47,16 +47,6 @@ export const Color = {
 
 // A light-to-deep edge on the primary action, within the primary's hue.
 export const Sheen = ['#5B86FF', '#00369E', '#002B80'] as const;
-
-// Selected parts in the 3D view: a light navy wash lifted a little, with the rest of the scene left exactly as captured.
-// The wash keeps 80 % of the captured colour so the part's surface detail stays readable under it;
-// pure navy, 0x000080, would darken the part below its surroundings, so the tint is a lighter navy.
-export const PartHighlight = {
-  tintRgb: 0x2a5bd7,
-  tintAmount: 0.2,
-  partBrightness: 1.2,
-  otherBrightness: 1,
-} as const;
 
 export const Space = {
   xxs: 2,

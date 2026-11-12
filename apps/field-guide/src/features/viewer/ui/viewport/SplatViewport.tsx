@@ -47,7 +47,6 @@ import {
   Color,
   HAIRLINE,
   Motion,
-  PartHighlight,
   Radius,
   Space,
   Type,
@@ -57,6 +56,7 @@ import {
   CUT_FADE_MS,
   CUT_REVEAL_MS,
 } from '../../domain/camera';
+import { highlightLookFor } from '../../domain/highlightLook';
 import { PartMarkers } from './PartMarkers';
 import { ProjectedPartsContext, useProjectedParts } from './projectedParts';
 import { isCurrentPick } from '../../domain/pickInputs';
@@ -134,6 +134,11 @@ function Viewport({
         : [session.selectedPart];
     return ids.flatMap(id => pack.parts.filter(part => part.id === id));
   }, [session, pack]);
+  // An assembly is tinted by its own measured colour, not its sub-parts'.
+  const highlightLook = useMemo(
+    () => highlightLookFor(parts[0] ?? null),
+    [parts],
+  );
   const mounted = useRef(true);
   const generation = useRef(0);
   const currentInputs = useRef({
@@ -355,7 +360,7 @@ function Viewport({
             style={styles.root}
             source={source}
             highlight={highlight}
-            highlightLook={PartHighlight}
+            highlightLook={highlightLook}
             cameraLimits={limits}
             revealSeconds={
               materialize ? Motion.reveal / MS_PER_SECOND : undefined
