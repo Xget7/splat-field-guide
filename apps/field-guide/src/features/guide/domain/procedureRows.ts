@@ -1,5 +1,4 @@
 import type { Pack, ProcedureId } from '../../pack/pack';
-import { TOUR_ID } from '../../pack/tour';
 
 export interface ProcedureRow {
   readonly id: ProcedureId;
@@ -25,13 +24,5 @@ export function procedureRowsFor(pack: Pack): ProcedureRow[] {
         hasCaution ? ', has safety notes' : ''
       }`,
     };
-  });
-}
-
-/** The authored procedures alone: the parts tour has a button of its own. */
-export function checkRowsFor(pack: Pack): ProcedureRow[] {
-  return procedureRowsFor({
-    ...pack,
-    procedures: pack.procedures.filter(procedure => procedure.id !== TOUR_ID),
   });
 }

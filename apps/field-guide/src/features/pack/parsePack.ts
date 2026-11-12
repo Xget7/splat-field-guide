@@ -1,6 +1,8 @@
 import {
+  Audience,
   Bounds,
   CameraHome,
+  DocumentReference,
   CameraLimits,
   EvidenceKind,
   PART_LABEL_MAX,
@@ -45,6 +47,8 @@ export const PackErrorCode = {
   carriesCycle: 'carriesCycle',
   unknownVectorPart: 'unknownVectorPart',
   duplicateVectorRow: 'duplicateVectorRow',
+  /** A procedure or manual reference names something other than a root part. */
+  unknownMachine: 'unknownMachine',
 } as const;
 export type PackErrorCode = (typeof PackErrorCode)[keyof typeof PackErrorCode];
 
@@ -151,6 +155,23 @@ function readCount(value: unknown, path: string): number {
 
 function readOptionalText(value: unknown, path: string): string {
   return value === undefined ? '' : readText(value, path);
+}
+
+/** Absent is allowed; present must say something. */
+function readOptionalName(value: unknown, path: string): string | undefined {
+  return value === undefined ? undefined : readName(value, path);
+}
+
+function readPositiveInteger(value: unknown, path: string): number {
+  const number = readCount(value, path);
+  if (number === 0) {
+    return fail(
+      PackErrorCode.invalidField,
+      path,
+      'expected a positive integer',
+    );
+  }
+  return number;
 }
 
 function readVec3(value: unknown, path: string): Vec3 {
@@ -466,11 +487,56 @@ function readProcedure(value: unknown, path: string): Procedure {
   if (steps.length === 0) {
     return fail(PackErrorCode.invalidField, stepsPath, 'expected a step');
   }
+  const objective = readOptionalName(object.objective, at(path, 'objective'));
+  const audience =
+    object.audience === undefined
+      ? undefined
+      : readChoice(object.audience, at(path, 'audience'), Audience);
+  const machine = readOptionalName(object.machine, at(path, 'machine'));
   return {
     id: readName(object.id, at(path, 'id')),
     title: readName(object.title, at(path, 'title')),
+    // Absent fields stay absent so older packs keep their exact shape.
+    ...(objective !== undefined && { objective }),
+    ...(audience !== undefined && { audience }),
+    ...(machine !== undefined && { machine }),
     steps,
   };
+}
+
+function readReference(value: unknown, path: string): DocumentReference {
+  const object = readObject(value, path);
+  const section = readOptionalName(object.section, at(path, 'section'));
+  const figure = readOptionalName(object.figure, at(path, 'figure'));
+  const partsPath = at(path, 'parts');
+  return {
+    document: readName(object.document, at(path, 'document')),
+    title: readName(object.title, at(path, 'title')),
+    ...(section !== undefined && { section }),
+    ...(figure !== undefined && { figure }),
+    page: readPositiveInteger(object.page, at(path, 'page')),
+    parts:
+      object.parts === undefined
+        ? []
+        : readArray(object.parts, partsPath).map((id, index) =>
+            readName(id, at(partsPath, index)),
+          ),
+  };
+}
+
+/** Machines are the root parts; anything else cannot own a procedure or a manual reference. */
+function checkMachine(id: PartId, parts: readonly Part[], path: string): void {
+  const part = parts.find(candidate => candidate.id === id);
+  if (!part) {
+    fail(PackErrorCode.unknownMachine, path, `unknown machine "${id}"`);
+  }
+  if (part.parent !== null) {
+    fail(
+      PackErrorCode.unknownMachine,
+      path,
+      `"${id}" is inside "${part.parent}", not a machine`,
+    );
+  }
 }
 
 function checkParts(parts: readonly Part[]): void {
@@ -544,6 +610,9 @@ function checkProcedures(
       );
     }
     procedureIds.add(procedure.id);
+    if (procedure.machine !== undefined) {
+      checkMachine(procedure.machine, parts, at(base, 'machine'));
+    }
     const stepIds = new Set<string>();
     procedure.steps.forEach((step, s) => {
       const stepBase = at(at(base, 'steps'), s);
@@ -820,6 +889,22 @@ function buildPack(value: unknown): Pack {
           readRelation(relation, at('relations', index)),
         );
   checkRelations(relations, parts);
+  const references =
+    root.references === undefined
+      ? []
+      : readArray(root.references, 'references').map((reference, index) =>
+          readReference(reference, at('references', index)),
+        );
+  references.forEach((reference, index) => {
+    const partsPath = at(at('references', index), 'parts');
+    reference.parts.forEach((id, i) =>
+      checkMachine(id, parts, at(partsPath, i)),
+    );
+    if (new Set(reference.parts).size !== reference.parts.length) {
+      fail(PackErrorCode.invalidField, partsPath, 'a machine repeats');
+    }
+  });
+  const summary = readOptionalName(root.summary, 'summary');
   const camera = readCamera(root.camera, 'camera');
   const checkDirection = (item: Part | Step, path: string) => {
     const direction = item.viewDirection;
@@ -858,12 +943,14 @@ function buildPack(value: unknown): Pack {
     packId,
     packVersion: readCount(root.packVersion, 'packVersion'),
     title: readName(root.title, 'title'),
+    ...(summary !== undefined && { summary }),
     sources: readSources(root.sources, parts),
     tiers,
     camera,
     parts,
-    procedures: [tourOf({ parts, camera }), ...procedures],
+    procedures: [tourOf({ parts, camera, relations }), ...procedures],
     relations,
+    references,
     model: root.model === undefined ? undefined : readFile(root.model, 'model'),
     semantic: readSemantic(root.semantic, parts),
   };

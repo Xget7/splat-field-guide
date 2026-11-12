@@ -276,6 +276,156 @@ describe('parsePack', () => {
     expect(error.path).toBe('procedures[0].steps');
   });
 
+  it('orders the parsed parts tour along supplied support links within a machine', () => {
+    const manifest = fixtureCopy();
+    manifest.relations.push({
+      type: 'supports',
+      from: 'intake-manifold',
+      to: 'valve-cover',
+      evidence: { kind: 'authored', source: 'Workshop manual, top end' },
+    });
+    const result = parsePack(manifest);
+    if (!result.ok) throw new Error(result.error.message);
+    const tour = findProcedure(result.pack, TOUR_ID)!;
+    expect(tour.steps.map(step => step.id).slice(-3)).toEqual([
+      'engine',
+      'intake-manifold',
+      'valve-cover',
+    ]);
+  });
+
+  describe('course outline', () => {
+    const reference = {
+      document: 'kuka-quantec-2-kp-v6',
+      title: 'Robot anatomy',
+      section: '2.2',
+      figure: 'Fig. 2-2',
+      page: 16,
+      parts: ['engine'],
+    };
+    const outlined = (manifest: Record<string, any>) => {
+      manifest.summary = 'An engine bay with its fluid reservoirs.';
+      manifest.references = [{ ...reference, parts: [...reference.parts] }];
+      Object.assign(manifest.procedures[0], {
+        objective: 'Read the coolant level safely.',
+        audience: 'maintenance',
+        machine: 'engine',
+      });
+    };
+
+    it('keeps the summary, references and procedure objective, audience and machine', () => {
+      const manifest = fixtureCopy();
+      outlined(manifest);
+      const result = parsePack(manifest);
+      if (!result.ok) throw new Error(result.error.message);
+      expect(result.pack.summary).toBe(
+        'An engine bay with its fluid reservoirs.',
+      );
+      expect(result.pack.references).toEqual([reference]);
+      expect(findProcedure(result.pack, 'check-coolant')).toMatchObject({
+        objective: 'Read the coolant level safely.',
+        audience: 'maintenance',
+        machine: 'engine',
+      });
+    });
+
+    it('leaves older packs without them', () => {
+      const result = parsePack(fixtureManifest);
+      if (!result.ok) throw new Error(result.error.message);
+      expect(result.pack.summary).toBeUndefined();
+      expect(result.pack.references).toEqual([]);
+      const procedure = findProcedure(result.pack, 'check-coolant')!;
+      expect('objective' in procedure).toBe(false);
+      expect('audience' in procedure).toBe(false);
+      expect('machine' in procedure).toBe(false);
+    });
+
+    it('defaults reference parts to the whole cell and keeps section and figure optional', () => {
+      const manifest = fixtureCopy();
+      manifest.references = [{ document: 'manual', title: 'Safety', page: 3 }];
+      const result = parsePack(manifest);
+      expect(result.ok && result.pack.references).toEqual([
+        { document: 'manual', title: 'Safety', page: 3, parts: [] },
+      ]);
+    });
+
+    it.each([
+      ['summary', (m: any) => (m.summary = ' '), 'summary'],
+      [
+        'objective',
+        (m: any) => (m.procedures[0].objective = ''),
+        'procedures[0].objective',
+      ],
+      [
+        'audience',
+        (m: any) => (m.procedures[0].audience = 'visitor'),
+        'procedures[0].audience',
+      ],
+      [
+        'page zero',
+        (m: any) => (m.references[0].page = 0),
+        'references[0].page',
+      ],
+      [
+        'fractional page',
+        (m: any) => (m.references[0].page = 16.5),
+        'references[0].page',
+      ],
+      [
+        'reference title',
+        (m: any) => (m.references[0].title = ''),
+        'references[0].title',
+      ],
+      [
+        'figure',
+        (m: any) => (m.references[0].figure = ''),
+        'references[0].figure',
+      ],
+      [
+        'repeated machine',
+        (m: any) => (m.references[0].parts = ['engine', 'engine']),
+        'references[0].parts',
+      ],
+    ])('refuses a malformed %s', (_, mutate, path) => {
+      const error = errorOf(m => {
+        outlined(m);
+        mutate(m);
+      });
+      expect(error.code).toBe(PackErrorCode.invalidField);
+      expect(error.path).toBe(path);
+    });
+
+    it.each([
+      [
+        'an unknown procedure machine',
+        (m: any) => (m.procedures[0].machine = 'gearbox'),
+        'procedures[0].machine',
+      ],
+      [
+        'a component as procedure machine',
+        (m: any) => (m.procedures[0].machine = 'valve-cover'),
+        'procedures[0].machine',
+      ],
+      [
+        'an unknown reference machine',
+        (m: any) => (m.references[0].parts = ['gearbox']),
+        'references[0].parts[0]',
+      ],
+      [
+        'a component as reference machine',
+        (m: any) => (m.references[0].parts = ['valve-cover']),
+        'references[0].parts[0]',
+      ],
+    ])('refuses %s', (_, mutate, path) => {
+      const error = errorOf(m => {
+        outlined(m);
+        mutate(m);
+      });
+      expect(error.code).toBe(PackErrorCode.unknownMachine);
+      expect(error.path).toBe(path);
+    });
+  });
+
   it('refuses a pack without tiers', () => {
     const error = errorOf(m => (m.tiers = []));
     expect(error.path).toBe('tiers');

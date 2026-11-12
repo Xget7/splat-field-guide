@@ -1,4 +1,12 @@
-import { Pack, Part, Procedure, ProcedureId, Relation, Step } from './pack';
+import {
+  Audience,
+  Pack,
+  Part,
+  Procedure,
+  ProcedureId,
+  Relation,
+  Step,
+} from './pack';
 
 /** Reserved: an authored procedure may not take it. */
 export const TOUR_ID: ProcedureId = 'tour';
@@ -50,9 +58,8 @@ export function tourOf(
     members.filter(member => !carried.has(member.id)).forEach(chain);
     members.forEach(chain);
   }
-  [...(children.get(null) ?? [])]
-    .sort((a, b) => across(a) - across(b))
-    .forEach(visit);
+  const roots = children.get(null) ?? [];
+  [...roots].sort((a, b) => across(a) - across(b)).forEach(visit);
   // Defensive for hand-built packs; the parser already rejects hierarchy cycles.
   pack.parts.forEach(visit);
   const steps: Step[] = ordered.map(part => ({
@@ -62,5 +69,10 @@ export function tourOf(
     parts: [part.id],
     caution: '',
   }));
-  return { id: TOUR_ID, title: TOUR_TITLE, steps };
+  return {
+    id: TOUR_ID,
+    title: TOUR_TITLE,
+    audience: Audience.operator,
+    steps,
+  };
 }
