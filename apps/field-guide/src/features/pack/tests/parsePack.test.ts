@@ -50,6 +50,18 @@ describe('parsePack', () => {
     }
   });
 
+  it('keeps a measured part colour and refuses one not written #rrggbb', () => {
+    const MEASURED = '#e8740c';
+    const manifest = fixtureCopy();
+    manifest.parts[0].color = MEASURED;
+    const result = parsePack(manifest);
+    expect(result.ok && result.pack.parts[0].color).toBe(MEASURED);
+    expect(result.ok && result.pack.parts[1].color).toBeUndefined();
+    const error = errorOf(m => (m.parts[0].color = 'orange'));
+    expect(error.code).toBe(PackErrorCode.invalidField);
+    expect(error.path).toBe('parts[0].color');
+  });
+
   it('defaults optional fields', () => {
     const manifest = fixtureCopy();
     delete manifest.parts[0].aliases;
