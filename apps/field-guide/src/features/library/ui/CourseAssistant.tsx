@@ -16,6 +16,7 @@ interface Props {
   onOpen: (start: SessionStart) => void;
   onDocument: () => void;
   active?: boolean;
+  inline?: boolean;
   draft?: string;
   onDraftChange?: (value: string) => void;
 }
@@ -28,6 +29,7 @@ export function CourseAssistant({
   onOpen,
   onDocument,
   active = true,
+  inline = false,
   draft: controlledDraft,
   onDraftChange,
 }: Props) {
@@ -105,9 +107,11 @@ export function CourseAssistant({
     tour?.steps.findIndex(step => step.parts.includes(part?.id ?? '')) ?? -1;
   return (
     <View style={styles.panel}>
-      <Text accessibilityRole="header" style={styles.title}>
-        Course assistant
-      </Text>
+      {!inline && (
+        <Text accessibilityRole="header" style={styles.title}>
+          Course assistant
+        </Text>
+      )}
       {!guide && (
         <Text accessibilityRole="alert" style={styles.caption}>
           Install the course to ask about its equipment.
@@ -151,12 +155,14 @@ export function CourseAssistant({
           {error}
         </Text>
       )}
-      <CourseComposer
-        onAsk={ask}
-        onDocument={onDocument}
-        question={draft}
-        onQuestionChange={setDraft}
-      />
+      {!inline && (
+        <CourseComposer
+          onAsk={ask}
+          onDocument={onDocument}
+          question={draft}
+          onQuestionChange={setDraft}
+        />
+      )}
     </View>
   );
 }

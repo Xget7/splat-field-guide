@@ -27,7 +27,7 @@ import {
   Grid as G,
   CourseRadius as R,
 } from '../../../ui/courseTokens';
-import { continueRowFor, factsFor } from '../domain/library';
+import { continueRowFor } from '../domain/library';
 import { TOUR_ID } from '../../pack/tour';
 import { ContinueCard } from './GuideCards';
 import { CourseNavigation, type AppSection } from './CourseNavigation';
@@ -45,7 +45,7 @@ import {
 
 type Destination = AppSection | 'Courses';
 
-type CourseSection = 'Course' | 'Modules' | 'Assistant' | 'Documentation';
+type CourseSection = 'Course' | 'Documentation';
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
@@ -123,7 +123,7 @@ export function LibraryScreen({
     }));
     setDraft('');
     setNotice(null);
-    setSection('Assistant');
+    setSection('Course');
   };
   const explore = () => {
     const guide = catalog[0];
@@ -253,7 +253,12 @@ export function LibraryScreen({
               <WorkspaceHome
                 organizations={destination === 'Organizations'}
                 courseAvailable={catalog.length > 0}
-                moduleCount={moduleCount}
+                modules={catalog.flatMap(guide =>
+                  guide.pack.procedures.map(procedure => ({
+                    id: `${guide.id}:${procedure.id}`,
+                    title: procedure.title,
+                  })),
+                )}
                 onOrganization={() => selectDestination('Courses')}
                 onCourse={() => openCourse()}
               />
@@ -261,9 +266,7 @@ export function LibraryScreen({
           {inCourse && (
             <>
               <View accessibilityRole="tablist" style={styles.tabs}>
-                {(
-                  ['Course', 'Modules', 'Documentation', 'Assistant'] as const
-                ).map(tab => (
+                {(['Course', 'Documentation'] as const).map(tab => (
                   <Pressable
                     key={tab}
                     testID={`course-tab-${tab.toLowerCase()}`}
@@ -280,9 +283,6 @@ export function LibraryScreen({
                       ]}
                     >
                       {tab}
-                      {tab === 'Modules'
-                        ? `  ${String(moduleCount).padStart(2, '0')}`
-                        : ''}
                     </Text>
                   </Pressable>
                 ))}
@@ -300,7 +300,7 @@ export function LibraryScreen({
               onDownloads={() => selectDestination('Downloads')}
             />
           )}
-          {inCourse && (section === 'Course' || section === 'Modules') && (
+          {inCourse && section === 'Course' && (
             <View style={styles.modules}>
               {continuation && (
                 <ContinueCard row={continuation} onPress={continueGuide} />
@@ -318,7 +318,6 @@ export function LibraryScreen({
                   <ModuleCard
                     key={guide.id}
                     title={guide.title}
-                    details={factsFor(guide).join(', ')}
                     action="Choose guidance"
                     index={0}
                     wide={columns}
@@ -333,13 +332,7 @@ export function LibraryScreen({
                       <ModuleCard
                         key={`${guide.id}:${procedure.id}`}
                         title={procedure.title}
-                        details={`${procedure.steps.length} ${
-                          procedure.steps.length === 1 ? 'step' : 'steps'
-                        }${
-                          procedure.steps.some(step => step.caution.trim())
-                            ? ', includes safety notes'
-                            : ''
-                        }`}
+                        steps={procedure.steps.length}
                         action="Start procedure"
                         index={index + 1}
                         wide={columns}
@@ -359,10 +352,15 @@ export function LibraryScreen({
             </View>
           )}
           <View
-            style={!(inCourse && section === 'Assistant') && styles.hidden}
-            accessibilityElementsHidden={!(inCourse && section === 'Assistant')}
+            style={
+              !(inCourse && section === 'Course' && lastQuestion !== null) &&
+              styles.hidden
+            }
+            accessibilityElementsHidden={
+              !(inCourse && section === 'Course' && lastQuestion !== null)
+            }
             importantForAccessibility={
-              inCourse && section === 'Assistant'
+              inCourse && section === 'Course' && lastQuestion !== null
                 ? 'auto'
                 : 'no-hide-descendants'
             }
@@ -373,7 +371,8 @@ export function LibraryScreen({
               requestId={lastQuestion?.id}
               draft={draft}
               onDraftChange={setDraft}
-              active={inCourse && section === 'Assistant'}
+              inline
+              active={inCourse && section === 'Course'}
               onOpen={onOpen}
               onDocument={document}
             />
@@ -422,7 +421,7 @@ export function LibraryScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Browse course modules"
-                onPress={() => openCourse('Modules')}
+                onPress={() => openCourse('Course')}
                 style={styles.helpAction}
               >
                 <Text style={styles.helpActionText}>Browse course modules</Text>
@@ -440,7 +439,7 @@ export function LibraryScreen({
             </View>
           )}
           {inCourse && <OfflinePreparation showReady />}
-          {inCourse && notice && section !== 'Assistant' && (
+          {inCourse && notice && section !== 'Course' && (
             <Text accessibilityRole="alert" style={styles.secondary}>
               {notice}
             </Text>

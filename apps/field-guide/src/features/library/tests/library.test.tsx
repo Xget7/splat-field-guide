@@ -193,7 +193,12 @@ describe('Library screen', () => {
 
   test('modules start real authored procedures with their full qualified titles', async () => {
     await mount();
-    await press('course-tab-modules');
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-tab-modules' }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-tab-assistant' }),
+    ).toHaveLength(0);
     const texts = renderer.root
       .findAllByType(Text)
       .map(item => item.props.children);
@@ -305,7 +310,8 @@ describe('Library screen', () => {
       .findAllByType(Text)
       .map(item => item.props.children);
     expect(texts).toContain('Where is the A5 axis motor?');
-    expect(texts).toContain('Course assistant');
+    expect(texts).not.toContain('Course assistant');
+    expect(node('course-explore')).toBeDefined();
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -339,7 +345,7 @@ describe('Library screen', () => {
     await press('course-send');
     await act(() => input().props.onChangeText('What does it drive?'));
     await pressLabel('Open source document, KR QUANTEC extra.pdf');
-    await pressLabel('Assistant');
+    await pressLabel('Course');
     expect(input().props.value).toBe('What does it drive?');
     expect(
       renderer.root.findAllByType(Text).map(item => item.props.children),
@@ -348,7 +354,7 @@ describe('Library screen', () => {
 
   test('leaving the course through workspace breadcrumbs preserves its assistant draft on return', async () => {
     await mount();
-    await press('course-tab-assistant');
+    await press('course-tab-course');
     const input = () =>
       renderer.root
         .findAllByProps({ testID: 'course-question' })
@@ -360,7 +366,7 @@ describe('Library screen', () => {
     expect(node('open-organization-miris')).toBeDefined();
     await press('open-organization-miris');
     await press('open-course-automotive-assembly-line');
-    expect(node('course-tab-assistant').props.accessibilityState).toEqual({
+    expect(node('course-tab-course').props.accessibilityState).toEqual({
       selected: true,
     });
     expect(input().props.value).toBe('What does the roof welder do?');

@@ -1,13 +1,4 @@
-import { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import { Icon, IconName } from '../../../ui/Icon';
 import {
   CourseColor as C,
@@ -34,45 +25,12 @@ export function CourseOverview({
   question: string;
   onQuestionChange: (question: string) => void;
 }) {
-  const rotation = useSharedValue(0);
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (!reduced) {
-      rotation.value = withRepeat(withTiming(360, { duration: 12000 }), -1);
-    }
-    return () => cancelAnimation(rotation);
-  }, [reduced, rotation]);
-  const cubeStyle = useAnimatedStyle(() => ({
-    transform: [{ rotateY: `${rotation.value}deg` }],
-  }));
   return (
-    <View style={[styles.hero, wide && styles.wide]}>
-      <View style={[styles.photo, wide && styles.photoWide]}>
-        <Image
-          accessibilityLabel="KUKA robots around a vehicle body in the Miris reference scene"
-          source={require('../assets/assembly-line.jpg')}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View pointerEvents="none" style={styles.dim} />
-        <Pressable
-          testID="course-explore"
-          accessibilityRole="button"
-          onPress={onExplore}
-          style={styles.explore}
-        >
-          <Animated.View style={cubeStyle}>
-            <Icon name={IconName.scene} size={18} color={C.text} />
-          </Animated.View>
-          <Text style={styles.label}>Explore cell</Text>
-        </Pressable>
-      </View>
-      <View style={styles.details}>
-        <View style={styles.titleRow}>
-          <Text accessibilityRole="header" style={styles.title}>
-            Automotive{wide ? '\n' : ' '}Assembly Line
-          </Text>
-        </View>
+    <View style={styles.hero}>
+      <View style={styles.titleRow}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Automotive Assembly Line
+        </Text>
         <Pressable
           testID="course-download"
           accessibilityRole="button"
@@ -84,15 +42,36 @@ export function CourseOverview({
             pressed && styles.downloadPressed,
           ]}
         >
-          <Icon name={IconName.download} size={18} color={C.white} />
-          <Text style={styles.downloadLabel}>Download course</Text>
+          <Icon name={IconName.download} size={20} color={C.secondary} />
         </Pressable>
-        <CourseComposer
-          onAsk={onAsk}
-          onDocument={onDocument}
-          question={question}
-          onQuestionChange={onQuestionChange}
-        />
+      </View>
+      <View style={[styles.body, wide && styles.wide]}>
+        <View style={[styles.photo, wide && styles.photoWide]}>
+          <Image
+            accessibilityLabel="KUKA robots around a vehicle body in the Miris reference scene"
+            source={require('../assets/assembly-line.jpg')}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View pointerEvents="none" style={styles.dim} />
+          <Pressable
+            testID="course-explore"
+            accessibilityRole="button"
+            onPress={onExplore}
+            style={styles.explore}
+          >
+            <Text style={styles.label}>Explore</Text>
+            <Icon name={IconName.next} size={24} color={C.white} />
+          </Pressable>
+        </View>
+        <View style={styles.details}>
+          <CourseComposer
+            onAsk={onAsk}
+            onDocument={onDocument}
+            question={question}
+            onQuestionChange={onQuestionChange}
+          />
+        </View>
       </View>
     </View>
   );
@@ -102,12 +81,12 @@ export function ModuleCard({
   index,
   onPress,
   testID,
-  details,
+  steps,
   action = 'Open module',
   wide = false,
 }: {
   title: string;
-  details?: string;
+  steps?: number;
   action?: string;
   wide?: boolean;
   index: number;
@@ -118,7 +97,9 @@ export function ModuleCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Open module, ${title}`}
+      accessibilityLabel={`Open module, ${title}${
+        steps === undefined ? '' : `, ${steps} steps`
+      }, module ${index + 1}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -128,10 +109,14 @@ export function ModuleCard({
     >
       <View style={styles.titleRow}>
         <Icon name={IconName.course} color={C.secondary} size={24} />
-        <Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text>
+        {steps !== undefined && (
+          <View style={styles.stepCount}>
+            <Icon name={IconName.list} color={C.secondary} size={14} />
+            <Text style={styles.number}>{steps}</Text>
+          </View>
+        )}
       </View>
       <Text style={styles.moduleTitle}>{title}</Text>
-      {details && <Text style={styles.moduleDetails}>{details}</Text>}
       <View style={styles.cardFooter}>
         <Text style={styles.label}>{action}</Text>
         <Icon name={IconName.next} color={C.accent} size={16} />
@@ -140,15 +125,16 @@ export function ModuleCard({
   );
 }
 const styles = StyleSheet.create({
-  hero: { gap: G.large },
-  wide: { flexDirection: 'row', alignItems: 'stretch' },
+  hero: { gap: G.medium },
+  body: { gap: G.medium },
+  wide: { flexDirection: 'row', alignItems: 'flex-start' },
   photo: {
-    height: 352,
+    height: 320,
     borderRadius: R.card,
     overflow: 'hidden',
     backgroundColor: C.surface,
   },
-  photoWide: { flex: 1, height: undefined, minHeight: 352 },
+  photoWide: { flex: 1, height: 320 },
   image: { width: '100%', height: '100%', position: 'absolute' },
   dim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.2)' },
   explore: {
@@ -157,7 +143,7 @@ const styles = StyleSheet.create({
     right: G.small,
     minHeight: G.control,
     paddingHorizontal: G.small,
-    borderRadius: R.pill,
+    borderRadius: R.control,
     flexDirection: 'row',
     gap: G.unit,
     alignItems: 'center',
@@ -165,7 +151,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.accent,
   },
-  details: { flex: 1, gap: G.medium },
+  details: { flex: 1 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -174,18 +160,16 @@ const styles = StyleSheet.create({
   },
   title: { ...T.title, color: C.text, flex: 1 },
   download: {
-    minHeight: G.control,
-    paddingHorizontal: G.small,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: G.unit,
+    width: G.control,
+    height: G.control,
     borderRadius: R.control,
-    backgroundColor: C.primary,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  downloadPressed: { backgroundColor: C.primaryPressed },
-  downloadLabel: { ...T.label, color: C.white },
+  downloadPressed: { backgroundColor: C.raised },
   label: { ...T.label, color: C.text },
   card: {
     flex: 1,
@@ -197,7 +181,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
   },
   cardWide: { flexBasis: '40%' },
-  moduleDetails: { ...T.caption, color: C.secondary },
+  stepCount: { flexDirection: 'row', alignItems: 'center', gap: G.unit },
   pressed: { backgroundColor: C.raised },
   number: { ...T.caption, color: C.secondary },
   moduleTitle: { ...T.heading, color: C.text, flex: 1 },

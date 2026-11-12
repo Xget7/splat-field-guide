@@ -102,6 +102,7 @@ export function CourseComposer({
           <Pressable
             key={text}
             accessibilityRole="button"
+            hitSlop={G.unit}
             onPress={() => {
               onQuestionChange(text);
               input.current?.focus();
@@ -116,9 +117,9 @@ export function CourseComposer({
   );
 }
 const styles = StyleSheet.create({
-  wrap: { gap: G.small },
+  wrap: { gap: G.unit },
   composer: {
-    minHeight: 160,
+    minHeight: 280,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: R.card,
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   input: {
     ...T.body,
     color: C.text,
-    minHeight: 80,
+    minHeight: 200,
     textAlignVertical: 'top',
     padding: 0,
   },
@@ -165,13 +166,13 @@ const styles = StyleSheet.create({
   disabled: { backgroundColor: C.raised, opacity: 0.5 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: G.unit },
   suggestion: {
-    minHeight: G.control,
-    paddingHorizontal: G.small,
+    minHeight: G.large,
+    paddingHorizontal: G.unit,
     paddingVertical: G.unit,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: R.pill,
+    borderRadius: R.control,
     justifyContent: 'center',
   },
-  prompt: { ...T.caption, color: C.accent },
+  prompt: { fontSize: 11, lineHeight: 16, color: C.accent },
 });
