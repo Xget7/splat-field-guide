@@ -12,6 +12,7 @@ import { CourseComposer } from './CourseComposer';
 interface Props {
   guide: ReadyGuide | null;
   question: string | null;
+  requestId?: number;
   onOpen: (start: SessionStart) => void;
   onDocument: () => void;
   active?: boolean;
@@ -23,6 +24,7 @@ interface Props {
 export function CourseAssistant({
   guide,
   question,
+  requestId,
   onOpen,
   onDocument,
   active = true,
@@ -78,8 +80,12 @@ export function CourseAssistant({
   );
 
   useEffect(() => {
-    if (focused && question && consumedQuestion.current !== question) {
-      consumedQuestion.current = question;
+    if (
+      focused &&
+      question &&
+      consumedQuestion.current !== String(requestId ?? question)
+    ) {
+      consumedQuestion.current = String(requestId ?? question);
       ask(question, false);
     }
     return () => {
@@ -91,7 +97,7 @@ export function CourseAssistant({
       }
       pending.current = false;
     };
-  }, [ask, focused, instructor, question]);
+  }, [ask, focused, instructor, question, requestId]);
 
   const part = guide?.pack.parts.find(item => item.id === exchange?.part);
   const tour = guide?.pack.procedures[0];

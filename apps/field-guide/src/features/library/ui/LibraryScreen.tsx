@@ -103,9 +103,15 @@ export function LibraryScreen({
   const [section, setSection] = useState<CourseSection>('Course');
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<{
+    id: number;
+    text: string;
+  } | null>(null);
   const ask = (question: string) => {
-    setLastQuestion(question);
+    setLastQuestion(previous => ({
+      id: (previous?.id ?? 0) + 1,
+      text: question,
+    }));
     setDraft('');
     setNotice(null);
     setSection('Assistant');
@@ -303,7 +309,8 @@ export function LibraryScreen({
           >
             <CourseAssistant
               guide={catalog[0] ?? null}
-              question={lastQuestion}
+              question={lastQuestion?.text ?? null}
+              requestId={lastQuestion?.id}
               draft={draft}
               onDraftChange={setDraft}
               active={inCourse && section === 'Assistant'}
@@ -317,6 +324,8 @@ export function LibraryScreen({
           {destination === 'Downloads' && (
             <CourseDownloads
               sceneAvailable={catalog.length > 0}
+              documents={documents}
+              moduleCount={moduleCount}
               onBack={() => {
                 select('Course');
                 selectDestination('Courses');

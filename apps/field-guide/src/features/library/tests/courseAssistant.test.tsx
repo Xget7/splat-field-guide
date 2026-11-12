@@ -48,3 +48,47 @@ test('a course question receives a grounded reply and opens its part only on req
   );
   await act(() => screen.unmount());
 });
+
+test('an explicit repeated submission restarts a canceled question without asking again on a tab revisit', async () => {
+  const guide = catalogFor([fixturePack()])[0];
+  const respond = jest.fn(() => new Promise<string>(() => {}));
+  const instructor = fakeInstructor({
+    turns: createTurnRunner(
+      [
+        {
+          isReady: () => true,
+          prewarm: () => {},
+          cancel: () => {},
+          respond,
+        },
+      ],
+      createExchangeIds(),
+    ),
+  });
+  instructorStore.getState().attach(instructor);
+  const props = {
+    guide,
+    question: 'Why does this step matter?',
+    onOpen: jest.fn(),
+    onDocument: jest.fn(),
+  };
+  let screen!: Renderer.ReactTestRenderer;
+  await act(() => {
+    screen = Renderer.create(
+      <CourseAssistant {...props} requestId={1} active />,
+    );
+  });
+  expect(respond).toHaveBeenCalledTimes(1);
+  await act(() =>
+    screen.update(<CourseAssistant {...props} requestId={1} active={false} />),
+  );
+  await act(() =>
+    screen.update(<CourseAssistant {...props} requestId={1} active />),
+  );
+  expect(respond).toHaveBeenCalledTimes(1);
+  await act(() =>
+    screen.update(<CourseAssistant {...props} requestId={2} active />),
+  );
+  expect(respond).toHaveBeenCalledTimes(2);
+  await act(() => screen.unmount());
+});

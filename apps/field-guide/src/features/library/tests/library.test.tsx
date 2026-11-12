@@ -308,10 +308,11 @@ describe('Library screen', () => {
     const texts = renderer.root
       .findAllByType(Text)
       .map(item => item.props.children);
-    expect(texts).toContain('Not available offline');
+    expect(texts).toContain('Local demo resources');
     expect(texts).toContain('3D scene');
     expect(texts).toContain('Available');
-    expect(texts).toContain('Manual & course modules');
+    expect(texts).toContain('Equipment manuals');
+    expect(texts).toContain('Course activities');
     expect(texts).toContain('Not downloaded');
     expect(texts).not.toContain('Offline ready');
   });
