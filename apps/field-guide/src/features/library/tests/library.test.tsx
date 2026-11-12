@@ -1,3 +1,5 @@
+import { instructorStore } from '../../instructor';
+import { fakeInstructor } from '@tests/voiceSession';
 import React from 'react';
 import { Text } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
@@ -63,6 +65,7 @@ test('a guide counts its parts and authored procedures, leaving out the tour', (
 });
 
 describe('Library screen', () => {
+  beforeEach(() => instructorStore.getState().attach(fakeInstructor()));
   let renderer: ReactTestRenderer.ReactTestRenderer;
   const listeners = new Map<string, () => void>();
   // Only the focus events reach the screen; it opens everything through its callbacks.
@@ -114,7 +117,10 @@ describe('Library screen', () => {
   });
   afterEach(async () => {
     if (renderer) {
-      await act(() => renderer.unmount());
+      await act(() => {
+        renderer.unmount();
+        instructorStore.getState().reset();
+      });
     }
   });
 
@@ -138,7 +144,7 @@ describe('Library screen', () => {
     ).toHaveLength(0);
   });
 
-  test('course questions stay explicit about unavailable answers', async () => {
+  test('course questions use the instructor without inventing missing equipment', async () => {
     await mount();
     const input = renderer.root
       .findAllByProps({ testID: 'course-question' })
@@ -150,7 +156,8 @@ describe('Library screen', () => {
       .findAllByType(Text)
       .map(item => item.props.children);
     expect(texts).toContain('Where is the A5 axis motor?');
-    expect(texts).toContain('Course answers are not connected yet.');
+    expect(texts).toContain('Miris assistant');
+    expect(texts).not.toContain('Course answers are not connected yet.');
     expect(onOpen).not.toHaveBeenCalled();
   });
 

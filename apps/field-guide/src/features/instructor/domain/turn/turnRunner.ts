@@ -80,7 +80,10 @@ export function createTurnRunner(
         },
       });
     };
-    if (isScripted(question, pack) || !isQuestion(question, pack)) {
+    if (
+      !readyAnswerers().some(answerer => answerer.courseKnowledge) &&
+      (isScripted(question, pack) || !isQuestion(question, pack))
+    ) {
       finish(answerFor(question, state, pack));
       return;
     }
@@ -95,7 +98,9 @@ export function createTurnRunner(
         const text = await answerer.respond(
           { question, state, pack, history, evidence },
           partial => {
-            const reply = replyFrom(partial, evidence, true);
+            const reply = answerer.courseKnowledge
+              ? partial
+              : replyFrom(partial, evidence, true);
             if (reply !== '' && responding && current()) {
               changed({
                 type: TurnEventType.partial,
@@ -111,6 +116,13 @@ export function createTurnRunner(
         );
         if (!current()) {
           return;
+        }
+        if (typeof text !== 'string') {
+          if (text.reply.trim()) {
+            finish(text);
+            return;
+          }
+          continue;
         }
         const reply = replyFrom(text, evidence);
         if (reply !== '') {

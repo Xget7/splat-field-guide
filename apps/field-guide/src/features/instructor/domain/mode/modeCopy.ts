@@ -13,7 +13,7 @@ export const SwitchLabel = {
   noListening: 'Listening: unavailable, type instead',
   agentVoice: 'Voice: ElevenLabs',
   deviceVoice: 'Voice: on-device voice',
-  claude: 'Answers: Claude',
+  elevenlabs: 'Answers: ElevenLabs',
 } as const;
 
 /** One word per connection state, shared by the instructor header and the Dev panel. */

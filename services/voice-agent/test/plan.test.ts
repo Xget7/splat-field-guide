@@ -13,8 +13,8 @@ test('the plan command loads an optional owner environment without exposing its 
   const packageUrl = new URL('../package.json', import.meta.url);
   const { scripts } = JSON.parse(await readFile(packageUrl, 'utf8'));
   await writeFile(join(directory, '.env'), [
-    `${Setting.voiceId}=local-voice`, `${Setting.workerUrl}=https://owner.example`,
-    `${Setting.apiKey}=private-api-key`, `${Setting.llmSecret}=private-llm-secret`,
+    `${Setting.voiceId}=local-voice`,
+    `${Setting.apiKey}=private-api-key`,
   ].join('\n'));
   const cli = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
   const source = fileURLToPath(new URL('../src/sync.ts', import.meta.url));

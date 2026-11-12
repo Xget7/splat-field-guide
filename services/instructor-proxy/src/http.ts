@@ -1,7 +1,5 @@
 import type { Env } from "./index.ts";
 
-export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-export const ANTHROPIC_VERSION = "2023-06-01";
 // Requests without Cloudflare's IP header share a bucket instead of bypassing it.
 const UNKNOWN_CLIENT = "unknown";
 
@@ -16,8 +14,6 @@ export const Header = {
   authorization: "authorization",
   contentType: "content-type",
   cacheControl: "cache-control",
-  anthropicKey: "x-api-key",
-  anthropicVersion: "anthropic-version",
   voiceKey: "xi-api-key",
 } as const;
 
@@ -45,42 +41,6 @@ export function errorResponse(status: number, error: string, headers = {}) {
 
 export function cancelUpstreamBody(upstream: Response) {
   void upstream.body?.cancel().catch(() => {});
-}
-
-export async function requestAnthropic(
-  request: Request, env: Pick<Env, "ANTHROPIC_API_KEY">, body: object,
-  connectionTimeoutMs?: number,
-): Promise<{ body: ReadableStream<Uint8Array> } | { error: Response; timedOut?: boolean }> {
-  if (!env.ANTHROPIC_API_KEY) return { error: errorResponse(500, RequestError.missingKey) };
-  const deadline = new AbortController();
-  let timedOut = false;
-  const timer = connectionTimeoutMs === undefined ? undefined : setTimeout(() => {
-    timedOut = true;
-    deadline.abort();
-  }, connectionTimeoutMs);
-  let upstream: Response;
-  try {
-    upstream = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        [Header.anthropicKey]: env.ANTHROPIC_API_KEY,
-        [Header.anthropicVersion]: ANTHROPIC_VERSION,
-        [Header.contentType]: ContentType.json,
-      },
-      body: JSON.stringify(body),
-      signal: connectionTimeoutMs === undefined ? request.signal : AbortSignal.any([request.signal, deadline.signal]),
-    });
-  } catch {
-    return { error: errorResponse(502, RequestError.upstreamDown), timedOut };
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-  if (!upstream.ok) {
-    cancelUpstreamBody(upstream);
-    return { error: errorResponse(502, `upstream ${upstream.status}`) };
-  }
-  if (!upstream.body) return { error: errorResponse(502, RequestError.noUpstreamStream) };
-  return { body: upstream.body };
 }
 
 export async function limitRequest(request: Request, env: Env): Promise<Response | undefined> {

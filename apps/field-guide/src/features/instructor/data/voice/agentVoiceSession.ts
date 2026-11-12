@@ -1,4 +1,4 @@
-import type { AudioLink } from '../../../../platform/ports';
+import type { AudioLink, SpeechOutput } from '../../../../platform/ports';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import type { Pack } from '../../../pack/pack';
 import {
@@ -11,7 +11,7 @@ import {
   historyUpdate,
   screenUpdate,
 } from '../../domain/agent/agentVariables';
-import { NARRATE_PREFIX } from '../../domain/agent/agentProtocol';
+import { VOICE_LOCALE, VoiceHint } from '../../domain/voice/voiceCopy';
 import { runAgentTool } from '../../domain/agent/agentTools';
 import { SessionEventType } from '../../../guide';
 import { normalize } from '../../domain/router';
@@ -52,6 +52,7 @@ export function createAgentVoiceSession({
   pack,
   audio,
   ids,
+  output,
   prompt = request => request(),
 }: {
   client: (handlers: SessionAgentHandlers) => AgentClient;
@@ -59,6 +60,7 @@ export function createAgentVoiceSession({
   audio: () => AudioLink;
   /** The thread's id source, shared with the turn runner so ids never collide. */
   ids: ExchangeIds;
+  output?: () => SpeechOutput;
   prompt?: VoicePrompt;
 }): VoiceSession & TypedQuestions {
   let context: VoiceContext;
@@ -69,7 +71,8 @@ export function createAgentVoiceSession({
   // The exchange each response event answers, so a late correction finds its own reply.
   const replies = new Map<number, number>();
   let typed: string | null = null;
-  let toolStepKey: string | null = null;
+  let narration = 0;
+  let narrating = false;
   let running = false;
   let started = false;
   let muted = false;
@@ -136,7 +139,7 @@ export function createAgentVoiceSession({
       replies.clear();
       typed = null;
       muted = false;
-      toolStepKey = null;
+      narration++;
       const id = ++generation;
       const current = () => running && generation === id;
       try {
@@ -225,8 +228,7 @@ export function createAgentVoiceSession({
         },
         toolCall(name, parameters) {
           const outcome = runAgentTool(name, parameters, context.state, pack);
-          if (current() && outcome.ok) {
-            toolStepKey = stepKeyFor(outcome.state);
+          if (current() && outcome.ok && outcome.event !== null) {
             context = { ...context, state: outcome.state };
             if (
               exchange &&
@@ -277,19 +279,35 @@ export function createAgentVoiceSession({
       if (!running || utterance.kind === UtteranceKind.answer) {
         return;
       }
-      if (
-        utterance.kind === UtteranceKind.step &&
-        utterance.stepKey === toolStepKey
-      ) {
-        toolStepKey = null;
-        return;
+      const owner = ++narration;
+      client?.interrupt();
+      client?.setMuted(true);
+      narrating = true;
+      try {
+        if (!output) throw new Error('Local narration is unavailable');
+        output().stop();
+        await output().prepare();
+        if (!running || owner !== narration) return;
+        for (const [section, text] of [
+          [SpokenSection.reply, utterance.reply],
+          [SpokenSection.caution, utterance.caution],
+        ] as const) {
+          if (!text || !running || owner !== narration) continue;
+          events.speaking(section);
+          await output().speak(text, VOICE_LOCALE, (location, length) => {
+            if (running && owner === narration)
+              events.word({ section, location, length });
+          });
+        }
+      } catch {
+        if (running && owner === narration) events.hint(VoiceHint.output);
+      } finally {
+        if (owner === narration) {
+          narrating = false;
+          client?.setMuted(muted);
+          if (running) quiet();
+        }
       }
-      toolStepKey = null;
-      client?.sendText(
-        NARRATE_PREFIX +
-          utterance.reply +
-          (utterance.caution ? ' ' + utterance.caution : ''),
-      );
     },
     ask(text) {
       if (!running || !started || text.trim() === '') {
@@ -309,14 +327,18 @@ export function createAgentVoiceSession({
     },
     interrupt() {
       if (running) {
+        narration++;
+        narrating = false;
+        output?.().stop();
         client?.interrupt();
+        client?.setMuted(muted);
         quiet();
       }
     },
     setMuted(value) {
       muted = value;
       if (running && started) {
-        client?.setMuted(value);
+        client?.setMuted(value || narrating);
         events.listening(!value);
         events.level(0);
       }
@@ -328,6 +350,9 @@ export function createAgentVoiceSession({
       stoppedQuestion = finish();
       running = false;
       generation++;
+      narration++;
+      narrating = false;
+      output?.().stop();
       client?.stop();
       quiet();
       events.listening(false);

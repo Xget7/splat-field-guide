@@ -11,6 +11,7 @@ export interface DictionaryRef {
 
 export interface AgentState {
   agentId?: string;
+  knowledge?: Record<string, { id: string; name: string; digest: string }>;
   secretId?: string;
   toolIds?: Record<string, string>;
   dictionary?: DictionaryRef;
@@ -26,6 +27,7 @@ export async function loadState(path: string): Promise<AgentState> {
     throw error;
   }
   if (!isObject(value) ||
+      (value.knowledge !== undefined && (!isObject(value.knowledge) || !Object.values(value.knowledge).every(item => isObject(item) && isId(item.id) && isId(item.name) && isId(item.digest)))) ||
       (value.agentId !== undefined && !isId(value.agentId)) ||
       (value.secretId !== undefined && !isId(value.secretId)) ||
       (value.toolIds !== undefined && (!isObject(value.toolIds) || !Object.values(value.toolIds).every(isId))) ||

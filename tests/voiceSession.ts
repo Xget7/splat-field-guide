@@ -132,6 +132,7 @@ export function fakeInstructor(
   overrides: Partial<Instructor> = {},
 ): Instructor {
   return {
+    historyFor: () => [],
     turns: createTurnRunner([], createExchangeIds()),
     sessionFor: jest.fn(() => null),
     setPack: jest.fn(),

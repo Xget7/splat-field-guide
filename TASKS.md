@@ -12,6 +12,19 @@ No former demo content or synthetic test pack ships.
 Zustand is installed; WatermelonDB and TanStack Query are selected but not installed or integrated.
 Miris preparation in the separate `splat-tools` checkout includes accepted-mask lifting, export, notes, procedures, Brick evidence and part vectors; these do not establish app integration.
 
+## Miris ElevenLabs pilot
+
+The online instructor now uses direct ElevenLabs text-only and voice WebSocket sessions, with a Worker issuing signed URLs.
+One English Miris agent retrieves prepared content through native RAG; original KUKA PDFs and MobileCLIP vectors are excluded.
+Read-only name/alias search preserves ambiguous candidates, and exact part lookup returns hierarchy, directed relations and their source evidence.
+Typed navigation commits only after a complete answer; local procedure narration and offline Qwen/scripted voice fallback remain available.
+The current published schema 3 pack requires the prepared view-direction consumer update included with this integration.
+The isolated source baseline passed 68 app suites with 829 tests, app lint/types, six voice-agent tests/types and five Worker tests/types before the final integration with main.
+An unsigned arm64 iOS Simulator Release build succeeded using the prepared native dependencies and bundled Miris content.
+A separate Miris agent was created with 49 indexed prepared-text documents; the existing engine-bay agent and active Worker were preserved.
+The matching Worker deployment and a paid live-conversation proof remain pending, so source checks and index readiness do not establish voice, navigation or physical acceptance.
+Physical Qwen validation on the owner's iPhone is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).
+
 ## Product and preparation
 
 - [ ] Fix the Miris demonstration path, supported languages, voice expectations, target devices and delivery format.

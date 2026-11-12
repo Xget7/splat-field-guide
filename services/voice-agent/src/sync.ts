@@ -3,9 +3,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { parsePack } from '../../../apps/field-guide/src/features/pack/parsePack.ts';
 import { buildAgentConfig } from './agentConfig.ts';
+import { knowledgeDocuments } from './knowledge.ts';
 import { buildToolConfigs } from './tools.ts';
 import { pronunciationRules, type PronunciationRule } from './pronunciation.ts';
-import { createElevenLabs, SECRET_NAME, SecretType } from './elevenlabs.ts';
+import { createElevenLabs } from './elevenlabs.ts';
 import { loadState, saveState, JSON_INDENT, type AgentState } from './state.ts';
 
 const STATE_PATH = fileURLToPath(new URL('../agent.json', import.meta.url));
@@ -17,7 +18,7 @@ export const Placeholder = {
   dictionaryId: '<dictionary id>', dictionaryVersion: '<dictionary version id>',
 } as const;
 export const Setting = {
-  apiKey: 'ELEVENLABS_API_KEY', llmSecret: 'AGENT_LLM_SECRET', workerUrl: 'WORKER_URL', voiceId: 'VOICE_ID',
+  apiKey: 'ELEVENLABS_API_KEY', voiceId: 'VOICE_ID',
 } as const;
 type Setting = (typeof Setting)[keyof typeof Setting];
 type Environment = Partial<Record<Setting, string>>;
@@ -37,8 +38,8 @@ export interface SyncOptions {
 
 function readSetting(env: Environment, name: Setting, dryRun: boolean): string {
   if (dryRun) {
-    if (name === Setting.apiKey || name === Setting.llmSecret) return Placeholder.secret;
-    return env[name]?.trim() || (name === Setting.workerUrl ? Placeholder.workerUrl : Placeholder.voiceId);
+    if (name === Setting.apiKey) return Placeholder.secret;
+    return env[name]?.trim() || Placeholder.voiceId;
   }
   const value = env[name]?.trim();
   if (!value) throw new Error(SyncCopy.missingSetting(name));
@@ -56,17 +57,7 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   const env = options.env ?? process.env;
   const dryRun = options.dryRun ?? false;
   const apiKey = readSetting(env, Setting.apiKey, dryRun);
-  const llmSecret = readSetting(env, Setting.llmSecret, dryRun);
-  const workerUrl = readSetting(env, Setting.workerUrl, dryRun);
   const voiceId = readSetting(env, Setting.voiceId, dryRun);
-  // Validate before updating shared resources; a malformed base would break the final agent URL.
-  if (!dryRun || workerUrl !== Placeholder.workerUrl) {
-    let url: URL;
-    try { url = new URL(workerUrl); } catch { throw new Error('Invalid WORKER_URL'); }
-    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
-      throw new Error('Invalid WORKER_URL');
-    }
-  }
   if (options.manifest === undefined) throw new Error('An explicit validated manifest is required');
   const parsed = parsePack(options.manifest);
   if (!parsed.ok) throw new Error(parsed.error.message);
@@ -74,13 +65,14 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   const statePath = options.statePath ?? STATE_PATH;
   const state = await loadState(statePath);
   const tools = buildToolConfigs(pack);
+  const documents = knowledgeDocuments(pack);
   if (dryRun) {
     const plan = {
-      secret: { type: state.secretId ? SecretType.update : SecretType.create, name: SECRET_NAME, value: Placeholder.secret },
+      knowledge: documents, 
       tools: tools.map(tool => ({ tool_config: tool })),
       dictionary: { name: DICTIONARY_NAME, rules: pronunciationRules },
       agent: buildAgentConfig(pack, {
-        workerUrl, voiceId, secretId: state.secretId ?? Placeholder.secretId,
+        voiceId, knowledgeIds: documents.map(document => ({ id: state.knowledge?.[document.digest]?.id ?? `<knowledge id: ${document.key}>`, name: document.name })),
         toolIds: tools.map(tool => state.toolIds?.[tool.name] ?? `<tool id: ${tool.name}>`),
         dictionary: state.dictionary ?? { id: Placeholder.dictionaryId, versionId: Placeholder.dictionaryVersion },
       }),
@@ -89,9 +81,24 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
     return state;
   }
   const api = createElevenLabs(apiKey, options.fetchImpl ?? fetch);
-  const secret = await api.secret(llmSecret, state.secretId);
-  state.secretId = secret.secret_id;
-  await saveState(statePath, state);
+  const knowledge = state.knowledge ??= {};
+  const knowledgeIds: { id: string; name: string }[] = [];
+  for (const document of documents) {
+    let saved = knowledge[document.digest];
+    if (!saved) {
+      const uploaded = await api.knowledge(document.name, document.text);
+      saved = { ...uploaded, digest: document.digest };
+      knowledge[document.digest] = saved;
+      await saveState(statePath, state);
+    }
+    knowledgeIds.push(saved);
+  }
+  const pending: string[] = [];
+  for (const document of knowledgeIds) {
+    const status = await api.indexKnowledge(document.id);
+    if (status !== 'succeeded') pending.push(`${document.name}: ${status}`);
+  }
+  if (pending.length) throw new Error(`Knowledge is not ready; the existing agent was preserved. Retry sync after indexing completes.\n${pending.join('\n')}`);
   const toolIds = state.toolIds ??= {};
   for (const tool of tools) {
     const result = await api.tool(tool, toolIds[tool.name]);
@@ -110,7 +117,7 @@ export async function runSync(options: SyncOptions = {}): Promise<AgentState> {
   }
   await saveState(statePath, state);
   const agent = await api.agent(buildAgentConfig(pack, {
-    workerUrl, voiceId, secretId: state.secretId, toolIds: tools.map(tool => toolIds[tool.name]), dictionary: state.dictionary,
+    voiceId, knowledgeIds, toolIds: tools.map(tool => toolIds[tool.name]), dictionary: state.dictionary,
   }), state.agentId);
   state.agentId = agent.agent_id;
   await saveState(statePath, state);

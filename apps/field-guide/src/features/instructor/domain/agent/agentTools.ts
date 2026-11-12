@@ -1,3 +1,4 @@
+import { partKnowledge, searchParts } from './partKnowledge';
 import { AgentToolCopy } from './agentCopy';
 import { findPart, findProcedure, type Pack } from '../../../pack/pack';
 import {
@@ -11,6 +12,8 @@ import {
 
 export const AgentTool = {
   showPart: 'show_part',
+  searchParts: 'search_parts',
+  getPart: 'get_part',
   startProcedure: 'start_procedure',
   nextStep: 'next_step',
   previousStep: 'previous_step',
@@ -29,6 +32,10 @@ export interface AgentToolSpec {
   };
 }
 const Description = {
+  [AgentTool.searchParts]:
+    'Find parts by name, alias or id. Multiple matches require clarification. Use within_part_id only for an explicit assembly. Does not move anything.',
+  [AgentTool.getPart]:
+    'Read exact prepared part facts, hierarchy, directed relations and source evidence by stable id. Does not change the scene.',
   [AgentTool.showPart]:
     'Call when the user asks about one named part: to see or find it, or how to check, fill or change it.',
   [AgentTool.startProcedure]:
@@ -54,10 +61,22 @@ export const FIRST_STEP_NUMBER = 1;
 export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
   return Object.values(AgentTool).map(name => {
     const properties: Record<string, unknown> = {};
-    if (name === AgentTool.showPart) {
+    if (name === AgentTool.showPart || name === AgentTool.getPart) {
       properties.part_id = {
         type: 'string',
         description: ParameterDescription.partId,
+        enum: pack.parts.map(part => part.id),
+      };
+    }
+    if (name === AgentTool.searchParts) {
+      properties.query = {
+        type: 'string',
+        description:
+          'Part name, alias or stable id; omit conversational filler.',
+      };
+      properties.within_part_id = {
+        type: 'string',
+        description: 'Optional explicit assembly id.',
         enum: pack.parts.map(part => part.id),
       };
     }
@@ -81,7 +100,9 @@ export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
       parameters: {
         type: 'object',
         properties,
-        required: Object.keys(properties),
+        required: Object.keys(properties).filter(
+          key => key !== 'within_part_id',
+        ),
       },
     };
   });
@@ -89,7 +110,7 @@ export function agentToolSpecs(pack: Pack): AgentToolSpec[] {
 export type ToolOutcome =
   | {
       readonly ok: true;
-      readonly event: SessionEvent;
+      readonly event: SessionEvent | null;
       readonly state: SessionState;
       readonly result: string;
     }
@@ -135,6 +156,39 @@ export function runAgentTool(
     return fail(AgentToolCopy.parameters);
   }
   const values = parameters as Record<string, unknown>;
+  if (name === AgentTool.getPart) {
+    const data =
+      typeof values.part_id === 'string'
+        ? partKnowledge(pack, values.part_id)
+        : null;
+    return data
+      ? { ok: true, event: null, state, result: JSON.stringify(data) }
+      : fail(AgentToolCopy.part);
+  }
+  if (name === AgentTool.searchParts) {
+    if (
+      typeof values.query !== 'string' ||
+      !values.query.trim() ||
+      values.query.length > 256 ||
+      (values.within_part_id !== undefined &&
+        (typeof values.within_part_id !== 'string' ||
+          !findPart(pack, values.within_part_id)))
+    ) {
+      return fail(AgentToolCopy.parameters);
+    }
+    return {
+      ok: true,
+      event: null,
+      state,
+      result: JSON.stringify(
+        searchParts(
+          pack,
+          values.query,
+          values.within_part_id as string | undefined,
+        ),
+      ),
+    };
+  }
   let event: SessionEvent;
   if (name === AgentTool.showPart) {
     if (typeof values.part_id !== 'string' || !findPart(pack, values.part_id)) {

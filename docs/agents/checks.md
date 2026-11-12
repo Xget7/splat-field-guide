@@ -139,17 +139,28 @@ Physical acceptance must use the Miris pack on the target hardware.
 ## Instructor configuration
 
 Preparation copies `apps/field-guide/instructor.config.example.json` to ignored `instructor.config.json`; a null `proxyUrl` selects offline operation.
-The proxy's `.dev.vars.example` lists local provider configuration; keys remain outside git and the app.
-The Worker serves probes, typed NDJSON answers, signed agent sessions and authenticated custom-LLM SSE; its source and `wrangler.toml` own exact limits/models.
-Incomplete streams must fail rather than commit partial answers.
-Answer/session routes currently lack caller authentication; rate limits are not authentication.
+The Worker's `.dev.vars.example` requires only `ELEVENLABS_API_KEY` and `AGENT_ID`; keys remain outside git and the app.
+The Worker serves a probe and signed ElevenLabs WebSocket sessions for both text and voice, with no shared cache.
+The pilot session route is public and rate limited, not authenticated per operator.
+The retired answer and custom-LLM routes return 404; Anthropic keys and model/shared-secret configuration are no longer required.
+Use fake provider responses in tests; incomplete direct agent replies fail without committing typed navigation.
 
-For voice-agent setup, copy its `.env.example`, supply an available account `VOICE_ID`, Worker URL and provider/shared credentials, then run `nice -n 19 npm run plan -- --manifest <file>` in `services/voice-agent`.
-The plan makes no remote requests or writes; inspect it before an explicitly authorized `nice -n 19 npm run sync -- --manifest <file>`.
-Sync updates the shared secret, tools, dictionary and agent and saves IDs in ignored `agent.json`; preserve it for retries.
-The agent key needs agent/workspace write, pronunciation dictionary read/write and voice read permissions; the Worker's key needs agent read access.
-Use the same `AGENT_LLM_SECRET` on both sides and configure the returned `AGENT_ID` on the Worker.
-Plan and sync require an explicit validated manifest; use reviewed Miris content before deployment.
+For voice-agent setup, copy `.env.example` and provide `ELEVENLABS_API_KEY` and an available account `VOICE_ID`.
+Run `nice -n 19 npm run plan -- --manifest <file>` in `services/voice-agent` to inspect the exact prepared text documents, tool schemas and English managed-agent configuration without remote writes.
+For the Miris pilot use `../../data/pack/miris-pilot/1/manifest.json`; schema 3 directions are validated without rewriting the source pack.
+The plan and sync never upload original PDFs, splats or MobileCLIP vectors.
+After inspecting an authorized plan, run `nice -n 19 npm run sync -- --manifest <file>`.
+Sync stores document digests/IDs in ignored `agent.json` immediately, requests every RAG index and leaves the agent unchanged while any index is pending or failed.
+A pending-index error is recoverable by rerunning sync after ElevenLabs finishes indexing; the retry reuses uploaded documents.
+Ensure the account has enough RAG capacity before sync; provider responses identify quota and permission failures.
+Preserve `agent.json` across retries; do not share it across accounts or worktrees that publish independently.
+The provisioning key needs knowledge-base read/write and indexing, agent/tool write, pronunciation dictionary read/write and voice access.
+The Worker's key only needs the permissions to obtain the configured agent's signed URL.
+Managed generation uses GPT-4.1 Mini through ElevenLabs; no separate model-provider key is needed.
+Set the returned `AGENT_ID` on the Worker, then deploy the Worker and ship the matching app together; older apps do not implement the new read-only tools.
+Live conversations incur provider usage and require explicit approval for paid validation.
+Verify ambiguity clarification, exact part evidence, cancelled typed navigation, course-to-scene framing and route-loss fallback before claiming acceptance.
+Physical Qwen validation is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).
 For authorized distribution, `apps/field-guide/scripts/testflight.sh --no-upload` exports locally; signing needs a configured team and account.
 
 ## Development framing audit

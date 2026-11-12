@@ -240,7 +240,7 @@ test('good network for ten seconds restores agent voice and reuses the prepared 
   expect(store.getState().mode).toMatchObject({
     mode: 'online',
     voice: 'agent',
-    answers: 'claude',
+    answers: 'elevenlabs',
   });
   const session = instructor.sessionFor(pack)!.session;
   const started = session.start(
@@ -303,7 +303,7 @@ test('a Worker that stops answering goes offline within seconds and back online 
   expect(store.getState().mode).toMatchObject({
     mode: 'online',
     voice: 'agent',
-    answers: 'claude',
+    answers: 'elevenlabs',
   });
   instructor.stop();
   expect(jest.getTimerCount()).toBe(0);
@@ -461,7 +461,7 @@ test('active quota marks the agent unavailable and keeps this conversation and t
   instructor.stop();
 });
 
-test('slow Claude first tokens on a good connection neither weaken the network nor suggest offline', async () => {
+test('slow ElevenLabs first tokens on a good connection neither weaken the network nor suggest offline', async () => {
   const FIRST_TOKEN_MS = 1500;
   const QUESTIONS = 3;
   const SUGGESTION_WAIT_MS = 6000;

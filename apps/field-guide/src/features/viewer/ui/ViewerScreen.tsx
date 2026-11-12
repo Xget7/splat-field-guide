@@ -95,7 +95,7 @@ export function ViewerScreen({
   progress,
 }: ViewerScreenProps) {
   const instructor = useInstructor();
-  const { guideId, procedureId, stepIndex, mode, voice } = start;
+  const { guideId, procedureId, stepIndex, mode, voice, selectedPart } = start;
   const guide = findReadyGuide(catalog, guideId);
   if (guide === undefined) {
     return <MissingGuide onBack={onExit} />;
@@ -104,6 +104,7 @@ export function ViewerScreen({
     <Viewer
       instructor={instructor}
       guide={guide}
+      selectedPart={selectedPart}
       procedureId={procedureId}
       stepIndex={stepIndex}
       mode={mode}
@@ -121,6 +122,7 @@ interface ViewerProps {
   stepIndex: number;
   mode: LearnMode;
   startInVoice: boolean;
+  selectedPart?: string;
   onExit: () => void;
   progress: ProgressWriter;
 }
@@ -132,6 +134,7 @@ function Viewer({
   stepIndex,
   mode,
   startInVoice,
+  selectedPart,
   onExit,
   progress,
 }: ViewerProps) {
@@ -140,7 +143,7 @@ function Viewer({
   useState(() =>
     viewerStore
       .getState()
-      .open({ guide, procedureId, stepIndex, mode, instructor }),
+      .open({ guide, procedureId, stepIndex, mode, instructor, selectedPart }),
   );
   // Actions never change, so reading them once per render is enough.
   const actions = viewerStore.getState();

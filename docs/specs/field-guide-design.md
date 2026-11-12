@@ -49,6 +49,7 @@ Ready entries and saved continuation enter guide/viewer interfaces.
 **Owns:** content validation; planned delivery adds verified installation, activation and recovery.
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
+Schema 3 adds prepared part and step view directions; schema 2 remains readable.
 The current schema uses `.lodsplat` and one unsigned 16-bit little-endian label per tree node, with zero unlabelled and 1-65535 available part labels.
 SFGL v2 uses a 16-byte header (`SFGL`, u16 version 2, u16 width 2, u32 node count, u32 reserved zero), followed by exactly `nodeCount * 2` bytes; all integers are little-endian.
 Readers reject SFGL v1; GPU uploads independently pad labels to four-byte words.
@@ -189,14 +190,25 @@ The English POS tagger is omitted because Brown Corpus data is not cleared for c
 
 ## Online services
 
-**Owns:** secrets, signed voice sessions, provider stream translation and agent configuration.
+**Owns:** ElevenLabs credentials, signed conversation sessions, prepared knowledge synchronization and agent configuration.
 **Rule:** incomplete streams fail; provider credentials remain outside the app; live requests and sync require explicit authorization.
-The current Cloudflare Worker provides typed NDJSON answers, signed ElevenLabs voice sessions and a shared-secret-authenticated custom-LLM SSE route to Claude.
-The app obtains a signed URL and streams PCM over a direct ElevenLabs WebSocket; the Worker handles session issuance and LLM callbacks, not the audio relay.
-Answer/session routes currently lack caller authentication; rate limits are not tenant authorization.
-**Proposal:** CloudFront ingress must preserve authenticated streaming and cancellation; a single-ingress audio requirement would need an explicit relay rather than the current direct connection.
+The Cloudflare Worker exposes an uncached probe and a rate-limited signed-session issuer for one Miris pilot agent.
+Text-only and voice sessions connect directly to ElevenLabs over WebSocket; managed generation and native RAG replace the Anthropic and custom-LLM routes.
+The pilot issuer is public and has no operator identity or membership verification; rate limits are not authorization.
+All app copy and agent prompts are English.
+Prepared knowledge documents retain pack identity/version, stable component IDs, hierarchy, procedures and evidenced relations.
+Original manufacturer PDFs remain local until third-party processing permission is established; missing whole-factory locations and emergency exits remain unknown.
+`search_parts` matches supplied names/aliases and returns ambiguous candidates without selection; `get_part` reads exact installed facts and directed relations without mutation.
+`show_part` and procedure tools validate IDs through guide rules; typed navigation stays provisional until a complete answer, and cancelled/failed turns do not commit it.
+A course question can select and frame a component in a bundled scene before that scene has been opened.
+Course and activity conversations share bounded in-memory history keyed by pack identity/version; backgrounding closes connections.
+Authored step narration uses local speech with outgoing agent audio muted to avoid sending the narration back as microphone input.
+Existing offline Qwen/scripted answers and local voice remain separate fallbacks.
+MobileCLIP vectors retain their independent comparison seam and are not uploaded or treated as compatible with ElevenLabs RAG vectors.
+Sync saves immutable document IDs by content digest before indexing, starts indexing for every document and preserves the active agent until all indexes succeed.
+Retries reuse saved documents; stale remote documents and legacy secrets are not deleted automatically because other agents may reference them.
 Ephemeral session credentials must not be cached across users.
-**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [stream handling](../../services/instructor-proxy/src/chatStream.ts), [voice client](../../apps/field-guide/src/features/instructor/data/agent/agentClient.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
+**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [voice/text client](../../apps/field-guide/src/features/instructor/data/agent/agentClient.ts), [part knowledge](../../apps/field-guide/src/features/instructor/domain/agent/partKnowledge.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
 **Verify:** [proxy tests](../../services/instructor-proxy/test), [agent tests](../../services/voice-agent/test); [configuration operations](../agents/checks.md#instructor-configuration).
 
 ## Shared foundations

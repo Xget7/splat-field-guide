@@ -1,4 +1,4 @@
-import { OfflinePreparation } from '../../instructor/views';
+import { CourseAssistant, OfflinePreparation } from '../../instructor/views';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import {
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Guide, type ReadyGuide } from '../../pack/catalog';
 import {
   LearnMode,
+  SessionEventType,
   type Progress,
   type ProgressStorage,
   type SessionStart,
@@ -31,7 +32,6 @@ import { continueRowFor } from '../domain/library';
 import { ContinueCard } from './GuideCards';
 import { CourseNavigation, type AppSection } from './CourseNavigation';
 import { CourseOverview, DEMO_MODULES, ModuleCard } from './CourseOverview';
-import { CourseComposer } from './CourseComposer';
 import { CourseDownloads } from './CourseDownloads';
 
 type CourseSection = 'Course' | 'Modules' | 'Assistant' | 'Documentation';
@@ -227,25 +227,47 @@ export function LibraryScreen({
               </View>
             </View>
           )}
-          {inCourse && section === 'Assistant' && (
-            <View style={styles.panel}>
-              <Text accessibilityRole="header" style={styles.heading}>
-                Assistant
-              </Text>
-              {lastQuestion && (
-                <Text style={styles.question}>{lastQuestion}</Text>
-              )}
-              <Text style={styles.secondary}>
-                Course answers are not connected yet.
-              </Text>
-              <CourseComposer
-                onAsk={ask}
+          {inCourse &&
+            (lastQuestion !== null || section === 'Assistant') &&
+            (catalog[0] ? (
+              <CourseAssistant
+                pack={catalog[0].pack}
+                initialQuestion={lastQuestion}
+                visible={section === 'Assistant'}
+                draft={draft}
+                onDraftChange={setDraft}
                 onDocument={document}
-                question={draft}
-                onQuestionChange={setDraft}
+                onNavigate={event => {
+                  const guide = catalog[0];
+                  const procedure =
+                    event.type === SessionEventType.start
+                      ? guide.pack.procedures.find(
+                          item => item.id === event.procedureId,
+                        )
+                      : guide.pack.procedures[0];
+                  if (!procedure) return;
+                  if (
+                    event.type === SessionEventType.select ||
+                    event.type === SessionEventType.start
+                  ) {
+                    onOpen({
+                      guideId: guide.id,
+                      procedureId: procedure.id,
+                      stepIndex: 0,
+                      mode: LearnMode.instructor,
+                      selectedPart:
+                        event.type === SessionEventType.select
+                          ? event.partId ?? undefined
+                          : undefined,
+                    });
+                  }
+                }}
               />
-            </View>
-          )}
+            ) : section === 'Assistant' ? (
+              <Text style={styles.secondary}>
+                No Miris course is installed.
+              </Text>
+            ) : null)}
           {inCourse && section === 'Documentation' && (
             <View style={styles.panel}>
               <Text accessibilityRole="header" style={styles.heading}>

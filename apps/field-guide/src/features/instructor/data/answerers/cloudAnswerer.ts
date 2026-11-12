@@ -1,43 +1,31 @@
-import type { Pack } from '../../../pack/pack';
-import {
-  promptFor,
-  PromptNotes,
-  ReplyFormat,
-  rulesFor,
-} from '../../domain/grounding';
-import { packKnowledge } from '../../domain/knowledge';
+import type { SessionEvent } from '../../../guide';
 import type { Answerer } from '../../domain/turn/answerer';
-import { HistoryTurns } from '../../domain/turn/history';
-import type { Clock, Timers } from '../../../../platform/ports';
+import type { Clock, Socket, Timers } from '../../../../platform/ports';
 import {
   createReplyPolicy,
   type ReplyFailure,
 } from '../../domain/turn/replyPolicy';
+import {
+  agentVariables,
+  historyUpdate,
+} from '../../domain/agent/agentVariables';
+import { runAgentTool } from '../../domain/agent/agentTools';
+import { createAgentClient } from '../agent/agentClient';
 import type { ProxyClient } from '../proxy/proxyClient';
-
-/** Cache the full pack instructions upstream so the model can reason across parts. */
-export function cloudInstructions(pack: Pack): string {
-  return [
-    ...rulesFor(pack, ReplyFormat.structured),
-    '',
-    packKnowledge(pack),
-  ].join('\n');
-}
-
-const NO_PROXY = 'Cloud answerer: no proxy';
 
 export interface CloudAnswererOptions {
   readonly proxy: ProxyClient | null;
+  readonly socket: (url: string) => Socket;
   readonly isOnline?: () => boolean;
-  /** Each failed reply by kind; a cancelled one is not a failure. */
   readonly onFailure?: (failure: ReplyFailure) => void;
   readonly clock: Clock;
   readonly timers: Timers;
 }
 
-/** Answers with Claude through the Worker, waiting on a streamed reply only as the reply policy allows. */
+/** Text-only ElevenLabs sessions use the same validated tools as voice, without microphone access. */
 export function createCloudAnswerer({
   proxy,
+  socket,
   clock,
   timers,
   isOnline = () => true,
@@ -45,29 +33,99 @@ export function createCloudAnswerer({
 }: CloudAnswererOptions): Answerer {
   const policy = createReplyPolicy({ clock, timers, onFailure });
   return {
+    courseKnowledge: true,
     isReady: () => proxy !== null && isOnline() && policy.ready(),
-    prewarm() {
-      // The first question sends the upstream cache hint; nothing to load here.
-    },
-    async respond({ question, state, pack, history, evidence }, onText) {
-      if (proxy === null) {
-        throw new Error(NO_PROXY);
-      }
-      const request = {
-        system: cloudInstructions(pack),
-        prompt: promptFor(
-          question,
-          state,
-          pack,
-          history.slice(-HistoryTurns.cloud),
-          PromptNotes.none,
-          evidence,
-        ),
+    prewarm() {},
+    async respond(request, onText) {
+      if (!proxy) throw new Error('ElevenLabs session issuer is unavailable');
+      let event: SessionEvent | null = null;
+      let state = request.state;
+      const reply = await policy.run(report => {
+        let settled = false;
+        let resolve!: (text: string) => void;
+        let reject!: (error: Error) => void;
+        const text = new Promise<string>((done, failed) => {
+          resolve = done;
+          reject = failed;
+        });
+        const finish = (value?: string) => {
+          if (settled) return;
+          settled = true;
+          client.stop();
+          if (value?.trim()) resolve(value);
+          else reject(new Error('ElevenLabs reply did not complete'));
+        };
+        const client = createAgentClient({
+          signedUrl: proxy.sessionUrl,
+          connect: socket,
+          timers,
+          textOnly: true,
+          handlers: {
+            status() {},
+            userTranscript() {},
+            responseText: report,
+            response: value => finish(value),
+            correction() {},
+            interruption() {},
+            speaking() {},
+            word() {},
+            level() {},
+            roundTrip() {},
+            ended: () => finish(),
+            toolCall(name, parameters) {
+              if (settled)
+                return {
+                  result: 'The turn is no longer active.',
+                  isError: true,
+                };
+              const outcome = runAgentTool(
+                name,
+                parameters,
+                state,
+                request.pack,
+              );
+              if (outcome.ok && outcome.event) {
+                if (event)
+                  return {
+                    result:
+                      'One navigation action is supported per typed turn. Ask the operator before another action.',
+                    isError: true,
+                  };
+                state = outcome.state;
+                event = outcome.event;
+              }
+              return { result: outcome.result, isError: !outcome.ok };
+            },
+          },
+        });
+        const variables = {
+          ...agentVariables(
+            request.state,
+            request.pack,
+            request.history.length > 0,
+          ),
+          opening: '',
+        };
+        client
+          .start(
+            variables,
+            request.history.length ? [historyUpdate(request.history)] : [],
+          )
+          .then(() => {
+            if (!settled) client.sendText(request.question);
+          })
+          .catch(() => finish());
+        return { text, cancel: () => finish() };
+      }, onText);
+      // Tool actions remain provisional until the complete response is accepted by the runner.
+      const action = event as SessionEvent | null;
+      return {
+        reply,
+        caution: '',
+        event: action,
+        part: action?.type === 'select' ? action.partId : null,
       };
-      return policy.run(report => proxy.answer(request, report), onText);
     },
-    cancel() {
-      policy.cancel();
-    },
+    cancel: () => policy.cancel(),
   };
 }

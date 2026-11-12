@@ -2,7 +2,12 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { LearnMode, SessionEventType, type SessionEvent } from '../../guide';
 import type { Instructor, TurnEvent } from '../../instructor';
 import type { ReadyGuide } from '../../pack/catalog';
-import type { Pack, PartId, ProcedureId } from '../../pack/pack';
+import {
+  findPart,
+  type Pack,
+  type PartId,
+  type ProcedureId,
+} from '../../pack/pack';
 import { Capability } from '../domain/capability';
 import { PanelMode } from '../domain/panelMotion';
 import { displayFor, type ViewerDisplay } from '../domain/viewerDisplay';
@@ -29,6 +34,7 @@ export interface ViewerOpening {
   readonly stepIndex: number;
   readonly mode: LearnMode;
   readonly instructor: Instructor;
+  readonly selectedPart?: string;
 }
 
 /** How the viewer is laid out, apart from the session it shows. */
@@ -186,10 +192,27 @@ export function createViewerStore(): ViewerStore {
 
     return {
       ...INITIAL_STATUS,
-      open: ({ guide, procedureId, stepIndex, mode, instructor }) => {
+      open: ({
+        guide,
+        procedureId,
+        stepIndex,
+        mode,
+        instructor,
+        selectedPart,
+      }) => {
         get().close();
         const { pack } = guide;
-        const viewer = initialViewerState(procedureId, stepIndex, pack);
+        let viewer = initialViewerState(procedureId, stepIndex, pack);
+        if (selectedPart && findPart(pack, selectedPart)) {
+          viewer = reduceViewer(
+            viewer,
+            {
+              type: ViewerActionType.agent,
+              event: { type: SessionEventType.select, partId: selectedPart },
+            },
+            pack,
+          );
+        }
         const instructorOpen = mode === LearnMode.instructor;
         set({
           ...INITIAL_LAYOUT,

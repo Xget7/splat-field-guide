@@ -12,6 +12,11 @@ import { AgentContextCopy, AgentOpening } from './agentCopy';
 export { AgentOpening } from './agentCopy';
 
 export interface AgentVariables {
+  readonly organization?: string;
+  readonly pack_id?: string;
+  readonly pack_version?: string;
+  readonly selected_part_id?: string;
+  readonly procedure_id?: string;
   readonly procedure: string;
   readonly step: string;
   readonly selected_part: string;
@@ -30,22 +35,27 @@ export function agentVariables(
       ? undefined
       : findPart(pack, state.selectedPart);
   return {
+    organization: 'Miris',
+    pack_id: pack.packId,
+    pack_version: String(pack.packVersion),
+    selected_part_id: part?.id ?? NONE,
+    procedure_id: procedure?.id ?? NONE,
     procedure: procedure?.title ?? NONE,
     step: stateSentence(state, pack),
     selected_part: part?.name ?? NONE,
     opening: resumed
       ? AgentOpening.resumed
       : procedure && step
-      ? AgentOpening.step(
-          procedure.title,
-          state.stepIndex + FIRST_STEP_NUMBER,
-          step.text,
-        )
+      ? AgentOpening.step(procedure.title, state.stepIndex + FIRST_STEP_NUMBER)
       : AgentOpening.exploration(pack.title),
   };
 }
 export function screenUpdate(state: SessionState, pack: Pack): string {
-  return AgentContextCopy.screen(stateSentence(state, pack));
+  return AgentContextCopy.screen(
+    `${stateSentence(state, pack)} Selected part id: ${
+      state.selectedPart ?? NONE
+    }. Pack: ${pack.packId}/${pack.packVersion}.`,
+  );
 }
 export function historyUpdate(history: readonly PreviousExchange[]): string {
   return history

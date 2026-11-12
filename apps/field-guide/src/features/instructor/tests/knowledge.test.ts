@@ -1,18 +1,14 @@
 import { fixturePack } from '@tests/fixturePack';
-import { cloudInstructions } from '../data/answerers/cloudAnswerer';
-import { ReplyFormat, rulesFor } from '../domain/grounding';
+import { packKnowledge } from '../domain/knowledge';
 
 test('instructions include the supplied synthetic identity', () => {
   const pack = fixturePack();
-  expect(cloudInstructions(pack)).toContain(pack.title);
+  expect(packKnowledge(pack)).toContain(pack.parts[0].name);
 });
 
 test('instructions are strict structured rules followed by every note and guided check', () => {
   const pack = fixturePack();
-  const instructions = cloudInstructions(pack);
-  expect(
-    instructions.startsWith(rulesFor(pack, ReplyFormat.structured).join('\n')),
-  ).toBe(true);
+  const instructions = packKnowledge(pack);
   expect(instructions).toContain(
     'Part: Coolant reservoir (also called coolant tank, expansion tank)',
   );
@@ -38,7 +34,7 @@ test('a visible routed hose connection does not claim media flow', () => {
       source: 'Visible route, media unknown',
     },
   };
-  const instructions = cloudInstructions({ ...pack, relations: [relation] });
+  const instructions = packKnowledge({ ...pack, relations: [relation] });
   expect(instructions).toContain(
     'routes to Engine (Visible route, media unknown)',
   );
