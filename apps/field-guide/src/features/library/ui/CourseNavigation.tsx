@@ -7,16 +7,33 @@ import {
   Grid as G,
   CourseRadius as R,
 } from '../../../ui/courseTokens';
-export type AppSection = 'Courses' | 'Downloads' | 'Help';
-const ITEMS = [{ title: 'Courses', icon: IconName.layers }] as const;
+
+export type AppSection =
+  | 'Courses'
+  | 'Modules'
+  | 'Documentation'
+  | 'Equipment'
+  | 'Downloads'
+  | 'Help';
+const ITEMS = [
+  { title: 'Courses', label: 'Course overview', icon: IconName.layers },
+  { title: 'Modules', label: 'Modules', icon: IconName.list },
+  { title: 'Equipment', label: '3D equipment', icon: IconName.explore },
+  { title: 'Documentation', label: 'Documentation', icon: IconName.tag },
+] as const;
+
 export function CourseNavigation({
   section,
   compact,
   onSelect,
+  continuation,
+  onContinue,
 }: {
   section: AppSection;
   compact: boolean;
   onSelect: (section: AppSection) => void;
+  continuation?: { title: string; step: string };
+  onContinue?: () => void;
 }) {
   return (
     <ScrollView
@@ -27,44 +44,84 @@ export function CourseNavigation({
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.brand}>
+      <View style={styles.brand} accessibilityLabel="Miris">
         <Svg width={24} height={24} viewBox="0 0 24 24" accessible={false}>
           <Path d="M12 1L23 7 12 13 1 7Z" fill={C.white} />
           <Path d="M1 7L12 13V24L1 18Z" fill={C.secondary} />
           <Path d="M12 13L23 7V18L12 24Z" fill={C.text} />
         </Svg>
-        {!compact && <Text style={styles.brandText}>Sche</Text>}
+        {!compact && <Text style={styles.brandText}>Miris</Text>}
       </View>
+      {!compact && <Text style={styles.sectionLabel}>Workspace</Text>}
       {ITEMS.map(item => (
         <Pressable
           key={item.title}
+          testID={`navigation-${item.title.toLowerCase()}`}
           accessibilityRole="button"
-          accessibilityLabel={item.title}
+          accessibilityLabel={item.label}
           accessibilityState={{ selected: section === item.title }}
           onPress={() => onSelect(item.title)}
-          style={[styles.item, section === item.title && styles.selected]}
+          style={({ pressed }) => [
+            styles.item,
+            section === item.title && styles.selected,
+            pressed && styles.pressed,
+          ]}
         >
           <Icon
             name={item.icon}
-            size={16}
+            size={18}
             color={section === item.title ? C.accent : C.secondary}
           />
-          {!compact && <Text style={styles.label}>{item.title}</Text>}
+          {!compact && (
+            <Text
+              style={[
+                styles.label,
+                section === item.title && styles.activeLabel,
+              ]}
+            >
+              {item.label}
+            </Text>
+          )}
         </Pressable>
       ))}
+      {continuation && onContinue && (
+        <Pressable
+          testID="navigation-resume"
+          accessibilityRole="button"
+          accessibilityLabel={`Resume ${continuation.title}, ${continuation.step}`}
+          onPress={onContinue}
+          style={({ pressed }) => [styles.resume, pressed && styles.pressed]}
+        >
+          <Icon name={IconName.play} color={C.accent} size={18} />
+          {!compact && (
+            <View style={styles.resumeBody}>
+              <Text style={styles.activeLabel}>Continue learning</Text>
+              <Text numberOfLines={2} style={styles.label}>
+                {continuation.title}
+              </Text>
+              <Text style={styles.sectionLabel}>{continuation.step}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
       <View style={styles.spacer} />
       {(['Downloads', 'Help'] as const).map(title => (
         <Pressable
           key={title}
+          testID={`navigation-${title.toLowerCase()}`}
           accessibilityRole="button"
           accessibilityLabel={title}
           accessibilityState={{ selected: section === title }}
           onPress={() => onSelect(title)}
-          style={[styles.item, section === title && styles.selected]}
+          style={({ pressed }) => [
+            styles.item,
+            section === title && styles.selected,
+            pressed && styles.pressed,
+          ]}
         >
           <Icon
             name={title === 'Downloads' ? IconName.down : IconName.help}
-            size={16}
+            size={18}
             color={section === title ? C.accent : C.secondary}
           />
           {!compact && <Text style={styles.label}>{title}</Text>}
@@ -86,6 +143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: G.unit,
   },
   brandText: { ...T.heading, color: C.text },
+  sectionLabel: { ...T.caption, color: C.secondary, paddingHorizontal: G.unit },
   item: {
     minHeight: G.control,
     borderRadius: R.control,
@@ -95,6 +153,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selected: { backgroundColor: C.raised },
+  pressed: { backgroundColor: C.surface },
   label: { ...T.label, color: C.secondary, flexShrink: 1 },
-  spacer: { flex: 1 },
+  activeLabel: { ...T.label, color: C.text },
+  resume: {
+    flexDirection: 'row',
+    gap: G.unit,
+    padding: G.unit,
+    marginTop: G.small,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.control,
+  },
+  resumeBody: { flex: 1, gap: G.unit },
+  spacer: { flex: 1, minHeight: G.large },
 });

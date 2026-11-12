@@ -1,0 +1,24 @@
+[
+  {
+    "id": "kuka-quantec-extra-v4",
+    "title": "KR QUANTEC extra operating instructions",
+    "edition": "BA KR QUANTEC extra V4 en",
+    "issued": "2012-11-29",
+    "pages": 243,
+    "file": "BA_KR_QUANTEC_extra.pdf",
+    "sha256": "a563502bfa50ace04f8699678d67531d82e908e2fad8fc201d468e57b59e52b7",
+    "source": "splat-tools/data/reference/kuka/BA_KR_QUANTEC_extra.pdf",
+    "copyright": "Copyright 2012 KUKA Roboter GmbH. Reproduction or disclosure to third parties requires express permission."
+  },
+  {
+    "id": "kuka-quantec-2-kp-v6",
+    "title": "KR QUANTEC-2 K and P assembly instructions",
+    "edition": "MA KR QUANTEC-2 K+P V6",
+    "issued": "2024-01-26",
+    "pages": 400,
+    "file": "MA_KR_QUANTEC-2_K+P_V6.pdf",
+    "sha256": "3b4b6092f5c22a6d944a370578bee2889967fda8a95a43794d10b846ed2a0a70",
+    "source": "splat-tools/data/reference/kuka/MA_KR_QUANTEC-2_K+P_V6.pdf",
+    "copyright": "Copyright 2024 KUKA Deutschland GmbH. Reproduction or disclosure to third parties requires express permission."
+  }
+]

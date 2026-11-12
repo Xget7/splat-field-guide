@@ -137,3 +137,13 @@ Retired resources retain their existing notices until removed from the build.
 `apps/field-guide/src/features/library/assets/assembly-line.jpg` is an unchanged copy of the project-supplied Miris teaching image `../splat-tools/data/analysis/miris-pilot/teaching-02/jpg/factory_chnk04_v01_factory_chnk04_ra06_v01.0007.jpg`.
 It depicts the approximate reference recreation, not a certified installation photograph.
 Source ownership and redistribution clearance must be retained with the preparation receipts before external distribution; this UI change does not establish a third-party license grant.
+
+## Opt-in local KUKA documentation
+
+Private local demo builds may copy the existing KUKA source PDFs through `FIELD_GUIDE_DOCUMENTS_DIR`, only when `miris-pilot/1` is explicitly selected.
+The retained [document catalog](apps/field-guide/assets/documents/catalog.json) binds each original filename, document edition, issue date, page count and SHA-256 to the source file in `splat-tools/data/reference/kuka`.
+The build verifies these digests before copying, and the native viewer verifies each bundled PDF before opening it offline.
+No PDF bytes are committed to this repository, and normal builds do not bundle these documents.
+The operating instructions are copyright 2012 KUKA Roboter GmbH; the assembly instructions are copyright 2024 KUKA Deutschland GmbH.
+Both original documents retain their page-two notice requiring express KUKA permission for reproduction or disclosure to third parties.
+The copied resources include a `documents/NOTICE.txt` retaining these restrictions; local demo inclusion does not establish redistribution rights or certify applicability to the installed equipment.

@@ -301,24 +301,26 @@ function Viewer({
           </View>
         </Animated.View>
       )}
-      <View
-        pointerEvents="box-none"
-        style={[styles.assistant, { bottom: insets.bottom + Space.lg }]}
-      >
-        <AssistantDock
-          thread={thread}
-          exchange={exchange}
-          alreadyShown={shownText}
-          onAsk={actions.ask}
-          voice={voice}
-          expanded={instructorDockExpanded}
-          onExpandedChange={actions.setInstructorDockExpanded}
-          collapsedWidth={docks.assistantWidth}
-          expandedWidth={docks.assistantExpandedWidth}
-          bottomInset={0}
-          maxHeight={assistantMaxHeight}
-        />
-      </View>
+      {instructorOpen && (
+        <View
+          pointerEvents="box-none"
+          style={[styles.assistant, { bottom: insets.bottom + Space.lg }]}
+        >
+          <AssistantDock
+            thread={thread}
+            exchange={exchange}
+            alreadyShown={shownText}
+            onAsk={actions.ask}
+            voice={voice}
+            expanded={instructorDockExpanded}
+            onExpandedChange={actions.setInstructorDockExpanded}
+            collapsedWidth={docks.assistantWidth}
+            expandedWidth={docks.assistantExpandedWidth}
+            bottomInset={0}
+            maxHeight={assistantMaxHeight}
+          />
+        </View>
+      )}
     </>
   );
   const viewportView = (
@@ -406,6 +408,8 @@ function Viewer({
                   />
                 ) : (
                   <GuideDrawer
+                    instructorOpen={instructorOpen}
+                    onToggleInstructor={actions.toggleInstructor}
                     topInset={insets.top}
                     bottomInset={insets.bottom}
                     procedureTitle={procedureTitle}

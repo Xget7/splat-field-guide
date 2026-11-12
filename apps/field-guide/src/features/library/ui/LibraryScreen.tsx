@@ -27,17 +27,21 @@ import {
   Grid as G,
   CourseRadius as R,
 } from '../../../ui/courseTokens';
-import { continueRowFor } from '../domain/library';
+import { continueRowFor, factsFor } from '../domain/library';
+import { TOUR_ID } from '../../pack/tour';
 import { ContinueCard } from './GuideCards';
 import { CourseNavigation, type AppSection } from './CourseNavigation';
-import { CourseOverview, DEMO_MODULES, ModuleCard } from './CourseOverview';
-import { CourseComposer } from './CourseComposer';
+import { CourseOverview, ModuleCard } from './CourseOverview';
+import { CourseAssistant } from './CourseAssistant';
+import { CourseDocumentation } from './CourseDocumentation';
+import type { CourseDocuments } from '../../../platform/documents';
 import { CourseDownloads } from './CourseDownloads';
 
 type CourseSection = 'Course' | 'Modules' | 'Assistant' | 'Documentation';
 
 export interface LibraryScreenProps {
   readonly catalog: readonly Guide[];
+  readonly documents?: CourseDocuments;
   /** Read again on every focus, so a session that just closed shows as the continuation. */
   readonly progress: Pick<ProgressStorage, 'load'>;
   readonly onOpenGuide: (guide: ReadyGuide) => void;
@@ -47,6 +51,7 @@ export interface LibraryScreenProps {
 
 export function LibraryScreen({
   catalog,
+  documents,
   progress: storage,
   onOpenGuide,
   onOpen,
@@ -77,6 +82,10 @@ export function LibraryScreen({
   );
 
   const continuation = continueRowFor(catalog, progress);
+  const moduleCount = catalog.reduce(
+    (count, guide) => count + guide.pack.procedures.length,
+    0,
+  );
   const continueGuide = () => {
     // Continuing reopens the step on its own, without the instructor.
     if (continuation) {
@@ -123,11 +132,30 @@ export function LibraryScreen({
   const document = () => {
     setSection('Documentation');
     setNotice(null);
+    documents
+      ?.open('kuka-quantec-extra-v4')
+      .catch(() =>
+        setNotice('Could not open the on-device manual. Try again.'),
+      );
   };
   const selectDestination = (next: AppSection) => {
-    setDestination(next);
+    if (next === 'Equipment') {
+      explore();
+      return;
+    }
+    if (next === 'Modules' || next === 'Documentation') {
+      setDestination('Courses');
+      setSection(next);
+    } else {
+      setDestination(next);
+      if (next === 'Courses') setSection('Course');
+    }
     setNotice(null);
   };
+  const navigationSection =
+    inCourse && (section === 'Modules' || section === 'Documentation')
+      ? section
+      : destination;
   const select = (next: CourseSection) => {
     setSection(next);
     setNotice(null);
@@ -141,8 +169,17 @@ export function LibraryScreen({
       ]}
     >
       <CourseNavigation
-        section={destination}
+        section={navigationSection}
         compact={compact}
+        continuation={
+          continuation
+            ? {
+                title: continuation.procedure.title,
+                step: continuation.stepLabel,
+              }
+            : undefined
+        }
+        onContinue={continueGuide}
         onSelect={selectDestination}
       />
       <View style={styles.page}>
@@ -177,7 +214,9 @@ export function LibraryScreen({
                       ]}
                     >
                       {tab}
-                      {tab === 'Modules' ? '  03' : ''}
+                      {tab === 'Modules'
+                        ? `  ${String(moduleCount).padStart(2, '0')}`
+                        : ''}
                     </Text>
                   </Pressable>
                 ))}
@@ -204,57 +243,76 @@ export function LibraryScreen({
                 <Text accessibilityRole="header" style={styles.heading}>
                   Course modules
                 </Text>
-                <Text style={styles.secondary}>3 modules</Text>
+                <Text style={styles.secondary}>
+                  {moduleCount} {moduleCount === 1 ? 'module' : 'modules'}
+                </Text>
               </View>
               <View style={[styles.cards, !columns && styles.stacked]}>
-                {DEMO_MODULES.map((title, index) => (
+                {catalog.map(guide => (
                   <ModuleCard
-                    key={title}
-                    title={title}
-                    index={index}
-                    testID={
-                      index === 0 && catalog[0]
-                        ? `guide-card-${catalog[0].id}`
-                        : undefined
-                    }
-                    onPress={() =>
-                      index === 0 && catalog[0]
-                        ? onOpenGuide(catalog[0])
-                        : setNotice('This module is not available yet.')
-                    }
+                    key={guide.id}
+                    title={guide.title}
+                    details={factsFor(guide).join(', ')}
+                    action="Choose guidance"
+                    index={0}
+                    wide={columns}
+                    testID={`guide-card-${guide.id}`}
+                    onPress={() => onOpenGuide(guide)}
                   />
                 ))}
+                {catalog.flatMap(guide =>
+                  guide.pack.procedures
+                    .filter(procedure => procedure.id !== TOUR_ID)
+                    .map((procedure, index) => (
+                      <ModuleCard
+                        key={`${guide.id}:${procedure.id}`}
+                        title={procedure.title}
+                        details={`${procedure.steps.length} ${
+                          procedure.steps.length === 1 ? 'step' : 'steps'
+                        }${
+                          procedure.steps.some(step => step.caution.trim())
+                            ? ', includes safety notes'
+                            : ''
+                        }`}
+                        action="Start procedure"
+                        index={index + 1}
+                        wide={columns}
+                        testID={`module-procedure-${guide.id}-${procedure.id}`}
+                        onPress={() =>
+                          onOpen({
+                            guideId: guide.id,
+                            procedureId: procedure.id,
+                            stepIndex: 0,
+                            mode: LearnMode.selfGuided,
+                          })
+                        }
+                      />
+                    )),
+                )}
               </View>
             </View>
           )}
-          {inCourse && section === 'Assistant' && (
-            <View style={styles.panel}>
-              <Text accessibilityRole="header" style={styles.heading}>
-                Assistant
-              </Text>
-              {lastQuestion && (
-                <Text style={styles.question}>{lastQuestion}</Text>
-              )}
-              <Text style={styles.secondary}>
-                Course answers are not connected yet.
-              </Text>
-              <CourseComposer
-                onAsk={ask}
-                onDocument={document}
-                question={draft}
-                onQuestionChange={setDraft}
-              />
-            </View>
-          )}
+          <View
+            style={!(inCourse && section === 'Assistant') && styles.hidden}
+            accessibilityElementsHidden={!(inCourse && section === 'Assistant')}
+            importantForAccessibility={
+              inCourse && section === 'Assistant'
+                ? 'auto'
+                : 'no-hide-descendants'
+            }
+          >
+            <CourseAssistant
+              guide={catalog[0] ?? null}
+              question={lastQuestion}
+              draft={draft}
+              onDraftChange={setDraft}
+              active={inCourse && section === 'Assistant'}
+              onOpen={onOpen}
+              onDocument={document}
+            />
+          </View>
           {inCourse && section === 'Documentation' && (
-            <View style={styles.panel}>
-              <Text accessibilityRole="header" style={styles.heading}>
-                KR QUANTEC extra.pdf
-              </Text>
-              <Text style={styles.secondary}>
-                The manual is not available on this device yet.
-              </Text>
-            </View>
+            <CourseDocumentation documents={documents} />
           )}
           {destination === 'Downloads' && (
             <CourseDownloads
@@ -271,8 +329,40 @@ export function LibraryScreen({
                 Help
               </Text>
               <Text style={styles.secondary}>
-                Open an available module to explore its equipment.
+                Drag the 3D scene to orbit, pinch to zoom and tap a component to
+                select it.
               </Text>
+              <Text style={styles.secondary}>
+                Self-guided keeps you in control of each step. Instructor adds
+                contextual questions and optional voice.
+              </Text>
+              <Pressable
+                testID="help-equipment"
+                accessibilityRole="button"
+                accessibilityLabel="Explore equipment"
+                onPress={explore}
+                style={styles.helpAction}
+              >
+                <Text style={styles.helpActionText}>Explore equipment</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Browse course modules"
+                onPress={() => selectDestination('Modules')}
+                style={styles.helpAction}
+              >
+                <Text style={styles.helpActionText}>Browse course modules</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Read equipment documentation"
+                onPress={() => selectDestination('Documentation')}
+                style={styles.helpAction}
+              >
+                <Text style={styles.helpActionText}>
+                  Read equipment documentation
+                </Text>
+              </Pressable>
             </View>
           )}
           {inCourse && <OfflinePreparation showReady />}
@@ -288,6 +378,7 @@ export function LibraryScreen({
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, flexDirection: 'row', backgroundColor: C.canvas },
+  hidden: { display: 'none' },
   page: {
     flex: 1,
     margin: G.unit,
@@ -325,14 +416,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heading: { ...T.heading, color: C.text },
-  cards: { flexDirection: 'row', gap: G.small },
-  stacked: { flexDirection: 'column' },
-  panel: { gap: G.medium, maxWidth: 720 },
-  question: {
-    ...T.body,
-    color: C.text,
+  helpAction: {
+    minHeight: G.control,
+    padding: G.small,
     backgroundColor: C.raised,
     borderRadius: R.control,
-    padding: G.small,
+    justifyContent: 'center',
   },
+  helpActionText: { ...T.label, color: C.text },
+  cards: { flexDirection: 'row', flexWrap: 'wrap', gap: G.small },
+  stacked: { flexDirection: 'column' },
+  panel: { gap: G.medium, maxWidth: 720 },
 });

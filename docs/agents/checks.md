@@ -31,6 +31,12 @@ Change Pods only with `bundle exec pod install` in `apps/field-guide/ios`, so th
 
 ## JavaScript units
 
+For a private local iOS demo with the original KUKA source PDFs, set `FIELD_GUIDE_DOCUMENTS_DIR=/absolute/path/to/splat-tools/data/reference/kuka` alongside `FIELD_GUIDE_PACKS=miris-pilot/1` in the iOS build command.
+The document copy stage checks the retained catalog's PDF headers and SHA-256 digests and writes the original bytes, document catalog and copyright notices into the app's `documents` resources.
+Without both explicit settings no KUKA PDFs ship; local inclusion does not grant external redistribution rights.
+Verify the course Documentation tab and source attachment open the same local manual without a network connection, and confirm the document edition before using cited maintenance pages.
+Run `nice -n 19 node --test tests/course-documents.test.cjs` to check opt-in bundling and corruption refusal without copying real PDFs.
+
 Each unit under `apps/`, `packages/` and `services/` installs with `npm ci` and carries its checks as `package.json` scripts: `lint`, `typecheck`, `test` and, in native packages, `codegen`.
 Run Jest suites (app, `react-native-on-device`) with `npm test -- --runInBand`.
 `services/instructor-proxy` has no typecheck script; use `npx tsc --noEmit -p .`.

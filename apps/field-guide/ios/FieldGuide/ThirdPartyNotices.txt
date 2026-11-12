@@ -8992,3 +8992,15 @@ Builds that enable the optional FFmpeg flag (`enableFFmpeg: true` in the Expo pl
 
 Other LGPL components may be included as dependencies.
 The full text of the LGPL license is included in lgplv3 file.
+OPT-IN LOCAL KUKA DOCUMENTATION
+
+Private local demo builds may include original KUKA PDFs only when an explicit
+FIELD_GUIDE_DOCUMENTS_DIR is supplied for the selected Miris pilot course.
+BA KR QUANTEC extra V4 en (29.11.2012), copyright 2012 KUKA Roboter GmbH.
+MA KR QUANTEC-2 K+P V6 (26.01.2024), copyright 2024 KUKA Deutschland GmbH.
+The original documents retain their page-two notice requiring express KUKA
+permission for reproduction or disclosure to third parties.
+See documents/index.json for source identities, issue dates and SHA-256 digests,
+and documents/NOTICE.txt for the copied document-specific notices.
+No redistribution permission or installed-equipment applicability is asserted.
+

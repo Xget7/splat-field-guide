@@ -286,6 +286,10 @@ export function createViewerStore(): ViewerStore {
       applyAgentAction: event => act({ type: ViewerActionType.agent, event }),
       toggleInstructor: () => {
         get().voice?.stop();
+        if (get().instructorOpen) {
+          get().cancelAnswer();
+          set({ instructorDockExpanded: false });
+        }
         changeInstructorOpen(!get().instructorOpen);
       },
       setPanelMode: panelMode => set({ panelMode }),

@@ -300,6 +300,25 @@ describe('viewer screen', () => {
     expect(native().props.highlight).toEqual(highlightFor(getState(), pack));
   });
 
+  test('iPad guidance modes preserve the step and show the assistant only in Instructor', async () => {
+    const phone = Dimensions.get('window');
+    Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
+    try {
+      await mount({ procedureId: 'check-coolant', mode: LearnMode.selfGuided });
+      await press('step-row-2');
+      expect(has('assistant-expand')).toBe(false);
+      await press('guidance-instructor');
+      expect(has('assistant-expand')).toBe(true);
+      expect(debug().getState().stepIndex).toBe(2);
+      await press('guidance-self-guided');
+      expect(has('assistant-expand')).toBe(false);
+      expect(debug().getState().stepIndex).toBe(2);
+      expect(await loadProgress()).toMatchObject({ stepIndex: 2 });
+    } finally {
+      await act(async () => Dimensions.set({ window: phone, screen: phone }));
+    }
+  });
+
   test('on an iPad the steps list beside the splat and open any step', async () => {
     const phone = Dimensions.get('window');
     Dimensions.set({ window: IPAD_WINDOW, screen: IPAD_WINDOW });
