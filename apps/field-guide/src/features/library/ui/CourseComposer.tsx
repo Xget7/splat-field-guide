@@ -129,7 +129,8 @@ const styles = StyleSheet.create({
   input: {
     ...T.body,
     color: C.text,
-    minHeight: 200,
+    // Account for the composer border so the suggestions end level with the preview.
+    minHeight: 198,
     textAlignVertical: 'top',
     padding: 0,
   },
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
   suggestion: {
     minHeight: G.large,
     paddingHorizontal: G.unit,
-    paddingVertical: G.unit,
+    paddingVertical: 0,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: R.control,
