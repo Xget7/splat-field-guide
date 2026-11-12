@@ -307,6 +307,27 @@ export function LibraryScreen({
               onDownloads={() => selectDestination('Downloads')}
             />
           )}
+          <View
+            style={!(inCourse && section === 'Course') && styles.hidden}
+            accessibilityElementsHidden={!(inCourse && section === 'Course')}
+            importantForAccessibility={
+              inCourse && section === 'Course' ? 'auto' : 'no-hide-descendants'
+            }
+          >
+            <CourseAssistant
+              ref={assistant}
+              onVoiceChange={setVoiceOn}
+              guide={catalog[0] ?? null}
+              question={lastQuestion?.text ?? null}
+              requestId={lastQuestion?.id}
+              draft={draft}
+              onDraftChange={setDraft}
+              inline
+              active={inCourse && section === 'Course'}
+              onOpen={onOpen}
+              onDocument={document}
+            />
+          </View>
           {inCourse && section === 'Course' && (
             <View style={styles.modules}>
               {continuation && (
@@ -358,27 +379,6 @@ export function LibraryScreen({
               </View>
             </View>
           )}
-          <View
-            style={!(inCourse && section === 'Course') && styles.hidden}
-            accessibilityElementsHidden={!(inCourse && section === 'Course')}
-            importantForAccessibility={
-              inCourse && section === 'Course' ? 'auto' : 'no-hide-descendants'
-            }
-          >
-            <CourseAssistant
-              ref={assistant}
-              onVoiceChange={setVoiceOn}
-              guide={catalog[0] ?? null}
-              question={lastQuestion?.text ?? null}
-              requestId={lastQuestion?.id}
-              draft={draft}
-              onDraftChange={setDraft}
-              inline
-              active={inCourse && section === 'Course'}
-              onOpen={onOpen}
-              onDocument={document}
-            />
-          </View>
           {inCourse && section === 'Documentation' && (
             <CourseDocumentation documents={documents} />
           )}

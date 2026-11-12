@@ -298,6 +298,22 @@ describe('Library screen', () => {
     });
   });
 
+  test('a submitted course reply is placed before the modules beside the primary question flow', async () => {
+    instructorStore.getState().attach(fakeInstructor());
+    await mount();
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() => input.props.onChangeText('Hello'));
+    await press('course-send');
+    const nodes = renderer.root.findAll(
+      item =>
+        item.props.testID === 'course-answer' ||
+        (item.type === Text && item.props.children === 'Course modules'),
+    );
+    expect(nodes[0].props.testID).toBe('course-answer');
+  });
+
   test('course voice accepts typed follow-ups and navigates by stable id before a scene is open', async () => {
     const voice = fakeVoiceSession();
     const instructor = fakeInstructor({
