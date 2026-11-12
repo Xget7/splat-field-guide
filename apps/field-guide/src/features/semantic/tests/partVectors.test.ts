@@ -90,3 +90,12 @@ describe('supplied part vectors', () => {
     );
   });
 });
+
+test('similarity queries use a supplied component row and exclude that component itself', () => {
+  const index = open();
+  expect(index.similarParts('battery', VectorKind.image, 3)).toEqual({
+    ok: true,
+    matches: [{ partId: 'engine', score: 0 }],
+  });
+  expect(index.similarParts('engine', VectorKind.text, 3).ok).toBe(false);
+});

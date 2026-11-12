@@ -114,3 +114,30 @@ test('each tool applies the same session reducer event', () => {
     });
   }
 });
+
+test('an unresolved duplicate name cannot be bypassed by a guessed stable id', () => {
+  const battery = pack.parts.find(item => item.id === 'battery')!;
+  const ambiguous = {
+    ...pack,
+    parts: [...pack.parts, { ...battery, id: 'second-battery' }],
+  };
+  const outcome = runAgentTool(
+    'show_part',
+    { part_id: battery.id },
+    INITIAL_SESSION,
+    ambiguous,
+    'Where is the battery?',
+  );
+  expect(outcome.ok).toBe(false);
+  expect(outcome.result).toContain('Which');
+  expect(outcome.result).toContain('second-battery');
+  expect(
+    runAgentTool(
+      'show_part',
+      { part_id: battery.id },
+      INITIAL_SESSION,
+      ambiguous,
+      'Where is the battery?',
+    ).ok,
+  ).toBe(false);
+});

@@ -17,6 +17,7 @@ import {
 } from '../../guide';
 import { normalize, routeCommand, RouteKind } from './router';
 import { contentWordsOf, isAsked } from './utterance';
+import { partClarification, referencedParts } from './partReference';
 
 export interface InstructorAnswer {
   readonly reply: string;
@@ -341,6 +342,9 @@ const ENGINE_CONDITION =
   /\b(?:(?:with|while|when|if|after) (?:the |my )?engine (?:is |was )?(?:hot|warm|cold|running|on|off|stopped|idling)|(?:start|stop|run|turn on|turn off|switch off) (?:the |my )?engine)\b/g;
 
 export function namedPart(question: string, pack: Pack): PartId | null {
+  const references = referencedParts(question, pack);
+  if (references.length === 1) return references[0].id;
+  if (references.length > 1) return null;
   const phrase = normalize(question);
   const part =
     mentionedPart(
@@ -424,6 +428,8 @@ export function answerFor(
   state: SessionState,
   pack: Pack,
 ): InstructorAnswer {
+  const clarification = partClarification(question, pack);
+  if (clarification) return clarification;
   const route = routeCommand(question, pack);
   if (route.kind === RouteKind.command) {
     return commandAnswer(route.event, state, pack);
@@ -434,7 +440,8 @@ export function answerFor(
   const words = new Set(wordsOf(normalize(question)));
   const has = (set: ReadonlySet<string>) =>
     [...words].some(word => set.has(word));
-  const part = mentionedPart(words, pack);
+  const partId = namedPart(question, pack);
+  const part = partId === null ? undefined : findPart(pack, partId);
   const procedure = mentionedProcedure(words, pack);
   const requested = requestedProcedure(words, pack);
   // Keep the current position when the user requests the procedure already running.

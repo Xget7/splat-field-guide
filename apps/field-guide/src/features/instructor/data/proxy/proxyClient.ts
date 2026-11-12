@@ -4,66 +4,21 @@ import {
   type Cancel,
   type Platform,
 } from '../../../../platform/ports';
-import type { StreamedReply } from '../../domain/turn/replyPolicy';
-import {
-  createNdjsonEvents,
-  ProxyEventType,
-  StreamFailureKind,
-} from './ndjsonEvents';
-import {
-  CONTENT_TYPE_HEADER,
-  JSON_CONTENT_TYPE,
-  ProxyError,
-  ProxyPath,
-  ProxyStatus,
-} from './proxyContract';
+import { ProxyError, ProxyPath, ProxyStatus } from './proxyContract';
 
 export const PING_TIMEOUT_MS = 3000;
 const PING_FAILED = 'Network probe failed';
 const POST = 'POST';
 const GET = 'GET';
 
-/** Why an answer from the Worker did not complete. */
-export const ProxyFailureKind = {
-  ...StreamFailureKind,
-  status: 'status',
-  network: 'network',
-  endedEarly: 'endedEarly',
-  cancelled: 'cancelled',
-} as const;
-export type ProxyFailureKind =
-  (typeof ProxyFailureKind)[keyof typeof ProxyFailureKind];
-const FailureMessage = {
-  network: 'network',
-  endedEarly: 'stream ended early',
-  cancelled: 'cancelled',
-  status: (status: number) => `status ${status}`,
-} as const;
-
-/** An answer failure keeps its kind beside the message the Worker or the stream gave. */
-export type ProxyFailure = Error & { readonly kind: ProxyFailureKind };
-function proxyFailure(kind: ProxyFailureKind, message: string): ProxyFailure {
-  return Object.assign(new Error(message), { kind });
-}
-
-export interface ProxyAnswerRequest {
-  readonly system: string;
-  readonly prompt: string;
-}
-
 export interface ProxyClient {
-  /** Streams the answer, reporting the text so far, and rejects with a ProxyFailure. */
-  answer(
-    request: ProxyAnswerRequest,
-    onText: (text: string) => void,
-  ): StreamedReply;
   /** A signed agent conversation URL, or a rejection naming quota, auth or network. */
   sessionUrl(): Promise<string>;
   /** The round trip to the Worker in milliseconds; the signal aborts a ping that no longer matters. */
   ping(signal?: AbortSignal): Promise<number>;
 }
 
-type ProxyPorts = Pick<Platform, 'fetch' | 'clock' | 'timers' | 'streamText'>;
+type ProxyPorts = Pick<Platform, 'fetch' | 'clock' | 'timers'>;
 
 /** Maps the voice session response to its URL or the failure the agent reports. */
 function signedUrlFrom(status: number, body: unknown): string {
@@ -102,66 +57,6 @@ export function createProxyClient(
 ): ProxyClient {
   const { clock, timers } = ports;
   return {
-    answer({ system, prompt }, onText) {
-      const controller = new AbortController();
-      let settled = false;
-      let resolve!: (text: string) => void;
-      let reject!: (failure: ProxyFailure) => void;
-      const answered = new Promise<string>((done, failed) => {
-        resolve = done;
-        reject = failed;
-      });
-      const fail = (kind: ProxyFailureKind, message: string) => {
-        if (!settled) {
-          settled = true;
-          controller.abort();
-          reject(proxyFailure(kind, message));
-        }
-      };
-      const consume = async () => {
-        const { status, chunks } = await ports.streamText({
-          url: `${baseUrl}${ProxyPath.answer}`,
-          method: POST,
-          headers: { [CONTENT_TYPE_HEADER]: JSON_CONTENT_TYPE },
-          body: JSON.stringify({ system, prompt }),
-          signal: controller.signal,
-        });
-        if (status !== ProxyStatus.ok) {
-          fail(ProxyFailureKind.status, FailureMessage.status(status));
-          return;
-        }
-        const events = createNdjsonEvents();
-        let text = '';
-        for await (const chunk of chunks) {
-          for (const event of events.feed(chunk)) {
-            if (settled) {
-              return;
-            }
-            if (event.type === ProxyEventType.text) {
-              text += event.text;
-              onText(text);
-            } else if (event.type === ProxyEventType.done) {
-              settled = true;
-              resolve(text);
-              return;
-            } else {
-              fail(event.kind, event.message);
-              return;
-            }
-          }
-        }
-        fail(ProxyFailureKind.endedEarly, FailureMessage.endedEarly);
-      };
-      // A cancel has already settled the answer, so the abort it causes changes nothing here.
-      consume().catch(() =>
-        fail(ProxyFailureKind.network, FailureMessage.network),
-      );
-      return {
-        text: answered,
-        cancel: () =>
-          fail(ProxyFailureKind.cancelled, FailureMessage.cancelled),
-      };
-    },
     async sessionUrl() {
       let response: Response;
       let body: unknown;

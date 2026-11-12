@@ -55,6 +55,7 @@ Ready entries and saved continuation enter guide/viewer interfaces.
 **Owns:** content validation; planned delivery adds verified installation, activation and recovery.
 **Rule:** stable part IDs outlive reconstructions; labels, bounds and anchors belong to a particular representation.
 Activate matching files and records together; failed replacement must preserve the last usable installation.
+Schema 3 adds prepared part and step view directions; schema 2 remains readable.
 The current schema uses `.lodsplat` and one unsigned 16-bit little-endian label per tree node, with zero unlabelled and 1-65535 available part labels.
 SFGL v2 uses a 16-byte header (`SFGL`, u16 version 2, u16 width 2, u32 node count, u32 reserved zero), followed by exactly `nodeCount * 2` bytes; all integers are little-endian.
 Readers reject SFGL v1; GPU uploads independently pad labels to four-byte words.
@@ -148,7 +149,7 @@ A finite shortlist does not prove enclosure or that no continuous camera directi
 
 ## Semantic data
 
-**Owns:** compatible-vector ranking to stable part IDs; persistent prepared knowledge and reconstruction mappings are planned.
+**Owns:** compatible-vector ranking to stable part IDs and source-bound complete-manual text retrieval; persistent reconstruction mappings remain planned.
 **Rule:** reject incompatible vector spaces even when dimensions match.
 Zustand holds transient state and progress uses AsyncStorage; WatermelonDB and TanStack Query are selected for persistent records and API state but are not installed.
 **Proposal:** direct SQLite via native bindings with FTS5 would replace the selected persistence approach only after deciding ownership, migrations and index maintenance.
@@ -158,7 +159,11 @@ The manifest binds vector-space identity, encoder/weights/preprocessing, normali
 Preparation supplies every embedding, including query vectors; mobile compares supplied vectors without encoders or inferred physical facts.
 **Read:** [public interface](../../apps/field-guide/src/features/semantic/index.ts), [pack types](../../apps/field-guide/src/features/pack/pack.ts), [app dependencies](../../apps/field-guide/package.json), [integration tasks](../../TASKS.md#app-integration).
 **Verify:** [vector tests](../../apps/field-guide/src/features/semantic/tests/partVectors.test.ts).
-**Pending:** reading the vectors file from an installed pack, reconstruction identity for mappings and persistent records.
+The app reads bundled vector bytes after checking their manifest digest, decodes native signed bytes without changing their bit pattern and caches the index by pack identity/version.
+Known-component similarity reuses a supplied image or text row as the query; arbitrary free-text MobileCLIP query encoding remains external and unconnected.
+Complete manual text is prepared outside the app with original PDF digests, editions and every PDF page retained.
+Local weighted text retrieval with word normalization supplies source excerpts to Qwen and the same synchronous client tools to ElevenLabs.
+**Pending:** remote installed-file activation, reconstruction identity for mappings and persistent records.
 
 ## Guide
 
@@ -175,11 +180,18 @@ Course activities show a compact current-instruction card instead of the legacy 
 
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
-Typed answers fall back from the remote proxy to ExecuTorch generation to scripted guidance on both iOS and Android.
+Typed answers fall back from direct ElevenLabs text sessions to ExecuTorch generation to scripted guidance on both iOS and Android.
 Local generation explains supplied pack text; Apple Foundation Models is not a fallback.
-**Planned:** course-scoped retrieval retains course/content identity and source citations; active part, procedure and step come from authoritative session state rather than conversation history.
+The online Miris pilot retrieves prepared text through ElevenLabs RAG, retaining pack identity/version and supplied source qualifications.
+Active stable part ID, procedure and step come from application session state; exact lookup and name/alias search run against the bundled manifest before a world is mounted.
+Complete KUKA manual text is available through the same verified local corpus in offline and online modes.
+The device verifies the original bundled PDFs and the prepared text receipt before exposing manual search or exact PDF-page lookup.
+When local generation is unavailable, the instructor can return an attributed source excerpt without inventing an explanation.
+Structured manual figures and course identities independent of pack identity remain planned; source/simulator checks do not establish physical acceptance.
 Agent tools resolve validated domain actions through guide rules before viewer mutation or procedure advancement.
-Prompts prioritize subject, procedure and safety, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Local prompts prioritize subject, procedure, safety and bounded source-manual excerpts, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Duplicate component names require clarification before selection in either mode, and model-supplied IDs cannot bypass an unresolved operator reference.
+Directed relationship answers use the authored or measured graph records directly, preserving each source; embeddings never establish those relationships.
 Each generated answer starts fresh; cancellation, malformed output and token-limit stops fail the turn.
 Keep its three concerns behind separate internal interfaces:
 
@@ -234,14 +246,28 @@ The English POS tagger is omitted because Brown Corpus data is not cleared for c
 
 ## Online services
 
-**Owns:** secrets, signed voice sessions, provider stream translation and agent configuration.
+**Owns:** ElevenLabs credentials, signed conversation sessions, prepared knowledge synchronization and agent configuration.
 **Rule:** incomplete streams fail; provider credentials remain outside the app; live requests and sync require explicit authorization.
-The current Cloudflare Worker provides typed NDJSON answers, signed ElevenLabs voice sessions and a shared-secret-authenticated custom-LLM SSE route to Claude.
-The app obtains a signed URL and streams PCM over a direct ElevenLabs WebSocket; the Worker handles session issuance and LLM callbacks, not the audio relay.
-Answer/session routes currently lack caller authentication; rate limits are not tenant authorization.
-**Proposal:** CloudFront ingress must preserve authenticated streaming and cancellation; a single-ingress audio requirement would need an explicit relay rather than the current direct connection.
+The Cloudflare Worker exposes an uncached probe and a rate-limited signed-session issuer for one Miris pilot agent.
+Text-only and voice sessions connect directly to ElevenLabs over WebSocket; managed generation and native RAG replace the Anthropic and custom-LLM routes.
+The pilot issuer is public and has no operator identity or membership verification; rate limits are not authorization.
+All app copy and agent prompts are English.
+Prepared knowledge documents retain pack identity/version, stable component IDs, hierarchy, procedures and evidenced relations.
+Full manuals use app client tools by default, so the online agent consults the identical source corpus used offline without requiring hosted RAG capacity for the complete PDFs.
+Optional hosted manual indexing uses the same extracted pages and checks workspace capacity before uploading; it is not required for full-manual client-tool access.
+Original manufacturer PDF bytes remain local; the owner-authorized prototype sends retrieved text passages through the client tools while preserving source restrictions.
+Missing whole-factory locations and emergency exits remain unknown.
+`search_parts` matches supplied names/aliases and returns ambiguous candidates without selection; `get_part` reads exact installed facts and directed relations without mutation.
+`show_part` and procedure tools validate IDs through guide rules; typed navigation stays provisional until a complete answer, and cancelled/failed turns do not commit it.
+A course question can select and frame a component in a bundled scene before that scene has been opened.
+Course and activity conversations share bounded in-memory history keyed by pack identity/version; backgrounding closes connections.
+Authored step narration uses local speech with outgoing agent audio muted to avoid sending the narration back as microphone input.
+Existing offline Qwen/scripted answers and local voice remain separate fallbacks.
+MobileCLIP vectors retain their independent comparison seam and are not uploaded or treated as compatible with ElevenLabs RAG vectors.
+Sync saves immutable document IDs by content digest before indexing, starts indexing for every document and preserves the active agent until all indexes succeed.
+Retries reuse saved documents; stale remote documents and legacy secrets are not deleted automatically because other agents may reference them.
 Ephemeral session credentials must not be cached across users.
-**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [stream handling](../../services/instructor-proxy/src/chatStream.ts), [voice client](../../apps/field-guide/src/features/instructor/data/agent/agentClient.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
+**Read:** [Worker routes](../../services/instructor-proxy/src/index.ts), [voice/text client](../../apps/field-guide/src/features/instructor/data/agent/agentClient.ts), [part knowledge](../../apps/field-guide/src/features/instructor/domain/agent/partKnowledge.ts), [agent configuration](../../services/voice-agent/src/agentConfig.ts), [sync](../../services/voice-agent/src/sync.ts).
 **Verify:** [proxy tests](../../services/instructor-proxy/test), [agent tests](../../services/voice-agent/test); [configuration operations](../agents/checks.md#instructor-configuration).
 
 ## Shared foundations

@@ -36,12 +36,12 @@ export interface ModeSwitchingOptions {
   readonly timers: Timers;
   readonly input: () => SpeechInput;
   readonly output: () => SpeechOutput;
-  /** Prepared for offline answers, and the fallback when Claude cannot be reached online. */
+  /** Prepared for offline answers, and the fallback when ElevenLabs cannot be reached online. */
   readonly device: Answerer;
   readonly pack: () => Pack | null;
   /** Prepares the agent conversation, resolving whether online voice can start. */
   readonly prepareAgent: () => Promise<boolean>;
-  /** Reaches the Worker, rejecting when Claude cannot answer. */
+  /** Reaches the Worker, rejecting when ElevenLabs cannot answer. */
   readonly probe: () => Promise<number>;
   readonly onStep: (step: SwitchStep) => void;
 }
@@ -134,7 +134,7 @@ export function createModeSwitching(
       },
       {
         piece: SwitchPiece.answers,
-        label: SwitchLabel.claude,
+        label: SwitchLabel.elevenlabs,
         fallbackLabel: SwitchLabel.deviceModel,
         start: async () => {
           await options.probe();
@@ -162,7 +162,7 @@ export function createModeSwitching(
       mode: InstructorMode.online,
       sources: {
         voice: outcome.voice ? VoiceSource.agent : VoiceSource.device,
-        answers: outcome.answers ? AnswerSource.claude : deviceAnswers(),
+        answers: outcome.answers ? AnswerSource.elevenlabs : deviceAnswers(),
       },
     };
   }

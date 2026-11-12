@@ -1,20 +1,18 @@
 import type { ClientToolConfig } from './tools.ts';
 import type { PronunciationRule } from './pronunciation.ts';
 import type { buildAgentConfig } from './agentConfig.ts';
+import { RAG_MODEL } from './agentConfig.ts';
 import type { DictionaryRef } from './state.ts';
 
 export const API_URL = 'https://api.elevenlabs.io/v1';
 export const API_KEY_HEADER = 'xi-api-key';
 export const CONTENT_TYPE_HEADER = 'content-type';
 export const JSON_CONTENT_TYPE = 'application/json';
-export const SECRET_PATH = '/convai/secrets';
 export const TOOL_PATH = '/convai/tools';
 export const DICTIONARY_PATH = '/pronunciation-dictionaries';
 export const CREATE_AGENT_PATH = '/convai/agents/create';
 export const AGENT_PATH = '/convai/agents';
-export const SECRET_NAME = 'field-guide-agent-llm';
 export const Method = { get: 'GET', create: 'POST', update: 'PATCH' } as const;
-export const SecretType = { create: 'new', update: 'update' } as const;
 export const CREATE_DICTIONARY_PATH = DICTIONARY_PATH + '/add-from-rules';
 export const SET_RULES_PATH = '/set-rules';
 const INVALID_JSON = 'Invalid JSON response';
@@ -63,9 +61,20 @@ export function createElevenLabs(apiKey: string, fetchImpl: typeof fetch) {
   }
 
   return {
-    secret: async (value: string, id?: string) => ({ secret_id: resourceId(await createOrUpdate<unknown>(
-      SECRET_PATH, { type: id ? SecretType.update : SecretType.create, name: SECRET_NAME, value }, id,
-    ), 'secret_id') }),
+    ragUsage: async () => {
+      const usage = await request<{ total_used_bytes: number; total_max_bytes: number }>('/convai/knowledge-base/rag-index', Method.get);
+      if (!Number.isSafeInteger(usage.total_used_bytes) || usage.total_used_bytes < 0 || !Number.isSafeInteger(usage.total_max_bytes) || usage.total_max_bytes < 0) throw new Error(INVALID_RESPONSE);
+      return usage;
+    },
+    knowledge: async (name: string, text: string) => {
+      const value = await request<unknown>('/convai/knowledge-base/text', Method.create, { name, text });
+      return { id: resourceId(value, 'id'), name };
+    },
+    indexKnowledge: async (id: string) => {
+      const result = await request<{ status: string }>(`/convai/knowledge-base/${encodeURIComponent(id)}/rag-index`, Method.create, { model: RAG_MODEL });
+      if (typeof result.status !== 'string') throw new Error('Invalid knowledge index response');
+      return result.status.toLowerCase();
+    },
     tool: async (config: ClientToolConfig, id?: string) => ({ id: resourceId(await createOrUpdate<unknown>(
       TOOL_PATH, { tool_config: config }, id,
     ), 'id') }),

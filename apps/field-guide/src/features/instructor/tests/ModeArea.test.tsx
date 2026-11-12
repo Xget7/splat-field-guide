@@ -19,7 +19,7 @@ const ONLINE: ModeStatus = {
   mode: InstructorMode.online,
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
+  answers: AnswerSource.elevenlabs,
 };
 const SWITCH_ID_INCREMENT = 1;
 const INITIAL_SWITCH_ID = 0;

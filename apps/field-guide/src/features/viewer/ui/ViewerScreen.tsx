@@ -95,7 +95,7 @@ export function ViewerScreen({
   progress,
 }: ViewerScreenProps) {
   const instructor = useInstructor();
-  const { guideId, procedureId, stepIndex, mode, voice } = start;
+  const { guideId, procedureId, stepIndex, mode, voice, selectedPart } = start;
   const guide = findReadyGuide(catalog, guideId);
   const [opened, setOpened] = useState<SessionStart | null>(null);
   useEffect(() => {
@@ -103,9 +103,9 @@ export function ViewerScreen({
     // Open after the previous viewer has released its subscriptions and voice session.
     viewerStore
       .getState()
-      .open({ guide, procedureId, stepIndex, mode, instructor });
+      .open({ guide, procedureId, stepIndex, mode, instructor, selectedPart });
     setOpened(start);
-  }, [guide, instructor, mode, procedureId, start, stepIndex]);
+  }, [guide, instructor, mode, procedureId, start, stepIndex, selectedPart]);
   if (guide === undefined) {
     return <MissingGuide onBack={onExit} />;
   }

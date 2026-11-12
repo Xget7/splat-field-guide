@@ -18,7 +18,7 @@ const ONLINE: ModeStatus = {
   mode: InstructorMode.online,
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
+  answers: AnswerSource.elevenlabs,
 };
 const SWITCH_ID = 1;
 const KOKORO_STEP = {

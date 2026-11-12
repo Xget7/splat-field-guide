@@ -22,11 +22,15 @@ const SUGGESTIONS = [
 ];
 export function CourseComposer({
   onAsk,
+  onVoice,
+  voiceOn,
   onDocument,
   question,
   onQuestionChange,
 }: {
   onAsk: (question: string) => void;
+  onVoice?: () => void;
+  voiceOn?: boolean;
   onDocument: () => void;
   question: string;
   onQuestionChange: (question: string) => void;
@@ -82,6 +86,21 @@ export function CourseComposer({
               </Text>
             </View>
           </Pressable>
+          {onVoice && (
+            <Pressable
+              testID="course-voice"
+              accessibilityRole="button"
+              accessibilityLabel={voiceOn ? 'End voice' : 'Start voice'}
+              onPress={onVoice}
+              style={styles.voice}
+            >
+              <Icon
+                name={voiceOn ? IconName.micOff : IconName.mic}
+                color={C.text}
+                size={20}
+              />
+            </Pressable>
+          )}
           <Pressable
             testID="course-send"
             accessibilityRole="button"
@@ -156,6 +175,12 @@ const styles = StyleSheet.create({
     backgroundColor: C.raised,
   },
   filename: { ...T.caption, color: C.secondary, flexShrink: 1 },
+  voice: {
+    width: G.control,
+    height: G.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   send: {
     width: G.control,
     height: G.control,

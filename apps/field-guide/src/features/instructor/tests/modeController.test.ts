@@ -92,7 +92,7 @@ test('a connection lost again soon after recovering waits twice as long to recov
   const { controller } = setup(NetworkQuality.offline);
   controller.network(network(NetworkQuality.good));
   jest.advanceTimersByTime(ModeTiming.RECOVERY_MS);
-  controller.switched('online', { voice: 'agent', answers: 'claude' });
+  controller.switched('online', { voice: 'agent', answers: 'elevenlabs' });
   jest.advanceTimersByTime(ModeTiming.STABLE_MS - 1);
   controller.network(network(NetworkQuality.offline));
   controller.switched('offline', { voice: 'device', answers: 'deviceModel' });

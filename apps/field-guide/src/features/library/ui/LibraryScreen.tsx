@@ -1,6 +1,6 @@
 import { OfflinePreparation } from '../../instructor/views';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,7 +32,10 @@ import { TOUR_ID } from '../../pack/tour';
 import { ContinueCard } from './GuideCards';
 import { CourseNavigation, type AppSection } from './CourseNavigation';
 import { CourseOverview, ModuleCard } from './CourseOverview';
-import { CourseAssistant } from './CourseAssistant';
+import {
+  CourseAssistant,
+  type CourseAssistantControls,
+} from './CourseAssistant';
 import { CourseDocumentation } from './CourseDocumentation';
 import type { CourseDocuments } from '../../../platform/documents';
 import { CourseDownloads } from './CourseDownloads';
@@ -112,6 +115,8 @@ export function LibraryScreen({
   const [section, setSection] = useState<CourseSection>('Course');
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const assistant = useRef<CourseAssistantControls>(null);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [lastQuestion, setLastQuestion] = useState<{
     id: number;
     text: string;
@@ -294,12 +299,35 @@ export function LibraryScreen({
               wide={columns}
               onExplore={explore}
               onAsk={ask}
+              onVoice={() => assistant.current?.toggleVoice()}
+              voiceOn={voiceOn}
               question={draft}
               onQuestionChange={setDraft}
               onDocument={document}
               onDownloads={() => selectDestination('Downloads')}
             />
           )}
+          <View
+            style={!(inCourse && section === 'Course') && styles.hidden}
+            accessibilityElementsHidden={!(inCourse && section === 'Course')}
+            importantForAccessibility={
+              inCourse && section === 'Course' ? 'auto' : 'no-hide-descendants'
+            }
+          >
+            <CourseAssistant
+              ref={assistant}
+              onVoiceChange={setVoiceOn}
+              guide={catalog[0] ?? null}
+              question={lastQuestion?.text ?? null}
+              requestId={lastQuestion?.id}
+              draft={draft}
+              onDraftChange={setDraft}
+              inline
+              active={inCourse && section === 'Course'}
+              onOpen={onOpen}
+              onDocument={document}
+            />
+          </View>
           {inCourse && section === 'Course' && (
             <View style={styles.modules}>
               {continuation && (
@@ -351,32 +379,6 @@ export function LibraryScreen({
               </View>
             </View>
           )}
-          <View
-            style={
-              !(inCourse && section === 'Course' && lastQuestion !== null) &&
-              styles.hidden
-            }
-            accessibilityElementsHidden={
-              !(inCourse && section === 'Course' && lastQuestion !== null)
-            }
-            importantForAccessibility={
-              inCourse && section === 'Course' && lastQuestion !== null
-                ? 'auto'
-                : 'no-hide-descendants'
-            }
-          >
-            <CourseAssistant
-              guide={catalog[0] ?? null}
-              question={lastQuestion?.text ?? null}
-              requestId={lastQuestion?.id}
-              draft={draft}
-              onDraftChange={setDraft}
-              inline
-              active={inCourse && section === 'Course'}
-              onOpen={onOpen}
-              onDocument={document}
-            />
-          </View>
           {inCourse && section === 'Documentation' && (
             <CourseDocumentation documents={documents} />
           )}

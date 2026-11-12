@@ -12,6 +12,8 @@ export function CourseOverview({
   wide,
   onExplore,
   onAsk,
+  onVoice,
+  voiceOn,
   onDocument,
   onDownloads,
   question,
@@ -20,6 +22,8 @@ export function CourseOverview({
   wide: boolean;
   onExplore: () => void;
   onAsk: (question: string) => void;
+  onVoice?: () => void;
+  voiceOn?: boolean;
   onDocument: () => void;
   onDownloads: () => void;
   question: string;
@@ -67,6 +71,8 @@ export function CourseOverview({
         <View style={styles.details}>
           <CourseComposer
             onAsk={onAsk}
+            onVoice={onVoice}
+            voiceOn={voiceOn}
             onDocument={onDocument}
             question={question}
             onQuestionChange={onQuestionChange}

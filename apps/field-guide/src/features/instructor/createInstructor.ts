@@ -4,6 +4,8 @@ import type { Pack } from '../pack/pack';
 import type { Instructor } from './domain/instructorHandle';
 import { createInstructorModes } from './domain/mode/instructorModes';
 import { InstructorMode } from './domain/mode/modeTypes';
+import { TurnEventType, type TurnEvent } from './domain/turn/exchange';
+import type { PreviousExchange } from './domain/grounding';
 import { createExchangeIds } from './domain/turn/exchange';
 import { createTurnRunner } from './domain/turn/turnRunner';
 import { VoiceStartFailure } from './domain/voice/voiceSession';
@@ -14,11 +16,13 @@ import { createInstructorForeground } from './data/runtime/instructorForeground'
 import { createInstructorNetwork } from './data/runtime/instructorNetwork';
 import { createInstructorSessions } from './data/runtime/instructorSessions';
 import type { InstructorStore } from './state/instructorStore';
+import type { KnowledgeLoader } from './domain/agent/agentTools';
 
 export type { Instructor };
 
 export interface InstructorOptions {
   readonly platform: Platform;
+  readonly knowledge?: KnowledgeLoader;
   /** A null proxy URL runs with on-device answers and voice only. */
   readonly proxyUrl: string | null;
   /** Receives every status the instructor reports. */
@@ -27,6 +31,7 @@ export interface InstructorOptions {
 
 export function createInstructor({
   platform,
+  knowledge,
   proxyUrl,
   store,
 }: InstructorOptions): Instructor {
@@ -36,6 +41,22 @@ export function createInstructor({
   const foreground = createInstructorForeground(platform.appState);
   const device = createDeviceAnswerer(platform.languageModel);
   const ids = createExchangeIds();
+  const history = new Map<string, Map<number, PreviousExchange>>();
+  const keyFor = (value: Pack) => `${value.packId}/${value.packVersion}`;
+  const historyFor = (value: Pack) =>
+    [...(history.get(keyFor(value))?.values() ?? [])].slice(-12);
+  const remember = (value: Pack, event: TurnEvent) => {
+    if (event.type !== TurnEventType.answer || event.exchange.interrupted)
+      return;
+    const key = keyFor(value);
+    const entries = history.get(key) ?? new Map<number, PreviousExchange>();
+    entries.set(event.exchange.id, {
+      question: event.exchange.question,
+      reply: event.exchange.reply,
+    });
+    while (entries.size > 12) entries.delete(entries.keys().next().value!);
+    history.set(key, entries);
+  };
   let pack: Pack | null = null;
   let started = false;
   let disposed = false;
@@ -82,17 +103,39 @@ export function createInstructor({
     network,
     store,
     started: () => started,
+    historyFor,
+    remember,
+    knowledge,
   });
   const cloud = createCloudAnswerer({
     proxy,
+    socket: platform.socket,
+    knowledge,
     clock,
     timers,
     isOnline: () => modes.current().mode === InstructorMode.online,
     onFailure: () => network.report({ ok: false }),
   });
-  const turns = createTurnRunner([cloud, device], ids);
+  const runner = createTurnRunner([cloud, device], ids, knowledge);
+  const turns: typeof runner = {
+    ...runner,
+    ask: (input, changed) =>
+      runner.ask(
+        {
+          ...input,
+          history: input.history.length
+            ? input.history
+            : historyFor(input.pack),
+        },
+        event => {
+          remember(input.pack, event);
+          changed(event);
+        },
+      ),
+  };
   return {
     turns,
+    historyFor,
     get offlineModels() {
       return platform.offlineModels?.();
     },

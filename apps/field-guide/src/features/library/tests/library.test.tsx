@@ -10,7 +10,7 @@ import {
   type ProgressStorage,
 } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
-import { fakeInstructor } from '@tests/voiceSession';
+import { fakeInstructor, fakeVoiceSession } from '@tests/voiceSession';
 import { instructorStore } from '../../instructor';
 import type { CourseDocuments } from '../../../platform/documents';
 
@@ -295,6 +295,78 @@ describe('Library screen', () => {
     expect(documents.open).toHaveBeenCalledWith('kuka-quantec-extra-v4');
     expect(node('course-tab-documentation').props.accessibilityState).toEqual({
       selected: true,
+    });
+  });
+
+  test('a submitted course reply is placed before the modules beside the primary question flow', async () => {
+    instructorStore.getState().attach(fakeInstructor());
+    await mount();
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() => input.props.onChangeText('Hello'));
+    await press('course-send');
+    const nodes = renderer.root.findAll(
+      item =>
+        item.props.testID === 'course-answer' ||
+        (item.type === Text && item.props.children === 'Course modules'),
+    );
+    expect(nodes[0].props.testID).toBe('course-answer');
+  });
+
+  test('course voice accepts typed follow-ups and navigates by stable id before a scene is open', async () => {
+    const voice = fakeVoiceSession();
+    const instructor = fakeInstructor({
+      sessionFor: jest.fn(() => ({
+        session: voice.session,
+        questions: voice.questions,
+      })),
+    });
+    const typed = jest.spyOn(instructor.turns, 'ask');
+    instructorStore.getState().attach(instructor);
+    await mount();
+    await press('course-voice');
+    expect(voice.session.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pack,
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+      }),
+      expect.anything(),
+    );
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() => input.props.onChangeText('Where is the battery?'));
+    await press('course-send');
+    expect(voice.asked).toEqual(['Where is the battery?']);
+    expect(typed).not.toHaveBeenCalled();
+    await act(() => {
+      voice.events.action({ type: 'select', partId: 'battery' });
+      voice.events.turn({
+        type: 'answer',
+        exchange: {
+          id: 1,
+          question: 'Where is the battery?',
+          reply: 'Here is the battery.',
+          caution: '',
+          part: 'battery',
+          phase: 'done',
+        },
+        answer: {
+          reply: 'Here is the battery.',
+          caution: '',
+          part: 'battery',
+          event: null,
+        },
+      });
+    });
+    expect(onOpen).toHaveBeenCalledWith({
+      guideId: guide.id,
+      procedureId: null,
+      stepIndex: 0,
+      mode: LearnMode.instructor,
+      selectedPart: 'battery',
+      voice: true,
     });
   });
 

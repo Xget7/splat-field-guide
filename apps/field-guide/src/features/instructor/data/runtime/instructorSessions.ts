@@ -1,4 +1,5 @@
 import type { Platform } from '../../../../platform/ports';
+import type { KnowledgeLoader } from '../../domain/agent/agentTools';
 import type { NetworkService } from '../../../../platform/connectivity/networkService';
 import { NetworkQuality } from '../../../../platform/connectivity/networkStatus';
 import { AgentState } from '../../domain/agent/agentStatus';
@@ -10,6 +11,8 @@ import {
   VoiceSource,
   type ModeStatus,
 } from '../../domain/mode/modeTypes';
+import type { PreviousExchange } from '../../domain/grounding';
+import type { TurnEvent } from '../../domain/turn/exchange';
 import type { ExchangeIds } from '../../domain/turn/exchange';
 import { voiceFailure } from '../../domain/voice/voiceFailure';
 import {
@@ -34,6 +37,7 @@ import type { InstructorForeground } from './instructorForeground';
 
 export interface InstructorSessionsOptions {
   readonly platform: Platform;
+  readonly knowledge?: KnowledgeLoader;
   readonly proxy: ProxyClient | null;
   readonly ids: ExchangeIds;
   readonly foreground: InstructorForeground;
@@ -45,6 +49,8 @@ export interface InstructorSessionsOptions {
   /** Receives the voice and agent states the sessions report. */
   readonly store: InstructorStore;
   readonly started: () => boolean;
+  readonly historyFor?: (pack: Pack) => readonly PreviousExchange[];
+  readonly remember?: (pack: Pack, event: TurnEvent) => void;
 }
 
 /**
@@ -53,6 +59,7 @@ export interface InstructorSessionsOptions {
  */
 export function createInstructorSessions({
   platform,
+  knowledge,
   proxy,
   ids,
   foreground,
@@ -60,6 +67,8 @@ export function createInstructorSessions({
   network,
   store,
   started,
+  historyFor,
+  remember,
 }: InstructorSessionsOptions) {
   const { timers } = platform;
   const connection = createAgentConnection({ proxy, clock: platform.clock });
@@ -140,14 +149,26 @@ export function createInstructorSessions({
         stoppedQuestion = null;
         sessions.add(session);
         try {
-          await voice.session.start(context, {
-            ...events,
-            ended: (reason, pending) => {
-              sessions.delete(session);
-              stoppedQuestion = pending;
-              events.ended(reason, pending);
+          await voice.session.start(
+            {
+              ...context,
+              history: context.history.length
+                ? context.history
+                : historyFor?.(context.pack) ?? [],
             },
-          });
+            {
+              ...events,
+              turn: event => {
+                remember?.(context.pack, event);
+                events.turn(event);
+              },
+              ended: (reason, pending) => {
+                sessions.delete(session);
+                stoppedQuestion = pending;
+                events.ended(reason, pending);
+              },
+            },
+          );
         } catch (error) {
           sessions.delete(session);
           throw error;
@@ -187,7 +208,9 @@ export function createInstructorSessions({
     }
     const primary = createAgentVoiceSession({
       pack: guide,
+      knowledge,
       audio: platform.audioLink,
+      output: platform.speechOutput,
       client,
       ids,
       prompt: foreground.prompt,

@@ -10,6 +10,11 @@ import { stateSentence } from '../domain/agent/agentTools';
 const pack = fixturePack();
 test('openings reflect exploration, a step or a resumed conversation', () => {
   expect(agentVariables(INITIAL_SESSION, pack, false)).toEqual({
+    organization: 'Miris',
+    pack_id: pack.packId,
+    pack_version: String(pack.packVersion),
+    procedure_id: 'none',
+    selected_part_id: 'none',
     procedure: 'none',
     step: 'No guided check is open.',
     selected_part: 'none',
@@ -22,14 +27,21 @@ test('openings reflect exploration, a step or a resumed conversation', () => {
     selectedPart: pack.parts[0].id,
   };
   expect(agentVariables(state, pack, false)).toEqual({
+    organization: 'Miris',
+    pack_id: pack.packId,
+    pack_version: String(pack.packVersion),
+    procedure_id: procedure.id,
+    selected_part_id: pack.parts[0].id,
     procedure: procedure.title,
     step: stateSentence(state, pack),
     selected_part: pack.parts[0].name,
-    opening: `${procedure.title}. Step 2: ${procedure.steps[1].text}`,
+    opening: `Ready to help with ${procedure.title}, step 2.`,
   });
   expect(agentVariables(state, pack, true).opening).toBe('Back online.');
   expect(screenUpdate(state, pack)).toBe(
-    `The screen now shows: ${stateSentence(state, pack)}`,
+    `The screen now shows: ${stateSentence(state, pack)} Selected part id: ${
+      state.selectedPart
+    }. Pack: ${pack.packId}/${pack.packVersion}.`,
   );
 });
 test('history context includes only the last four exchanges in order', () => {

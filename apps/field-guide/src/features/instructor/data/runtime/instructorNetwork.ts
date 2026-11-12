@@ -15,7 +15,7 @@ import type { ProxyClient } from '../proxy/proxyClient';
 
 export interface InstructorNetworkOptions {
   readonly platform: Pick<Platform, 'networkMonitor' | 'timers' | 'random'>;
-  /** Without a proxy Claude is never reachable, so the instructor stays offline. */
+  /** Without a proxy ElevenLabs is never reachable, so the instructor stays offline. */
   readonly proxy: ProxyClient | null;
   /** The status screens show. */
   readonly onPath?: (path: PathInfo) => void;

@@ -13,8 +13,8 @@ test('the plan command loads an optional owner environment without exposing its 
   const packageUrl = new URL('../package.json', import.meta.url);
   const { scripts } = JSON.parse(await readFile(packageUrl, 'utf8'));
   await writeFile(join(directory, '.env'), [
-    `${Setting.voiceId}=local-voice`, `${Setting.workerUrl}=https://owner.example`,
-    `${Setting.apiKey}=private-api-key`, `${Setting.llmSecret}=private-llm-secret`,
+    `${Setting.voiceId}=local-voice`,
+    `${Setting.apiKey}=private-api-key`,
   ].join('\n'));
   const cli = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
   const source = fileURLToPath(new URL('../src/sync.ts', import.meta.url));
@@ -25,7 +25,7 @@ test('the plan command loads an optional owner environment without exposing its 
   for (const key of Object.values(Setting)) delete env[key];
   for (const withEnv of [true, false]) {
     if (!withEnv) await rm(join(directory, '.env'));
-    const result = spawnSync(process.execPath, ['--import', fakeFetch, cli, ...args, '--manifest', fileURLToPath(new URL('../../../tests/fixtures/runtime-manifest.json', import.meta.url))], { cwd: directory, env, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, ['--import', fakeFetch, cli, ...args, '--state', join(directory, 'agent.json'), '--manifest', fileURLToPath(new URL('../../../tests/fixtures/runtime-manifest.json', import.meta.url))], { cwd: directory, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.agent.conversation_config.tts.voice_id, withEnv ? 'local-voice' : Placeholder.voiceId);
