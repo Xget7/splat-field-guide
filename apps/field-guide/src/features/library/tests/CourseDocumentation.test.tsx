@@ -12,6 +12,7 @@ test('opens the verified offline manual and reports an opening failure with retr
         edition: 'BA KR QUANTEC extra V4 en',
         issued: '2012-11-29',
         pages: 243,
+        pageOffset: 0,
         available: true,
       },
     ]),

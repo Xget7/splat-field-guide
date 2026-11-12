@@ -20,6 +20,7 @@ test('documents require explicit local sources and the matching selected course'
     {
       id: 'manual',
       file: 'manual.pdf',
+      pageOffset: 0,
       sha256: createHash('sha256').update(bytes).digest('hex'),
       copyright: 'Copyright source owner',
     },
@@ -40,6 +41,16 @@ test('documents require explicit local sources and the matching selected course'
   assert.match(
     fs.readFileSync(path.join(destination, 'NOTICE.txt'), 'utf8'),
     /Copyright source owner/,
+  );
+  assert.throws(
+    () =>
+      copyDocuments(
+        [{ ...catalog[0], pageOffset: undefined }],
+        source,
+        destination,
+        ['miris-pilot/1'],
+      ),
+    /page offset/,
   );
   fs.writeFileSync(path.join(source, 'manual.pdf'), '%PDF-1.4\nchanged');
   assert.throws(

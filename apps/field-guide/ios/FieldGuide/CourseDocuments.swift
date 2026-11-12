@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import QuickLook
+import PDFKit
 import React
 import UIKit
 
@@ -43,8 +43,9 @@ final class CourseDocuments: NSObject {
     }
   }
 
-  @objc(open:resolver:rejecter:)
-  func open(_ identifier: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  /// `page` counts PDF pages from one; JavaScript has already mapped the printed page through the catalog offset.
+  @objc(open:page:resolver:rejecter:)
+  func open(_ identifier: String, page: NSNumber?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     do {
       guard let entry = try catalog().first(where: { $0["id"] as? String == identifier }),
             let url = verifiedURL(entry) else {
@@ -64,12 +65,24 @@ final class CourseDocuments: NSObject {
         while let presented = presenter.presentedViewController {
           presenter = presented
         }
-        guard !(presenter is LocalPDFPreviewController) else {
+        guard !(presenter is LocalPDFNavigationController) else {
           reject("document-already-open", "Close the current document before opening another", nil)
           return
         }
-        let preview = LocalPDFPreviewController(url: url, title: entry["edition"] as? String)
-        presenter.present(preview, animated: true) { resolve(nil) }
+        guard let document = PDFDocument(url: url) else {
+          reject("document-unreadable", "Could not open the bundled document", nil)
+          return
+        }
+        var target: PDFPage?
+        if let page {
+          target = document.page(at: page.intValue - 1)
+          guard target != nil else {
+            reject("document-page-missing", "This page is not in the document", nil)
+            return
+          }
+        }
+        let reader = LocalPDFViewController(document: document, page: target, title: entry["edition"] as? String)
+        presenter.present(LocalPDFNavigationController(rootViewController: reader), animated: true) { resolve(nil) }
       }
     } catch {
       reject("document-unreadable", "Could not open the bundled document", error)
@@ -77,21 +90,53 @@ final class CourseDocuments: NSObject {
   }
 }
 
-private final class LocalPDFPreviewController: QLPreviewController, QLPreviewControllerDataSource {
-  private let documentURL: URL
+/// Marks a presented local document so a second open is refused instead of stacking viewers.
+private final class LocalPDFNavigationController: UINavigationController {
+  override init(rootViewController: UIViewController) {
+    super.init(rootViewController: rootViewController)
+    // Manual drawings need the whole screen to stay legible.
+    modalPresentationStyle = .fullScreen
+  }
 
-  init(url: URL, title: String?) {
-    documentURL = url
+  required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+}
+
+/// PDFKit rather than QuickLook, because QuickLook cannot open a document at a cited page.
+private final class LocalPDFViewController: UIViewController {
+  private let pdfView = PDFView()
+  private let document: PDFDocument
+  private var target: PDFPage?
+
+  init(document: PDFDocument, page: PDFPage?, title: String?) {
+    self.document = document
+    target = page
     super.init(nibName: nil, bundle: nil)
     self.title = title
-    dataSource = self
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
 
-  func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    view.backgroundColor = .systemBackground
+    pdfView.autoScales = true
+    pdfView.displayMode = .singlePageContinuous
+    pdfView.displayDirection = .vertical
+    pdfView.document = document
+    pdfView.frame = view.bounds
+    pdfView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.addSubview(pdfView)
+    navigationItem.rightBarButtonItem = UIBarButtonItem(
+      systemItem: .done,
+      primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
+    )
+  }
 
-  func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
-    documentURL as NSURL
+  override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+    // PDFView ignores navigation before it has a size, so go to the page on the first real layout.
+    guard let page = target, pdfView.bounds.width > 0 else { return }
+    target = nil
+    pdfView.go(to: page)
   }
 }

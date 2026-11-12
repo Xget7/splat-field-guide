@@ -21,6 +21,7 @@ test('Downloads reports verified manuals separately from remote delivery and ins
               edition: 'V4',
               issued: '2012',
               pages: 243,
+              pageOffset: 0,
               available: true,
             },
           ],
