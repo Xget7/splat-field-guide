@@ -6,9 +6,6 @@ import { TurnEventType } from '../domain/turn/exchange';
 import { createTurnRunner } from '../domain/turn/turnRunner';
 import { type Answerer } from '../domain/turn/answerer';
 import { createExchangeIds } from '../domain/turn/exchange';
-import { createCloudAnswerer } from '../data/answerers/cloudAnswerer';
-import { createProxyClient } from '../data/proxy/proxyClient';
-import { fakePlatform, fakeTextStreams } from '@tests/platform';
 
 const runner = (answerers: readonly Answerer[]) =>
   createTurnRunner(answerers, createExchangeIds());
@@ -247,33 +244,57 @@ test('late words from a failed model cannot replace the fallback model in the sa
   });
 });
 
-test.each(['error', 'missing done'])(
-  'a streamed remote %s falls back to the next answerer',
-  async failure => {
-    const requests = fakeTextStreams();
-    const { platform } = fakePlatform({ streamText: requests.streamText });
-    const cloud = createCloudAnswerer({
-      ...platform,
-      proxy: createProxyClient('https://proxy.example', platform),
-    });
-    const changed = jest.fn();
-    const answered = runner([
-      cloud,
-      fakeAnswerer(replies('It supplies the starter.')),
-    ]).ask(
-      { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
-      changed,
+test('a failed course provider discards provisional text and uses the next answerer', async () => {
+  const changed = jest.fn();
+  const provider = {
+    ...fakeAnswerer((_request, onText) => {
+      onText('Provisional course reply.');
+      return Promise.reject(new Error('socket closed'));
+    }),
+    courseKnowledge: true,
+  };
+  await runner([
+    provider,
+    fakeAnswerer(replies('It supplies the starter.')),
+  ]).ask(
+    { question: QUESTION, state: INITIAL_SESSION, pack, history: [] },
+    changed,
+  );
+  expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
+    type: TurnEventType.answer,
+    answer: { reply: 'It supplies the starter.' },
+  });
+});
+
+test.each([false, true])(
+  'duplicate names ask for clarification before an offline or online model runs (%s)',
+  async courseKnowledge => {
+    const model = {
+      ...fakeAnswerer(replies('A guessed component.')),
+      courseKnowledge,
+    };
+    const ambiguous = {
+      ...pack,
+      parts: [...pack.parts, { ...battery, id: 'second-battery' }],
+    };
+    const events: import('../domain/turn/exchange').TurnEvent[] = [];
+    await runner([model]).ask(
+      {
+        question: 'Where is the battery?',
+        state: INITIAL_SESSION,
+        pack: ambiguous,
+        history: [],
+      },
+      event => events.push(event),
     );
-    requests.last.receive('{"text":"Provisional reply."}\n');
-    if (failure === 'error') {
-      requests.last.receive('{"error":"cut off"}\n');
-    } else {
-      requests.last.end();
-    }
-    await answered;
-    expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({
-      type: TurnEventType.answer,
-      answer: { reply: 'It supplies the starter.' },
+    const completed = events.find(event => event.type === TurnEventType.answer);
+    expect(completed).toMatchObject({
+      answer: {
+        reply: expect.stringContaining('Which'),
+        part: null,
+        event: null,
+      },
     });
+    expect(model.respond).not.toHaveBeenCalled();
   },
 );

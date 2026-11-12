@@ -72,7 +72,8 @@ export interface AgentClientOptions {
   /** Resolves the signed URL or rejects with an Error whose message is an AgentFailure. */
   readonly signedUrl: () => Promise<string>;
   readonly connect: (url: string) => Socket;
-  readonly audio: AudioLink;
+  readonly audio?: AudioLink;
+  readonly textOnly?: boolean;
   readonly handlers: AgentClientHandlers;
   readonly timers: Timers;
 }
@@ -109,6 +110,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
   let lastInterruptionId = NO_EVENT_ID;
   let currentEventId = NO_EVENT_ID;
   let responseEventId: number | null = null;
+  let completedEventId: number | null = null;
   let outputRate = NO_RATE;
   // Events that arrive before the microphone and speaker are ready, replayed in order once they are.
   let held: AgentServerEvent[] | null = null;
@@ -130,6 +132,13 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     queuedMs = 0;
     responseText = '';
     responseEventId = null;
+    completedEventId = null;
+  }
+  function completeResponse(text: string, eventId: number) {
+    // A tool-only generation can finish without words before the answer uses the same event id.
+    if (!text.trim() || completedEventId === eventId) return;
+    completedEventId = eventId;
+    handlers.response(text, eventId);
   }
   function acceptResponse(eventId: number): boolean {
     if (eventId < lastInterruptionId) {
@@ -165,7 +174,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       previous.onclose = null;
     }
     resetResponse();
-    audio.stop();
+    audio?.stop();
     try {
       previous?.close();
     } catch {
@@ -210,7 +219,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
     }
   }
   function playedMs() {
-    const now = audio.playedMs();
+    const now = audio?.playedMs() ?? 0;
     if (now < playbackStartMs) {
       // Clearing playback restarts the native clock, sometimes only after the next reply began.
       playbackStartMs = 0;
@@ -261,6 +270,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
             event.part === 'start' ? event.text : responseText + event.text;
           timeline.replaceText(responseText);
           handlers.responseText(responseText, event.eventId);
+          // A generation may stop to call a tool; only agent_response completes the answer.
           words();
         }
         break;
@@ -269,7 +279,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
           currentEventId = event.eventId;
           responseText = event.text;
           timeline.replaceText(responseText);
-          handlers.response(event.text, event.eventId);
+          completeResponse(event.text, event.eventId);
           words();
         }
         break;
@@ -294,13 +304,13 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         }
         currentEventId = event.eventId;
         if (queuedMs === 0) {
-          playbackStartMs = audio.playedMs();
+          playbackStartMs = audio?.playedMs() ?? 0;
         }
         if (event.alignment) {
           timeline.add(event.alignment, queuedMs);
         }
         queuedMs += chunkDurationMs(event.audio, outputRate);
-        audio.play(event.audio);
+        audio?.play(event.audio);
         if (queuedMs > 0 && !speaking) {
           speaking = true;
           handlers.speaking(true);
@@ -312,7 +322,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
       }
       case 'interruption':
         lastInterruptionId = event.eventId;
-        audio.clear();
+        audio?.clear();
         resetResponse();
         handlers.interruption();
         break;
@@ -380,7 +390,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
               if (!current()) {
                 return;
               }
-              send(ClientMessage.initiation(variables));
+              send(ClientMessage.initiation(variables, options.textOnly));
               for (const text of context) {
                 if (current()) {
                   send(ClientMessage.contextualUpdate(text));
@@ -388,6 +398,20 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
               }
             };
             const listen = (inputFormat: string, outputFormat: string) => {
+              if (options.textOnly) {
+                connected = true;
+                held = null;
+                cancelConnectTimeout?.();
+                cancelConnectTimeout = null;
+                rejectStart = null;
+                handlers.status({ state: AgentState.connected, reason: null });
+                resolve();
+                return;
+              }
+              if (!audio) {
+                end(AgentEnd.audio);
+                return;
+              }
               const inputRate = pcmRate(inputFormat);
               const playbackRate = pcmRate(outputFormat);
               if (inputRate === null || playbackRate === null) {
@@ -515,7 +539,7 @@ export function createAgentClient(options: AgentClientOptions): AgentClient {
         lastInterruptionId,
         currentEventId + NEXT_EVENT_ID,
       );
-      audio.clear();
+      audio?.clear();
       resetResponse();
     },
     stop() {

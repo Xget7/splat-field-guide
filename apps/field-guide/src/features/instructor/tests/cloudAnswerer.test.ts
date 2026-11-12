@@ -1,60 +1,96 @@
 import { INITIAL_SESSION } from '../../guide';
 import { evidenceFor } from '../domain/context';
 import { fixturePack } from '@tests/fixturePack';
-import {
-  cloudInstructions,
-  createCloudAnswerer,
-} from '../data/answerers/cloudAnswerer';
-import { fakePlatform, fakeTextStreams } from '@tests/platform';
+import { createCloudAnswerer } from '../data/answerers/cloudAnswerer';
+import { fakePlatform, fakeAgentTransport } from '@tests/platform';
 import { createProxyClient } from '../data/proxy/proxyClient';
-import { ProxyPath } from '../data/proxy/proxyContract';
-import { ReplyTiming } from '../domain/turn/replyPolicy';
-
-const requests = fakeTextStreams();
-const { platform } = fakePlatform({ streamText: requests.streamText });
 const pack = fixturePack();
-const URL = 'https://proxy.example';
 const request = {
-  question: 'What does the battery do?',
-  evidence: evidenceFor('What does the battery do?', INITIAL_SESSION, pack),
+  question: 'Where is the battery?',
+  evidence: evidenceFor('Where is the battery?', INITIAL_SESSION, pack),
   state: INITIAL_SESSION,
   pack,
   history: [],
 };
-
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
-
-test('is ready only with a proxy, online and outside the cool-off after a failure', async () => {
-  let online = false;
-  const cloud = createCloudAnswerer({
-    ...platform,
-    proxy: createProxyClient(URL, platform),
-    isOnline: () => online,
+function setup() {
+  const transport = fakeAgentTransport();
+  const fake = fakePlatform({
+    socket: transport.connect,
+    fetch: jest.fn(async () => ({
+      status: 200,
+      json: async () => ({ signedUrl: 'wss://fake' }),
+    })) as unknown as typeof fetch,
   });
-  expect(createCloudAnswerer({ ...platform, proxy: null }).isReady()).toBe(
-    false,
-  );
-  expect(cloud.isReady()).toBe(false);
-  online = true;
-  expect(cloud.isReady()).toBe(true);
-  const reply = cloud.respond(request, jest.fn());
-  requests.last.fail();
-  await expect(reply).rejects.toThrow();
-  expect(cloud.isReady()).toBe(false);
-  jest.advanceTimersByTime(ReplyTiming.COOL_OFF_MS);
-  expect(cloud.isReady()).toBe(true);
+  const answerer = createCloudAnswerer({
+    ...fake.platform,
+    proxy: createProxyClient('https://issuer', fake.platform),
+  });
+  return { transport, fake, answerer };
+}
+test('typed answers use direct text-only sessions and exact tools without microphone access', async () => {
+  const { transport, fake, answerer } = setup();
+  const pending = answerer.respond(request, jest.fn());
+  await jest.advanceTimersByTimeAsync(0);
+  transport.ready();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(transport.sent[0]).toMatchObject({
+    conversation_config_override: { conversation: { text_only: true } },
+  });
+  expect(transport.sent).toContainEqual({
+    type: 'user_message',
+    text: request.question,
+  });
+  expect(fake.link.start).not.toHaveBeenCalled();
+  transport.receive({
+    type: 'client_tool_call',
+    client_tool_call: {
+      tool_name: 'get_part',
+      tool_call_id: 'lookup',
+      parameters: { part_id: 'battery' },
+      event_id: 1,
+    },
+  });
+  transport.receive({
+    type: 'client_tool_call',
+    client_tool_call: {
+      tool_name: 'show_part',
+      tool_call_id: 'show',
+      parameters: { part_id: 'battery' },
+      event_id: 2,
+    },
+  });
+  transport.receive({
+    type: 'agent_response',
+    agent_response_event: {
+      agent_response: 'Here is the battery.',
+      event_id: 3,
+    },
+  });
+  await expect(pending).resolves.toMatchObject({
+    reply: 'Here is the battery.',
+    event: { type: 'select', partId: 'battery' },
+  });
+  expect(transport.open).toBe(0);
 });
-
-test('posts the instructions and a prompt without notes to the proxy', () => {
-  createCloudAnswerer({
-    ...platform,
-    proxy: createProxyClient(URL, platform),
-  }).respond(request, jest.fn());
-  const sent = requests.last;
-  expect(sent.url).toBe(`${URL}${ProxyPath.answer}`);
-  expect(JSON.parse(sent.body)).toEqual({
-    system: cloudInstructions(pack),
-    prompt: 'Part: Battery\nQuestion: What does the battery do?',
+test('cancelling a pending action closes its socket without committing the action', async () => {
+  const { transport, answerer } = setup();
+  const pending = answerer.respond(request, jest.fn());
+  const rejected = pending.catch(error => error);
+  await jest.advanceTimersByTimeAsync(0);
+  transport.ready();
+  await jest.advanceTimersByTimeAsync(0);
+  transport.receive({
+    type: 'client_tool_call',
+    client_tool_call: {
+      tool_name: 'show_part',
+      tool_call_id: 'show',
+      parameters: { part_id: 'battery' },
+      event_id: 1,
+    },
   });
+  answerer.cancel();
+  expect(await rejected).toBeInstanceOf(Error);
+  expect(transport.open).toBe(0);
 });

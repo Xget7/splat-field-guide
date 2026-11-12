@@ -58,6 +58,7 @@ export function rulesFor(
           `Answer in 1 to ${ReplyLength.usual} short sentences of plain English. When a how or why needs more to be complete or safe, use up to ${ReplyLength.most}. No lists, no markdown.`,
         ]),
     'When the notes give a reason, state it.',
+    'Factory locations and emergency exits require a confirmed site-specific source. A generic manual requirement or one retrieved reference does not establish an actual Miris exit location or count.',
     `Answer from the notes, even when they answer it only in part. Only when they say nothing about it, reply exactly: ${NOT_COVERED_REPLY}`,
     'A greeting, thanks or remark is not a question: answer it in one short sentence and invite a question about a part or step, never with the line above.',
     'DO NOT state a number, grade, capacity, interval or specification that is not in the notes.',
@@ -111,6 +112,14 @@ export function promptFor(
   }
   if (notes === PromptNotes.subject && evidence.safety) {
     lines.push(`Notes: ${evidence.safety.text}`);
+  }
+  for (const passage of evidence.manual) {
+    const excerpt = `Manual evidence: ${passage.documentId}, ${passage.edition}, PDF page ${passage.pdfPage}. Source PDF SHA-256: ${passage.sourceSha256}.\n${passage.text}`;
+    if (
+      [...lines, excerpt].join('\n').length + MAX_QUESTION_CHARS + 20 <=
+      maxChars
+    )
+      lines.push(excerpt);
   }
   const asked = `Question: ${question.trim().slice(0, MAX_QUESTION_CHARS)}`;
   let used = [...lines, asked].join('\n').length;
@@ -239,6 +248,10 @@ export function inventsNumbers(
     numbersIn(
       [
         subject?.name ?? '',
+        ...evidence.manual.map(
+          passage =>
+            `${passage.edition} PDF page ${passage.pdfPage} ${passage.text}`,
+        ),
         ...relations.flatMap(({ relation, other }) => [
           other.name,
           relation.evidence.source,

@@ -39,14 +39,18 @@ const OFFLINE_SCRIPT: Notice = {
   detail: ModeNoticeCopy.offlineScript,
   tone: NoticeTone.caution,
 };
-const NO_NOTICE = { claude: null, deviceModel: null, script: null } as const;
+const NO_NOTICE = {
+  elevenlabs: null,
+  deviceModel: null,
+  script: null,
+} as const;
 const ONLINE_DEVICE = {
-  claude: VOICE_FALLBACK,
+  elevenlabs: VOICE_FALLBACK,
   deviceModel: VOICE_FALLBACK,
   script: VOICE_FALLBACK,
 } as const;
 const OFFLINE_NOTICES = {
-  claude: OFFLINE_SCRIPT,
+  elevenlabs: OFFLINE_SCRIPT,
   deviceModel: OFFLINE_MODEL,
   script: OFFLINE_SCRIPT,
 } as const;

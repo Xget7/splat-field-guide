@@ -25,13 +25,13 @@ export const COURSE_TITLE = 'Automotive Assembly Line';
 export function WorkspaceHome({
   organizations,
   courseAvailable,
-  moduleCount,
+  modules,
   onOrganization,
   onCourse,
 }: {
   organizations: boolean;
   courseAvailable: boolean;
-  moduleCount: number;
+  modules: readonly { id: string; title: string }[];
   onOrganization: () => void;
   onCourse: () => void;
 }) {
@@ -65,7 +65,7 @@ export function WorkspaceHome({
         <Pressable
           testID="open-course-automotive-assembly-line"
           accessibilityRole="button"
-          accessibilityLabel={`Open course, ${COURSE_TITLE}`}
+          accessibilityLabel={`${COURSE_TITLE}, ${modules.length} modules`}
           onPress={onCourse}
           style={({ pressed }) => [styles.course, pressed && styles.pressed]}
         >
@@ -77,10 +77,22 @@ export function WorkspaceHome({
           />
           <View style={styles.courseBody}>
             <Text style={styles.name}>{COURSE_TITLE}</Text>
-            <Text style={styles.caption}>{moduleCount} modules</Text>
             <View style={styles.footer}>
-              <Text style={styles.label}>Open course</Text>
-              <Icon name={IconName.next} color={C.secondary} size={20} />
+              <View style={styles.moduleTiles}>
+                {modules.map((module, index) => (
+                  <View key={module.id} style={styles.moduleTile}>
+                    <Text style={styles.moduleNumber}>
+                      {String(index + 1).padStart(2, '0')}
+                    </Text>
+                    <Text numberOfLines={2} style={styles.moduleName}>
+                      {module.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.courseArrow}>
+                <Icon name={IconName.next} color={C.text} size={32} />
+              </View>
             </View>
           </View>
         </Pressable>
@@ -222,5 +234,35 @@ const styles = StyleSheet.create({
   },
   image: { width: '100%', height: 240, opacity: 0.85 },
   courseBody: { gap: G.small, padding: G.medium },
+  moduleTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: G.unit, flex: 1 },
+  moduleTile: {
+    flexBasis: '45%',
+    flexGrow: 1,
+    minWidth: 96,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: G.unit,
+    padding: G.unit,
+    borderRadius: R.control,
+    backgroundColor: C.raised,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  moduleNumber: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: C.accent,
+    fontWeight: '600',
+  },
+  moduleName: { fontSize: 11, lineHeight: 14, color: C.text, flex: 1 },
+  courseArrow: {
+    width: G.control + G.unit,
+    height: G.control + G.unit,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: R.pill,
+    backgroundColor: C.raised,
+  },
   pressed: { backgroundColor: C.raised },
 });

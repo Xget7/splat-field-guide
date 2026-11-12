@@ -52,7 +52,7 @@ const VoiceText: Record<VoiceSource, string> = {
   [VoiceSource.device]: 'On-device speech',
 };
 const AnswerText: Record<AnswerSource, string> = {
-  [AnswerSource.claude]: 'Claude',
+  [AnswerSource.elevenlabs]: 'ElevenLabs',
   [AnswerSource.deviceModel]: 'On-device model',
   [AnswerSource.script]: 'Scripted replies',
 };

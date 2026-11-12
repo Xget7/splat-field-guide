@@ -7,11 +7,13 @@
     "previous_step": "<previous_step tool id>",
     "repeat_step": "<repeat_step tool id>",
     "go_to_step": "<go_to_step tool id>",
-    "end_procedure": "<end_procedure tool id>"
+    "end_procedure": "<end_procedure tool id>",
+    "search_parts": "<search_parts tool id>",
+    "get_part": "<get_part tool id>"
   },
   "dictionary": {
     "id": "<dictionary id>",
     "versionId": "<dictionary version id>"
   },
-  "secretId": "<workspace secret id>"
+  "knowledge": {}
 }

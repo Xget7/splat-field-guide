@@ -20,7 +20,7 @@ export const VoiceSource = { agent: 'agent', device: 'device' } as const;
 export type VoiceSource = (typeof VoiceSource)[keyof typeof VoiceSource];
 
 export const AnswerSource = {
-  claude: 'claude',
+  elevenlabs: 'elevenlabs',
   deviceModel: 'deviceModel',
   script: 'script',
 } as const;
@@ -34,12 +34,12 @@ export interface ModeStatus extends ModeSources {
   readonly mode: InstructorMode;
   readonly cause: ModeCause;
 }
-/** The mode before the first network status: online with the agent and Claude. */
+/** The mode before the first network status: online with the agent and ElevenLabs. */
 export const STARTUP_MODE: ModeStatus = {
   mode: InstructorMode.online,
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
+  answers: AnswerSource.elevenlabs,
 };
 
 export const SwitchPiece = {

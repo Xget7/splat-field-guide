@@ -9,4 +9,5 @@ export interface SessionStart {
   readonly stepIndex: number;
   readonly mode: LearnMode;
   readonly voice?: boolean;
+  readonly selectedPart?: string;
 }

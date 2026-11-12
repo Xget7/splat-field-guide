@@ -26,7 +26,8 @@ The planned online backend provides course-scoped retrieval-augmented generation
 Preloading course context means making its knowledge available for retrieval, not inserting every document or vector into every model prompt.
 Semantic retrieval finds relevant material; graph queries follow supplied relationships; neither similarity nor generated prose establishes new equipment facts.
 Document and component embeddings must retain their source and compatible vector-space identity, with query encoding outside the phone under the existing preparation boundary.
-Backend RAG, structured manual retrieval and course-wide context are product requirements, not claims about the current instructor implementation.
+The current Miris pilot retrieves complete prepared PDF text and component relationships through shared local tools, and uses native ElevenLabs RAG for authored pack records.
+Figure-aware retrieval, independent course identities and a general authenticated retrieval backend remain product requirements.
 
 The assistant remains available within a module or activity and receives the actual selected component, active procedure and current step from application state.
 It answers questions such as "What step am I on?", "What does this component do?" and "Show me the relevant manual diagram" using that state and retrieved evidence.
@@ -81,7 +82,8 @@ Names, coordinates, vector row positions and CAD node names must never replace t
 
 A phone must render and respond while carrying a large world in limited memory and within a thermal budget.
 Annotation review, reconstruction, mask lifting, model encoding and manual processing require source material and preparation resources that do not belong in that interactive loop.
-Therefore all such work happens in the preparation pipeline, including every query embedding; query-vector supply is not yet integrated.
+Therefore all such work happens in the preparation pipeline, including every newly encoded query embedding.
+Known-component similarity reuses a supplied image/text row as its query; arbitrary free-text query-vector supply is not yet integrated.
 The phone is a viewer and query client: it consumes prepared facts and can compare supplied vectors, but never runs an embedding encoder or infers physical relationships from similarity.
 Speech and answer-generation capabilities described in the architecture do not change this boundary.
 
@@ -105,7 +107,7 @@ For example, the inspected pack maps `r01-arm` to label `1`, but neither that nu
 | --- | --- | --- | --- | --- | --- |
 | Segmentation | Gaussian/tree membership, bounds, anchor | Stable ID to representation label; label bytes in node order | Accepted masks, lifting and export in pipeline | Picking, highlighting, framing | Export and viewer primitives exist; persistent reconstruction mapping integration is open |
 | Hierarchy | Component ownership | Child `id` to `parent` ID | Authored pack content | Assembly lookup and descendant expansion | Manifest and Brick export exist |
-| Embeddings | Image/text vectors and vector-space identity | `semantic.rows[].part`, with `kind` | Pipeline encoders | Supplied-vector cosine ranking returns IDs | Part export and ranking exist; installed-file loading and query-vector supply are open |
+| Embeddings | Image/text vectors and vector-space identity | `semantic.rows[].part`, with `kind` | Pipeline encoders | Supplied-vector cosine ranking returns IDs | Part export, verified bundled-file reading and known-part similarity exist; remote-installed loading and free-text query-vector supply remain open |
 | CAD | Geometry and structure reference, alignment | Per ID: CAD file, node inside it, transform to splat frame | External preparation | Joined spatial inspection | Reserved domain place only; no pack fields or implementation yet |
 | Relations | Containment, flow, carrying, actuation, proximity and evidence | Endpoint IDs | Authored sources or pipeline measurements | Graph queries and grounded explanations | Graph functions exist; viewer relation navigation is open; hierarchy evidence is exported, with identity uncertainty retained |
 | Process and cell context | Car journey, surrounding equipment and roles | Step and relation endpoints join segmentation IDs | Reviewed cell research and owner confirmation in pipeline | Step-by-step employee explanation | An authored four-robot example cycle exists; non-robot cell segmentation and the actual production cycle remain open |
@@ -252,13 +254,13 @@ Startup still supplies an empty catalog, as recorded in [architecture](field-gui
   Runtime `packFiles` excludes source artifacts and `publication.json`, so mobile file verification alone does not verify the complete evidence chain or retain the receipt's scale details.
 - **Validation scope:** `export.py` can fall back to consumer validation with `relations`, `model` and `semantic` stripped after a rejection.
   That fallback cannot establish acceptance of the complete contract, so check the current `publication.json` result against the complete manifest.
-- **Integration:** CAD by ID has no implementation; installed vector loading, pipeline-supplied free-text query vectors, persistent records, viewer relation navigation and mobile delivery/activation are open.
+- **Integration:** CAD by ID has no implementation; remote-installed vector loading, pipeline-supplied free-text query vectors, persistent records, viewer relation navigation and mobile delivery/activation are open.
   ExecuTorch answering exists behind the instructor answerer seam, ordered remote proxy, on-device, then scripted.
   Its prompt reserves required part/procedure/safety context, then admits physical connections, notes and nearest measured proximity; oversized required evidence fails rather than discarding instructions.
   Existing graph, ranking and generation interfaces do not establish an end-to-end Miris experience; no Miris simulator or device acceptance is recorded.
 
 Reserve only the CAD file reference, node reference and transform to the splat frame per ID for future CAD work.
-The query-vector supply mechanism, relation navigation interaction and remote installation protocol remain undecided; this document does not invent them.
+The arbitrary free-text query-vector supply mechanism, general relation navigation interaction and remote installation protocol remain undecided; this document does not invent them.
 
 ## Review invariants
 

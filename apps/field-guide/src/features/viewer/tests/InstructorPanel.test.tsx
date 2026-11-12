@@ -37,7 +37,7 @@ const ONLINE: ModeStatus = {
   mode: InstructorMode.online,
   cause: ModeCause.startup,
   voice: VoiceSource.agent,
-  answers: AnswerSource.claude,
+  answers: AnswerSource.elevenlabs,
 };
 const CONTENT = cardContentFor(INITIAL_SESSION, fixturePack());
 const EXCHANGE_ID = 1;

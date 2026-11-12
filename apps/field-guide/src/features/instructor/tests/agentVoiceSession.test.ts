@@ -10,7 +10,8 @@ import {
   type SessionAgentHandlers,
 } from '../data/voice/agentVoiceSession';
 
-const { audioLink, speechInput } = fakePlatform().platform;
+const fake = fakePlatform();
+const { audioLink, speechInput, speechOutput } = fake.platform;
 const pack = fixturePack();
 const client = () => ({
   start: jest.fn(async () => {}),
@@ -78,6 +79,7 @@ test('streams an exchange and retains a corrected interrupted answer', async () 
     pack,
     ids: createExchangeIds(),
     audio: audioLink,
+    output: speechOutput,
     client: handlers => {
       heard = handlers;
       return transport;
@@ -103,7 +105,7 @@ test('streams an exchange and retains a corrected interrupted answer', async () 
   });
 });
 
-test('tool navigation is applied without repeating its narration and typed echoes do not duplicate exchanges', async () => {
+test('tool navigation is applied with exact local narration and typed echoes do not duplicate exchanges', async () => {
   let heard!: SessionAgentHandlers;
   const transport = client();
   const changed = events();
@@ -111,6 +113,7 @@ test('tool navigation is applied without repeating its narration and typed echoe
     pack,
     ids: createExchangeIds(),
     audio: audioLink,
+    output: speechOutput,
     client: handlers => {
       heard = handlers;
       return transport;
@@ -162,10 +165,19 @@ test('tool navigation is applied without repeating its narration and typed echoe
     caution: 'Engine cold.',
     stepKey: 'check-coolant:2:null',
   });
-  expect(transport.sendText.mock.calls).toEqual([
-    ['[narrate] Read the level. Engine cold.'],
-  ]);
-  expect(transport.interrupt).not.toHaveBeenCalled();
+  expect(transport.sendText).not.toHaveBeenCalled();
+  expect(fake.output.speak).toHaveBeenCalledWith(
+    'Read the level.',
+    'en-US',
+    expect.any(Function),
+  );
+  expect(fake.output.speak).toHaveBeenCalledWith(
+    'Engine cold.',
+    'en-US',
+    expect.any(Function),
+  );
+  expect(transport.interrupt).toHaveBeenCalled();
+  expect(transport.setMuted).toHaveBeenLastCalledWith(false);
 });
 
 test('a step read after an answer leaves that answer as it was', async () => {
@@ -175,6 +187,7 @@ test('a step read after an answer leaves that answer as it was', async () => {
     pack,
     ids: createExchangeIds(),
     audio: audioLink,
+    output: speechOutput,
     client: handlers => {
       heard = handlers;
       return client();
@@ -211,6 +224,7 @@ test.each([
       pack,
       ids: createExchangeIds(),
       audio: audioLink,
+      output: speechOutput,
       client: handlers => {
         heard = handlers;
         return client();
@@ -253,6 +267,7 @@ test('requests only microphone access before starting agent audio and rejects de
     ids: createExchangeIds(),
     client: makeClient,
     audio: audioLink,
+    output: speechOutput,
   });
   const started = session.start(
     { pack, state: INITIAL_SESSION, history: [], thinking: false },
@@ -288,6 +303,7 @@ test.each([false, true])(
       pack,
       ids: createExchangeIds(),
       audio: audioLink,
+      output: speechOutput,
       client: handlers => {
         heard = handlers;
         return client();
@@ -328,6 +344,7 @@ test('a correction belongs to the reply it names, never to an earlier answer', a
     pack,
     ids: createExchangeIds(),
     audio: audioLink,
+    output: speechOutput,
     client: handlers => {
       heard = handlers;
       return client();

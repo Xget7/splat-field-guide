@@ -16,6 +16,17 @@ function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
     path.join(destination, 'packs'),
     packs,
   );
+  require('../../../scripts/copy_course_documents.cjs').copyDocuments(
+    JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, '../assets/documents/catalog.json'),
+        'utf8',
+      ),
+    ),
+    process.env.FIELD_GUIDE_DOCUMENTS_DIR || '',
+    path.join(destination, 'documents'),
+    packs,
+  );
   const fonts = path.join(destination, 'fonts');
   fs.mkdirSync(fonts, { recursive: true });
   for (const file of fs.readdirSync(FONT_ROOT))
@@ -54,7 +65,10 @@ function prepareAssets(destination, packRoot = PACK_ROOT, packs = []) {
     'utf8',
   );
   const nativeNotices = [
-    [vulkanLicense, 'SplatKit Android, Vulkan Memory Allocator and third parties'],
+    [
+      vulkanLicense,
+      'SplatKit Android, Vulkan Memory Allocator and third parties',
+    ],
     [hashLicense, 'PicoSHA2'],
   ]
     .map(

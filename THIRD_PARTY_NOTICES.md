@@ -147,3 +147,7 @@ No PDF bytes are committed to this repository, and normal builds do not bundle t
 The operating instructions are copyright 2012 KUKA Roboter GmbH; the assembly instructions are copyright 2024 KUKA Deutschland GmbH.
 Both original documents retain their page-two notice requiring express KUKA permission for reproduction or disclosure to third parties.
 The copied resources include a `documents/NOTICE.txt` retaining these restrictions; local demo inclusion does not establish redistribution rights or certify applicability to the installed equipment.
+
+The optional complete-text index retains those same source identities, editions, PDF pages and copyright notices.
+It is generated outside the mobile repository and bundled only with explicit private source inclusion; no extracted manual text is committed to git.
+The owner's requested online access uses client tools over the same installed corpus by default, while optional external text indexing remains subject to the original disclosure restrictions.

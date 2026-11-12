@@ -178,7 +178,7 @@ describe('stage overlays', () => {
     );
     expect(text()).not.toContain('Pinch to zoom.');
     expect(text()).toEqual(
-      expect.arrayContaining(['Online', 'Claude', '1.2 s']),
+      expect.arrayContaining(['Online', 'ElevenLabs', '1.2 s']),
     );
     await act(() => button('Dismiss developer details').props.onPress());
     expect(text()).not.toContain('1.2 s');

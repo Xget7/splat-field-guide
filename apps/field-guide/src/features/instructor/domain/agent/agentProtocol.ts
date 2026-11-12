@@ -119,13 +119,15 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
       const value = fields('conversation_initiation_metadata_event');
       return value &&
         text(value.conversation_id) &&
-        text(value.agent_output_audio_format) &&
-        text(value.user_input_audio_format)
+        (value.agent_output_audio_format === undefined ||
+          text(value.agent_output_audio_format)) &&
+        (value.user_input_audio_format === undefined ||
+          text(value.user_input_audio_format))
         ? {
             type: 'metadata',
             conversationId: value.conversation_id,
-            outputFormat: value.agent_output_audio_format,
-            inputFormat: value.user_input_audio_format,
+            outputFormat: (value.agent_output_audio_format as string) ?? '',
+            inputFormat: (value.user_input_audio_format as string) ?? '',
           }
         : null;
     }
@@ -256,11 +258,13 @@ export function parseServerMessage(data: string): AgentServerEvent | null {
   }
 }
 export const ClientMessage = {
-  initiation: (variables: AgentVariables): string =>
+  initiation: (variables: AgentVariables, textOnly = false): string =>
     JSON.stringify({
       type: 'conversation_initiation_client_data',
       dynamic_variables: variables,
-      conversation_config_override: {},
+      conversation_config_override: textOnly
+        ? { conversation: { text_only: true } }
+        : {},
     }),
   audio: (chunk: string): string => JSON.stringify({ user_audio_chunk: chunk }),
   pong: (id: number): string => JSON.stringify({ type: 'pong', event_id: id }),

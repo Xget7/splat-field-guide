@@ -97,3 +97,14 @@ describe('normalize', () => {
     );
   });
 });
+
+test('duplicate component names never select the first matching part', () => {
+  const battery = pack.parts.find(part => part.id === 'battery')!;
+  const ambiguous = {
+    ...pack,
+    parts: [...pack.parts, { ...battery, id: 'second-battery' }],
+  };
+  expect(routeCommand('Where is the battery?', ambiguous)).toEqual({
+    kind: RouteKind.notCommand,
+  });
+});

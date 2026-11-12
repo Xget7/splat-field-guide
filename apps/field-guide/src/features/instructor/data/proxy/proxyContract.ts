@@ -1,6 +1,5 @@
 /** The instructor Worker's routes, as `services/instructor-proxy` serves them. */
 export const ProxyPath = {
-  answer: '/v1/answer',
   voiceSession: '/v1/voice/session',
   ping: '/v1/ping',
 } as const;

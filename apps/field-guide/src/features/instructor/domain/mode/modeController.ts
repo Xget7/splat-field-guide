@@ -230,7 +230,9 @@ export function createModeController(
             mode: offline ? InstructorMode.offline : InstructorMode.online,
             cause: ModeCause.startup,
             voice: offline || !available ? VoiceSource.device : status.voice,
-            answers: offline ? AnswerSource.deviceModel : AnswerSource.claude,
+            answers: offline
+              ? AnswerSource.deviceModel
+              : AnswerSource.elevenlabs,
           },
           true,
         );

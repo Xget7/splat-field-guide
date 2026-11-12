@@ -84,7 +84,8 @@ function partKeys(part: Part): string[] {
 }
 
 function matchPart(target: string, pack: Pack): Part | undefined {
-  return pack.parts.find(part => partKeys(part).includes(target));
+  const matches = pack.parts.filter(part => partKeys(part).includes(target));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 // Accept title prefixes only when they identify one procedure uniquely.

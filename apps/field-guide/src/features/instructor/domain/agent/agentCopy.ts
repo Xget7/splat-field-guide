@@ -2,8 +2,8 @@ export const AgentOpening = {
   resumed: 'Back online.',
   exploration: (title: string) =>
     `What would you like to check on the ${title}?`,
-  step: (title: string, number: number, text: string) =>
-    `${title}. Step ${number}: ${text}`,
+  step: (title: string, number: number) =>
+    `Ready to help with ${title}, step ${number}.`,
 } as const;
 
 export const AgentToolCopy = {

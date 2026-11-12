@@ -10,7 +10,7 @@ import {
   type ProgressStorage,
 } from '../../guide';
 import { fixturePack } from '@tests/fixturePack';
-import { fakeInstructor } from '@tests/voiceSession';
+import { fakeInstructor, fakeVoiceSession } from '@tests/voiceSession';
 import { instructorStore } from '../../instructor';
 import type { CourseDocuments } from '../../../platform/documents';
 
@@ -193,7 +193,12 @@ describe('Library screen', () => {
 
   test('modules start real authored procedures with their full qualified titles', async () => {
     await mount();
-    await press('course-tab-modules');
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-tab-modules' }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-tab-assistant' }),
+    ).toHaveLength(0);
     const texts = renderer.root
       .findAllByType(Text)
       .map(item => item.props.children);
@@ -293,6 +298,78 @@ describe('Library screen', () => {
     });
   });
 
+  test('a submitted course reply is placed before the modules beside the primary question flow', async () => {
+    instructorStore.getState().attach(fakeInstructor());
+    await mount();
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() => input.props.onChangeText('Hello'));
+    await press('course-send');
+    const nodes = renderer.root.findAll(
+      item =>
+        item.props.testID === 'course-answer' ||
+        (item.type === Text && item.props.children === 'Course modules'),
+    );
+    expect(nodes[0].props.testID).toBe('course-answer');
+  });
+
+  test('course voice accepts typed follow-ups and navigates by stable id before a scene is open', async () => {
+    const voice = fakeVoiceSession();
+    const instructor = fakeInstructor({
+      sessionFor: jest.fn(() => ({
+        session: voice.session,
+        questions: voice.questions,
+      })),
+    });
+    const typed = jest.spyOn(instructor.turns, 'ask');
+    instructorStore.getState().attach(instructor);
+    await mount();
+    await press('course-voice');
+    expect(voice.session.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pack,
+        state: { procedureId: null, stepIndex: 0, selectedPart: null },
+      }),
+      expect.anything(),
+    );
+    const input = renderer.root
+      .findAllByProps({ testID: 'course-question' })
+      .find(item => typeof item.props.onChangeText === 'function')!;
+    await act(() => input.props.onChangeText('Where is the battery?'));
+    await press('course-send');
+    expect(voice.asked).toEqual(['Where is the battery?']);
+    expect(typed).not.toHaveBeenCalled();
+    await act(() => {
+      voice.events.action({ type: 'select', partId: 'battery' });
+      voice.events.turn({
+        type: 'answer',
+        exchange: {
+          id: 1,
+          question: 'Where is the battery?',
+          reply: 'Here is the battery.',
+          caution: '',
+          part: 'battery',
+          phase: 'done',
+        },
+        answer: {
+          reply: 'Here is the battery.',
+          caution: '',
+          part: 'battery',
+          event: null,
+        },
+      });
+    });
+    expect(onOpen).toHaveBeenCalledWith({
+      guideId: guide.id,
+      procedureId: null,
+      stepIndex: 0,
+      mode: LearnMode.instructor,
+      selectedPart: 'battery',
+      voice: true,
+    });
+  });
+
   test('course questions open the grounded course assistant', async () => {
     await mount();
     const input = renderer.root
@@ -305,7 +382,8 @@ describe('Library screen', () => {
       .findAllByType(Text)
       .map(item => item.props.children);
     expect(texts).toContain('Where is the A5 axis motor?');
-    expect(texts).toContain('Course assistant');
+    expect(texts).not.toContain('Course assistant');
+    expect(node('course-explore')).toBeDefined();
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -339,7 +417,7 @@ describe('Library screen', () => {
     await press('course-send');
     await act(() => input().props.onChangeText('What does it drive?'));
     await pressLabel('Open source document, KR QUANTEC extra.pdf');
-    await pressLabel('Assistant');
+    await pressLabel('Course');
     expect(input().props.value).toBe('What does it drive?');
     expect(
       renderer.root.findAllByType(Text).map(item => item.props.children),
@@ -348,7 +426,7 @@ describe('Library screen', () => {
 
   test('leaving the course through workspace breadcrumbs preserves its assistant draft on return', async () => {
     await mount();
-    await press('course-tab-assistant');
+    await press('course-tab-course');
     const input = () =>
       renderer.root
         .findAllByProps({ testID: 'course-question' })
@@ -360,7 +438,7 @@ describe('Library screen', () => {
     expect(node('open-organization-miris')).toBeDefined();
     await press('open-organization-miris');
     await press('open-course-automotive-assembly-line');
-    expect(node('course-tab-assistant').props.accessibilityState).toEqual({
+    expect(node('course-tab-course').props.accessibilityState).toEqual({
       selected: true,
     });
     expect(input().props.value).toBe('What does the roof welder do?');

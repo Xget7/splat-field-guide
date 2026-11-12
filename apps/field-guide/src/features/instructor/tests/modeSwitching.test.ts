@@ -60,7 +60,7 @@ test('all pieces start first and independent failures settle without blocking re
   await jest.advanceTimersByTimeAsync(1);
   expect(await result).toEqual({
     mode: InstructorMode.online,
-    sources: { voice: VoiceSource.device, answers: AnswerSource.claude },
+    sources: { voice: VoiceSource.device, answers: AnswerSource.elevenlabs },
   });
   expect(steps[2].switchId).toBe(1);
 });
