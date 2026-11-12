@@ -14,10 +14,10 @@ const RADIANS_PER_DEGREE = Math.PI / 180;
 export const FRAME_SECONDS = 0.45;
 export const INITIAL_FRAME_SECONDS = 0;
 // A camera turning faster than this reads as a whip pan and makes people dizzy.
-export const MAX_TURN_DEGREES_PER_SECOND = 70;
-export const MIN_MOVE_SECONDS = 0.6;
+export const MAX_TURN_DEGREES_PER_SECOND = 110;
+export const MIN_MOVE_SECONDS = 0.5;
 // Even the widest swing between steps stays a continuous move; this caps how long it waits.
-export const MAX_MOVE_SECONDS = 2.8;
+export const MAX_MOVE_SECONDS = 1.8;
 // Reduce Motion replaces the move with a brief fade, which carries no motion of its own.
 export const CUT_FADE_MS = 180;
 export const CUT_REVEAL_MS = 260;

@@ -10,7 +10,7 @@ const direction = (azimuth: number, elevation = 20) => ({
   azimuth: azimuth * RADIANS_PER_DEGREE,
   elevation: elevation * RADIANS_PER_DEGREE,
 });
-const MEDIUM_TURN = 84;
+const MEDIUM_TURN = 120;
 
 test('a small turn still takes the minimum time', () => {
   expect(transitionBetween(direction(10), direction(20), false)).toEqual({
