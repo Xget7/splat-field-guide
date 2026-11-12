@@ -11,6 +11,7 @@
 #include "HybridBundledPacksSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridSplatViewSpecSwift.hpp"
+#include "HybridWorldRetirementSpecSwift.hpp"
 #include "ReactNativeSplat-Swift-Cxx-Umbrella.hpp"
 #include <NitroModules/NitroDefines.hpp>
 
@@ -93,6 +94,22 @@ namespace margelo::nitro::splat::bridge::swift {
     }
     #endif
     ReactNativeSplat::HybridSplatViewSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+
+  // pragma MARK: std::shared_ptr<HybridWorldRetirementSpec>
+  std::shared_ptr<HybridWorldRetirementSpec> create_std__shared_ptr_HybridWorldRetirementSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ReactNativeSplat::HybridWorldRetirementSpec_cxx swiftPart = ReactNativeSplat::HybridWorldRetirementSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::splat::HybridWorldRetirementSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridWorldRetirementSpec_(std__shared_ptr_HybridWorldRetirementSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::splat::HybridWorldRetirementSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::splat::HybridWorldRetirementSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridWorldRetirementSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ReactNativeSplat::HybridWorldRetirementSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
 

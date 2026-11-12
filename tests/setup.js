@@ -86,6 +86,7 @@ jest.mock('react-native-splat', () => ({
   ARGuideView: 'ARGuideView',
   ARPlacementView: 'ARPlacementView',
   getBundledPacks: jest.fn(() => ({ manifests: () => [] })),
+  waitForWorldsReleased: jest.fn(async () => {}),
 }));
 
 // Native capabilities are opt-in so each test controls readiness and callbacks.

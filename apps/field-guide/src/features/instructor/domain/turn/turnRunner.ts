@@ -175,7 +175,7 @@ export function createTurnRunner(
       let responding = true;
       try {
         const text = await answerer.respond(
-          { question, state, pack, history, evidence },
+          { ...input, question, state, pack, history, evidence },
           partial => {
             const reply = answerer.courseKnowledge
               ? partial

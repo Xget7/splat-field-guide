@@ -278,7 +278,6 @@ test('a socket failure before the offline event carries the waiting question thr
   });
   const { transport } = fake;
   const instructor = instructorOn(fake.platform);
-  instructor.setPack(context.pack);
   instructor.start();
   fake.network.emit(WIFI);
   const questions: string[] = [];
@@ -335,7 +334,6 @@ test('a conversation that fell back to the device voice reconnects to the agent 
   });
   const { transport } = fake;
   const instructor = instructorOn(fake.platform);
-  instructor.setPack(context.pack);
   instructor.start();
   fake.network.emit(WIFI);
   const h = harness(instructor);

@@ -237,8 +237,21 @@ Separate worklet runtimes keep recognition, synthesis and answers independent; C
 `react-native-audio-api` supplies one echo-cancelled microphone/playback module shared with the online PCM audio link.
 Missing models leave reading, typing and scripted guidance available.
 Shared startup preparation verifies pinned `modelAssets.json` files, downloads missing files, checks size/SHA-256 and promotes staging before exposing paths to inference.
+Preparation proceeds sequentially through Answers, Listening and Speaking, completing and verifying every file in one function before starting the next.
+Each function exposes its own byte progress and queued, downloading, verified or failed state without displaying implementation model names.
+Retries preserve verified files, and a completed function can serve local requests while the remaining functions prepare.
 It survives navigation, supports pause/retry and reconnect recovery, and reports readiness separately from course installation and online availability.
 Workers share verified files without preloading all inference models or gating online answers.
+Connectivity switching checks installed capabilities and never prewarms Qwen, Whisper or Kokoro.
+An active typed turn or voice session owns actual model preparation.
+Native factory construction and retirement share one serialized lifecycle; cancellation invalidates late factories and awaited release includes their disposal.
+Scene admission takes a counted model-residency lease synchronously, stops active local operations and waits for native model retirement before mounting the viewer.
+The lease makes local generation and local speech unavailable while leaving verified model files ready and preserving online answers and scripted reading.
+Before mounting a replacement, the app also waits for the outgoing world's native retirement fence.
+Leaving a scene releases only its own lease after the render hosts, pending load/pick engine references and actual renderer/GPU destruction finish, rather than when React requests unmount.
+Failure to establish retirement keeps model construction blocked; no timeout or guessed memory allowance overrides that boundary.
+This conservative exclusive-residency policy does not establish a budget for simultaneous local inference and splat rendering.
+Relaxing it requires measured peak allocation, repeated transition and thermal evidence on the acceptance device.
 Files persist in Documents; restore/inference need no network, while the startup coordinator may download missing files.
 The English POS tagger is omitted because Brown Corpus data is not cleared for commercial use; lexicon/neural phonemization remain available.
 **Read:** [lazy entry points](../../packages/react-native-on-device/src/index.ts), [capability contracts](../../packages/react-native-on-device/src/capabilities.ts), [model preparation](../../packages/react-native-on-device/src/local/modelStore.ts), [inference](../../packages/react-native-on-device/src/local/inference.ts), [audio](../../packages/react-native-on-device/src/local/audio.ts), [online audio link](../../packages/react-native-on-device/src/AudioLink.ts).
@@ -259,7 +272,10 @@ Original manufacturer PDF bytes remain local; the owner-authorized prototype sen
 Missing whole-factory locations and emergency exits remain unknown.
 `search_parts` matches supplied names/aliases and returns ambiguous candidates without selection; `get_part` reads exact installed facts and directed relations without mutation.
 `show_part` and procedure tools validate IDs through guide rules; typed navigation stays provisional until a complete answer, and cancelled/failed turns do not commit it.
-A course question can select and frame a component in a bundled scene before that scene has been opened.
+Sending a course question opens a dedicated conversation screen with a bounded chronological transcript and a bottom composer.
+Completed answers can propose one or several validated component cards or a grouped selection before a scene has opened.
+Only an explicit Navigate to 3D action selects, highlights and frames that selection; the answer itself does not open the world.
+Returning from the scene preserves the course conversation.
 Course and activity conversations share bounded in-memory history keyed by pack identity/version; backgrounding closes connections.
 Authored step narration uses local speech with outgoing agent audio muted to avoid sending the narration back as microphone input.
 Existing offline Qwen/scripted answers and local voice remain separate fallbacks.

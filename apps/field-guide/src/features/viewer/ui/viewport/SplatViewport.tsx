@@ -84,6 +84,8 @@ interface Props {
   onSelect: (partId: PartId | null) => void;
   /** Reports once how long the cloud took from mounting to its first frame. */
   onLoaded?: (milliseconds: number) => void;
+  /** Loading a replacement or failing withdraws the prior first-frame admission. */
+  onUnavailable?: () => void;
   children?: ReactNode;
 }
 
@@ -108,6 +110,7 @@ function Viewport({
   carded = null,
   onSelect,
   onLoaded,
+  onUnavailable,
   children,
 }: Props) {
   const [view, setView] = useState<SplatViewSpec | null>(null);
@@ -154,6 +157,8 @@ function Viewport({
   const loadReported = useRef(false);
   const reportLoaded = useRef(onLoaded);
   reportLoaded.current = onLoaded;
+  const reportUnavailable = useRef(onUnavailable);
+  reportUnavailable.current = onUnavailable;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -189,10 +194,14 @@ function Viewport({
     const previous = currentInputs.current.view;
     if (previous !== null && previous !== native) {
       setReady(false);
+      loadReported.current = false;
+      mountedAt.current = Date.now();
+      reportUnavailable.current?.();
     }
     setView(native);
   }, []);
   const onReady = useCallback(() => {
+    if (!mounted.current) return;
     setReady(true);
     setError('');
     if (!loadReported.current) {
@@ -201,8 +210,11 @@ function Viewport({
     }
   }, []);
   const onError = useCallback((failure: SplatError) => {
+    if (!mounted.current) return;
     generation.current += 1;
     setReady(false);
+    loadReported.current = false;
+    reportUnavailable.current?.();
     setError(failure.message);
   }, []);
   const activeView = ready && auditSession === null ? view : null;

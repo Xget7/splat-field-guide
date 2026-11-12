@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useWideLayout } from '../../../ui/useWideLayout';
 import { Icon, IconName } from '../../../ui/Icon';
 import {
   CourseColor as C,
@@ -27,6 +28,8 @@ export function CourseComposer({
   onDocument,
   question,
   onQuestionChange,
+  compact = false,
+  showSuggestions = true,
 }: {
   onAsk: (question: string) => void;
   onVoice?: () => void;
@@ -34,7 +37,10 @@ export function CourseComposer({
   onDocument: () => void;
   question: string;
   onQuestionChange: (question: string) => void;
+  compact?: boolean;
+  showSuggestions?: boolean;
 }) {
+  const phone = !useWideLayout() && compact;
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const lift = useRef(new Animated.Value(0)).current;
   const reduced = useReducedMotion();
@@ -59,8 +65,15 @@ export function CourseComposer({
     onAsk(question.trim());
   };
   return (
-    <View style={styles.wrap}>
-      <View style={styles.composer}>
+    <View style={[styles.wrap, compact && styles.chatWrap]}>
+      <View
+        testID="course-composer"
+        style={[
+          styles.composer,
+          compact && styles.chatComposer,
+          phone && styles.phoneComposer,
+        ]}
+      >
         <TextInput
           ref={input}
           testID="course-question"
@@ -70,20 +83,28 @@ export function CourseComposer({
           value={question}
           onChangeText={onQuestionChange}
           multiline
-          style={styles.input}
+          style={[
+            styles.input,
+            compact && styles.chatInput,
+            phone && styles.phoneInput,
+          ]}
         />
-        <View style={styles.footer}>
+        <View style={[styles.footer, phone && styles.phoneActions]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open source document, KR QUANTEC extra.pdf"
             onPress={onDocument}
-            style={styles.document}
+            style={[styles.document, phone && styles.phoneDocument]}
           >
-            <View style={styles.documentChip}>
+            <View
+              style={[styles.documentChip, phone && styles.phoneDocumentChip]}
+            >
               <Icon name={IconName.document} size={16} color={C.accent} />
-              <Text numberOfLines={1} style={styles.filename}>
-                KR QUANTEC extra.pdf
-              </Text>
+              {!phone && (
+                <Text numberOfLines={1} style={styles.filename}>
+                  KR QUANTEC extra.pdf
+                </Text>
+              )}
             </View>
           </Pressable>
           {onVoice && (
@@ -116,27 +137,44 @@ export function CourseComposer({
           </Pressable>
         </View>
       </View>
-      <View style={styles.suggestions}>
-        {SUGGESTIONS.map(text => (
-          <Pressable
-            key={text}
-            accessibilityRole="button"
-            hitSlop={G.unit}
-            onPress={() => {
-              onQuestionChange(text);
-              input.current?.focus();
-            }}
-            style={styles.suggestion}
-          >
-            <Text style={styles.prompt}>{text}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {showSuggestions && (
+        <View style={[styles.suggestions, compact && styles.chatSuggestions]}>
+          {SUGGESTIONS.map(text => (
+            <Pressable
+              key={text}
+              accessibilityRole="button"
+              hitSlop={G.unit}
+              onPress={() => {
+                onQuestionChange(text);
+                input.current?.focus();
+              }}
+              style={styles.suggestion}
+            >
+              <Text style={styles.prompt}>{text}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 const styles = StyleSheet.create({
   wrap: { gap: G.unit },
+  chatWrap: { flexDirection: 'column-reverse' },
+  chatComposer: { minHeight: 128, borderRadius: R.control },
+  chatInput: { minHeight: 48, maxHeight: 120 },
+  chatSuggestions: { flexShrink: 0 },
+  phoneComposer: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: G.unit,
+    gap: G.unit,
+  },
+  phoneInput: { flex: 1, minHeight: 48, maxHeight: 96, paddingVertical: 12 },
+  phoneActions: { flexShrink: 0, gap: 0 },
+  phoneDocument: { width: G.control, height: G.control, alignItems: 'center' },
+  phoneDocumentChip: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   composer: {
     minHeight: 280,
     borderWidth: 1,

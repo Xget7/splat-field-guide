@@ -94,3 +94,45 @@ test('cancelling a pending action closes its socket without committing the actio
   expect(await rejected).toBeInstanceOf(Error);
   expect(transport.open).toBe(0);
 });
+
+test('a course reply collects multiple validated component cards without claiming that 3D is open', async () => {
+  const { transport, answerer } = setup();
+  const question = 'Show the battery and fuse box.';
+  const pending = answerer.respond(
+    { ...request, question, navigation: 'proposal' },
+    jest.fn(),
+  );
+  await jest.advanceTimersByTimeAsync(0);
+  transport.ready();
+  await jest.advanceTimersByTimeAsync(0);
+  for (const [index, partId] of ['battery', 'fuse-box', 'battery'].entries()) {
+    transport.receive({
+      type: 'client_tool_call',
+      client_tool_call: {
+        tool_name: 'show_part',
+        tool_call_id: `show-${index}`,
+        parameters: { part_id: partId },
+        event_id: index + 1,
+      },
+    });
+  }
+  const toolResults = transport.sent.filter(
+    message => (message as { type?: string })?.type === 'client_tool_result',
+  ) as { result: string; is_error: boolean }[];
+  expect(toolResults).toHaveLength(3);
+  expect(toolResults.every(message => !message.is_error)).toBe(true);
+  expect(toolResults[0].result).toContain('navigation_proposed');
+  expect(toolResults[0].result).not.toContain('Showing');
+  transport.receive({
+    type: 'agent_response',
+    agent_response_event: {
+      agent_response: 'Here are both components.',
+      event_id: 4,
+    },
+  });
+  await expect(pending).resolves.toMatchObject({
+    reply: 'Here are both components.',
+    event: { type: 'selectParts', partIds: ['battery', 'fuse-box'] },
+    part: null,
+  });
+});

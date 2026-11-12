@@ -10,4 +10,5 @@ export interface SessionStart {
   readonly mode: LearnMode;
   readonly voice?: boolean;
   readonly selectedPart?: string;
+  readonly selectedParts?: readonly string[];
 }

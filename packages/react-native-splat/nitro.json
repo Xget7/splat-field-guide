@@ -38,6 +38,16 @@
         "language": "kotlin",
         "implementationClassName": "HybridBundledPacks"
       }
+    },
+    "WorldRetirement": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridWorldRetirement"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridWorldRetirement"
+      }
     }
   },
   "ignorePaths": [

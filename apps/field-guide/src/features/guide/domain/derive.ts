@@ -10,9 +10,10 @@ import { currentStep, SessionState } from './session';
 
 function partsToShow(state: SessionState, pack: Pack): readonly Part[] {
   const roots =
-    state.selectedPart !== null
+    state.selectedParts ??
+    (state.selectedPart !== null
       ? [state.selectedPart]
-      : currentStep(state, pack)?.parts ?? [];
+      : currentStep(state, pack)?.parts ?? []);
   const byId = new Map<string, Part>();
   roots.forEach(id =>
     partsWithin(pack, id).forEach(part => byId.set(part.id, part)),
@@ -30,7 +31,10 @@ export function highlightFor(
 }
 
 export function framingFor(state: SessionState, pack: Pack): Bounds | null {
-  const overview = state.procedureId === null && state.selectedPart === null;
+  const overview =
+    state.procedureId === null &&
+    state.selectedPart === null &&
+    !state.selectedParts;
   const parts = overview ? pack.parts : partsToShow(state, pack);
   if (parts.length === 0) {
     return null;
@@ -53,6 +57,7 @@ export function framingFor(state: SessionState, pack: Pack): Bounds | null {
 
 /** Prepared directions share the selection precedence used for bounds and highlights. */
 export function directionFor(state: SessionState, pack: Pack) {
+  if (state.selectedParts) return pack.camera.home;
   return (
     (state.selectedPart !== null
       ? pack.parts.find(part => part.id === state.selectedPart)?.viewDirection

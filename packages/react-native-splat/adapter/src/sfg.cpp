@@ -10,12 +10,60 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <unordered_set>
 #include <vector>
 
 #include "splatkit/engine/SplatEngine.h"
 #include "sfg/sfg_platform.h"
 
+namespace {
+class WorldLifetimes {
+ public:
+  uint64_t retain() {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const auto token = ++lastToken_;
+    active_.insert(token);
+    return token;
+  }
+
+  void release(uint64_t token) {
+    std::vector<Waiter> ready;
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      if (active_.erase(token) == 0) return;
+      if (active_.empty()) ready.swap(waiters_);
+    }
+    // Continuations can enter the registry again, so none execute under its mutex.
+    for (const auto& waiter : ready) waiter.callback(waiter.context);
+  }
+
+  void whenReleased(sfg_worlds_released_callback callback, void* context) {
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      if (!active_.empty()) {
+        waiters_.push_back({callback, context});
+        return;
+      }
+    }
+    callback(context);
+  }
+
+ private:
+  struct Waiter { sfg_worlds_released_callback callback; void* context; };
+  std::mutex mutex_;
+  uint64_t lastToken_ = 0;
+  std::unordered_set<uint64_t> active_;
+  std::vector<Waiter> waiters_;
+};
+
+WorldLifetimes& worldLifetimes() {
+  static WorldLifetimes lifetimes;
+  return lifetimes;
+}
+}  // namespace
+
 struct sfg_engine {
+  const uint64_t worldLifetime = worldLifetimes().retain();
   // Retain the host interval so equivalent angles can be normalized before the
   // engine's linear clamp, including intervals crossing pi.
   std::optional<std::pair<float, float>> azimuthLimits;
@@ -83,7 +131,7 @@ std::array<float, 3> toArray(sfg_vec3 v) {
 
 sfg_engine* makeSfgEngine(std::unique_ptr<SplatRenderer> renderer) {
   renderer->setRenderScale(kRenderScale);
-  auto result = std::make_unique<sfg_engine>();
+  std::unique_ptr<sfg_engine, decltype(&sfg_destroy)> result(new sfg_engine, &sfg_destroy);
   result->engine = std::make_unique<SplatEngine>(std::move(renderer));
   result->engine->setSplatBudget(kSplatBudget);
   sfg_set_camera_limits(result.get(), nullptr);
@@ -119,7 +167,18 @@ using splatkit::engineOf;
 extern "C" {
 
 void sfg_destroy(sfg_engine* engine) {
+  if (!engine) return;
+  const auto lifetime = engine->worldLifetime;
   delete engine;
+  // SplatEngine destroys the renderer first; Metal/Vulkan wait for their in-flight GPU work.
+  // The fence cannot resolve while a load/pick still retains the host engine or its destructor runs.
+  worldLifetimes().release(lifetime);
+}
+
+uint64_t sfg_world_host_opened(void) { return worldLifetimes().retain(); }
+void sfg_world_host_closed(uint64_t token) { worldLifetimes().release(token); }
+void sfg_when_worlds_released(sfg_worlds_released_callback callback, void* context) {
+  worldLifetimes().whenReleased(callback, context);
 }
 
 void sfg_set_event_callback(sfg_engine* engine, sfg_event_callback callback, void* context) {

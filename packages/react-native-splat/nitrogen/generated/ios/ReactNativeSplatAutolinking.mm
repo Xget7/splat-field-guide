@@ -13,6 +13,7 @@
 #include "HybridSplatViewSpecSwift.hpp"
 #include "HybridSplatDiagnosticsSpecSwift.hpp"
 #include "HybridBundledPacksSpecSwift.hpp"
+#include "HybridWorldRetirementSpecSwift.hpp"
 
 @interface ReactNativeSplatAutolinking : NSObject
 @end
@@ -41,6 +42,13 @@
     "BundledPacks",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridBundledPacksSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createBundledPacks();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "WorldRetirement",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridWorldRetirementSpec> hybridObject = ReactNativeSplat::ReactNativeSplatAutolinking::createWorldRetirement();
       return hybridObject;
     }
   );

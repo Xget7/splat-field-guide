@@ -1,5 +1,5 @@
 import type { PreviousExchange } from './grounding';
-import type { OfflineModels } from 'react-native-on-device';
+import type { OfflineModels, SceneLease } from 'react-native-on-device';
 import type { Pack } from '../../pack/pack';
 import type { ModeRequest } from './mode/modeTypes';
 import type { TurnRunner } from './turn/turnRunner';
@@ -13,7 +13,10 @@ export interface Instructor extends VoiceRuntime {
   readonly turns: TurnRunner;
   historyFor(pack: Pack): readonly PreviousExchange[];
   readonly offlineModels?: OfflineModels;
-  setPack(pack: Pack): void;
+  /** Stops current conversations/turns and awaits native model retirement, preserving installed files. */
+  quiesce(): Promise<void>;
+  /** Holds exclusive world residency until the caller has fenced actual native world release. */
+  reserveScene(): Promise<SceneLease>;
   setInstructorOpen(open: boolean): void;
   setIdle(idle: boolean): void;
   /** Applies a user choice about the suggested mode; ignored outside start and stop. */

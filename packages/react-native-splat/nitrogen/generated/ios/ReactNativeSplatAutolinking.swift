@@ -47,4 +47,16 @@ public final class ReactNativeSplatAutolinking {
   public static func isBundledPacksRecyclable() -> Bool {
     return HybridBundledPacks.self is any RecyclableView.Type
   }
+
+  public static func createWorldRetirement() -> bridge.std__shared_ptr_HybridWorldRetirementSpec_ {
+    let hybridObject = HybridWorldRetirement()
+    return { () -> bridge.std__shared_ptr_HybridWorldRetirementSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+
+  public static func isWorldRetirementRecyclable() -> Bool {
+    return HybridWorldRetirement.self is any RecyclableView.Type
+  }
 }

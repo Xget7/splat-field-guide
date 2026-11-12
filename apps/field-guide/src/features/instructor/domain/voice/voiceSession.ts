@@ -20,6 +20,7 @@ export interface Utterance {
   readonly stepKey: string | null;
 }
 export interface VoiceContext {
+  readonly navigation?: 'proposal';
   readonly pack: Pack;
   readonly state: SessionState;
   readonly history: readonly PreviousExchange[];
@@ -82,7 +83,9 @@ export interface VoiceConnection {
   readonly questions: TypedQuestions | null;
 }
 export function stepKeyFor(state: SessionState): string {
-  return `${state.procedureId}:${state.stepIndex}:${state.selectedPart}`;
+  return `${state.procedureId}:${state.stepIndex}:${state.selectedPart}${
+    state.selectedParts ? `:${JSON.stringify(state.selectedParts)}` : ''
+  }`;
 }
 const UtterancePrefix = {
   step: 'step:',

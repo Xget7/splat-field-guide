@@ -12,6 +12,8 @@ import { MAX_LOCAL_REPLY_TOKENS } from './limits';
 
 const LOCALE = 'en-US';
 const cancelled = () => new Error('Local inference cancelled');
+const sceneReserved = () =>
+  new Error('Local inference is unavailable while a 3D scene is resident');
 
 /** Adapts streaming runners to the same cancellation and ownership contract the instructor uses. */
 export function createLocalCapabilities(
@@ -36,7 +38,7 @@ export function createLocalCapabilities(
     warm = null;
     if (previous) {
       const retired = previous.session
-        .then(session => session.dispose())
+        .then(session => inference.disposeAnswer(session))
         .catch(() => {});
       retirements.add(retired);
       retired.finally(() => retirements.delete(retired));
@@ -46,14 +48,20 @@ export function createLocalCapabilities(
     requestPermission: async () =>
       (await audio.permission()) ? 'granted' : 'denied',
     async prepare(locale) {
+      const id = listenId;
+      if (inference.sceneReserved()) return 'unavailable';
       if (locale !== LOCALE) {
         return 'unavailable';
       }
-      await models.restore();
-      if (models.getSnapshot().state !== 'ready') {
+      await models.restore('listening');
+      if (inference.sceneReserved()) return 'unavailable';
+      if (id !== listenId) throw cancelled();
+      if (!models.isReady('listening')) {
         return 'unavailable';
       }
-      recognition = await inference.recognition();
+      const prepared = await inference.recognition();
+      if (id !== listenId) throw cancelled();
+      recognition = prepared;
       return 'available';
     },
     async listen(locale, onPartial, onTurn, onLevel, onVoice, onStopped) {
@@ -146,8 +154,16 @@ export function createLocalCapabilities(
   };
   const output: SpeechOutput = {
     async prepare() {
-      await models.restore();
-      speech = await inference.speech();
+      const id = speechId;
+      if (inference.sceneReserved()) throw sceneReserved();
+      await models.restore('speaking');
+      if (inference.sceneReserved()) throw sceneReserved();
+      if (id !== speechId) throw cancelled();
+      if (!models.isReady('speaking'))
+        throw new Error('Prepare speaking files before using local speech');
+      const prepared = await inference.speech();
+      if (id !== speechId) throw cancelled();
+      speech = prepared;
     },
     speak(text, locale, onWord) {
       output.stop();
@@ -227,13 +243,17 @@ export function createLocalCapabilities(
   };
   const model: LanguageModel = {
     availability: () =>
-      models.getSnapshot().state === 'ready' ? 'available' : 'modelsMissing',
+      inference.sceneReserved()
+        ? 'unavailable'
+        : models.isReady('answers')
+        ? 'available'
+        : 'modelsMissing',
     prewarm(instructions) {
       if (warm?.instructions === instructions || answer) {
         return;
       }
       discardWarm();
-      if (models.getSnapshot().state !== 'ready') {
+      if (inference.sceneReserved() || !models.isReady('answers')) {
         return;
       }
       const session = inference.answer(instructions);
@@ -252,7 +272,9 @@ export function createLocalCapabilities(
           if (!current()) {
             throw cancelled();
           }
-          await models.restore();
+          if (inference.sceneReserved()) throw sceneReserved();
+          await models.restore('answers');
+          if (inference.sceneReserved()) throw sceneReserved();
           if (!current()) {
             throw cancelled();
           }
@@ -303,7 +325,7 @@ export function createLocalCapabilities(
             if (answer === session) {
               answer = null;
             }
-            session.dispose();
+            await inference.disposeAnswer(session);
           }
         });
       answerTail = task.catch(() => {});
@@ -319,9 +341,18 @@ export function createLocalCapabilities(
     input,
     output,
     model,
-    settled: () =>
-      Promise.all([speechTail, listeningTail, answerTail, ...retirements]).then(
-        () => {},
-      ),
+    quiesce() {
+      input.cancel();
+      output.stop();
+      model.cancel();
+      recognition = null;
+      speech = null;
+      return Promise.allSettled([
+        speechTail,
+        listeningTail,
+        answerTail,
+        ...retirements,
+      ]).then(() => {});
+    },
   };
 }

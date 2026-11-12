@@ -233,6 +233,17 @@ export function commandAnswer(
         ? partAnswer(part, false)
         : { reply: NO_PROCEDURE_REPLY, caution: '', part: null, event: null };
     }
+    case SessionEventType.selectParts: {
+      const parts = event.partIds.map(id => findPart(pack, id));
+      return parts.length > 0 && parts.every(part => part !== undefined)
+        ? {
+            reply: parts.map(part => part!.name).join(', '),
+            caution: '',
+            part: null,
+            event,
+          }
+        : { reply: NO_PROCEDURE_REPLY, caution: '', part: null, event: null };
+    }
     case SessionEventType.next:
       return isLastStep(state, pack)
         ? { reply: LAST_STEP_REPLY, caution: '', part: null, event: null }

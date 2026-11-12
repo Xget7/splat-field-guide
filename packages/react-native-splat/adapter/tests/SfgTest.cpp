@@ -538,3 +538,69 @@ TEST_F(SfgTest, WrapsLimitedOrbit) {
 }
 }
 }
+
+namespace {
+void completeRetirement(void* context) {
+  static_cast<std::promise<void>*>(context)->set_value();
+}
+}
+
+TEST(SfgWorldRetirement, WaitsForLateWorkerAndActualRendererDestruction) {
+  std::promise<void> loadEntered;
+  std::promise<void> releaseLoad;
+  auto loadReleased = releaseLoad.get_future().share();
+  std::promise<void> rendererDestroying;
+  std::promise<void> releaseRenderer;
+  auto rendererReleased = releaseRenderer.get_future().share();
+  auto renderer = std::make_unique<splatkit::test::FakeRenderer>();
+  renderer->onDestroy = [&] {
+    rendererDestroying.set_value();
+    rendererReleased.wait();
+  };
+  auto engine = std::shared_ptr<sfg_engine>(splatkit::makeSfgEngine(std::move(renderer)), sfg_destroy);
+  struct LoadGate { std::promise<void>* entered; std::shared_future<void> released; } gate{&loadEntered, loadReleased};
+  sfg_set_event_callback(engine.get(), [](void* context, sfg_event, const char*, uint32_t) {
+    auto& value = *static_cast<LoadGate*>(context);
+    value.entered->set_value();
+    value.released.wait();
+  }, &gate);
+  const auto host = sfg_world_host_opened();
+  auto loading = std::async(std::launch::async, [retained = engine]() mutable {
+    const bool loaded = sfg_load_request(retained.get(), sfg_begin_load(retained.get()), "/missing/late-worker.lodsplat", nullptr, nullptr);
+    retained.reset();
+    return loaded;
+  });
+  loadEntered.get_future().wait();
+  engine.reset();
+  std::promise<void> completed;
+  auto completion = completed.get_future();
+  sfg_when_worlds_released(completeRetirement, &completed);
+  // Closing the UI host does not prove a worker's engine or its GPU resources are gone.
+  sfg_world_host_closed(host);
+  EXPECT_EQ(completion.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+  releaseLoad.set_value();
+  rendererDestroying.get_future().wait();
+  EXPECT_EQ(completion.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+  releaseRenderer.set_value();
+  EXPECT_FALSE(loading.get());
+  EXPECT_EQ(completion.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+}
+
+TEST(SfgWorldRetirement, PendingCreationAndMultipleWaitersAreReleasedOnceOutsideLocks) {
+  const auto host = sfg_world_host_opened();
+  std::promise<void> first;
+  std::promise<void> second;
+  auto firstDone = first.get_future();
+  auto secondDone = second.get_future();
+  sfg_when_worlds_released([](void* context) {
+    const auto nested = sfg_world_host_opened();
+    sfg_world_host_closed(nested);
+    completeRetirement(context);
+  }, &first);
+  sfg_when_worlds_released(completeRetirement, &second);
+  EXPECT_EQ(firstDone.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+  sfg_world_host_closed(host);
+  sfg_world_host_closed(host);
+  EXPECT_EQ(firstDone.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  EXPECT_EQ(secondDone.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+}

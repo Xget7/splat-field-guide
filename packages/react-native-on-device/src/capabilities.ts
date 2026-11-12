@@ -42,19 +42,44 @@ export interface LanguageModel {
   ): Promise<string>;
   cancel(): void;
 }
+export type OfflineModelGroupId = 'answers' | 'listening' | 'speaking';
+export type OfflineModelGroupState =
+  | 'checking'
+  | 'missing'
+  | 'queued'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+export interface OfflineModelProgress {
+  readonly id: OfflineModelGroupId;
+  readonly state: OfflineModelGroupState;
+  readonly bytes: number;
+  readonly total: number;
+  readonly progress: number;
+  readonly error: string | null;
+}
 export interface OfflineModelStatus {
   readonly state: 'checking' | 'missing' | 'downloading' | 'ready' | 'error';
   readonly progress: number;
   readonly bytes: number;
   readonly error: string | null;
+  readonly models: readonly OfflineModelProgress[];
 }
 export interface OfflineModels {
   getSnapshot(): OfflineModelStatus;
   subscribe(listener: () => void): () => void;
   /** Verifies installed files without networking. */
-  restore(): Promise<void>;
+  restore(group?: OfflineModelGroupId): Promise<void>;
   /** Downloads pinned files, verifies them, then marks ready; app startup or retry may request it. */
   prepare(): Promise<void>;
   cancel(): void;
+  /** Stops local work and resolves only after native resources retire; verified files remain ready. */
+  release(): Promise<void>;
+  /** Blocks local model residency immediately and retires native work before a scene can mount. */
+  reserveScene(): Promise<SceneLease>;
+}
+
+/** Release only after the native world and its outstanding GPU work have actually retired. */
+export interface SceneLease {
   release(): void;
 }

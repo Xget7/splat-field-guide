@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../../../guide';
+import { SessionEventType, type SessionEvent } from '../../../guide';
 import type { Answerer } from '../../domain/turn/answerer';
 import type { Clock, Socket, Timers } from '../../../../platform/ports';
 import {
@@ -7,10 +7,12 @@ import {
 } from '../../domain/turn/replyPolicy';
 import {
   agentVariables,
+  COURSE_CHAT_CONTEXT,
   historyUpdate,
 } from '../../domain/agent/agentVariables';
 import {
   runAgentTool,
+  toolResult,
   type KnowledgeLoader,
   type ToolKnowledge,
 } from '../../domain/agent/agentTools';
@@ -94,16 +96,40 @@ export function createCloudAnswerer({
                 prepared,
               );
               if (outcome.ok && outcome.event) {
-                if (event)
+                const previous = event as SessionEvent | null;
+                const selecting =
+                  outcome.event.type === SessionEventType.select &&
+                  outcome.event.partId !== null;
+                const previousParts =
+                  previous?.type === SessionEventType.select
+                    ? [previous.partId!]
+                    : previous?.type === SessionEventType.selectParts
+                    ? previous.partIds
+                    : [];
+                if (previous && !(selecting && previousParts.length))
                   return {
                     result:
-                      'One navigation action is supported per typed turn. Ask the operator before another action.',
+                      'Only component selections can be combined in one reply. Ask the operator before changing procedure navigation again.',
                     isError: true,
                   };
                 state = outcome.state;
-                event = outcome.event;
+                const ids = selecting
+                  ? [
+                      ...new Set([
+                        ...previousParts,
+                        outcome.event.partId as string,
+                      ]),
+                    ]
+                  : [];
+                event =
+                  ids.length > 1
+                    ? { type: SessionEventType.selectParts, partIds: ids }
+                    : outcome.event;
               }
-              return { result: outcome.result, isError: !outcome.ok };
+              return {
+                result: toolResult(outcome, request.navigation === 'proposal'),
+                isError: !outcome.ok,
+              };
             },
           },
         });
@@ -119,10 +145,14 @@ export function createCloudAnswerer({
           .then(value => {
             prepared = value;
             if (settled) return;
-            return client.start(
-              variables,
-              request.history.length ? [historyUpdate(request.history)] : [],
-            );
+            return client.start(variables, [
+              ...(request.navigation === 'proposal'
+                ? [COURSE_CHAT_CONTEXT]
+                : []),
+              ...(request.history.length
+                ? [historyUpdate(request.history)]
+                : []),
+            ]);
           })
           .then(() => {
             if (!settled) client.sendText(request.question);

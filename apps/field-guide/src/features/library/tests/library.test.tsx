@@ -298,23 +298,27 @@ describe('Library screen', () => {
     });
   });
 
-  test('a submitted course reply is placed before the modules beside the primary question flow', async () => {
-    instructorStore.getState().attach(fakeInstructor());
+  test('sending from the course opens a dedicated chat screen with a fixed composer and no module list', async () => {
     await mount();
     const input = renderer.root
       .findAllByProps({ testID: 'course-question' })
       .find(item => typeof item.props.onChangeText === 'function')!;
     await act(() => input.props.onChangeText('Hello'));
     await press('course-send');
-    const nodes = renderer.root.findAll(
-      item =>
-        item.props.testID === 'course-answer' ||
-        (item.type === Text && item.props.children === 'Course modules'),
-    );
-    expect(nodes[0].props.testID).toBe('course-answer');
+    expect(node('course-chat-screen')).toBeDefined();
+    expect(node('course-chat-transcript')).toBeDefined();
+    expect(node('course-answer')).toBeDefined();
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-explore' }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByType(Text).map(item => item.props.children),
+    ).not.toContain('Course modules');
+    await press('course-chat-back');
+    expect(node('course-explore')).toBeDefined();
   });
 
-  test('course voice accepts typed follow-ups and navigates by stable id before a scene is open', async () => {
+  test('course voice accepts typed follow-ups and offers explicit stable-id navigation', async () => {
     const voice = fakeVoiceSession();
     const instructor = fakeInstructor({
       sessionFor: jest.fn(() => ({
@@ -360,13 +364,18 @@ describe('Library screen', () => {
         },
       });
     });
+    expect(onOpen).not.toHaveBeenCalled();
+    const navigate = renderer.root
+      .findAllByProps({ accessibilityLabel: 'Navigate to 3D, Battery' })
+      .find(item => item.props.accessibilityRole === 'button')!;
+    await act(() => navigate.props.onPress());
     expect(onOpen).toHaveBeenCalledWith({
       guideId: guide.id,
       procedureId: null,
       stepIndex: 0,
-      mode: LearnMode.instructor,
+      mode: LearnMode.selfGuided,
       selectedPart: 'battery',
-      voice: true,
+      voice: false,
     });
   });
 
@@ -382,8 +391,10 @@ describe('Library screen', () => {
       .findAllByType(Text)
       .map(item => item.props.children);
     expect(texts).toContain('Where is the A5 axis motor?');
-    expect(texts).not.toContain('Course assistant');
-    expect(node('course-explore')).toBeDefined();
+    expect(texts).toContain('Assistant');
+    expect(
+      renderer.root.findAllByProps({ testID: 'course-explore' }),
+    ).toHaveLength(0);
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -417,7 +428,6 @@ describe('Library screen', () => {
     await press('course-send');
     await act(() => input().props.onChangeText('What does it drive?'));
     await pressLabel('Open source document, KR QUANTEC extra.pdf');
-    await pressLabel('Course');
     expect(input().props.value).toBe('What does it drive?');
     expect(
       renderer.root.findAllByType(Text).map(item => item.props.children),

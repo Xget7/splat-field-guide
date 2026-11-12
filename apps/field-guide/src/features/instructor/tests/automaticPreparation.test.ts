@@ -1,4 +1,5 @@
 import type { OfflineModels, OfflineModelStatus } from 'react-native-on-device';
+import { offlineModelGroups } from '@tests/offlineModels';
 import { fakePlatform } from '@tests/platform';
 import { createInstructor } from '../createInstructor';
 import { createInstructorStore } from '../state/instructorStore';
@@ -21,6 +22,7 @@ function fixture(ready = false) {
     bytes: 100,
     progress: 0,
     error: null,
+    models: offlineModelGroups('checking'),
   };
   let finishRestore!: () => void;
   const restored = new Promise<void>(resolve => {
@@ -31,13 +33,23 @@ function fixture(ready = false) {
     subscribe: () => () => {},
     restore: jest.fn(async () => {
       await restored;
-      status = { ...status, state: ready ? 'ready' : 'missing' };
+      status = {
+        ...status,
+        state: ready ? 'ready' : 'missing',
+        models: offlineModelGroups(ready ? 'ready' : 'missing'),
+      };
     }),
     prepare: jest.fn(async () => {
-      status = { ...status, state: 'ready', progress: 1 };
+      status = {
+        ...status,
+        state: 'ready',
+        progress: 1,
+        models: offlineModelGroups('ready'),
+      };
     }),
     cancel: jest.fn(),
-    release: jest.fn(),
+    release: jest.fn(async () => {}),
+    reserveScene: jest.fn(async () => ({ release: jest.fn() })),
   };
   const instructor = createInstructor({
     platform: { ...fake.platform, offlineModels: () => models },

@@ -53,9 +53,46 @@ std::vector<float> floats(JNIEnv* env, jfloatArray values) {
   env->GetFloatArrayRegion(values, 0, result.size(), result.data());
   return result;
 }
+
+struct WorldWaiter {
+  JavaVM* javaVm;
+  jobject callback;
+  jmethodID run;
+};
+
+void worldsReleased(void* context) {
+  std::unique_ptr<WorldWaiter> waiter(static_cast<WorldWaiter*>(context));
+  JNIEnv* env = nullptr;
+  const bool attached = waiter->javaVm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK;
+  if (attached && waiter->javaVm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+    // A VM shutting down cannot safely acknowledge retirement to JavaScript.
+    __android_log_write(ANDROID_LOG_ERROR, "FieldGuideSplat", "World retirement could not attach to the VM");
+    return;
+  }
+  env->CallVoidMethod(waiter->callback, waiter->run);
+  env->DeleteGlobalRef(waiter->callback);
+  if (attached) waiter->javaVm->DetachCurrentThread();
+}
 }
 #define JNI_METHOD(name) Java_com_margelo_nitro_splat_SplatEngine_##name
 extern "C" {
+JNIEXPORT jlong JNICALL JNI_METHOD(retainWorldHost)(JNIEnv*, jobject) {
+  return static_cast<jlong>(sfg_world_host_opened());
+}
+JNIEXPORT void JNICALL JNI_METHOD(releaseWorldHost)(JNIEnv*, jobject, jlong token) {
+  sfg_world_host_closed(static_cast<uint64_t>(token));
+}
+JNIEXPORT void JNICALL JNI_METHOD(whenWorldsReleased)(JNIEnv* env, jobject, jobject callback) {
+  auto waiter = std::make_unique<WorldWaiter>();
+  env->GetJavaVM(&waiter->javaVm);
+  jclass cls = env->GetObjectClass(callback);
+  waiter->run = env->GetMethodID(cls, "run", "()V");
+  env->DeleteLocalRef(cls);
+  if (!waiter->run) return;  // The pending JNI exception rejects the Kotlin registration.
+  waiter->callback = env->NewGlobalRef(callback);
+  if (!waiter->callback) return;
+  sfg_when_worlds_released(worldsReleased, waiter.release());
+}
 JNIEXPORT jlong JNICALL JNI_METHOD(create)(JNIEnv* env, jobject, jobject owner, jstring cacheDir) {
   auto state = std::make_shared<Engine>();
   env->GetJavaVM(&state->javaVm);

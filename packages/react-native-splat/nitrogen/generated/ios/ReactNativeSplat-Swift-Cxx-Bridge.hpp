@@ -20,6 +20,8 @@ namespace margelo::nitro::splat { class HybridBundledPacksSpec; }
 namespace margelo::nitro::splat { class HybridSplatDiagnosticsSpec; }
 // Forward declaration of `HybridSplatViewSpec` to properly resolve imports.
 namespace margelo::nitro::splat { class HybridSplatViewSpec; }
+// Forward declaration of `HybridWorldRetirementSpec` to properly resolve imports.
+namespace margelo::nitro::splat { class HybridWorldRetirementSpec; }
 // Forward declaration of `SplatDiagnosticsSnapshot` to properly resolve imports.
 namespace margelo::nitro::splat { struct SplatDiagnosticsSnapshot; }
 // Forward declaration of `SplatErrorCode` to properly resolve imports.
@@ -36,6 +38,8 @@ namespace ReactNativeSplat { class HybridBundledPacksSpec_cxx; }
 namespace ReactNativeSplat { class HybridSplatDiagnosticsSpec_cxx; }
 // Forward declaration of `HybridSplatViewSpec_cxx` to properly resolve imports.
 namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
+// Forward declaration of `HybridWorldRetirementSpec_cxx` to properly resolve imports.
+namespace ReactNativeSplat { class HybridWorldRetirementSpec_cxx; }
 
 // Include C++ defined types
 #include "BundledPackManifest.hpp"
@@ -44,6 +48,7 @@ namespace ReactNativeSplat { class HybridSplatViewSpec_cxx; }
 #include "HybridBundledPacksSpec.hpp"
 #include "HybridSplatDiagnosticsSpec.hpp"
 #include "HybridSplatViewSpec.hpp"
+#include "HybridWorldRetirementSpec.hpp"
 #include "SplatDiagnosticsSnapshot.hpp"
 #include "SplatError.hpp"
 #include "SplatErrorCode.hpp"
@@ -334,6 +339,39 @@ namespace margelo::nitro::splat::bridge::swift {
   }
   inline Result_std__optional_ViewDirection__ create_Result_std__optional_ViewDirection__(const std::exception_ptr& error) noexcept {
     return Result<std::optional<ViewDirection>>::withError(error);
+  }
+
+  // pragma MARK: std::shared_ptr<Promise<void>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<void>>`.
+   */
+  using std__shared_ptr_Promise_void__ = std::shared_ptr<Promise<void>>;
+  inline std::shared_ptr<Promise<void>> create_std__shared_ptr_Promise_void__() noexcept {
+    return Promise<void>::create();
+  }
+  inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
+    return PromiseHolder<void>(std::move(promise));
+  }
+
+  // pragma MARK: std::shared_ptr<HybridWorldRetirementSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridWorldRetirementSpec>`.
+   */
+  using std__shared_ptr_HybridWorldRetirementSpec_ = std::shared_ptr<HybridWorldRetirementSpec>;
+  std::shared_ptr<HybridWorldRetirementSpec> create_std__shared_ptr_HybridWorldRetirementSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridWorldRetirementSpec_(std__shared_ptr_HybridWorldRetirementSpec_ cppType);
+
+  // pragma MARK: std::weak_ptr<HybridWorldRetirementSpec>
+  using std__weak_ptr_HybridWorldRetirementSpec_ = std::weak_ptr<HybridWorldRetirementSpec>;
+  inline std__weak_ptr_HybridWorldRetirementSpec_ weakify_std__shared_ptr_HybridWorldRetirementSpec_(const std::shared_ptr<HybridWorldRetirementSpec>& strong) noexcept { return strong; }
+
+  // pragma MARK: Result<std::shared_ptr<Promise<void>>>
+  using Result_std__shared_ptr_Promise_void___ = Result<std::shared_ptr<Promise<void>>>;
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::shared_ptr<Promise<void>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withError(error);
   }
 
 } // namespace margelo::nitro::splat::bridge::swift

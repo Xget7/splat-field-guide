@@ -13,6 +13,9 @@ final class SplatRenderLoop {
   /// One decode at a time across every view: each holds a whole cloud in memory.
   private static let loads = DispatchQueue(label: "splat.load", qos: .userInitiated)
 
+  // Cover queued starts even when creation fails or the view drops before its first props.
+  private let worldLifetime = sfg_world_host_opened()
+
   private let layer: CAMetalLayer
   private let events: SplatEvents
 
@@ -138,6 +141,7 @@ final class SplatRenderLoop {
   }
 
   private func run(signalling running: DispatchSemaphore) {
+    defer { sfg_world_host_closed(worldLifetime) }
     SplatInstrumentation.update {
       $0.liveRenderThreads += 1
       $0.renderThreadsStarted += 1

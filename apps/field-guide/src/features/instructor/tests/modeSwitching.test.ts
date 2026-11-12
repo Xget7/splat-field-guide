@@ -14,7 +14,6 @@ import {
   type SwitchStep,
 } from '../domain/mode/modeTypes';
 import { createDeviceAnswerer } from '../data/answerers/deviceAnswerer';
-import { fixturePack } from '@tests/fixturePack';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
@@ -25,10 +24,7 @@ function switching(options: Partial<ModeSwitchingOptions> = {}) {
   const steps: SwitchStep[] = [];
   const modes = createModeSwitching({
     ...fake.platform,
-    input: fake.platform.speechInput,
-    output: fake.platform.speechOutput,
     device: createDeviceAnswerer(fake.platform.languageModel),
-    pack: () => fixturePack(),
     prepareAgent: async () => true,
     probe: async () => 20,
     onStep: step => steps.push(step),
@@ -66,30 +62,29 @@ test('all pieces start first and independent failures settle without blocking re
 });
 
 test('a hanging piece falls back at eight seconds and never emits a late ready', async () => {
-  const { modes, steps, fake } = switching();
-  let resolve!: (availability: 'available') => void;
-  fake.input.prepare.mockReturnValueOnce(
-    new Promise(done => {
-      resolve = done;
-    }),
-  );
-  const result = modes.begin(InstructorMode.switchingToOffline);
-  await jest.advanceTimersByTimeAsync(SwitchTiming.PIECE_TIMEOUT_MS);
-  expect(await result).toMatchObject({ mode: InstructorMode.offline });
-  const listening = () =>
-    steps.filter(step => step.piece === SwitchPiece.listening);
-  expect(listening().at(-1)).toEqual({
-    switchId: 1,
-    piece: 'listening',
-    state: 'fallback',
-    label: SwitchLabel.noListening,
+  let resolve!: (available: boolean) => void;
+  const { modes, steps } = switching({
+    prepareAgent: () =>
+      new Promise(done => {
+        resolve = done;
+      }),
   });
-  resolve('available');
+  const result = modes.begin(InstructorMode.switchingToOnline);
+  await jest.advanceTimersByTimeAsync(SwitchTiming.PIECE_TIMEOUT_MS);
+  expect(await result).toMatchObject({ mode: InstructorMode.online });
+  const voice = () => steps.filter(step => step.piece === SwitchPiece.voice);
+  expect(voice().at(-1)).toEqual({
+    switchId: 1,
+    piece: 'voice',
+    state: 'fallback',
+    label: SwitchLabel.deviceVoice,
+  });
+  resolve(true);
   await Promise.resolve();
-  expect(listening()).toHaveLength(2);
+  expect(voice()).toHaveLength(2);
 });
 
-test('an offline switch prepares every offline piece and answers from the script without a device model', async () => {
+test('an offline switch selects the script when local model files are unavailable', async () => {
   const { modes, steps } = switching();
   const result = modes.begin(InstructorMode.switchingToOffline);
   await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
@@ -98,9 +93,9 @@ test('an offline switch prepares every offline piece and answers from the script
     sources: { voice: VoiceSource.device, answers: AnswerSource.script },
   });
   expect(steps.at(-1)).toMatchObject({
-    state: 'ready',
-    piece: 'listening',
-    label: SwitchLabel.deviceListening,
+    state: 'fallback',
+    piece: 'answers',
+    label: SwitchLabel.script,
   });
   expect(
     modes.announcementFor({
@@ -112,19 +107,29 @@ test('an offline switch prepares every offline piece and answers from the script
   ).toBe(ModeAnnouncement.script);
 });
 
-test('an offline switch prepares the local voice and reports its readiness', async () => {
+test('offline readiness reports verified model files without preparing any inference runner', async () => {
   const { modes, steps, fake } = switching();
+  fake.model.availability.mockReturnValue('available');
   const result = modes.begin(InstructorMode.switchingToOffline);
   await jest.advanceTimersByTimeAsync(SwitchTiming.MIN_SWITCH_MS);
   await result;
-  expect(steps.filter(step => step.piece === SwitchPiece.voice)).toEqual([
+  expect(steps.filter(step => step.piece === SwitchPiece.answers)).toEqual([
     expect.objectContaining({
       state: 'starting',
-      label: SwitchLabel.deviceVoice,
+      label: SwitchLabel.deviceModel,
     }),
-    expect.objectContaining({ state: 'ready', label: SwitchLabel.deviceVoice }),
+    expect.objectContaining({ state: 'ready', label: SwitchLabel.deviceModel }),
   ]);
-  expect(fake.output.prepare).toHaveBeenCalledWith();
+  expect(
+    steps.some(
+      step =>
+        step.piece === SwitchPiece.voice ||
+        step.piece === SwitchPiece.listening,
+    ),
+  ).toBe(false);
+  expect(fake.output.prepare).not.toHaveBeenCalled();
+  expect(fake.input.prepare).not.toHaveBeenCalled();
+  expect(fake.model.prewarm).not.toHaveBeenCalled();
 });
 
 test('a newer switch or a cancel supersedes the one running', async () => {

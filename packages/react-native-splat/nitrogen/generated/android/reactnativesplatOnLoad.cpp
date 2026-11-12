@@ -20,6 +20,7 @@
 #include "JFunc_void.hpp"
 #include "JFunc_void_SplatError.hpp"
 #include "views/JHybridSplatViewStateUpdater.hpp"
+#include "JHybridWorldRetirementSpec.hpp"
 #include <NitroModules/DefaultConstructableObject.hpp>
 
 namespace margelo::nitro::splat {
@@ -46,6 +47,14 @@ struct JHybridBundledPacksSpecImpl: public jni::JavaClass<JHybridBundledPacksSpe
     return javaPart->getJHybridBundledPacksSpec();
   }
 };
+struct JHybridWorldRetirementSpecImpl: public jni::JavaClass<JHybridWorldRetirementSpecImpl, JHybridWorldRetirementSpec::JavaPart> {
+  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/splat/HybridWorldRetirement;";
+  static std::shared_ptr<JHybridWorldRetirementSpec> create() {
+    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridWorldRetirementSpecImpl::javaobject()>();
+    jni::local_ref<JHybridWorldRetirementSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
+    return javaPart->getJHybridWorldRetirementSpec();
+  }
+};
 
 void registerAllNatives() {
   using namespace margelo::nitro;
@@ -57,6 +66,7 @@ void registerAllNatives() {
   margelo::nitro::splat::JFunc_void_cxx::registerNatives();
   margelo::nitro::splat::JFunc_void_SplatError_cxx::registerNatives();
   margelo::nitro::splat::views::JHybridSplatViewStateUpdater::registerNatives();
+  margelo::nitro::splat::JHybridWorldRetirementSpec::CxxPart::registerNatives();
 
   // Register Nitro Hybrid Objects
   HybridObjectRegistry::registerHybridObjectConstructor(
@@ -69,6 +79,12 @@ void registerAllNatives() {
     "BundledPacks",
     []() -> std::shared_ptr<HybridObject> {
       return JHybridBundledPacksSpecImpl::create();
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "WorldRetirement",
+    []() -> std::shared_ptr<HybridObject> {
+      return JHybridWorldRetirementSpecImpl::create();
     }
   );
 }
