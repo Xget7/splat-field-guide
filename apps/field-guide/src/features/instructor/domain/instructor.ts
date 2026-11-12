@@ -440,7 +440,8 @@ export function answerFor(
   const words = new Set(wordsOf(normalize(question)));
   const has = (set: ReadonlySet<string>) =>
     [...words].some(word => set.has(word));
-  const part = mentionedPart(words, pack);
+  const partId = namedPart(question, pack);
+  const part = partId === null ? undefined : findPart(pack, partId);
   const procedure = mentionedProcedure(words, pack);
   const requested = requestedProcedure(words, pack);
   // Keep the current position when the user requests the procedure already running.

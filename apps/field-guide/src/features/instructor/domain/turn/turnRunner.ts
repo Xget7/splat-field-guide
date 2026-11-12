@@ -7,6 +7,7 @@ import {
   answerFor,
   isQuestion,
   isScripted,
+  asksForSpecification,
   NOT_COVERED_REPLY,
   type InstructorAnswer,
 } from '../instructor';
@@ -213,6 +214,14 @@ export function createTurnRunner(
         // A failed answerer's provisional words and highlight do not belong to its fallback.
         changed({ type: TurnEventType.partial, exchange });
       }
+    }
+    if (
+      evidence.subject &&
+      !asksForSpecification(question) &&
+      !/\b(manual|pdf|section|document)\b/i.test(question)
+    ) {
+      finish(answerFor(question, state, pack));
+      return;
     }
     const source = evidence.manual[0];
     finish(

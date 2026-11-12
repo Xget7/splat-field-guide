@@ -197,3 +197,42 @@ test('offline and online relationship answers use the same directed source edge'
     expect(model.respond).not.toHaveBeenCalled();
   }
 });
+
+test('offline scene selection honors an explicit assembly when component names repeat', async () => {
+  const root = pack.parts.find(part => part.parent === null)!;
+  const battery = pack.parts.find(part => part.id === 'battery')!;
+  const scoped = {
+    ...pack,
+    parts: [
+      { ...root, id: 'r02', name: 'Door-frame welder', aliases: [] },
+      { ...root, id: 'r03', name: 'Roof welder', aliases: [] },
+      {
+        ...battery,
+        id: 'r02-gun',
+        name: 'Welding gun',
+        aliases: [],
+        parent: 'r02',
+      },
+      {
+        ...battery,
+        id: 'r03-gun',
+        name: 'Welding gun',
+        aliases: [],
+        parent: 'r03',
+      },
+    ],
+  };
+  const events: TurnEvent[] = [];
+  await createTurnRunner([], createExchangeIds()).ask(
+    {
+      question: 'Where is the R03 welding gun?',
+      state: INITIAL_SESSION,
+      pack: scoped,
+      history: [],
+    },
+    event => events.push(event),
+  );
+  expect(events.at(-1)).toMatchObject({
+    answer: { part: 'r03-gun', event: { type: 'select', partId: 'r03-gun' } },
+  });
+});
