@@ -1,4 +1,4 @@
-name = "field-guide-instructor"
+name = "miris-instructor-pilot"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 

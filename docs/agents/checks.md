@@ -182,7 +182,7 @@ Preserve `agent.json` across retries; do not share it across accounts or worktre
 The provisioning key needs knowledge-base read/write and indexing, agent/tool write, pronunciation dictionary read/write and voice access.
 The Worker's key only needs the permissions to obtain the configured agent's signed URL.
 Managed generation uses GPT-4.1 Mini through ElevenLabs; no separate model-provider key is needed.
-Set the returned `AGENT_ID` on the Worker, then deploy the Worker and ship the matching app together; older apps do not implement the new read-only tools.
+Set the returned `AGENT_ID` on the new `miris-instructor-pilot` Worker, then deploy that pilot and ship the matching app together; older apps do not implement the new read-only tools.
 Live conversations incur provider usage and require explicit approval for paid validation.
 Verify ambiguity clarification, exact part evidence, cancelled typed navigation, course-to-scene framing and route-loss fallback before claiming acceptance.
 Physical Qwen validation is tracked in [issue 28](https://github.com/Xget7/splat-field-guide/issues/28).

@@ -176,11 +176,13 @@ Course activities show a compact current-instruction card instead of the legacy 
 
 **Owns:** grounded turns, accepted session actions and online/offline voice coordination.
 **Rule:** commands resolve locally; provisional or cancelled answers never commit session actions.
-Typed answers fall back from the remote proxy to ExecuTorch generation to scripted guidance on both iOS and Android.
+Typed answers fall back from direct ElevenLabs text sessions to ExecuTorch generation to scripted guidance on both iOS and Android.
 Local generation explains supplied pack text; Apple Foundation Models is not a fallback.
-**Planned:** course-scoped retrieval retains course/content identity and source citations; active part, procedure and step come from authoritative session state rather than conversation history.
+The online Miris pilot retrieves prepared text through ElevenLabs RAG, retaining pack identity/version and supplied source qualifications.
+Active stable part ID, procedure and step come from application session state; exact lookup and name/alias search run against the bundled manifest before a world is mounted.
+Structured manual figures, course identities independent of pack identity and full-manual retrieval remain planned; no live voice or physical acceptance is implied.
 Agent tools resolve validated domain actions through guide rules before viewer mutation or procedure advancement.
-Prompts prioritize subject, procedure and safety, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
+Local prompts prioritize subject, procedure and safety, followed by sourced connections/notes and measured proximity; required context exceeding the budget fails the turn.
 Each generated answer starts fresh; cancellation, malformed output and token-limit stops fail the turn.
 Keep its three concerns behind separate internal interfaces:
 
